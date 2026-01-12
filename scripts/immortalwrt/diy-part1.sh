@@ -20,7 +20,8 @@ git clone https://github.com/destan19/OpenAppFilter.git package/OpenAppFilter
 # kenzok8/small-package 源
 # sed -i '$a src-git smpackage https://github.com/kenzok8/small-package' feeds.conf.default
 
-
+# wigmox 
+sed -i '$a src-git wigmox https://github.com/wigmox/luci-app-subconverter' feeds.conf.default
 
 
 
