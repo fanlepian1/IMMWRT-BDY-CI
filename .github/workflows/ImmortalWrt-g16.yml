@@ -14,7 +14,6 @@ on:
         default: 'g16-plus'
         type: choice
         options:
-          - g68-plus
           - g18-pro
           - g16-plus
           
