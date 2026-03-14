@@ -1,16 +1,16 @@
-/*
- * Copyright (c) [2020], MediaTek Inc. All rights reserved.
- *
- * This software/firmware and related documentation ("MediaTek Software") are
- * protected under relevant copyright laws.
- * The information contained herein is confidential and proprietary to
- * MediaTek Inc. and/or its licensors.
- * Except as otherwise provided in the applicable licensing terms with
- * MediaTek Inc. and/or its licensors, any reproduction, modification, use or
- * disclosure of MediaTek Software, and information contained herein, in whole
- * or in part, shall be strictly prohibited.
-*/
 /****************************************************************************
+ * Ralink Tech Inc.
+ * 4F, No. 2 Technology 5th Rd.
+ * Science-based Industrial Park
+ * Hsin-chu, Taiwan, R.O.C.
+ * (c) Copyright 2002, Ralink Technology, Inc.
+ *
+ * All rights reserved. Ralink's source code is an unpublished work and the
+ * use of a copyright notice does not imply otherwise. This source code
+ * contains confidential trade secret material of Ralink Tech. Any attemp
+ * or participation in deciphering, decoding, reverse engineering or in any
+ * way altering the source code is stricitly prohibited, unless the prior
+ * written consent of Ralink Technology, Inc. is obtained.
  ****************************************************************************
 
     Module Name:
@@ -22,7 +22,7 @@
     Revision History:
     Who         When          What
     --------    ----------    ----------------------------------------------
-	Jan Lee		2006		created for rt2860
+	Jan Lee		2006	 	created for rt2860
  */
 
 #include "rt_config.h"
@@ -31,9 +31,6 @@
 #define MCAST_WCID_TO_REMOVE 0 /* Pat: TODO */
 
 extern UCHAR  ZeroSsid[32];
-#ifdef IWSC_SUPPORT
-extern UCHAR  IWSC_ACTION_OUI[];
-#endif /* IWSC_SUPPORT // */
 
 
 static VOID ReservedAction(
@@ -52,10 +49,10 @@ static VOID ReservedAction(
 	The state machine looks like the following
 
 				    ASSOC_IDLE
-	ASSOC_FSM_MLME_DISASSOC_REQ    mlme_disassoc_req_action
-	ASSOC_FSM_PEER_DISASSOC_REQ    peer_disassoc_action
-	ASSOC_FSM_PEER_ASSOC_REQ       drop
-	ASSOC_FSM_PEER_REASSOC_REQ     drop
+	MT2_MLME_DISASSOC_REQ    mlme_disassoc_req_action
+	MT2_PEER_DISASSOC_REQ    peer_disassoc_action
+	MT2_PEER_ASSOC_REQ       drop
+	MT2_PEER_REASSOC_REQ     drop
 	MT2_CLS3ERR              cls3err_action
     ==========================================================================
  */
@@ -66,10 +63,6 @@ VOID ActionStateMachineInit(
 {
 	StateMachineInit(S, (STATE_MACHINE_FUNC *)Trans, MAX_ACT_STATE, MAX_ACT_MSG, (STATE_MACHINE_FUNC)Drop, ACT_IDLE, ACT_MACHINE_BASE);
 	StateMachineSetAction(S, ACT_IDLE, MT2_PEER_SPECTRUM_CATE, (STATE_MACHINE_FUNC)PeerSpectrumAction);
-#if defined(TPC_SUPPORT) && defined(TPC_MODE_CTRL)
-	StateMachineSetAction(S, ACT_IDLE, MT2_MLME_TPC_REQ, (STATE_MACHINE_FUNC)mlmeAPSendTPCReqAction);
-	StateMachineSetAction(S, ACT_IDLE, MT2_MLME_TPC_REQ_TIMEOUT, (STATE_MACHINE_FUNC)TPCRepTimeout);
-#endif
 	StateMachineSetAction(S, ACT_IDLE, MT2_PEER_QOS_CATE, (STATE_MACHINE_FUNC)PeerQOSAction);
 	StateMachineSetAction(S, ACT_IDLE, MT2_PEER_DLS_CATE, (STATE_MACHINE_FUNC)ReservedAction);
 #ifdef DOT11_N_SUPPORT
@@ -83,8 +76,9 @@ VOID ActionStateMachineInit(
 	StateMachineSetAction(S, ACT_IDLE, MT2_MLME_REC_DELBA_CATE, (STATE_MACHINE_FUNC)MlmeDELBAAction);
 #endif /* DOT11_N_SUPPORT */
 	StateMachineSetAction(S, ACT_IDLE, MT2_PEER_PUBLIC_CATE, (STATE_MACHINE_FUNC)PeerPublicAction);
-	StateMachineSetAction(S, ACT_IDLE, MT2_PEER_PD_CATE, (STATE_MACHINE_FUNC)PeerPublicAction);
+#ifndef HOSTAPD_11K_SUPPORT
 	StateMachineSetAction(S, ACT_IDLE, MT2_PEER_RM_CATE, (STATE_MACHINE_FUNC)PeerRMAction);
+#endif
 	StateMachineSetAction(S, ACT_IDLE, MT2_MLME_QOS_CATE, (STATE_MACHINE_FUNC)MlmeQOSAction);
 	StateMachineSetAction(S, ACT_IDLE, MT2_MLME_DLS_CATE, (STATE_MACHINE_FUNC)MlmeDLSAction);
 	StateMachineSetAction(S, ACT_IDLE, MT2_ACT_INVALID, (STATE_MACHINE_FUNC)MlmeInvalidAction);
@@ -99,27 +93,6 @@ VOID ActionStateMachineInit(
 #ifdef CONFIG_DOT11V_WNM
 	StateMachineSetAction(S, ACT_IDLE, CATEGORY_WNM, (STATE_MACHINE_FUNC)PeerWNMAction);
 #endif /* CONFIG_DOT11V_WNM */
-#ifdef DOT11_HE_AX
-#ifdef WIFI_TWT_SUPPORT
-	StateMachineSetAction(S, ACT_IDLE, MT2_PEER_S1G_CATE, (STATE_MACHINE_FUNC)peer_twt_action);
-	StateMachineSetAction(S, ACT_IDLE, MT2_MLME_TWT_TEARDOWN_TWT, (STATE_MACHINE_FUNC)mlme_twt_teradown_action);
-	StateMachineSetAction(S, ACT_IDLE, MT2_MLME_TWT_RESUME_INFO, (STATE_MACHINE_FUNC)mlme_twt_resume_info_action);
-	StateMachineSetAction(S, ACT_IDLE, MT2_MLME_TWT_JOIN_BTWT, (STATE_MACHINE_FUNC)mlme_twt_handle_btwt_join_action);
-#ifdef APCLI_SUPPORT
-	StateMachineSetAction(S, ACT_IDLE, MT2_MLME_S1G_CATE_TWT_SETUP, (STATE_MACHINE_FUNC)twtMlmeSetupAction);
-#endif /* APCLI_SUPPORT */
-#endif /* WIFI_TWT_SUPPORT */
-	StateMachineSetAction(S, ACT_IDLE, MT2_MLME_WNM_EVT_REPORT, (STATE_MACHINE_FUNC)sta_send_event_report);
-#endif
-	StateMachineSetAction(S, ACT_IDLE, CATEGORY_PD, (STATE_MACHINE_FUNC)PeerPublicAction);
-
-#ifdef QOS_R1
-	StateMachineSetAction(S, ACT_IDLE, MT2_PEER_ROBUST_AV_CATE, (STATE_MACHINE_FUNC)QoS_PeerRobust_AV_Action);
-#if defined(MSCS_PROPRIETARY) || defined(QOS_R2)
-	StateMachineSetAction(S, ACT_IDLE, MT2_CATEGORY_VSP, (STATE_MACHINE_FUNC)Peer_Vendor_Spec_Action);
-	StateMachineSetAction(S, ACT_IDLE, MT2_MLME_DABS_CFG_TIMEOUT, (STATE_MACHINE_FUNC)Peer_DABS_Cfg_Timeout);
-#endif
-#endif
 }
 
 
@@ -127,79 +100,103 @@ VOID ActionStateMachineInit(
 VOID MlmeADDBAAction(RTMP_ADAPTER *pAd, MLME_QUEUE_ELEM *Elem)
 {
 	MLME_ADDBA_REQ_STRUCT *pInfo;
+	UCHAR Addr[6];
 	PUCHAR pOutBuffer = NULL;
+	NDIS_STATUS NStatus;
+	ULONG Idx;
 	FRAME_ADDBA_REQ Frame;
 	ULONG FrameLen;
+	BA_ORI_ENTRY *pBAEntry = NULL;
 	MAC_TABLE_ENTRY *pEntry = NULL;
 	STA_TR_ENTRY *tr_entry;
 	struct wifi_dev *wdev;
-	struct tx_rx_ctl *tr_ctl = &pAd->tr_ctl;
-
-	if (MlmeAddBAReqSanity(pAd, Elem->Msg, Elem->MsgLen) != TRUE)
-		return;
+	UCHAR amsdu_en = 0;
+	struct _RTMP_CHIP_CAP *cap = hc_get_chip_cap(pAd->hdev_ctrl);
 
 	pInfo = (MLME_ADDBA_REQ_STRUCT *)Elem->Msg;
-	pEntry = &pAd->MacTab.Content[pInfo->Wcid];
-	tr_entry = &tr_ctl->tr_entry[pInfo->Wcid];
-
-	if (pEntry->wdev == NULL) {
-		MTWF_DBG(pAd, DBG_CAT_PROTO, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-				"pEntry->wdev is NULL!\n");
-		return;
-	}
-	wdev = pEntry->wdev;
-
 	NdisZeroMemory(&Frame, sizeof(FRAME_ADDBA_REQ));
 
-	if (MlmeAllocateMemory(pAd, &pOutBuffer) != NDIS_STATUS_SUCCESS) {
-		MTWF_DBG(pAd, DBG_CAT_PROTO, DBG_SUBCAT_ALL, DBG_LVL_INFO, "BA - MlmeADDBAAction() allocate memory failed\n");
-		return;
-	}
+	if ((MlmeAddBAReqSanity(pAd, Elem->Msg, Elem->MsgLen, Addr)) &&
+		(VALID_UCAST_ENTRY_WCID(pAd, pInfo->Wcid))) {
+		NStatus = MlmeAllocateMemory(pAd, &pOutBuffer);  /* Get an unused nonpaged memory*/
 
+		if (NStatus != NDIS_STATUS_SUCCESS) {
+			MTWF_LOG(DBG_CAT_PROTO, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("BA - MlmeADDBAAction() allocate memory failed\n"));
+			return;
+		}
+
+		/* 1. find entry */
+		pEntry = &pAd->MacTab.Content[pInfo->Wcid];
+		tr_entry = &pAd->MacTab.tr_entry[pInfo->Wcid];
+		ASSERT((pEntry->wdev != NULL));
+		wdev = pEntry->wdev;
+		amsdu_en = wlan_config_get_amsdu_en(wdev);
 #ifdef DOT11W_PMF_SUPPORT
-	if ((pEntry->SecConfig.PmfCfg.UsePMFConnect == TRUE) &&
-		(tr_entry->PortSecured != WPA_802_1X_PORT_SECURED)) {
-		MTWF_DBG(pAd, DBG_CAT_PROTO, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-				 "PMF connection, Ignore AddBaReq Send DUE TO NOT IN PORTSECURED\n");
-		MlmeFreeMemory(pOutBuffer);
-		return;
-	}
+
+		if ((pEntry->SecConfig.PmfCfg.UsePMFConnect == TRUE) &&
+			(tr_entry->PortSecured != WPA_802_1X_PORT_SECURED)) {
+			MTWF_LOG(DBG_CAT_PROTO, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
+					 ("%s: PMF connection, Ignore AddBaReq Send DUE TO NOT IN PORTSECURED\n", __func__));
+			MlmeFreeMemory(pOutBuffer);
+			return;
+		}
+
 #endif /* DOT11W_PMF_SUPPORT */
+		Idx = pEntry->BAOriWcidArray[pInfo->TID];
 
-		ActHeaderInit(pAd, &Frame.Hdr, pInfo->pAddr, wdev->if_addr, wdev->bssid);
+		if (Idx == 0) {
+			MlmeFreeMemory(pOutBuffer);
+			MTWF_LOG(DBG_CAT_PROTO, DBG_SUBCAT_ALL, DBG_LVL_ERROR, ("BA - MlmeADDBAAction() can't find BAOriEntry\n"));
+			return;
+		} else
+			pBAEntry = &pAd->BATable.BAOriEntry[Idx];
 
-	Frame.Category = CATEGORY_BA;
-	Frame.Action = ADDBA_REQ;
-	Frame.BaParm.AMSDUSupported = pInfo->amsdu_support;
-	Frame.BaParm.BAPolicy = IMMED_BA;
-	Frame.BaParm.TID = pInfo->TID;
-	Frame.BaParm.BufSize = pInfo->BaBufSize;
-	Frame.Token = pInfo->Token;
-	Frame.TimeOutValue = pInfo->TimeOutValue;
-	Frame.BaStartSeq.field.FragNum = 0;
-	Frame.BaStartSeq.field.StartSeq = chip_get_tid_sn(pAd, pInfo->Wcid, pInfo->TID);
+#ifdef APCLI_SUPPORT
+#ifdef MAC_REPEATER_SUPPORT
+			if (IS_ENTRY_REPEATER(pEntry) && (pEntry->bReptCli == TRUE)) {
+				ActHeaderInit(pAd, &Frame.Hdr, pInfo->pAddr,
+							  pAd->ApCfg.pRepeaterCliPool[pEntry->MatchReptCliIdx].CurrentAddress,
+							  pInfo->pAddr);
+			} else
+#endif /* MAC_REPEATER_SUPPORT */
+#endif /* APCLI_SUPPORT */
+				ActHeaderInit(pAd, &Frame.Hdr, pInfo->pAddr, wdev->if_addr, wdev->bssid);
 
+		Frame.Category = CATEGORY_BA;
+		Frame.Action = ADDBA_REQ;
+		Frame.BaParm.AMSDUSupported = 0;
+
+		if (amsdu_en && cap->SupportAMSDU)
+			Frame.BaParm.AMSDUSupported = 1;
+
+		Frame.BaParm.BAPolicy = IMMED_BA;
+		Frame.BaParm.TID = pInfo->TID;
+		Frame.BaParm.BufSize = pInfo->BaBufSize;
+		Frame.Token = pInfo->Token;
+		Frame.TimeOutValue = pInfo->TimeOutValue;
+		Frame.BaStartSeq.field.FragNum = 0;
+		Frame.BaStartSeq.field.StartSeq = AsicGetTidSn(pAd, pInfo->Wcid, pInfo->TID);
 #ifdef UNALIGNMENT_SUPPORT
-	{
-		BA_PARM tmpBaParm;
-
-		NdisMoveMemory((PUCHAR)(&tmpBaParm), (PUCHAR)(&Frame.BaParm), sizeof(BA_PARM));
-		*(USHORT *)(&tmpBaParm) = cpu2le16(*(USHORT *)(&tmpBaParm));
-		NdisMoveMemory((PUCHAR)(&Frame.BaParm), (PUCHAR)(&tmpBaParm), sizeof(BA_PARM));
-	}
+		{
+			BA_PARM tmpBaParm;
+			NdisMoveMemory((PUCHAR)(&tmpBaParm), (PUCHAR)(&Frame.BaParm), sizeof(BA_PARM));
+			*(USHORT *)(&tmpBaParm) = cpu2le16(*(USHORT *)(&tmpBaParm));
+			NdisMoveMemory((PUCHAR)(&Frame.BaParm), (PUCHAR)(&tmpBaParm), sizeof(BA_PARM));
+		}
 #else
-	*(USHORT *)(&(Frame.BaParm)) = cpu2le16((*(USHORT *)(&(Frame.BaParm))));
+		*(USHORT *)(&(Frame.BaParm)) = cpu2le16((*(USHORT *)(&(Frame.BaParm))));
 #endif /* UNALIGNMENT_SUPPORT */
-	Frame.TimeOutValue = cpu2le16(Frame.TimeOutValue);
-	Frame.BaStartSeq.word = cpu2le16(Frame.BaStartSeq.word);
-	MakeOutgoingFrame(pOutBuffer, &FrameLen,
-					  sizeof(FRAME_ADDBA_REQ), &Frame,
-					  END_OF_ARGS);
-	MiniportMMRequest(pAd, (MGMT_USE_QUEUE_FLAG | WMM_UP2AC_MAP[pInfo->TID]), pOutBuffer, FrameLen);
-	MlmeFreeMemory(pOutBuffer);
-	MTWF_DBG(pAd, DBG_CAT_PROTO, DBG_SUBCAT_ALL, DBG_LVL_INFO,
-			  "BA - Send ADDBA request. StartSeq = %x,  FrameLen = %ld. BufSize = %d\n",
-			  Frame.BaStartSeq.field.StartSeq, FrameLen, pInfo->BaBufSize);
+		Frame.TimeOutValue = cpu2le16(Frame.TimeOutValue);
+		Frame.BaStartSeq.word = cpu2le16(Frame.BaStartSeq.word);
+		MakeOutgoingFrame(pOutBuffer, &FrameLen,
+						  sizeof(FRAME_ADDBA_REQ), &Frame,
+						  END_OF_ARGS);
+		MiniportMMRequest(pAd, (MGMT_USE_QUEUE_FLAG | WMM_UP2AC_MAP[pInfo->TID]), pOutBuffer, FrameLen);
+		MlmeFreeMemory(pOutBuffer);
+		MTWF_LOG(DBG_CAT_PROTO, DBG_SUBCAT_ALL, DBG_LVL_TRACE,
+				 ("BA - Send ADDBA request. StartSeq = %x,  FrameLen = %ld. BufSize = %d\n",
+				  Frame.BaStartSeq.field.StartSeq, FrameLen, Frame.BaParm.BufSize));
+	}
 }
 
 
@@ -217,175 +214,72 @@ VOID MlmeADDBAAction(RTMP_ADAPTER *pAd, MLME_QUEUE_ELEM *Elem)
 VOID MlmeDELBAAction(RTMP_ADAPTER *pAd, MLME_QUEUE_ELEM *Elem)
 {
 	MLME_DELBA_REQ_STRUCT *pInfo;
-	PUCHAR pOutBuffer = NULL;
+	PUCHAR pOutBuffer = NULL, pOutBuffer2 = NULL;
+	ULONG Idx;
 	FRAME_DELBA_REQ Frame;
 	ULONG FrameLen;
 	MAC_TABLE_ENTRY *pEntry = NULL;
 	struct wifi_dev *wdev;
 	UCHAR *src_addr = NULL;
-
-	MTWF_DBG(pAd, DBG_CAT_PROTO, DBG_SUBCAT_ALL, DBG_LVL_INFO, "%s\n", __func__);
-
-	if (MlmeDelBAReqSanity(pAd, Elem->Msg, Elem->MsgLen) != TRUE)
-		return;
-
 	pInfo = (MLME_DELBA_REQ_STRUCT *)Elem->Msg;
+	/* must send back DELBA */
 	NdisZeroMemory(&Frame, sizeof(FRAME_DELBA_REQ));
+	MTWF_LOG(DBG_CAT_PROTO, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("==> MlmeDELBAAction(), Initiator(%d)\n", pInfo->Initiator));
 
-	if (MlmeAllocateMemory(pAd, &pOutBuffer) != NDIS_STATUS_SUCCESS) {
-		MTWF_DBG(pAd, DBG_CAT_PROTO, DBG_SUBCAT_ALL, DBG_LVL_ERROR, "BA - MlmeDELBAAction() allocate memory failed.\n");
-		return;
-	}
-
-	pEntry = &pAd->MacTab.Content[pInfo->Wcid];
-
-	if (!pEntry->wdev) {
-		MTWF_DBG(pAd, DBG_CAT_PROTO, DBG_SUBCAT_ALL, DBG_LVL_ERROR, "No binding wdev for wcid(%d)\n", pInfo->Wcid);
-		MlmeFreeMemory(pOutBuffer);
-		return;
-	}
-
-	wdev = pEntry->wdev;
-	src_addr = wdev->if_addr;
-
-	/* SEND DELBA FRAME*/
-	FrameLen = 0;
-	ActHeaderInit(pAd, &Frame.Hdr, pEntry->Addr, src_addr, pEntry->wdev->bssid);
-	Frame.Category = CATEGORY_BA;
-	Frame.Action = DELBA;
-	Frame.DelbaParm.Initiator = pInfo->Initiator;
-	Frame.DelbaParm.TID = pInfo->TID;
-	Frame.ReasonCode = REASON_TIMEOUT;
-	*(USHORT *)(&Frame.DelbaParm) = cpu2le16(*(USHORT *)(&Frame.DelbaParm));
-	Frame.ReasonCode = cpu2le16(Frame.ReasonCode);
-	MakeOutgoingFrame(pOutBuffer, &FrameLen,
-					  sizeof(FRAME_DELBA_REQ), &Frame,
-					  END_OF_ARGS);
-	MiniportMMRequest(pAd, QID_AC_BE, pOutBuffer, FrameLen);
-	MlmeFreeMemory(pOutBuffer);
-	MTWF_DBG(pAd, DBG_CAT_PROTO, DBG_SUBCAT_ALL, DBG_LVL_INFO, "%s Initiator = %d DELBA sent\n", __func__, pInfo->Initiator);
-}
-
-VOID mlme_send_addba_resp(RTMP_ADAPTER *pAd, MLME_QUEUE_ELEM *Elem)
-{
-	PUCHAR pOutBuffer = NULL;
-	FRAME_ADDBA_RSP ADDframe;
-	MAC_TABLE_ENTRY *pMacEntry;
-	MLME_ADDBA_RESP_STRUCT *pInfo;
-	UCHAR *pAddr;
-	ULONG FrameLen;
-#ifdef CONFIG_STA_SUPPORT
-	struct wifi_dev *wdev = Elem->wdev;
-	PSTA_ADMIN_CONFIG pStaCfg = GetStaCfgByWdev(pAd, wdev);
-#endif
-
-	if (mlme_addba_resp_sanity(pAd, Elem->Msg, Elem->MsgLen) != TRUE)
-		return;
-
-	if (MlmeAllocateMemory(pAd, &pOutBuffer) != NDIS_STATUS_SUCCESS) {
-		MTWF_DBG(pAd, DBG_CAT_PROTO, CATPROTO_BA, DBG_LVL_INFO, "ACTION - PeerBAAction() allocate memory failed\n");
-		return;
-	}
-
-	NdisZeroMemory(&ADDframe, sizeof(FRAME_ADDBA_RSP));
-
-	pInfo = (MLME_ADDBA_RESP_STRUCT *)Elem->Msg;
-	pMacEntry = &pAd->MacTab.Content[pInfo->wcid];
-	pAddr = pInfo->addr;
-
-#if defined(P2P_SUPPORT) || defined(RT_CFG80211_P2P_SUPPORT)
-
-	if (pMacEntry) {
-#ifdef CONFIG_STA_SUPPORT
-
-		if (ADHOC_ON(pAd)
-#ifdef DOT11Z_TDLS_SUPPORT
-			|| (IS_ENTRY_TDLS(pMacEntry))
-#endif /* DOT11Z_TDLS_SUPPORT */
-		   )
-			ActHeaderInit(pAd, &ADDframe.Hdr, pAddr, wdev->if_addr, pAd->CommonCfg.Bssid);
-		else
-#endif /* CONFIG_STA_SUPPORT */
-		{
-			ActHeaderInit(pAd, &ADDframe.Hdr, pAddr, pMacEntry->wdev->if_addr, pMacEntry->wdev->bssid);
+	if ((MlmeDelBAReqSanity(pAd, Elem->Msg, Elem->MsgLen)) &&
+		(VALID_UCAST_ENTRY_WCID(pAd, pInfo->Wcid))) {
+		if (MlmeAllocateMemory(pAd, &pOutBuffer) != NDIS_STATUS_SUCCESS) {
+			MTWF_LOG(DBG_CAT_PROTO, DBG_SUBCAT_ALL, DBG_LVL_ERROR, ("BA - MlmeDELBAAction() allocate memory failed 1.\n"));
+			return;
 		}
-	}
 
-#else
-#ifdef CONFIG_AP_SUPPORT
-		IF_DEV_CONFIG_OPMODE_ON_AP(pAd) {
-		UCHAR apidx;
-#ifdef CONFIG_STA_SUPPORT
+		if (MlmeAllocateMemory(pAd, &pOutBuffer2) != NDIS_STATUS_SUCCESS) {
+			MlmeFreeMemory(pOutBuffer);
+			MTWF_LOG(DBG_CAT_PROTO, DBG_SUBCAT_ALL, DBG_LVL_ERROR, ("BA - MlmeDELBAAction() allocate memory failed 2.\n"));
+			return;
+		}
 
-		if (IS_ENTRY_PEER_AP(pMacEntry) || IS_ENTRY_REPEATER(pMacEntry))
-			ActHeaderInit(pAd, &ADDframe.Hdr, pAddr, wdev->if_addr, pAddr);
+		/* SEND BAR (Send BAR to refresh peer reordering buffer.) */
+		pEntry = &pAd->MacTab.Content[pInfo->Wcid];
+
+		if (!pEntry->wdev) {
+			MTWF_LOG(DBG_CAT_PROTO, DBG_SUBCAT_ALL, DBG_LVL_ERROR, ("%s():No binding wdev for wcid(%d)\n", __func__, pInfo->Wcid));
+			MlmeFreeMemory(pOutBuffer);
+			MlmeFreeMemory(pOutBuffer2);
+			return;
+		}
+
+		wdev = pEntry->wdev;
+		Idx = pEntry->BAOriWcidArray[pInfo->TID];
+#ifdef APCLI_SUPPORT
+#ifdef MAC_REPEATER_SUPPORT
+
+		if (IS_ENTRY_REPEATER(pEntry) && pEntry->bReptCli)
+			src_addr = &pAd->ApCfg.pRepeaterCliPool[pEntry->MatchReptCliIdx].CurrentAddress[0];
 		else
-#endif /* CONFIG_STA_SUPPORT */
-#ifdef WDS_SUPPORT
-			if (IS_ENTRY_WDS(pMacEntry))
-				ActHeaderInit(pAd, &ADDframe.Hdr, pAddr, wdev->if_addr, pAddr);
-			else
-#endif /* WDS_SUPPORT */
-			{
-				apidx = pMacEntry->func_tb_idx;
-				if (!VALID_MBSS(pAd, apidx)) {
-					MTWF_DBG(pAd, DBG_CAT_PROTO, CATPROTO_BA, DBG_LVL_ERROR,
-							"error AP index \n");
-					MlmeFreeMemory(pOutBuffer);
-					return;
-				}
-				ActHeaderInit(pAd, &ADDframe.Hdr, pAddr, pAd->ApCfg.MBSSID[apidx].wdev.if_addr, pAd->ApCfg.MBSSID[apidx].wdev.bssid);
-			}
+#endif /* MAC_REPEATER_SUPPORT */
+#endif /* APCLI_SUPPORT */
+			src_addr = wdev->if_addr;
+
+		/* SEND DELBA FRAME*/
+		FrameLen = 0;
+		ActHeaderInit(pAd, &Frame.Hdr, pEntry->Addr, src_addr, pEntry->wdev->bssid);
+		Frame.Category = CATEGORY_BA;
+		Frame.Action = DELBA;
+		Frame.DelbaParm.Initiator = pInfo->Initiator;
+		Frame.DelbaParm.TID = pInfo->TID;
+		Frame.ReasonCode = 39; /* Time Out*/
+		*(USHORT *)(&Frame.DelbaParm) = cpu2le16(*(USHORT *)(&Frame.DelbaParm));
+		Frame.ReasonCode = cpu2le16(Frame.ReasonCode);
+		MakeOutgoingFrame(pOutBuffer, &FrameLen,
+						  sizeof(FRAME_DELBA_REQ), &Frame,
+						  END_OF_ARGS);
+		MiniportMMRequest(pAd, QID_AC_BE, pOutBuffer, FrameLen);
+		MlmeFreeMemory(pOutBuffer);
+		MlmeFreeMemory(pOutBuffer2);
+		MTWF_LOG(DBG_CAT_PROTO, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("BA - MlmeDELBAAction() . 3 DELBA sent. Initiator(%d)\n", pInfo->Initiator));
 	}
-
-#endif /* CONFIG_AP_SUPPORT */
-#ifdef CONFIG_STA_SUPPORT
-	IF_DEV_CONFIG_OPMODE_ON_STA(pAd) {
-		if (ADHOC_ON(pAd)
-#ifdef DOT11Z_TDLS_SUPPORT
-			|| (IS_ENTRY_TDLS(pMacEntry))
-#endif /* DOT11Z_TDLS_SUPPORT */
-		   )
-			ActHeaderInit(pAd, &ADDframe.Hdr, pAddr, pStaCfg->wdev.if_addr, pStaCfg->Bssid);
-		else
-			ActHeaderInit(pAd, &ADDframe.Hdr, pStaCfg->Bssid, pStaCfg->wdev.if_addr, pAddr);
-	}
-#endif /* CONFIG_STA_SUPPORT */
-#endif /* P2P_SUPPORT */
-
-	ADDframe.Category = CATEGORY_BA;
-	ADDframe.Action = ADDBA_RESP;
-	ADDframe.Token = pInfo->token;
-	ADDframe.StatusCode = pInfo->status;
-	ADDframe.BaParm.BAPolicy = IMMED_BA;
-	ADDframe.BaParm.AMSDUSupported = pInfo->amsdu_support;
-	ADDframe.BaParm.TID = pInfo->tid;
-	ADDframe.BaParm.BufSize = pInfo->buf_size;
-	ADDframe.TimeOutValue = pInfo->timeout;
-
-#ifdef UNALIGNMENT_SUPPORT
-	{
-		BA_PARM tmpBaParm;
-
-		NdisMoveMemory((PUCHAR)(&tmpBaParm), (PUCHAR)(&ADDframe.BaParm), sizeof(BA_PARM));
-		*(USHORT *)(&tmpBaParm) = cpu2le16(*(USHORT *)(&tmpBaParm));
-		NdisMoveMemory((PUCHAR)(&ADDframe.BaParm), (PUCHAR)(&tmpBaParm), sizeof(BA_PARM));
-	}
-#else
-	*(USHORT *)(&ADDframe.BaParm) = cpu2le16(*(USHORT *)(&ADDframe.BaParm));
-#endif /* UNALIGNMENT_SUPPORT */
-	ADDframe.StatusCode = cpu2le16(ADDframe.StatusCode);
-	ADDframe.TimeOutValue = cpu2le16(ADDframe.TimeOutValue);
-	MakeOutgoingFrame(pOutBuffer,               &FrameLen,
-					  sizeof(FRAME_ADDBA_RSP),  &ADDframe,
-					  END_OF_ARGS);
-	MiniportMMRequest(pAd, QID_AC_BE, pOutBuffer, FrameLen);
-	MlmeFreeMemory(pOutBuffer);
-
-	MTWF_DBG(pAd, DBG_CAT_PROTO, CATPROTO_BA, DBG_LVL_INFO, "%s(%d): TID(%d), BufSize(%d) <==\n", __func__, Elem->Wcid, ADDframe.BaParm.TID,
-			 ADDframe.BaParm.BufSize);
 }
-
 #endif /* DOT11_N_SUPPORT */
 
 
@@ -397,12 +291,11 @@ VOID MlmeQOSAction(RTMP_ADAPTER *pAd, MLME_QUEUE_ELEM *Elem)
 	ULONG			FrameLen = 0;
 	NDIS_STATUS	NStatus;
 	FRAME_ACTION_HDR	Frame;
-
 	pInfo = (MLME_QOS_ACTION_STRUCT *)Elem->Msg;
 	NStatus = MlmeAllocateMemory(pAd, &pOutBuffer);  /*Get an unused nonpaged memory*/
 
 	if (NStatus != NDIS_STATUS_SUCCESS) {
-		MTWF_DBG(pAd, DBG_CAT_PROTO, DBG_SUBCAT_ALL, DBG_LVL_ERROR, "ACT - MlmeQOSAction() allocate memory failed\n");
+		MTWF_LOG(DBG_CAT_PROTO, DBG_SUBCAT_ALL, DBG_LVL_ERROR, ("ACT - MlmeQOSAction() allocate memory failed\n"));
 		return;
 	}
 
@@ -411,7 +304,6 @@ VOID MlmeQOSAction(RTMP_ADAPTER *pAd, MLME_QUEUE_ELEM *Elem)
 		QOSMAP_SET *pQosMapBuf = &pInfo->QOSMap;
 		BSS_STRUCT *mbss = &pAd->ApCfg.MBSSID[pInfo->apidx];
 		UCHAR	ielen = 0;
-
 		ActHeaderInit(pAd, &Frame.Hdr, pInfo->Addr, mbss->wdev.bssid, mbss->wdev.bssid);
 		Frame.Category = CATEGORY_QOS;
 		Frame.Action = ACTION_QOSMAP_CONFIG;
@@ -452,18 +344,7 @@ VOID PeerQOSAction(RTMP_ADAPTER *pAd, MLME_QUEUE_ELEM *Elem)
 #ifdef DOT11_N_SUPPORT
 VOID PeerBAAction(RTMP_ADAPTER *pAd, MLME_QUEUE_ELEM *Elem)
 {
-	PFRAME_802_11 frame = (PFRAME_802_11)&Elem->Msg;
-	/* Bypass HTC len 4 bytes */
-	UINT8 htc_len = (frame->Hdr.FC.Order) ? 4 : 0;
-	UINT8 Action = 0;
-
-	if (htc_len) {
-		NdisMoveMemory((void *)(Elem->Msg+LENGTH_802_11),
-			(void *)(Elem->Msg+LENGTH_802_11+htc_len),
-			(Elem->MsgLen-htc_len));
-	}
-
-	Action = Elem->Msg[LENGTH_802_11 + 1];
+	UCHAR Action = Elem->Msg[LENGTH_802_11 + 1];
 
 	switch (Action) {
 	case ADDBA_REQ:
@@ -483,7 +364,7 @@ VOID PeerBAAction(RTMP_ADAPTER *pAd, MLME_QUEUE_ELEM *Elem)
 
 #ifdef DOT11N_DRAFT3
 #ifdef CONFIG_AP_SUPPORT
-extern UCHAR get_regulatory_class(IN PRTMP_ADAPTER pAd, UCHAR Channel, USHORT PhyMode, struct wifi_dev *wdev);
+extern UCHAR get_regulatory_class(IN PRTMP_ADAPTER pAd, UCHAR Channel, UCHAR PhyMode, struct wifi_dev *wdev);
 
 VOID ApPublicAction(RTMP_ADAPTER *pAd, MLME_QUEUE_ELEM *Elem)
 {
@@ -498,7 +379,7 @@ VOID ApPublicAction(RTMP_ADAPTER *pAd, MLME_QUEUE_ELEM *Elem)
 
 VOID SendBSS2040CoexistMgmtAction(
 	IN RTMP_ADAPTER *pAd,
-	IN UINT16 Wcid,
+	IN UCHAR Wcid,
 	IN UCHAR apidx,
 	IN UCHAR InfoReq)
 {
@@ -510,20 +391,7 @@ VOID SendBSS2040CoexistMgmtAction(
 	BSS_2040_INTOLERANT_CH_REPORT BssIntolerantInfo;
 	UCHAR *pAddr1;
 	struct wifi_dev *wdev = &pAd->ApCfg.MBSSID[apidx].wdev;
-
-	if (wdev) {
-		if (WDEV_BSS_STATE(wdev) < BSS_READY) {
-			MTWF_DBG(pAd, DBG_CAT_CFG, DBG_SUBCAT_ALL, DBG_LVL_INFO,
-					 "%s, wdev(%d) bss(%d) not ready (state:%d)!!\n",
-					 __func__, wdev->wdev_idx, apidx, WDEV_BSS_STATE(wdev));
-			return;
-		}
-
-		if (!WMODE_CAP_2G(wdev->PhyMode))
-			return;
-	}
-
-	MTWF_DBG(pAd, DBG_CAT_PROTO, DBG_SUBCAT_ALL, DBG_LVL_INFO, "SendBSS2040CoexistMgmtAction(): Wcid=%d, apidx=%d, InfoReq=%d!\n", Wcid, apidx, InfoReq);
+	MTWF_LOG(DBG_CAT_PROTO, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("SendBSS2040CoexistMgmtAction(): Wcid=%d, apidx=%d, InfoReq=%d!\n", Wcid, apidx, InfoReq));
 	NdisZeroMemory((PUCHAR)&BssCoexistInfo, sizeof(BSS_2040_COEXIST_ELEMENT));
 	NdisZeroMemory((PUCHAR)&BssIntolerantInfo, sizeof(BSS_2040_INTOLERANT_CH_REPORT));
 	BssCoexistInfo.ElementID = IE_2040_BSS_COEXIST;
@@ -536,7 +404,7 @@ VOID SendBSS2040CoexistMgmtAction(
 	NStatus = MlmeAllocateMemory(pAd, &pOutBuffer);  /*Get an unused nonpaged memory*/
 
 	if (NStatus != NDIS_STATUS_SUCCESS) {
-		MTWF_DBG(pAd, DBG_CAT_PROTO, DBG_SUBCAT_ALL, DBG_LVL_ERROR, "ACT - SendBSS2040CoexistMgmtAction() allocate memory failed\n");
+		MTWF_LOG(DBG_CAT_PROTO, DBG_SUBCAT_ALL, DBG_LVL_ERROR, ("ACT - SendBSS2040CoexistMgmtAction() allocate memory failed\n"));
 		return;
 	}
 
@@ -551,38 +419,11 @@ VOID SendBSS2040CoexistMgmtAction(
 					  END_OF_ARGS);
 	MiniportMMRequest(pAd, QID_AC_BE, pOutBuffer, FrameLen);
 	MlmeFreeMemory(pOutBuffer);
-	MTWF_DBG(pAd, DBG_CAT_PROTO, DBG_SUBCAT_ALL, DBG_LVL_INFO, "ACT - SendBSS2040CoexistMgmtAction(BSSCoexist2040=0x%x)\n", BssCoexistInfo.BssCoexistIe.word);
+	MTWF_LOG(DBG_CAT_PROTO, DBG_SUBCAT_ALL, DBG_LVL_ERROR, ("ACT - SendBSS2040CoexistMgmtAction(BSSCoexist2040=0x%x)\n", BssCoexistInfo.BssCoexistIe.word));
 }
 #endif /* CONFIG_AP_SUPPORT */
 
 
-#ifdef CONFIG_STA_SUPPORT
-VOID StaPublicAction(RTMP_ADAPTER *pAd, BSS_2040_COEXIST_IE *pBssCoexIE, struct wifi_dev *wdev)
-{
-	MLME_SCAN_REQ_STRUCT ScanReq;
-	PSTA_ADMIN_CONFIG pStaCfg = GetStaCfgByWdev(pAd, wdev);
-
-	ASSERT(pStaCfg);
-
-	if (!pStaCfg)
-		return;
-
-	MTWF_DBG(pAd, DBG_CAT_PROTO, DBG_SUBCAT_ALL, DBG_LVL_INFO, "ACTION - StaPeerPublicAction  Bss2040Coexist = %x\n", *((PUCHAR)pBssCoexIE));
-
-	/* AP asks Station to return a 20/40 BSS Coexistence mgmt frame.  So we first starts a scan, then send back 20/40 BSS Coexistence mgmt frame */
-	if ((pBssCoexIE->field.InfoReq == 1) && (OPSTATUS_TEST_FLAG(pAd, fOP_STATUS_SCAN_2040))) {
-		/* Clear record first.  After scan , will update those bit and send back to transmiter.*/
-		pAd->CommonCfg.BSSCoexist2040.field.InfoReq = 1;
-		pAd->CommonCfg.BSSCoexist2040.field.Intolerant40 = 0;
-		pAd->CommonCfg.BSSCoexist2040.field.BSS20WidthReq = 0;
-		/* Clear Trigger event table*/
-		TriEventInit(pAd);
-		/* Fill out stuff for scan request  and kick to scan*/
-		ScanParmFill(pAd, &ScanReq, ZeroSsid, 0, BSS_ANY, SCAN_2040_BSS_COEXIST);
-		cntl_scan_request(wdev, &ScanReq);
-	}
-}
-#endif /* CONFIG_STA_SUPPORT */
 
 
 /*
@@ -597,7 +438,6 @@ ULONG BuildIntolerantChannelRep(RTMP_ADAPTER *pAd, UCHAR *pDest)
 	UCHAR			ChannelList[MAX_TRIGGER_EVENT];
 	UCHAR			TmpRegClass;
 	UCHAR			RegClassArray[7] = {0, 11, 12, 32, 33, 54, 55}; /* Those regulatory class has channel in 2.4GHz. See Annex J.*/
-
 	RTMPZeroMemory(ChannelList, MAX_TRIGGER_EVENT);
 
 	/* Find every regulatory class*/
@@ -622,7 +462,7 @@ ULONG BuildIntolerantChannelRep(RTMP_ADAPTER *pAd, UCHAR *pDest)
 					pAd->CommonCfg.TriggerEventTab.EventA[i].bValid = FALSE;
 				}
 
-				MTWF_DBG(pAd, DBG_CAT_PROTO, DBG_SUBCAT_ALL, DBG_LVL_DEBUG, "ACT - BuildIntolerantChannelRep , Total Channel number = %d\n", idx);
+				MTWF_LOG(DBG_CAT_PROTO, DBG_SUBCAT_ALL, DBG_LVL_ERROR, ("ACT - BuildIntolerantChannelRep , Total Channel number = %d\n", idx));
 			}
 		}
 
@@ -638,7 +478,7 @@ ULONG BuildIntolerantChannelRep(RTMP_ADAPTER *pAd, UCHAR *pDest)
 		}
 	}
 
-	MTWF_DBG(pAd, DBG_CAT_PROTO, DBG_SUBCAT_ALL, DBG_LVL_DEBUG, "ACT-BuildIntolerantChannelRep(Size=%ld)\n", FrameLen);
+	MTWF_LOG(DBG_CAT_PROTO, DBG_SUBCAT_ALL, DBG_LVL_ERROR, ("ACT-BuildIntolerantChannelRep(Size=%ld)\n", FrameLen));
 	hex_dump("ACT-pDestMsg", pDest, FrameLen);
 	return FrameLen;
 }
@@ -654,15 +494,14 @@ ULONG BuildIntolerantChannelRep(RTMP_ADAPTER *pAd, UCHAR *pDest)
 	==========================================================================
  */
 VOID Update2040CoexistFrameAndNotify(
-	IN PRTMP_ADAPTER	pAd,
-	IN UINT16  Wcid,
-	IN BOOLEAN	bAddIntolerantCha)
+	IN	PRTMP_ADAPTER	pAd,
+	IN    UCHAR  Wcid,
+	IN	BOOLEAN	bAddIntolerantCha)
 {
 	BSS_2040_COEXIST_IE		OldValue;
-
-	MTWF_DBG(pAd, DBG_CAT_PROTO, DBG_SUBCAT_ALL, DBG_LVL_INFO, "ACT -BSSCoexist2040 = %x. EventANo = %d.\n",
-			 pAd->CommonCfg.BSSCoexist2040.word,
-			 pAd->CommonCfg.TriggerEventTab.EventANo);
+	MTWF_LOG(DBG_CAT_PROTO, DBG_SUBCAT_ALL, DBG_LVL_ERROR, ("%s(): ACT -BSSCoexist2040 = %x. EventANo = %d.\n",
+			 __func__, pAd->CommonCfg.BSSCoexist2040.word,
+			 pAd->CommonCfg.TriggerEventTab.EventANo));
 	OldValue.word = pAd->CommonCfg.BSSCoexist2040.word;
 	/* Reset value.*/
 	pAd->CommonCfg.BSSCoexist2040.word = 0;
@@ -685,7 +524,7 @@ Description : Send 20/40 BSS Coexistence Action frame If one trigger event is tr
 */
 VOID Send2040CoexistAction(
 	IN RTMP_ADAPTER *pAd,
-	IN UINT16 Wcid,
+	IN UCHAR Wcid,
 	IN BOOLEAN bAddIntolerantCha)
 {
 	UCHAR *pOutBuffer = NULL;
@@ -694,10 +533,6 @@ VOID Send2040CoexistAction(
 	ULONG FrameLen;
 	UINT32 IntolerantChaRepLen;
 	UCHAR HtLen = 1;
-#ifdef CONFIG_STA_SUPPORT
-	struct wifi_dev *wdev = pAd->MacTab.Content[Wcid].wdev;
-	PSTA_ADMIN_CONFIG pStaCfg = GetStaCfgByWdev(pAd, wdev);
-#endif /* CONFIG_STA_SUPPORT */
 #ifdef APCLI_SUPPORT
 	UCHAR apidx = 0;
 #endif /* APCLI_SUPPORT */
@@ -705,20 +540,18 @@ VOID Send2040CoexistAction(
 	NStatus = MlmeAllocateMemory(pAd, &pOutBuffer);  /*Get an unused nonpaged memory*/
 
 	if (NStatus != NDIS_STATUS_SUCCESS) {
-		MTWF_DBG(pAd, DBG_CAT_PROTO, DBG_SUBCAT_ALL, DBG_LVL_ERROR, "ACT - Send2040CoexistAction() allocate memory failed\n");
+		MTWF_LOG(DBG_CAT_PROTO, DBG_SUBCAT_ALL, DBG_LVL_ERROR, ("ACT - Send2040CoexistAction() allocate memory failed\n"));
 		return;
 	}
 
-#ifdef CONFIG_STA_SUPPORT
-	ActHeaderInit(pAd, &Frame.Hdr, pAd->MacTab.Content[Wcid].Addr, wdev->if_addr, pStaCfg->Bssid);
-#endif /* CONFIG_STA_SUPPORT */
 #ifdef APCLI_SUPPORT
 
-	if (IS_ENTRY_PEER_AP(&pAd->MacTab.Content[Wcid])) {
+	if (IS_ENTRY_APCLI(&pAd->MacTab.Content[Wcid])) {
 		apidx = pAd->MacTab.Content[Wcid].func_tb_idx;
-		ActHeaderInit(pAd, &Frame.Hdr, pAd->MacTab.Content[Wcid].Addr, pAd->StaCfg[apidx].wdev.if_addr, pAd->MacTab.Content[Wcid].Addr);
-		MTWF_DBG(pAd, DBG_CAT_PROTO, DBG_SUBCAT_ALL, DBG_LVL_DEBUG, "\x1b[31m\n"MACSTR" \x1b[m\n",
-				 MAC2STR(pAd->MacTab.Content[Wcid].Addr));
+		ActHeaderInit(pAd, &Frame.Hdr, pAd->MacTab.Content[Wcid].Addr, pAd->ApCfg.ApCliTab[apidx].wdev.if_addr, pAd->MacTab.Content[Wcid].Addr);
+		MTWF_LOG(DBG_CAT_PROTO, DBG_SUBCAT_ALL, DBG_LVL_ERROR, ("\x1b[31m\n%02x:%02x:%02x:%02x:%02x:%02x \x1b[m\n",
+				 pAd->MacTab.Content[Wcid].Addr[0], pAd->MacTab.Content[Wcid].Addr[1], pAd->MacTab.Content[Wcid].Addr[2],
+				 pAd->MacTab.Content[Wcid].Addr[3], pAd->MacTab.Content[Wcid].Addr[4], pAd->MacTab.Content[Wcid].Addr[5]));
 	}
 
 #endif /* APCLI_SUPPORT */
@@ -736,85 +569,21 @@ VOID Send2040CoexistAction(
 
 	/*2009 PF#3: IOT issue with Motorola AP. It will not check the field of BSSCoexist2040.*/
 	/*11.14.12 Switching between 40 MHz and 20 MHz*/
-	MTWF_DBG(pAd, DBG_CAT_PROTO, DBG_SUBCAT_ALL, DBG_LVL_INFO, "IntolerantChaRepLen=%d, BSSCoexist2040=0x%x!\n",
-			 IntolerantChaRepLen, pAd->CommonCfg.BSSCoexist2040.word);
+	MTWF_LOG(DBG_CAT_PROTO, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("IntolerantChaRepLen=%d, BSSCoexist2040=0x%x!\n",
+			 IntolerantChaRepLen, pAd->CommonCfg.BSSCoexist2040.word));
 
 	if (!((IntolerantChaRepLen == 0) && (pAd->CommonCfg.BSSCoexist2040.word == 0)))
 		MiniportMMRequest(pAd, QID_AC_BE, pOutBuffer, FrameLen + IntolerantChaRepLen);
 
 	MlmeFreeMemory(pOutBuffer);
-	MTWF_DBG(pAd, DBG_CAT_PROTO, DBG_SUBCAT_ALL, DBG_LVL_INFO, "ACT - Send2040CoexistAction( BSSCoexist2040 = 0x%x )\n", pAd->CommonCfg.BSSCoexist2040.word);
+	MTWF_LOG(DBG_CAT_PROTO, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("ACT - Send2040CoexistAction( BSSCoexist2040 = 0x%x ) \n", pAd->CommonCfg.BSSCoexist2040.word));
 }
 
-#ifdef CONFIG_STA_SUPPORT
-VOID UpdateBssScanParm(RTMP_ADAPTER *pAd, OVERLAP_BSS_SCAN_IE APBssScan)
-{
-	pAd->CommonCfg.Dot11BssWidthChanTranDelayFactor = le2cpu16(APBssScan.DelayFactor); /*APBssScan.DelayFactor[1] * 256 + APBssScan.DelayFactor[0];*/
-
-	/* out of range defined in MIB... So fall back to default value.*/
-	if ((pAd->CommonCfg.Dot11BssWidthChanTranDelayFactor < 5) || (pAd->CommonCfg.Dot11BssWidthChanTranDelayFactor > 100)) {
-		/*MTWF_DBG(pAd, DBG_CAT_PROTO, DBG_SUBCAT_ALL, DBG_LVL_ERROR,"ACT - UpdateBssScanParm( Dot11BssWidthChanTranDelayFactor out of range !!!!)\n");*/
-		pAd->CommonCfg.Dot11BssWidthChanTranDelayFactor = 5;
-	}
-
-	pAd->CommonCfg.Dot11BssWidthTriggerScanInt = le2cpu16(APBssScan.TriggerScanInt); /*APBssScan.TriggerScanInt[1] * 256 + APBssScan.TriggerScanInt[0];*/
-
-	/* out of range defined in MIB... So fall back to default value.*/
-	if ((pAd->CommonCfg.Dot11BssWidthTriggerScanInt < 10) || (pAd->CommonCfg.Dot11BssWidthTriggerScanInt > 900)) {
-		/*MTWF_DBG(pAd, DBG_CAT_PROTO, DBG_SUBCAT_ALL, DBG_LVL_ERROR,"ACT - UpdateBssScanParm( Dot11BssWidthTriggerScanInt out of range !!!!)\n");*/
-		pAd->CommonCfg.Dot11BssWidthTriggerScanInt = 900;
-	}
-
-	pAd->CommonCfg.Dot11OBssScanPassiveDwell = le2cpu16(APBssScan.ScanPassiveDwell); /*APBssScan.ScanPassiveDwell[1] * 256 + APBssScan.ScanPassiveDwell[0];*/
-
-	/* out of range defined in MIB... So fall back to default value.*/
-	if ((pAd->CommonCfg.Dot11OBssScanPassiveDwell < 5) || (pAd->CommonCfg.Dot11OBssScanPassiveDwell > 1000)) {
-		/*MTWF_DBG(pAd, DBG_CAT_PROTO, DBG_SUBCAT_ALL, DBG_LVL_ERROR,"ACT - UpdateBssScanParm( Dot11OBssScanPassiveDwell out of range !!!!)\n");*/
-		pAd->CommonCfg.Dot11OBssScanPassiveDwell = 20;
-	}
-
-	pAd->CommonCfg.Dot11OBssScanActiveDwell = le2cpu16(APBssScan.ScanActiveDwell); /*APBssScan.ScanActiveDwell[1] * 256 + APBssScan.ScanActiveDwell[0];*/
-
-	/* out of range defined in MIB... So fall back to default value.*/
-	if ((pAd->CommonCfg.Dot11OBssScanActiveDwell < 10) || (pAd->CommonCfg.Dot11OBssScanActiveDwell > 1000)) {
-		/*MTWF_DBG(pAd, DBG_CAT_PROTO, DBG_SUBCAT_ALL, DBG_LVL_ERROR,"ACT - UpdateBssScanParm( Dot11OBssScanActiveDwell out of range !!!!)\n");*/
-		pAd->CommonCfg.Dot11OBssScanActiveDwell = 10;
-	}
-
-	pAd->CommonCfg.Dot11OBssScanPassiveTotalPerChannel = le2cpu16(APBssScan.PassiveTalPerChannel); /*APBssScan.PassiveTalPerChannel[1] * 256 + APBssScan.PassiveTalPerChannel[0];*/
-
-	/* out of range defined in MIB... So fall back to default value.*/
-	if ((pAd->CommonCfg.Dot11OBssScanPassiveTotalPerChannel < 200) || (pAd->CommonCfg.Dot11OBssScanPassiveTotalPerChannel > 10000)) {
-		/*MTWF_DBG(pAd, DBG_CAT_PROTO, DBG_SUBCAT_ALL, DBG_LVL_ERROR,"ACT - UpdateBssScanParm( Dot11OBssScanPassiveTotalPerChannel out of range !!!!)\n");*/
-		pAd->CommonCfg.Dot11OBssScanPassiveTotalPerChannel = 200;
-	}
-
-	pAd->CommonCfg.Dot11OBssScanActiveTotalPerChannel = le2cpu16(APBssScan.ActiveTalPerChannel); /*APBssScan.ActiveTalPerChannel[1] * 256 + APBssScan.ActiveTalPerChannel[0];*/
-
-	/* out of range defined in MIB... So fall back to default value.*/
-	if ((pAd->CommonCfg.Dot11OBssScanActiveTotalPerChannel < 20) || (pAd->CommonCfg.Dot11OBssScanActiveTotalPerChannel > 10000)) {
-		/*MTWF_DBG(pAd, DBG_CAT_PROTO, DBG_SUBCAT_ALL, DBG_LVL_ERROR,"ACT - UpdateBssScanParm( Dot11OBssScanActiveTotalPerChannel out of range !!!!)\n");*/
-		pAd->CommonCfg.Dot11OBssScanActiveTotalPerChannel = 20;
-	}
-
-	pAd->CommonCfg.Dot11OBssScanActivityThre = le2cpu16(APBssScan.ScanActThre); /*APBssScan.ScanActThre[1] * 256 + APBssScan.ScanActThre[0];*/
-
-	/* out of range defined in MIB... So fall back to default value.*/
-	if (pAd->CommonCfg.Dot11OBssScanActivityThre > 100) {
-		/*MTWF_DBG(pAd, DBG_CAT_PROTO, DBG_SUBCAT_ALL, DBG_LVL_ERROR,"ACT - UpdateBssScanParm( Dot11OBssScanActivityThre out of range !!!!)\n");*/
-		pAd->CommonCfg.Dot11OBssScanActivityThre = 25;
-	}
-
-	pAd->CommonCfg.Dot11BssWidthChanTranDelay = (ULONG)(pAd->CommonCfg.Dot11BssWidthTriggerScanInt * pAd->CommonCfg.Dot11BssWidthChanTranDelayFactor);
-	/*MTWF_DBG(pAd, DBG_CAT_PROTO, DBG_SUBCAT_ALL, DBG_LVL_DEBUG,("ACT - UpdateBssScanParm( Dot11BssWidthTriggerScanInt = %d )\n", pAd->CommonCfg.Dot11BssWidthTriggerScanInt));*/
-}
-
-#endif /* CONFIG_STA_SUPPORT */
 
 
 BOOLEAN ChannelSwitchSanityCheck(
 	IN	PRTMP_ADAPTER	pAd,
-	IN    UINT16  Wcid,
+	IN    UCHAR  Wcid,
 	IN    UCHAR  NewChannel,
 	IN    UCHAR  Secondary)
 {
@@ -850,15 +619,14 @@ BOOLEAN ChannelSwitchSanityCheck(
 
 VOID ChannelSwitchAction(
 	IN PRTMP_ADAPTER pAd,
-	IN UINT16 Wcid,
+	IN UCHAR Wcid,
 	IN UCHAR NewChannel,
 	IN UCHAR Secondary)
 {
 	struct wifi_dev *wdev = NULL;
 	struct freq_cfg freq;
-
-	MTWF_DBG(pAd, DBG_CAT_PROTO, DBG_SUBCAT_ALL, DBG_LVL_INFO, "NewChannel=%d, Secondary=%d\n",
-			 NewChannel, Secondary);
+	MTWF_LOG(DBG_CAT_PROTO, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("%s(): NewChannel=%d, Secondary=%d\n",
+			 __func__, NewChannel, Secondary));
 
 	if (ChannelSwitchSanityCheck(pAd, Wcid, NewChannel, Secondary) == FALSE)
 		return;
@@ -890,39 +658,39 @@ VOID ChannelSwitchAction(
 
 	if (NewChannel != 0) {
 		wlan_operate_set_phy(wdev, &freq);
-		MTWF_DBG(pAd, DBG_CAT_PROTO, DBG_SUBCAT_ALL, DBG_LVL_INFO, "%dMHz LINK UP, CtrlChannel=%d,  CentralChannel= %d\n",
-				 (wlan_operate_get_bw(wdev) == BW_40 ? 40 : 20),
+		MTWF_LOG(DBG_CAT_PROTO, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("%s(): %dMHz LINK UP, CtrlChannel=%d,  CentralChannel= %d\n",
+				 __func__, (wlan_operate_get_bw(wdev) == BW_40 ? 40 : 20),
 				 wdev->channel,
-				 wlan_operate_get_cen_ch_1(wdev));
+				 wlan_operate_get_cen_ch_1(wdev)));
 	}
 }
 #endif /* DOT11N_DRAFT3 */
 #endif /* DOT11_N_SUPPORT */
 
+
 VOID PeerPublicAction(RTMP_ADAPTER *pAd, MLME_QUEUE_ELEM *Elem)
 {
 	UCHAR Action = Elem->Msg[LENGTH_802_11 + 1];
-#ifdef CONFIG_STA_SUPPORT
-	PSTA_ADMIN_CONFIG pStaCfg = GetStaCfgByWdev(pAd, Elem->wdev);
-#endif
+
 #ifdef CONFIG_AP_SUPPORT
 #ifdef RACTRL_FW_OFFLOAD_SUPPORT
-	struct _RTMP_CHIP_CAP *cap = hc_get_chip_cap(pAd->hdev_ctrl);
+struct _RTMP_CHIP_CAP *cap = hc_get_chip_cap(pAd->hdev_ctrl);
 #endif /* RACTRL_FW_OFFLOAD_SUPPORT */
 #endif /* CONFIG_AP_SUPPORT */
+
 #if defined(WAPP_SUPPORT) && defined(CONFIG_AP_SUPPORT)
-#ifdef DPP_SUPPORT
-	if (!pAd->bDppEnable)
-#endif /* DPP_SUPPORT */
-		if (!GasEnable(pAd, Elem))
+
+	if (!GasEnable(pAd, Elem))
 #endif
-#ifdef P2P_SUPPORT
-		if (!P2P_INF_ON(pAd))
-#endif /* P2P_SUPPORT */
 			if ((!VALID_UCAST_ENTRY_WCID(pAd, Elem->Wcid))
-#ifdef DOT11Z_TDLS_SUPPORT
-				&& (Action != ACTION_TDLS_DISCOVERY_RSP)
-#endif /* DOT11Z_TDLS_SUPPORT // */
+#ifdef FTM_SUPPORT
+				&& (Action != ACTION_FTM_REQUEST)
+				&& (Action != ACTION_FTM)
+				&& (Action != ACTION_GAS_INITIAL_REQ)
+				&& (Action != ACTION_GAS_INITIAL_RSP)
+				&& (Action != ACTION_GAS_COMEBACK_REQ)
+				&& (Action != ACTION_GAS_COMEBACK_RSP)
+#endif /* FTM_SUPPORT */
 			   )
 				return;
 
@@ -939,9 +707,9 @@ VOID PeerPublicAction(RTMP_ADAPTER *pAd, MLME_QUEUE_ELEM *Elem)
 		struct wifi_dev *wdev = NULL;
 
 		if (!VALID_UCAST_ENTRY_WCID(pAd, Elem->Wcid)) {
-			MTWF_DBG(pAd, DBG_CAT_PROTO, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-					 " Wrong Wcid:%d !!! need to check the root cause!!!!",
-					  Elem->Wcid);
+			MTWF_LOG(DBG_CAT_PROTO, DBG_SUBCAT_ALL, DBG_LVL_OFF,
+					 ("%s, Wrong Wcid:%d !!! need to check the root cause!!!!",
+					  __func__, Elem->Wcid));
 			return;
 		}
 
@@ -949,11 +717,11 @@ VOID PeerPublicAction(RTMP_ADAPTER *pAd, MLME_QUEUE_ELEM *Elem)
 #endif
 
 		if (Elem->MsgLen <= (LENGTH_802_11 + sizeof(BSS_2040_COEXIST_ELEMENT))) {
-			MTWF_DBG(pAd, DBG_CAT_PROTO, DBG_SUBCAT_ALL, DBG_LVL_ERROR, "ACTION - 20/40 BSS Coexistence Management Frame length too short! len = %ld!\n", Elem->MsgLen);
+			MTWF_LOG(DBG_CAT_PROTO, DBG_SUBCAT_ALL, DBG_LVL_ERROR, ("ACTION - 20/40 BSS Coexistence Management Frame length too short! len = %ld!\n", Elem->MsgLen));
 			break;
 		}
 
-		MTWF_DBG(pAd, DBG_CAT_PROTO, DBG_SUBCAT_ALL, DBG_LVL_INFO, "ACTION - 20/40 BSS Coexistence Management action---->\n");
+		MTWF_LOG(DBG_CAT_PROTO, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("ACTION - 20/40 BSS Coexistence Management action---->\n"));
 		hex_dump("CoexistenceMgmtFrame", Elem->Msg, Elem->MsgLen);
 		pCoexistInfo = (BSS_2040_COEXIST_ELEMENT *) &Elem->Msg[LENGTH_802_11 + 2];
 
@@ -963,83 +731,76 @@ VOID PeerPublicAction(RTMP_ADAPTER *pAd, MLME_QUEUE_ELEM *Elem)
 
 		/*hex_dump("IntolerantReport ", (PUCHAR)pIntolerantReport, sizeof(BSS_2040_INTOLERANT_CH_REPORT));*/
 
+		/* Soft AP to follow BW of Root AP */
 		if (
 #ifdef BW_VENDOR10_CUSTOM_FEATURE
-			IS_APCLI_BW_SYNC_FEATURE_ENBL(pAd, HcGetBandByWdev(wdev)) ||
+			IS_APCLI_BW_SYNC_FEATURE_ENBL(pAd) ||
 #endif
 			pAd->CommonCfg.bBssCoexEnable == FALSE || (pAd->CommonCfg.bForty_Mhz_Intolerant == TRUE)) {
-			MTWF_DBG(pAd, DBG_CAT_PROTO, DBG_SUBCAT_ALL, DBG_LVL_INFO, "20/40 BSS CoexMgmt=%d, bForty_Mhz_Intolerant=%d, ignore this action!!\n",
+
+			MTWF_LOG(DBG_CAT_PROTO, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("20/40 BSS CoexMgmt=%d, bForty_Mhz_Intolerant=%d, ignore this action!!\n",
 					 pAd->CommonCfg.bBssCoexEnable,
-					 pAd->CommonCfg.bForty_Mhz_Intolerant);
+					 pAd->CommonCfg.bForty_Mhz_Intolerant));
 			break;
 		}
 
 		pBssCoexistIe = (BSS_2040_COEXIST_IE *)(&pCoexistInfo->BssCoexistIe);
 #ifdef CONFIG_AP_SUPPORT
-#ifdef P2P_SUPPORT
-
-		if ((Elem->OpMode == OPMODE_AP) || (pAd->OpMode == OPMODE_AP))
-#else
 		IF_DEV_CONFIG_OPMODE_ON_AP(pAd)
-#endif /* P2P_SUPPORT */
 		{
 #ifdef APCLI_SUPPORT
 
 			if (IS_ENTRY_CLIENT(&pAd->MacTab.Content[Elem->Wcid])) {
 #endif /* APCLI_SUPPORT */
 				BOOLEAN		bNeedFallBack = FALSE;
-				UCHAR BandIdx = 0;
-				CHANNEL_CTRL *pChCtrl = NULL;
-				if (wdev) {
+				UCHAR BandIdx = BAND0;
+				CHANNEL_CTRL *pChCtrl = hc_get_channel_ctrl(pAd->hdev_ctrl, BandIdx);
+				if (wdev)
 					BandIdx = HcGetBandByWdev(wdev);
-				} else {
-					BandIdx = BAND0;
-					MTWF_DBG(pAd, DBG_CAT_PROTO, DBG_SUBCAT_ALL, DBG_LVL_INFO, "[PeerPublicAction] wdev = NULL\n");
-				}
-				pChCtrl = hc_get_channel_ctrl(pAd->hdev_ctrl, BandIdx);
 
 				/*ApPublicAction(pAd, Elem);*/
 				if ((pBssCoexistIe->field.BSS20WidthReq == 1) || (pBssCoexistIe->field.Intolerant40 == 1)) {
 					bNeedFallBack = TRUE;
-					MTWF_DBG(pAd, DBG_CAT_PROTO, DBG_SUBCAT_ALL, DBG_LVL_INFO, "BSS_2040_COEXIST: BSS20WidthReq=%d, Intolerant40=%d!\n", pBssCoexistIe->field.BSS20WidthReq, pBssCoexistIe->field.Intolerant40);
+					MTWF_LOG(DBG_CAT_PROTO, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("BSS_2040_COEXIST: BSS20WidthReq=%d, Intolerant40=%d!\n", pBssCoexistIe->field.BSS20WidthReq, pBssCoexistIe->field.Intolerant40));
 				} else if ((pIntolerantReport) && (pIntolerantReport->Len > 1)) {
 					int i;
 					UCHAR *ptr;
-					INT retVal;
+					INT retVal = FALSE;
 					BSS_COEX_CH_RANGE coexChRange;
-
 					ptr = pIntolerantReport->ChList;
 					bNeedFallBack = TRUE;
-					MTWF_DBG(pAd, DBG_CAT_PROTO, DBG_SUBCAT_ALL, DBG_LVL_INFO, "The pIntolerantReport len = %d, chlist=", pIntolerantReport->Len);
+					MTWF_LOG(DBG_CAT_PROTO, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("The pIntolerantReport len = %d, chlist=", pIntolerantReport->Len));
 
 					for (i = 0; i < (pIntolerantReport->Len - 1); i++, ptr++)
-						MTWF_DBG(pAd, DBG_CAT_PROTO, DBG_SUBCAT_ALL, DBG_LVL_INFO, "%d,", *ptr);
+						MTWF_LOG(DBG_CAT_PROTO, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("%d,", *ptr));
 
-					MTWF_DBG(pAd, DBG_CAT_PROTO, DBG_SUBCAT_ALL, DBG_LVL_INFO, "\n");
-					if (wdev) {
-					retVal = GetBssCoexEffectedChRange(pAd, wdev, &coexChRange, wdev->channel);
+					MTWF_LOG(DBG_CAT_PROTO, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("\n"));
+
+					if (wdev)
+						retVal = GetBssCoexEffectedChRange(pAd, wdev, &coexChRange, wdev->channel);
+					else
+						MTWF_LOG(DBG_CAT_PROTO, DBG_SUBCAT_ALL, DBG_LVL_ERROR, ("%s, wdev = NULL", __func__));
 
 					if (retVal == TRUE) {
 						ptr = pIntolerantReport->ChList;
 						bNeedFallBack = FALSE;
-						MTWF_DBG(pAd, DBG_CAT_PROTO, DBG_SUBCAT_ALL, DBG_LVL_INFO, "Check IntolerantReport Channel List in our effectedChList(%d~%d)\n",
+						MTWF_LOG(DBG_CAT_PROTO, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("Check IntolerantReport Channel List in our effectedChList(%d~%d)\n",
 								pChCtrl->ChList[coexChRange.effectChStart].Channel,
-								pChCtrl->ChList[coexChRange.effectChEnd].Channel);
+								pChCtrl->ChList[coexChRange.effectChEnd].Channel));
 
 						for (i = 0; i < (pIntolerantReport->Len - 1); i++, ptr++) {
 							UCHAR chEntry;
-
 							chEntry = *ptr;
 
 							if (chEntry >= pChCtrl->ChList[coexChRange.effectChStart].Channel &&
 								chEntry <= pChCtrl->ChList[coexChRange.effectChEnd].Channel) {
-								MTWF_DBG(pAd, DBG_CAT_PROTO, DBG_SUBCAT_ALL, DBG_LVL_INFO, "Found Intolerant channel in effect range=%d!\n", *ptr);
+								MTWF_LOG(DBG_CAT_PROTO, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("Found Intolerant channel in effect range=%d!\n", *ptr));
 								bNeedFallBack = TRUE;
 								break;
 							}
 						}
-						MTWF_DBG(pAd, DBG_CAT_PROTO, DBG_SUBCAT_ALL, DBG_LVL_INFO, "After CoexChRange Check, bNeedFallBack=%d!\n", bNeedFallBack);
-					}
+
+						MTWF_LOG(DBG_CAT_PROTO, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("After CoexChRange Check, bNeedFallBack=%d!\n", bNeedFallBack));
 					}
 
 					if (bNeedFallBack) {
@@ -1049,28 +810,29 @@ VOID PeerPublicAction(RTMP_ADAPTER *pAd, MLME_QUEUE_ELEM *Elem)
 				}
 
 				if (bNeedFallBack) {
-					UCHAR apidx;
-
+					int apidx;
 					NdisMoveMemory((PUCHAR)&pAd->CommonCfg.LastBSSCoexist2040,
 								   (PUCHAR)pBssCoexistIe,
 								   sizeof(BSS_2040_COEXIST_IE));
 					pAd->CommonCfg.Bss2040CoexistFlag |= BSS_2040_COEXIST_INFO_SYNC;
 
 					if (!(pAd->CommonCfg.Bss2040CoexistFlag & BSS_2040_COEXIST_TIMER_FIRED)) {
-						MTWF_DBG(pAd, DBG_CAT_PROTO, DBG_SUBCAT_ALL, DBG_LVL_INFO,
-								  "Fire the Bss2040CoexistTimer with timeout=%ld!\n",
-								  pAd->CommonCfg.Dot11BssWidthChanTranDelay);
+						MTWF_LOG(DBG_CAT_PROTO, DBG_SUBCAT_ALL, DBG_LVL_TRACE,
+								 ("Fire the Bss2040CoexistTimer with timeout=%ld!\n",
+								  pAd->CommonCfg.Dot11BssWidthChanTranDelay));
 						pAd->CommonCfg.Bss2040CoexistFlag |= BSS_2040_COEXIST_TIMER_FIRED;
 						/* More 5 sec for the scan report of STAs.*/
 						RTMPSetTimer(&pAd->CommonCfg.Bss2040CoexistTimer,
 									 (pAd->CommonCfg.Dot11BssWidthChanTranDelay + 5) * 1000);
 					} else {
-						MTWF_DBG(pAd, DBG_CAT_PROTO, DBG_SUBCAT_ALL, DBG_LVL_INFO,
-								 "Already fallback to 20MHz, Extend the timeout of Bss2040CoexistTimer!\n");
+						MTWF_LOG(DBG_CAT_PROTO, DBG_SUBCAT_ALL, DBG_LVL_TRACE,
+								 ("Already fallback to 20MHz, Extend the timeout of Bss2040CoexistTimer!\n"));
 						/* More 5 sec for the scan report of STAs.*/
 						RTMPModTimer(&pAd->CommonCfg.Bss2040CoexistTimer,
 									 (pAd->CommonCfg.Dot11BssWidthChanTranDelay + 5) * 1000);
 					}
+
+					apidx = pAd->MacTab.Content[Elem->Wcid].apidx;
 
 					for (apidx = 0; apidx < pAd->ApCfg.BssidNum; apidx++)
 						SendBSS2040CoexistMgmtAction(pAd, MCAST_WCID_TO_REMOVE, apidx, 0);
@@ -1083,43 +845,41 @@ VOID PeerPublicAction(RTMP_ADAPTER *pAd, MLME_QUEUE_ELEM *Elem)
 							(pAd->CommonCfg.bForty_Mhz_Intolerant == FALSE)) {
 							UCHAR cfg_ht_bw = wlan_config_get_ht_bw(wdev);
 							UCHAR cfg_ext_cha = wlan_config_get_ext_cha(wdev);
-
-							MTWF_DBG(pAd, DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_INFO,
-									  "DTIM Period reached, BSS20WidthReq=%d, Intolerant40=%d!\n",
+							MTWF_LOG(DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_TRACE,
+									 ("DTIM Period reached, BSS20WidthReq=%d, Intolerant40=%d!\n",
 									  pAd->CommonCfg.LastBSSCoexist2040.field.BSS20WidthReq,
-									  pAd->CommonCfg.LastBSSCoexist2040.field.Intolerant40);
+									  pAd->CommonCfg.LastBSSCoexist2040.field.Intolerant40));
 							pAd->CommonCfg.Bss2040CoexistFlag &= (~BSS_2040_COEXIST_INFO_SYNC);
 
 							if (pAd->CommonCfg.LastBSSCoexist2040.field.BSS20WidthReq ||
 								pAd->CommonCfg.LastBSSCoexist2040.field.Intolerant40) {
 								wlan_operate_set_ht_bw(wdev, HT_BW_20, EXTCHA_NONE);
-							} else {
+
+
+	                        }
+							else {
 								/*recover to origin bw & extcha*/
 								wlan_operate_set_ht_bw(wdev, cfg_ht_bw, cfg_ext_cha);
 							}
 
-							MTWF_DBG(pAd, DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_INFO,
-									  "\tNow RecomWidth=%d, ExtChanOffset=%d\n",
+							MTWF_LOG(DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_TRACE,
+									 ("\tNow RecomWidth=%d, ExtChanOffset=%d\n",
 									  wlan_operate_get_ht_bw(wdev),
-									  wlan_operate_get_ext_cha(wdev));
+									  wlan_operate_get_ext_cha(wdev)));
 							pAd->CommonCfg.Bss2040CoexistFlag |= BSS_2040_COEXIST_INFO_NOTIFY;
 #ifdef RACTRL_FW_OFFLOAD_SUPPORT
-
 							/* Update BSS2040COEX for pEntry */
 							if (cap->fgRateAdaptFWOffload == TRUE) {
 								CMD_STAREC_AUTO_RATE_UPDATE_T rRaParam;
-
 								NdisZeroMemory(&rRaParam, sizeof(CMD_STAREC_AUTO_RATE_UPDATE_T));
 								rRaParam.u4Field = RA_PARAM_HT_2040_COEX;
 								RAParamUpdate(pAd, &pAd->MacTab.Content[Elem->Wcid], &rRaParam);
 							}
-
 #endif /* RACTRL_FW_OFFLOAD_SUPPORT */
 						}
 
-						MTWF_DBG(pAd, DBG_CAT_PROTO, DBG_SUBCAT_ALL, DBG_LVL_INFO,
-								 "ACTION_BSS_2040_COEXIST Update Beacon for idx:%d\n",
-								 pAd->MacTab.Content[Elem->Wcid].apidx);
+						MTWF_LOG(DBG_CAT_PROTO, DBG_SUBCAT_ALL, DBG_LVL_TRACE,
+								 ("%s, ACTION_BSS_2040_COEXIST Update Beacon for idx:%d\n", __func__, apidx));
 						UpdateBeaconHandler(pAd, wdev, BCN_UPDATE_IE_CHG);
 					}
 				}
@@ -1131,19 +891,6 @@ VOID PeerPublicAction(RTMP_ADAPTER *pAd, MLME_QUEUE_ELEM *Elem)
 		}
 
 #endif /* CONFIG_AP_SUPPORT */
-#ifdef CONFIG_STA_SUPPORT
-#ifdef P2P_SUPPORT
-
-		if ((Elem->OpMode == OPMODE_STA) || (pAd->OpMode == OPMODE_STA))
-#else
-		IF_DEV_CONFIG_OPMODE_ON_STA(pAd)
-#endif /* P2P_SUPPORT */
-		{
-			if (INFRA_ON(pStaCfg))
-				StaPublicAction(pAd, pBssCoexistIe, Elem->wdev);
-		}
-
-#endif /* CONFIG_STA_SUPPORT */
 	}
 	break;
 #endif /* DOT11N_DRAFT3 */
@@ -1152,34 +899,13 @@ VOID PeerPublicAction(RTMP_ADAPTER *pAd, MLME_QUEUE_ELEM *Elem)
 #if defined(WAPP_SUPPORT) || defined(FTM_SUPPORT)
 
 	case ACTION_GAS_INIT_REQ:
-		if (GasEnable(pAd, Elem)
-#ifdef DPP_SUPPORT
-		    || pAd->bDppEnable			/* Bypassing Gas Enable Check for DPP Gas Frames */
-#endif /* DPP_SUPPORT */
-		   )
+		if (GasEnable(pAd, Elem))
 			ReceiveGASInitReq(pAd, Elem);
 
 		break;
 
-#ifdef DPP_SUPPORT
-	case ACTION_GAS_INIT_RSP:
-		DPP_ReceiveGASInitRsp(pAd, Elem);
-		break;
-	case ACTION_GAS_CB_RSP:
-		DPP_ReceiveGASCBResp(pAd, Elem);
-		break;
-#endif /* DPP_SUPPORT */
-
 	case ACTION_GAS_CB_REQ:
-#ifdef DPP_SUPPORT
-			DPP_ReceiveGASCBReq(pAd, Elem);
-#endif /* DPP_SUPPORT */
-		if (GasEnable(pAd, Elem)
-#ifdef MAP_R3
-		&& ((IS_MAP_ENABLE(pAd) && !IS_MAP_CERT_ENABLE(pAd))
-		|| !IS_MAP_ENABLE(pAd))
-#endif /* MAP_R3 */
-		)
+		if (GasEnable(pAd, Elem))
 			ReceiveGASCBReq(pAd, Elem);
 
 		break;
@@ -1187,117 +913,19 @@ VOID PeerPublicAction(RTMP_ADAPTER *pAd, MLME_QUEUE_ELEM *Elem)
 #endif /* CONFIG_AP_SUPPORT */
 
 	case ACTION_WIFI_DIRECT:
-#ifdef DPP_SUPPORT
-		if (NdisEqualMemory(&(Elem->Msg[LENGTH_802_11 + 2]), DPP_OUI, OUI_LEN) &&
-			Elem->Msg[LENGTH_802_11 + 5] == WFA_DPP_SUBTYPE) {
-			if (pAd->bDppEnable) {
-				wext_send_dpp_action_frame(pAd, Elem->wdev, &Elem->Msg[10], Elem->Channel,
-							  Elem->Msg, Elem->MsgLen, 0);
-				MTWF_DBG(pAd, DBG_CAT_PROTO, DBG_SUBCAT_ALL, DBG_LVL_INFO,
-					"got one DPP puplic action frame\n");
-			} else
-				MTWF_DBG(pAd, DBG_CAT_PROTO, DBG_SUBCAT_ALL, DBG_LVL_INFO,
-					"DPP Disabled DPP puplic action frame not sent to WAPP\n");
-			break;
-		}
-#endif /* DPP_SUPPORT */
-#ifdef IWSC_SUPPORT
 
-		if ((pStaCfg->BssType == BSS_ADHOC) &&
-			NdisEqualMemory(&(Elem->Msg[LENGTH_802_11 + 2]), IWSC_ACTION_OUI, 4)) {
-			MlmeEnqueue(pAd, IWSC_STATE_MACHINE, IWSC_MT2_PEER_ACTION_FRAME, Elem->MsgLen, Elem->Msg, 0);
-			RTMP_MLME_HANDLER(pAd);
-			break;
-		}
-
-#endif /* IWSC_SUPPORT // */
-#ifdef P2P_SUPPORT
-		MTWF_DBG(pAd, DBG_CAT_PROTO, DBG_SUBCAT_ALL, DBG_LVL_INFO, "<---- Public. Vendor OUI+type = %08x\n", *(PULONG)&Elem->Msg[LENGTH_802_11 + 2]);
-#ifdef RT_BIG_ENDIAN
-
-		if (SWAP32(*(PUINT32)&Elem->Msg[LENGTH_802_11 + 2]) == P2P_OUI)
-#else
-		if (*(PUINT32)&Elem->Msg[LENGTH_802_11 + 2] == P2P_OUI)
-#endif /* RT_BIG_ENDIAN */
-		{
-			UCHAR	Subtype = Elem->Msg[LENGTH_802_11 + 6];
-
-			MTWF_DBG(pAd, DBG_CAT_PROTO, DBG_SUBCAT_ALL, DBG_LVL_INFO, "!!!! Public action frames with Vendor specific OUI = WFAP2P.Subtype = %d.\n", Subtype);
-			pAd->P2pCfg.bPeriodicListen = FALSE;
-
-			if (pAd->P2pCfg.P2pCounter.bStartScan) {
-				pAd->P2pCfg.P2pCounter.bStartScan = FALSE;
-				pAd->P2pCfg.P2pCounter.bListen = FALSE;
-				pAd->P2pCfg.P2pCounter.bNextScan = FALSE;
-				/* update P2P Ctrl State Machine status. */
-				MlmeEnqueue(pAd, P2P_CTRL_STATE_MACHINE, P2P_CTRL_DISC_CANL_EVT, 0, NULL, 0);
-				RTMP_MLME_HANDLER(pAd);
-			}
-
-			switch (Subtype) {
-			case GO_NEGOCIATION_REQ:
-				MTWF_DBG(pAd, DBG_CAT_PROTO, DBG_SUBCAT_ALL, DBG_LVL_DEBUG, "recv Group Nego. Req\n");
-				P2pPeerGoNegoReqAction(pAd, Elem);
-				break;
-
-			case GO_NEGOCIATION_RSP:
-				MTWF_DBG(pAd, DBG_CAT_PROTO, DBG_SUBCAT_ALL, DBG_LVL_DEBUG, "recv Group Nego. Rsp\n");
-				P2pPeerGoNegoRspAction(pAd, Elem);
-				break;
-
-			case GO_NEGOCIATION_CONFIRM:
-				MTWF_DBG(pAd, DBG_CAT_PROTO, DBG_SUBCAT_ALL, DBG_LVL_DEBUG, "recv Group Nego. Confirm\n");
-				P2pPeerGoNegoConfirmAction(pAd, Elem);
-				break;
-
-			case P2P_INVITE_REQ:
-				MTWF_DBG(pAd, DBG_CAT_PROTO, DBG_SUBCAT_ALL, DBG_LVL_DEBUG, "recv Invite Req\n");
-				P2pPeerInvitesReqAction(pAd, Elem);
-				break;
-
-			case P2P_INVITE_RSP:
-				MTWF_DBG(pAd, DBG_CAT_PROTO, DBG_SUBCAT_ALL, DBG_LVL_DEBUG, "recv Invite Rsp\n");
-				P2pPeerInvitesRspAction(pAd, Elem);
-				break;
-
-			case P2P_DEV_DIS_REQ:
-				MTWF_DBG(pAd, DBG_CAT_PROTO, DBG_SUBCAT_ALL, DBG_LVL_DEBUG, "recv Device Discovery Req\n");
-				P2pPeerDevDiscoverReqAction(pAd, Elem);
-				break;
-
-			case P2P_DEV_DIS_RSP:
-				MTWF_DBG(pAd, DBG_CAT_PROTO, DBG_SUBCAT_ALL, DBG_LVL_DEBUG, "recv Device Discovery Rsp\n");
-				P2pPeerDeviceDiscRspAction(pAd, Elem);
-				break;
-
-			case P2P_PROVISION_REQ:
-				MTWF_DBG(pAd, DBG_CAT_PROTO, DBG_SUBCAT_ALL, DBG_LVL_DEBUG, "recv Provision Req\n");
-				P2pPeerProvisionReqAction(pAd, Elem);
-				break;
-
-			case P2P_PROVISION_RSP:
-				MTWF_DBG(pAd, DBG_CAT_PROTO, DBG_SUBCAT_ALL, DBG_LVL_DEBUG, "recv Provision Rsp\n");
-				P2pPeerProvisionRspAction(pAd, Elem);
-				break;
-
-			default:
-				pAd->P2pCfg.bPeriodicListen = TRUE;
-				MTWF_DBG(pAd, DBG_CAT_PROTO, DBG_SUBCAT_ALL, DBG_LVL_ERROR, "Unknown Public action frames with Vendor specific OUI = WFAP2P.Subtype = %d\n", Subtype);
-				break;
-			}
-		}
-
-#endif /* P2P_SUPPORT */
 		break;
-#ifdef DOT11Z_TDLS_SUPPORT
+#ifdef FTM_SUPPORT
 
-	case ACTION_TDLS_DISCOVERY_RSP:
-		IF_DEV_CONFIG_OPMODE_ON_STA(pAd) {
-			if (INFRA_ON(pAd))
-				TDLS_DiscoveryRspPublicAction(pAd, Elem, Elem->Msg, Elem->MsgLen);
-		}
+	case ACTION_FTM_REQUEST:
+		ReceiveFTMReq(pAd, Elem);
 		break;
-#endif /* DOT11Z_TDLS_SUPPORT // */
+
+	case ACTION_FTM:
+		ReceiveFTM(pAd, Elem);
+		break;
+#endif /* FTM_SUPPORT */
+
 
 	default:
 		break;
@@ -1313,13 +941,14 @@ static VOID ReservedAction(RTMP_ADAPTER *pAd, MLME_QUEUE_ELEM *Elem)
 		return;
 
 	Category = Elem->Msg[LENGTH_802_11];
-	MTWF_DBG(pAd, DBG_CAT_PROTO, DBG_SUBCAT_ALL, DBG_LVL_INFO, "Rcv reserved category(%d) Action Frame\n", Category);
+	MTWF_LOG(DBG_CAT_PROTO, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("Rcv reserved category(%d) Action Frame\n", Category));
 	hex_dump("Reserved Action Frame", &Elem->Msg[0], Elem->MsgLen);
 }
 
 
 VOID PeerRMAction(RTMP_ADAPTER *pAd, MLME_QUEUE_ELEM *Elem)
 {
+#ifdef CONFIG_AP_SUPPORT
 #ifdef DOT11K_RRM_SUPPORT
 	UCHAR Action = Elem->Msg[LENGTH_802_11 + 1];
 	MAC_TABLE_ENTRY *pEntry = NULL;
@@ -1336,27 +965,19 @@ VOID PeerRMAction(RTMP_ADAPTER *pAd, MLME_QUEUE_ELEM *Elem)
 		return;
 
 	switch (Action) {
-#ifdef CONFIG_AP_SUPPORT
 	case RRM_MEASURE_REP:
-		MTWF_DBG(pAd, DBG_CAT_PROTO, DBG_SUBCAT_ALL, DBG_LVL_INFO,
-			"Get RRM Measure report.\n");
+		MTWF_LOG(DBG_CAT_PROTO, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("%s: Get RRM Measure report.\n",
+				 __func__));
 		RRM_PeerMeasureRepAction(pAd, Elem);
 		break;
 
 	case RRM_NEIGHTBOR_REQ:
 		RRM_PeerNeighborReqAction(pAd, Elem);
 		break;
-#endif /* CONFIG_AP_SUPPORT */
-#ifdef CONFIG_STA_SUPPORT
-	case RRM_MEASURE_REQ:
-		MTWF_DBG(pAd, DBG_CAT_PROTO, DBG_SUBCAT_ALL, DBG_LVL_INFO,
-			"Get RRM Measure request.\n");
-		RRM_PeerMeasureReqAction(pAd, Elem);
-		break;
-#endif /* CONFIG_STA_SUPPORT */
 	}
 
 #endif /* DOT11K_RRM_SUPPORT */
+#endif /* CONFIG_AP_SUPPORT */
 	return;
 }
 
@@ -1365,7 +986,7 @@ VOID PeerRMAction(RTMP_ADAPTER *pAd, MLME_QUEUE_ELEM *Elem)
 
 #ifdef CONFIG_AP_SUPPORT
 #ifdef DOT11N_DRAFT3
-VOID SendNotifyBWActionFrame(RTMP_ADAPTER *pAd, UINT16 Wcid, UCHAR apidx)
+VOID SendNotifyBWActionFrame(RTMP_ADAPTER *pAd, UCHAR Wcid, UCHAR apidx)
 {
 	UCHAR *pOutBuffer = NULL, *pAddr1;
 	NDIS_STATUS NStatus;
@@ -1373,11 +994,10 @@ VOID SendNotifyBWActionFrame(RTMP_ADAPTER *pAd, UINT16 Wcid, UCHAR apidx)
 	ULONG FrameLen;
 	struct wifi_dev *wdev;
 	UCHAR op_ht_bw;
-
 	NStatus = MlmeAllocateMemory(pAd, &pOutBuffer);  /* Get an unused nonpaged memory */
 
 	if (NStatus != NDIS_STATUS_SUCCESS) {
-		MTWF_DBG(pAd, DBG_CAT_PROTO, DBG_SUBCAT_ALL, DBG_LVL_ERROR, "ACT - SendNotifyBWAction() allocate memory failed\n");
+		MTWF_LOG(DBG_CAT_PROTO, DBG_SUBCAT_ALL, DBG_LVL_ERROR, ("ACT - SendNotifyBWAction() allocate memory failed\n"));
 		return;
 	}
 
@@ -1394,7 +1014,7 @@ VOID SendNotifyBWActionFrame(RTMP_ADAPTER *pAd, UINT16 Wcid, UCHAR apidx)
 	FrameLen++;
 	MiniportMMRequest(pAd, QID_AC_BE, pOutBuffer, FrameLen);
 	MlmeFreeMemory(pOutBuffer);
-	MTWF_DBG(pAd, DBG_CAT_PROTO, DBG_SUBCAT_ALL, DBG_LVL_INFO, "ACT - SendNotifyBWAction(NotifyBW= %d)!\n", op_ht_bw);
+	MTWF_LOG(DBG_CAT_PROTO, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("ACT - SendNotifyBWAction(NotifyBW= %d)!\n", op_ht_bw));
 }
 #endif /* DOT11N_DRAFT3 */
 #endif /* CONFIG_AP_SUPPORT */
@@ -1414,21 +1034,7 @@ VOID PeerHTAction(RTMP_ADAPTER *pAd, MLME_QUEUE_ELEM *Elem)
 
 	switch (Action) {
 	case NOTIFY_BW_ACTION:
-		MTWF_DBG(pAd, DBG_CAT_PROTO, DBG_SUBCAT_ALL, DBG_LVL_DEBUG, "ACTION - HT Notify Channel bandwidth action---->\n");
-#ifdef CONFIG_STA_SUPPORT
-		IF_DEV_CONFIG_OPMODE_ON_STA(pAd) {
-			PSTA_ADMIN_CONFIG pStaCfg = GetStaCfgByWdev(pAd, pEntry->wdev);
-
-			if (!pStaCfg || pStaCfg->StaActive.SupportedPhyInfo.bHtEnable == FALSE) {
-				/* Note, this is to patch DIR-1353 AP. When the AP set to Wep, it will use legacy mode. But AP still keeps */
-				/* sending BW_Notify Action frame, and cause us to linkup and linkdown. */
-				/* In legacy mode, don't need to parse HT action frame.*/
-				MTWF_DBG(pAd, DBG_CAT_PROTO, DBG_SUBCAT_ALL, DBG_LVL_INFO, "ACTION -Ignore HT Notify Channel BW when link as legacy mode. BW = %d--->\n",
-						 Elem->Msg[LENGTH_802_11 + 2]);
-				break;
-			}
-		}
-#endif /* CONFIG_STA_SUPPORT */
+		MTWF_LOG(DBG_CAT_PROTO, DBG_SUBCAT_ALL, DBG_LVL_INFO, ("ACTION - HT Notify Channel bandwidth action---->\n"));
 
 		if (Elem->Msg[LENGTH_802_11 + 2] == 0)	/* 7.4.8.2. if value is 1, keep the same as supported channel bandwidth. */
 			pEntry->HTPhyMode.field.BW = HT_BW_20;
@@ -1441,7 +1047,7 @@ VOID PeerHTAction(RTMP_ADAPTER *pAd, MLME_QUEUE_ELEM *Elem)
 
 	case SMPS_ACTION:
 		/* 7.3.1.25*/
-		MTWF_DBG(pAd, DBG_CAT_PROTO, DBG_SUBCAT_ALL, DBG_LVL_INFO, "ACTION - SMPS action---->\n");
+		MTWF_LOG(DBG_CAT_PROTO, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("ACTION - SMPS action---->\n"));
 		oldMmpsMode = pEntry->MmpsMode;
 
 		if (((Elem->Msg[LENGTH_802_11 + 2] & 0x1) == 0))
@@ -1461,13 +1067,10 @@ VOID PeerHTAction(RTMP_ADAPTER *pAd, MLME_QUEUE_ELEM *Elem)
 				AsicSetSMPS(pAd, pEntry->wcid, 0);
 #endif /* MT_MAC */
 			}
-
 #ifdef CONFIG_AP_SUPPORT
 #ifdef RACTRL_FW_OFFLOAD_SUPPORT
-
 			if (cap->fgRateAdaptFWOffload == TRUE) {
 				CMD_STAREC_AUTO_RATE_UPDATE_T rRaParam;
-
 				NdisZeroMemory(&rRaParam, sizeof(CMD_STAREC_AUTO_RATE_UPDATE_T));
 				rRaParam.u4Field = RA_PARAM_MMPS_UPDATE;
 				RAParamUpdate(pAd, pEntry, &rRaParam);
@@ -1478,13 +1081,12 @@ VOID PeerHTAction(RTMP_ADAPTER *pAd, MLME_QUEUE_ELEM *Elem)
 					APMlmeDynamicTxRateSwitching(pAd);
 				}
 			}
-
 #endif /* CONFIG_AP_SUPPORT */
 		}
 
-		MTWF_DBG(pAd, DBG_CAT_PROTO, DBG_SUBCAT_ALL, DBG_LVL_INFO,
-				  "Wcid(%d) MIMO PS = %d, fgRateAdaptFWOffload=%d\n",
-				  Elem->Wcid, pEntry->MmpsMode, cap->fgRateAdaptFWOffload);
+		MTWF_LOG(DBG_CAT_PROTO, DBG_SUBCAT_ALL, DBG_LVL_TRACE,
+			("Wcid(%d) MIMO PS = %d, fgRateAdaptFWOffload=%d\n",
+			Elem->Wcid, pEntry->MmpsMode, cap->fgRateAdaptFWOffload));
 		/* rt2860c : add something for smps change.*/
 		break;
 
@@ -1495,7 +1097,7 @@ VOID PeerHTAction(RTMP_ADAPTER *pAd, MLME_QUEUE_ELEM *Elem)
 		break;
 
 	default:
-		MTWF_DBG(pAd, DBG_CAT_PROTO, DBG_SUBCAT_ALL, DBG_LVL_WARN, "Unknown HT Action:%d\n", Action);
+		MTWF_LOG(DBG_CAT_PROTO, DBG_SUBCAT_ALL, DBG_LVL_WARN, ("%s(): Unknown HT Action:%d\n", __func__, Action));
 		break;
 	}
 }
@@ -1505,11 +1107,6 @@ VOID PeerHTAction(RTMP_ADAPTER *pAd, MLME_QUEUE_ELEM *Elem)
 VOID PeerVHTAction(RTMP_ADAPTER *pAd, MLME_QUEUE_ELEM *Elem)
 {
 	UCHAR Action = Elem->Msg[LENGTH_802_11 + 1];
-#ifdef ZERO_LOSS_CSA_SUPPORT
-	UINT i = 0;
-	INT ZeroLossStaIndex = -1;
-	struct DOT11_H *pDot11h = NULL;
-#endif /*ZERO_LOSS_CSA_SUPPORT*/
 
 	if (!VALID_UCAST_ENTRY_WCID(pAd, Elem->Wcid))
 		return;
@@ -1519,38 +1116,11 @@ VOID PeerVHTAction(RTMP_ADAPTER *pAd, MLME_QUEUE_ELEM *Elem)
 		OPERATING_MODE *op_mode = (OPERATING_MODE *)&Elem->Msg[LENGTH_802_11 + 2];
 		MAC_TABLE_ENTRY *pEntry = &pAd->MacTab.Content[Elem->Wcid];
 		CMD_STAREC_AUTO_RATE_UPDATE_T rRaParam;
-
-		MTWF_DBG(pAd, DBG_CAT_PROTO, DBG_SUBCAT_ALL, DBG_LVL_INFO, "ACTION - Operating Mode Notification action---->\n");
+		MTWF_LOG(DBG_CAT_PROTO, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("ACTION - Operating Mode Notification action---->\n"));
 		hex_dump("OperatingModeNotify", &Elem->Msg[0], Elem->MsgLen);
-		MTWF_DBG(pAd, DBG_CAT_PROTO, DBG_SUBCAT_ALL, DBG_LVL_INFO, "\t RxNssType=%d, RxNss=%d, ChBW=%d\n",
-				 op_mode->rx_nss_type, op_mode->rx_nss, op_mode->ch_width);
-#ifdef ZERO_LOSS_CSA_SUPPORT
-		/*Handle: some sta send VHT action frame after switching channel due to CSA*/
-		if (pAd->Zero_Loss_Enable == 1) {
-			if (pEntry) {
-				for (i = 0; i < 3; i++) {
-					if (pAd->ZeroLossSta[i].wcid == pEntry->wcid) {
-						ZeroLossStaIndex = i;
-						break;
-					}
-				}
-			}
+		MTWF_LOG(DBG_CAT_PROTO, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("\t RxNssType=%d, RxNss=%d, ChBW=%d\n",
+				 op_mode->rx_nss_type, op_mode->rx_nss, op_mode->ch_width));
 
-			pDot11h = (struct DOT11_H *)pEntry->wdev->pDot11_H;
-			if (ZeroLossStaIndex >= 0) {
-				if ((pAd->ZeroLossSta[ZeroLossStaIndex].ChnlSwitchSkipTx)
-					&& (pDot11h->ChnlSwitchState >= ASIC_CHANNEL_SWITCH_COMMAND_ISSUED)) {
-					pAd->ZeroLossSta[ZeroLossStaIndex].ChnlSwitchSkipTx = 0;
-					AsicUpdateSkipTx(pAd, pEntry->wcid, 0); //reset skip tx
-					pAd->ZeroLossSta[ZeroLossStaIndex].resume_time = jiffies_to_msecs(jiffies);
-					pAd->chan_switch_time[15] = jiffies_to_msecs(jiffies);
-					MTWF_DBG(pAd, DBG_CAT_PROTO, DBG_SUBCAT_ALL, DBG_LVL_WARN,
-										"Tx Enabled for wcid %d\n", pEntry->wcid);
-					return;
-				}
-			}
-		}
-#endif /*ZERO_LOSS_CSA_SUPPORT*/
 		if (op_mode->rx_nss_type == 0) {
 			pEntry->force_op_mode = TRUE;
 			NdisMoveMemory(&pEntry->operating_mode, op_mode, 1);
@@ -1564,7 +1134,7 @@ VOID PeerVHTAction(RTMP_ADAPTER *pAd, MLME_QUEUE_ELEM *Elem)
 #ifdef VHT_TXBF_SUPPORT
 
 	case ACT_VHT_COMPRESS_BF: {
-		MTWF_DBG(pAd, DBG_CAT_PROTO, DBG_SUBCAT_ALL, DBG_LVL_INFO, "ACTION - VHT Compressed Beamforming action---->\n");
+		MTWF_LOG(DBG_CAT_PROTO, DBG_SUBCAT_ALL, DBG_LVL_OFF, ("ACTION - VHT Compressed Beamforming action---->\n"));
 		hex_dump("VHT Compressed BF", &Elem->Msg[0], Elem->MsgLen);
 		break;
 	}
@@ -1597,8 +1167,6 @@ VOID ORIBATimerTimeout(RTMP_ADAPTER *pAd)
 	MAC_TABLE_ENTRY *pEntry;
 	INT i, total;
 	UCHAR TID;
-	struct tx_rx_ctl *tr_ctl = &pAd->tr_ctl;
-	struct ba_control *ba_ctl = &tr_ctl->ba_ctl;
 #ifdef CONFIG_ATE
 
 	if (ATE_ON(pAd))
@@ -1608,10 +1176,10 @@ VOID ORIBATimerTimeout(RTMP_ADAPTER *pAd)
 	total = pAd->MacTab.Size * NUM_OF_TID;
 
 	for (i = 1; ((i < MAX_LEN_OF_BA_ORI_TABLE) && (total > 0)); i++) {
-		if  (ba_ctl->BAOriEntry[i].ORI_BA_Status == Originator_Done) {
-			pEntry = &pAd->MacTab.Content[ba_ctl->BAOriEntry[i].Wcid];
-			TID = ba_ctl->BAOriEntry[i].TID;
-			ASSERT(ba_ctl->BAOriEntry[i].Wcid < GET_MAX_UCAST_NUM(pAd));
+		if  (pAd->BATable.BAOriEntry[i].ORI_BA_Status == Originator_Done) {
+			pEntry = &pAd->MacTab.Content[pAd->BATable.BAOriEntry[i].Wcid];
+			TID = pAd->BATable.BAOriEntry[i].TID;
+			ASSERT(pAd->BATable.BAOriEntry[i].Wcid < GET_MAX_UCAST_NUM(pAd));
 		}
 
 		total--;
@@ -1621,69 +1189,51 @@ VOID ORIBATimerTimeout(RTMP_ADAPTER *pAd)
 
 VOID SendRefreshBAR(RTMP_ADAPTER *pAd, MAC_TABLE_ENTRY *pEntry)
 {
-#ifdef VLAN_SUPPORT
-	if (pAd->tr_ctl.vlan2ethctrl == TRUE) {
-		UCHAR i, TID;
-		USHORT idx;
-		BA_ORI_ENTRY *pBAEntry = NULL;
-		struct tx_rx_ctl *tr_ctl = &pAd->tr_ctl;
-		struct ba_control *ba_ctl = &tr_ctl->ba_ctl;
+	FRAME_BAR FrameBar;
+	ULONG FrameLen;
+	NDIS_STATUS NStatus;
+	UCHAR *pOutBuffer = NULL, i, TID;
+	USHORT Sequence, idx;
+	BA_ORI_ENTRY *pBAEntry;
 
-		for (i = 0; i < NUM_OF_TID; i++) {
-			idx = pEntry->BAOriWcidArray[i];
-			if (idx == 0)
-				continue;
+	for (i = 0; i < NUM_OF_TID; i++) {
+		idx = pEntry->BAOriWcidArray[i];
 
-			pBAEntry = &ba_ctl->BAOriEntry[idx];
-			if  (pBAEntry->ORI_BA_Status == Originator_Done) {
-				TID = pBAEntry->TID;
-				ASSERT(pBAEntry->Wcid < GET_MAX_UCAST_NUM(pAd));
-				ba_ori_session_tear_down(pAd, pBAEntry->Wcid, TID, FALSE);
+		if (idx == 0)
+			continue;
+
+		pBAEntry = &pAd->BATable.BAOriEntry[idx];
+
+		if  (pBAEntry->ORI_BA_Status == Originator_Done) {
+			TID = pBAEntry->TID;
+			ASSERT(pBAEntry->Wcid < GET_MAX_UCAST_NUM(pAd));
+			NStatus = MlmeAllocateMemory(pAd, &pOutBuffer);  /*Get an unused nonpaged memory*/
+
+			if (NStatus != NDIS_STATUS_SUCCESS) {
+				MTWF_LOG(DBG_CAT_PROTO, DBG_SUBCAT_ALL, DBG_LVL_ERROR, ("BA - MlmeADDBAAction() allocate memory failed\n"));
+				return;
 			}
-		}
-	} else
-#endif /* VLAN_SUPPORT */
-	{
-		FRAME_BAR FrameBar;
-		ULONG FrameLen;
-		NDIS_STATUS NStatus;
-		UCHAR *pOutBuffer = NULL, i, TID;
-		USHORT Sequence, idx;
-		BA_ORI_ENTRY *pBAEntry;
-		struct tx_rx_ctl *tr_ctl = &pAd->tr_ctl;
-		struct ba_control *ba_ctl = &tr_ctl->ba_ctl;
 
-		for (i = 0; i < NUM_OF_TID; i++) {
-			idx = pEntry->BAOriWcidArray[i];
+			Sequence = AsicGetTidSn(pAd, pEntry->wcid, TID);
+#ifdef APCLI_SUPPORT
+#ifdef MAC_REPEATER_SUPPORT
 
-			if (idx == 0)
-				continue;
-
-			pBAEntry = &ba_ctl->BAOriEntry[idx];
-
-			if  (pBAEntry->ORI_BA_Status == Originator_Done) {
-				TID = pBAEntry->TID;
-				ASSERT(pBAEntry->Wcid < GET_MAX_UCAST_NUM(pAd));
-
-				NStatus = MlmeAllocateMemory(pAd, &pOutBuffer);  /*Get an unused nonpaged memory*/
-
-				if (NStatus != NDIS_STATUS_SUCCESS) {
-					MTWF_DBG(pAd, DBG_CAT_PROTO, DBG_SUBCAT_ALL, DBG_LVL_ERROR, "BA - MlmeADDBAAction() allocate memory failed\n");
-					return;
-				}
-
-				Sequence = chip_get_tid_sn(pAd, pEntry->wcid, TID);
+			if (IS_ENTRY_REPEATER(pEntry) && pEntry->bReptCli)
+				BarHeaderInit(pAd, &FrameBar, pEntry->Addr,
+							  pAd->ApCfg.pRepeaterCliPool[pEntry->MatchReptCliIdx].CurrentAddress);
+			else
+#endif /* MAC_REPEATER_SUPPORT */
+#endif /* APCLI_SUPPORT */
 				BarHeaderInit(pAd, &FrameBar, pEntry->Addr, pEntry->wdev->if_addr);
 
-				FrameBar.StartingSeq.field.FragNum = 0; /* make sure sequence not clear in DEL function.*/
-				FrameBar.StartingSeq.field.StartSeq = Sequence; /* make sure sequence not clear in DEL funciton.*/
-				FrameBar.BarControl.TID = TID; /* make sure sequence not clear in DEL funciton.*/
-				MakeOutgoingFrame(pOutBuffer,		&FrameLen,
-								  sizeof(FRAME_BAR),	&FrameBar,
-								  END_OF_ARGS);
-				MiniportMMRequest(pAd, (MGMT_USE_QUEUE_FLAG | WMM_UP2AC_MAP[TID]), pOutBuffer, FrameLen);
-				MlmeFreeMemory(pOutBuffer);
-			}
+			FrameBar.StartingSeq.field.FragNum = 0; /* make sure sequence not clear in DEL function.*/
+			FrameBar.StartingSeq.field.StartSeq = Sequence; /* make sure sequence not clear in DEL funciton.*/
+			FrameBar.BarControl.TID = TID; /* make sure sequence not clear in DEL funciton.*/
+			MakeOutgoingFrame(pOutBuffer,		&FrameLen,
+							  sizeof(FRAME_BAR),	&FrameBar,
+							  END_OF_ARGS);
+			MiniportMMRequest(pAd, (MGMT_USE_QUEUE_FLAG | WMM_UP2AC_MAP[TID]), pOutBuffer, FrameLen);
+			MlmeFreeMemory(pOutBuffer);
 		}
 	}
 }
@@ -1719,7 +1269,7 @@ VOID BarHeaderInit(
 	pCntlBar->BarControl.MTID = 0;
 	pCntlBar->BarControl.Compressed = 1;
 	pCntlBar->BarControl.ACKPolicy = 0;
-	pCntlBar->Duration = 16 + RTMPCalcDuration(pAd, RATE_1, sizeof(FRAME_BAR));
+	pCntlBar->Duration = 16 + RTMPCalcDuration(pAd, RATE_1, sizeof(FRAME_BA));
 	COPY_MAC_ADDR(pCntlBar->Addr1, pDA);
 	COPY_MAC_ADDR(pCntlBar->Addr2, pSA);
 }
@@ -1747,17 +1297,16 @@ VOID InsertActField(
 	IN UINT8 ActCode)
 {
 	ULONG TempLen;
-
 	MakeOutgoingFrame(pFrameBuf,		&TempLen,
-					  1,				&Category,
-					  1,				&ActCode,
-					  END_OF_ARGS);
+						1,				&Category,
+						1,				&ActCode,
+						END_OF_ARGS);
 	*pFrameLen = *pFrameLen + TempLen;
 	return;
 }
 
 /* Description : Send SMPS Action frame If SMPS mode switches. */
-VOID SendSMPSAction(RTMP_ADAPTER *pAd, UINT16 Wcid, UCHAR smps)
+VOID SendSMPSAction(RTMP_ADAPTER *pAd, UCHAR Wcid, UCHAR smps)
 {
 	struct wifi_dev *wdev;
 	MAC_TABLE_ENTRY *pEntry;
@@ -1765,17 +1314,16 @@ VOID SendSMPSAction(RTMP_ADAPTER *pAd, UINT16 Wcid, UCHAR smps)
 	NDIS_STATUS NStatus;
 	FRAME_SMPS_ACTION Frame;
 	ULONG FrameLen;
-
 	NStatus = MlmeAllocateMemory(pAd, &pOutBuffer);	 /*Get an unused nonpaged memory*/
 
 	if (NStatus != NDIS_STATUS_SUCCESS) {
-		MTWF_DBG(pAd, DBG_CAT_PROTO, CATPROTO_BA, DBG_LVL_ERROR, "BA - MlmeADDBAAction() allocate memory failed\n");
+		MTWF_LOG(DBG_CAT_PROTO, CATPROTO_BA, DBG_LVL_ERROR, ("BA - MlmeADDBAAction() allocate memory failed\n"));
 		return;
 	}
 
 	if (!VALID_UCAST_ENTRY_WCID(pAd, Wcid)) {
 		MlmeFreeMemory(pOutBuffer);
-		MTWF_DBG(pAd, DBG_CAT_PROTO, CATPROTO_BA, DBG_LVL_ERROR, "BA - Invalid WCID(%d)\n",  Wcid);
+		MTWF_LOG(DBG_CAT_PROTO, CATPROTO_BA, DBG_LVL_ERROR, ("BA - Invalid WCID(%d)\n",  Wcid));
 		return;
 	}
 
@@ -1784,10 +1332,22 @@ VOID SendSMPSAction(RTMP_ADAPTER *pAd, UINT16 Wcid, UCHAR smps)
 
 	if (!wdev) {
 		MlmeFreeMemory(pOutBuffer);
-		MTWF_DBG(pAd, DBG_CAT_PROTO, CATPROTO_BA, DBG_LVL_ERROR, "BA - wdev is null\n");
+		MTWF_LOG(DBG_CAT_PROTO, CATPROTO_BA, DBG_LVL_ERROR, ("BA - wdev is null\n"));
 		return;
 	}
 
+#ifdef APCLI_SUPPORT
+
+	if (IS_ENTRY_APCLI(pEntry) || IS_ENTRY_REPEATER(pEntry)) {
+#ifdef MAC_REPEATER_SUPPORT
+
+		if (pEntry->bReptCli)
+			ActHeaderInit(pAd, &Frame.Hdr, pEntry->Addr, pAd->ApCfg.pRepeaterCliPool[pEntry->MatchReptCliIdx].CurrentAddress, wdev->bssid);
+		else
+#endif /* MAC_REPEATER_SUPPORT */
+			ActHeaderInit(pAd, &Frame.Hdr, pEntry->Addr, wdev->if_addr, wdev->bssid);
+	} else
+#endif /* APCLI_SUPPORT */
 		ActHeaderInit(pAd, &Frame.Hdr, pEntry->Addr, wdev->if_addr, wdev->bssid);
 
 	Frame.Category = CATEGORY_HT;
@@ -1812,7 +1372,7 @@ VOID SendSMPSAction(RTMP_ADAPTER *pAd, UINT16 Wcid, UCHAR smps)
 					  END_OF_ARGS);
 	MiniportMMRequest(pAd, QID_AC_BE, pOutBuffer, FrameLen);
 	MlmeFreeMemory(pOutBuffer);
-	MTWF_DBG(pAd, DBG_CAT_PROTO, CATPROTO_BA, DBG_LVL_INFO, "HT - ( %d )\n", Frame.smps);
+	MTWF_LOG(DBG_CAT_PROTO, CATPROTO_BA, DBG_LVL_ERROR, ("HT - %s( %d ) \n", __func__, Frame.smps));
 }
 
 
@@ -1832,7 +1392,7 @@ typedef struct GNU_PACKED _BEACON_REQUEST {
 
 
 #ifdef CONFIG_AP_SUPPORT
-VOID SendBeaconRequest(RTMP_ADAPTER *pAd, UINT16 Wcid)
+VOID SendBeaconRequest(RTMP_ADAPTER *pAd, UCHAR Wcid)
 {
 	UCHAR *pOutBuffer = NULL;
 	NDIS_STATUS NStatus;
@@ -1842,13 +1402,13 @@ VOID SendBeaconRequest(RTMP_ADAPTER *pAd, UINT16 Wcid)
 	MEASUREMENT_REQ MeasureReg;
 	UCHAR apidx;
 
-	if (IS_ENTRY_PEER_AP(&pAd->MacTab.Content[Wcid]) || IS_ENTRY_REPEATER(&pAd->MacTab.Content[Wcid]))
+	if (IS_ENTRY_APCLI(&pAd->MacTab.Content[Wcid]) || IS_ENTRY_REPEATER(&pAd->MacTab.Content[Wcid]))
 		return;
 
 	NStatus = MlmeAllocateMemory(pAd, &pOutBuffer);	 /*Get an unused nonpaged memory*/
 
 	if (NStatus != NDIS_STATUS_SUCCESS) {
-		MTWF_DBG(pAd, DBG_CAT_PROTO, CATPROTO_BA, DBG_LVL_ERROR, "Radio - SendBeaconRequest() allocate memory failed\n");
+		MTWF_LOG(DBG_CAT_PROTO, CATPROTO_BA, DBG_LVL_ERROR, ("Radio - SendBeaconRequest() allocate memory failed\n"));
 		return;
 	}
 
@@ -1880,51 +1440,9 @@ VOID SendBeaconRequest(RTMP_ADAPTER *pAd, UINT16 Wcid)
 					  END_OF_ARGS);
 	MiniportMMRequest(pAd, QID_AC_BE, pOutBuffer, FrameLen);
 	MlmeFreeMemory(pOutBuffer);
-	MTWF_DBG(pAd, DBG_CAT_PROTO, CATPROTO_BA, DBG_LVL_INFO, "Radio - SendBeaconRequest\n");
+	MTWF_LOG(DBG_CAT_PROTO, CATPROTO_BA, DBG_LVL_TRACE, ("Radio - SendBeaconRequest\n"));
 }
 #endif /* CONFIG_AP_SUPPORT */
 
 
-#ifdef DOT11_HE_AX
-void sta_send_event_report(struct _RTMP_ADAPTER *pAd, struct _MLME_QUEUE_ELEM *Elem)
-{
-#ifdef CONFIG_DOT11V_WNM
-	struct _MLME_WNM_EVT_REPORT_STRUCT *report;
-	struct _FRAME_WNM_EVT_REPORT frame;
-	struct wifi_dev *wdev;
-	UCHAR *buffer = NULL;
-	NDIS_STATUS status;
-	ULONG frame_len;
-
-	report = (struct _MLME_WNM_EVT_REPORT_STRUCT *)Elem->Msg;
-	wdev = report->wdev;
-
-	status = MlmeAllocateMemory(pAd, &buffer);
-	if (status != NDIS_STATUS_SUCCESS) {
-		MTWF_DBG(pAd, DBG_CAT_PROTO, CATPROTO_WNM, DBG_LVL_ERROR, "WNM event report allocate memory failed\n");
-		return;
-	}
-
-	os_zero_mem(&frame, sizeof(frame));
-	ActHeaderInit(pAd, &frame.Hdr, wdev->bssid, wdev->if_addr, wdev->bssid);
-	frame.Category = CATEGORY_WNM;
-	frame.Action = EVENT_REPORT;
-	frame.Token = report->diag_token;
-	frame.Element_ID = report->element_id;
-	frame.Length = sizeof(struct _FRAME_WNM_EVT_REPORT) - sizeof(HEADER_802_11) - 5;
-	frame.EvtToken = report->token;
-	frame.EvtType = report->type;
-	frame.EvtStatus = report->status;
-	os_move_mem(&frame.EvtReport, report->report, 8);
-
-	MakeOutgoingFrame(buffer, &frame_len,
-			sizeof(struct _FRAME_WNM_EVT_REPORT), &frame,
-			END_OF_ARGS);
-	MiniportMMRequest(pAd, QID_AC_BE, buffer, frame_len);
-	MlmeFreeMemory(buffer);
-
-	MTWF_DBG(pAd, DBG_CAT_PROTO, CATPROTO_WNM, DBG_LVL_INFO, "WNM event report\n");
-#endif
-}
-#endif
 

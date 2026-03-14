@@ -1,17 +1,13 @@
 /*
- * Copyright (c) [2020], MediaTek Inc. All rights reserved.
- *
- * This software/firmware and related documentation ("MediaTek Software") are
- * protected under relevant copyright laws.
- * The information contained herein is confidential and proprietary to
- * MediaTek Inc. and/or its licensors.
- * Except as otherwise provided in the applicable licensing terms with
- * MediaTek Inc. and/or its licensors, any reproduction, modification, use or
- * disclosure of MediaTek Software, and information contained herein, in whole
- * or in part, shall be strictly prohibited.
-*/
-/*
  ***************************************************************************
+ * MediaTek Inc.
+ *
+ * All rights reserved. source code is an unpublished work and the
+ * use of a copyright notice does not imply otherwise. This source code
+ * contains confidential trade secret material of MediaTek. Any attemp
+ * or participation in deciphering, decoding, reverse engineering or in any
+ * way altering the source code is stricitly prohibited, unless the prior
+ * written consent of MediaTek, Inc. is obtained.
  ***************************************************************************
 
 	Module Name:
@@ -50,16 +46,25 @@ VOID AddBsListEntry(PLIST_HEADER pBsList, PUCHAR pMacAddr);
 VOID DelBsListEntry(PLIST_HEADER pBsList, PUCHAR pMacAddr);
 VOID ClearBsList(PLIST_HEADER pBsList);
 
+
 BOOLEAN BndStrg_CheckConnectionReq(
 	PRTMP_ADAPTER	pAd,
 	struct wifi_dev *wdev,
 	PUCHAR pSrcAddr,
-	MLME_QUEUE_ELEM * Elem,
+	struct raw_rssi_info *rssi_info,
+	ULONG MsgType,
 	PEER_PROBE_REQ_PARAM * ProbeReqParam);
+
+
 
 INT BndStrg_Tb_Enable(PBND_STRG_CLI_TABLE table, BOOLEAN enable, CHAR *IfName);
 INT BndStrg_SetInfFlags(PRTMP_ADAPTER pAd, struct wifi_dev *wdev, PBND_STRG_CLI_TABLE table, BOOLEAN bInfReady);
 INT BndStrg_MsgHandle(PRTMP_ADAPTER pAd, RTMP_IOCTL_INPUT_STRUCT *wrq, INT apidx);
+#ifdef VENDOR_FEATURE5_SUPPORT
+void BndStrg_GetNvram(PRTMP_ADAPTER pAd, RTMP_IOCTL_INPUT_STRUCT *wrq, INT apidx);
+void BndStrg_SetNvram(PRTMP_ADAPTER pAd, RTMP_IOCTL_INPUT_STRUCT *wrq, INT apidx);
+INT Show_BndStrg_NvramTable(PRTMP_ADAPTER pAd, RTMP_STRING *arg);
+#endif /* VENDOR_FEATURE5_SUPPORT */
 INT Set_BndStrg_BssIdx(PRTMP_ADAPTER pAd, RTMP_STRING *arg);
 void BndStrg_UpdateEntry(PRTMP_ADAPTER pAd, MAC_TABLE_ENTRY *pEntry, IE_LISTS *ie_list, BOOLEAN bConnStatus);
 UINT8 GetNssFromHTCapRxMCSBitmask(UINT32 RxMCSBitmask);
@@ -88,6 +93,17 @@ void BndStrg_Send_NeighborReport(PRTMP_ADAPTER pAd, PBND_STRG_CLI_TABLE table);
 
 #define BND_STRG_MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, _Level, _Fmt)
 #endif /* !BND_STRG_DBG */
+
+#ifdef BND_STRG_QA
+#define BND_STRG_PRINTQAMSG(_table, _Addr, _Fmt) \
+{	\
+	if (MAC_ADDR_EQUAL(_table->MonitorAddr, _Addr))	\
+		MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_OFF, _Fmt); \
+}
+#else
+#define BND_STRG_PRINTQAMSG(_Level, _Fmt)
+#endif /* BND_STRG_QA */
+
 #endif /* BAND_STEERING */
 #endif /* _BAND_STEERING_H_ */
 

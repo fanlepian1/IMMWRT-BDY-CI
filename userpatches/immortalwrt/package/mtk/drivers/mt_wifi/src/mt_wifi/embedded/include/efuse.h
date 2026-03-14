@@ -1,17 +1,13 @@
 /*
- * Copyright (c) [2020], MediaTek Inc. All rights reserved.
- *
- * This software/firmware and related documentation ("MediaTek Software") are
- * protected under relevant copyright laws.
- * The information contained herein is confidential and proprietary to
- * MediaTek Inc. and/or its licensors.
- * Except as otherwise provided in the applicable licensing terms with
- * MediaTek Inc. and/or its licensors, any reproduction, modification, use or
- * disclosure of MediaTek Software, and information contained herein, in whole
- * or in part, shall be strictly prohibited.
-*/
-/*
  ***************************************************************************
+ * MediaTek Inc.
+ *
+ * All rights reserved. source code is an unpublished work and the
+ * use of a copyright notice does not imply otherwise. This source code
+ * contains confidential trade secret material of MediaTek. Any attemp
+ * or participation in deciphering, decoding, reverse engineering or in any
+ * way altering the source code is stricitly prohibited, unless the prior
+ * written consent of MediaTek, Inc. is obtained.
  ***************************************************************************
 
 	Module Name:
@@ -35,19 +31,7 @@
 
 #define EFUSE_TAG				0x2fe
 
-#if defined(MT_FMAC)
-#define MT_EEF_BASE 0x70011000
-#define MT_EE_CTRL (MT_EEF_BASE)
-#define MT_EFUSE_CTRL (MT_EEF_BASE + 0x8)
-#define MT_EFUSE_WDATA0 (MT_EEF_BASE + 0x10)
-#define MT_EFUSE_WDATA1 (MT_EEF_BASE + 0x14)
-#define MT_EFUSE_WDATA2 (MT_EEF_BASE + 0x18)
-#define MT_EFUSE_WDATA3 (MT_EEF_BASE + 0x1C)
-#define MT_EFUSE_RDATA0 (MT_EEF_BASE + 0x30)
-#define MT_EFUSE_RDATA1 (MT_EEF_BASE + 0x34)
-#define MT_EFUSE_RDATA2 (MT_EEF_BASE + 0x38)
-#define MT_EFUSE_RDATA3 (MT_EEF_BASE + 0x3C)
-#else
+
 #define MT_EEF_BASE 0x81070000
 #define MT_EE_CTRL (MT_EEF_BASE)
 #define MT_EFUSE_CTRL (MT_EEF_BASE + 0x8)
@@ -59,7 +43,6 @@
 #define MT_EFUSE_RDATA1 (MT_EEF_BASE + 0x34)
 #define MT_EFUSE_RDATA2 (MT_EEF_BASE + 0x38)
 #define MT_EFUSE_RDATA3 (MT_EEF_BASE + 0x3C)
-#endif
 
 #ifdef RT_BIG_ENDIAN
 typedef	union	_EFUSE_CTRL_STRUC {

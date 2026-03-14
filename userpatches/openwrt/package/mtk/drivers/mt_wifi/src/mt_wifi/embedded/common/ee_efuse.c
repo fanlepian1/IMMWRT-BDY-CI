@@ -1,17 +1,18 @@
 /*
- * Copyright (c) [2020], MediaTek Inc. All rights reserved.
- *
- * This software/firmware and related documentation ("MediaTek Software") are
- * protected under relevant copyright laws.
- * The information contained herein is confidential and proprietary to
- * MediaTek Inc. and/or its licensors.
- * Except as otherwise provided in the applicable licensing terms with
- * MediaTek Inc. and/or its licensors, any reproduction, modification, use or
- * disclosure of MediaTek Software, and information contained herein, in whole
- * or in part, shall be strictly prohibited.
-*/
-/*
  ***************************************************************************
+ * Ralink Tech Inc.
+ * 4F, No. 2 Technology 5th Rd.
+ * Science-based Industrial Park
+ * Hsin-chu, Taiwan, R.O.C.
+ *
+ * (c) Copyright 2002-2004, Ralink Technology, Inc.
+ *
+ * All rights reserved. Ralink's source code is an unpublished work and the
+ * use of a copyright notice does not imply otherwise. This source code
+ * contains confidential trade secret material of Ralink Tech. Any attemp
+ * or participation in deciphering, decoding, reverse engineering or in any
+ * way altering the source code is stricitly prohibited, unless the prior
+ * written consent of Ralink Technology, Inc. is obtained.
  ***************************************************************************
 
 	Module Name:
@@ -36,13 +37,39 @@ static VOID eFuseWritePhysical(
 
 static VOID EFUSE_IO_READ32(PRTMP_ADAPTER pAd, UINT32 reg, UINT32 *value)
 {
-	RTMP_IO_READ32(pAd->hdev_ctrl, reg, value);
+#ifdef MT_MAC
+
+	if (IS_HIF_TYPE(pAd, HIF_MT)) {
+#ifdef RTMP_MAC_PCI
+		UINT32 RestoreValue;
+
+		RTMP_IO_READ32(pAd, MCU_PCIE_REMAP_2, &RestoreValue);
+		RTMP_IO_WRITE32(pAd, MCU_PCIE_REMAP_2, MT_EEF_BASE - 0x70000);
+		RTMP_IO_READ32(pAd, 0x80000 + (reg - MT_EEF_BASE) + 0x70000, value);
+		RTMP_IO_WRITE32(pAd, MCU_PCIE_REMAP_2, RestoreValue);
+#endif
+	} else
+#endif /* MT_MAC */
+		RTMP_IO_READ32(pAd, reg, value);
 }
 
 
 static VOID EFUSE_IO_WRITE32(PRTMP_ADAPTER pAd, UINT32 reg, UINT32 value)
 {
-	RTMP_IO_WRITE32(pAd->hdev_ctrl, reg, value);
+#ifdef MT_MAC
+
+	if (IS_HIF_TYPE(pAd, HIF_MT)) {
+#ifdef RTMP_MAC_PCI
+		UINT32 RestoreValue;
+
+		RTMP_IO_READ32(pAd, MCU_PCIE_REMAP_2, &RestoreValue);
+		RTMP_IO_WRITE32(pAd, MCU_PCIE_REMAP_2, MT_EEF_BASE - 0x70000);
+		RTMP_IO_WRITE32(pAd, 0x80000 + (reg - MT_EEF_BASE) + 0x70000, value);
+		RTMP_IO_WRITE32(pAd, MCU_PCIE_REMAP_2, RestoreValue);
+#endif
+	} else
+#endif /* MT_MAC */
+		RTMP_IO_WRITE32(pAd, reg, value);
 }
 
 
@@ -103,11 +130,8 @@ UCHAR eFuseReadRegisters(PRTMP_ADAPTER pAd, UINT16 Offset, UINT16 Length, UINT16
 
 	/*if EFSROM_AOUT is not found in physical address, write 0xffff*/
 	if (eFuseCtrlStruc.field.EFSROM_AOUT == 0x3f) {
-		if (pData) {
-			for (i = 0; i < Length / 2; i++) {
-				*(pData + 2 * i) = 0x0;
-			}
-		}
+		*pData = 0x0;
+
 		return 0x3f;
 	} else {
 #ifdef MT_MAC
@@ -144,8 +168,7 @@ UCHAR eFuseReadRegisters(PRTMP_ADAPTER pAd, UINT16 Offset, UINT16 Length, UINT16
 #else
 		data = data >> (8 * (Offset & 0x3));
 #endif /* RT_BIG_ENDIAN */
-		if (pData)
-			NdisMoveMemory(pData, &data, Length);
+		NdisMoveMemory(pData, &data, Length);
 	}
 
 	return eFuseCtrlStruc.field.EFSROM_AOUT;
@@ -194,19 +217,24 @@ VOID EfusePhysicalReadRegisters(PRTMP_ADAPTER pAd, UINT16 Offset,
 		Index++;
 	}
 
-	MTWF_DBG(pAd, DBG_CAT_HW, DBG_SUBCAT_ALL, DBG_LVL_DEBUG, "EfuseCtrlStruc.field.EFSROM_AOUT = %x\n", EfuseCtrlStruc.field.EFSROM_AOUT);
-	MTWF_DBG(pAd, DBG_CAT_HW, DBG_SUBCAT_ALL, DBG_LVL_DEBUG, "EfuseCtrlStruc.field.EFSROM_DOUT_VLD = %x\n", EfuseCtrlStruc.field.EFSROM_DOUT_VLD);
+	MTWF_LOG(DBG_CAT_HW, DBG_SUBCAT_ALL, DBG_LVL_INFO, ("EfuseCtrlStruc.field.EFSROM_AOUT = %x\n", EfuseCtrlStruc.field.EFSROM_AOUT));
+	MTWF_LOG(DBG_CAT_HW, DBG_SUBCAT_ALL, DBG_LVL_INFO, ("EfuseCtrlStruc.field.EFSROM_DOUT_VLD = %x\n", EfuseCtrlStruc.field.EFSROM_DOUT_VLD));
 
+	/*if EFSROM_AOUT is not found in physical address, write 0xffff*/
+	if (EfuseCtrlStruc.field.EFSROM_AOUT == 0x3f) {
+		*pData = 0xffff;
 
-	if (IS_HIF_TYPE(pAd, HIF_MT)) {
-		if (!EfuseCtrlStruc.field.EFSROM_DOUT_VLD) {
-			for (Index = 0; Index < Length / 2; Index++)
-				*(pData + 2 * Index) = 0xffff;
+		MTWF_LOG(DBG_CAT_HW, DBG_SUBCAT_ALL, DBG_LVL_ERROR, ("EfuseCtrlStruc.field.EFSROM_AOUT = %x\n", EfuseCtrlStruc.field.EFSROM_AOUT));
+		return;
+	} else {
+		if (IS_HIF_TYPE(pAd, HIF_MT)) {
+			if (!EfuseCtrlStruc.field.EFSROM_DOUT_VLD) {
+				for (Index = 0; Index < Length / 2; Index++)
+					*(pData + 2 * Index) = 0xffff;
 
-			MTWF_DBG(pAd, DBG_CAT_HW, DBG_SUBCAT_ALL, DBG_LVL_INFO,
-			"EfuseCtrlStruc.field.EFSROM_DOUT_VLD = %x\n",
-			EfuseCtrlStruc.field.EFSROM_DOUT_VLD);
-			return;
+				MTWF_LOG(DBG_CAT_HW, DBG_SUBCAT_ALL, DBG_LVL_OFF, ("EfuseCtrlStruc.field.EFSROM_DOUT_VLD = %x\n", EfuseCtrlStruc.field.EFSROM_DOUT_VLD));
+				return;
+			}
 		}
 	}
 
@@ -320,7 +348,7 @@ static VOID eFusePhysicalWriteRegisters(
 	int	i;
 	UINT32	efuseDataOffset;
 	UINT32 efuse_rdata = EFUSE_DATA3, efuse_wdata = EFUSE_DATA3;
-	UINT32	data, eFuseDataBuffer[4] = {0};
+	UINT32	data, eFuseDataBuffer[4];
 	UINT32 efuse_ctrl_reg = EFUSE_CTRL;
 #ifdef MT_MAC
 
@@ -440,14 +468,15 @@ static NTSTATUS eFuseWriteRegisters(
 	IN	USHORT *pData)
 {
 	USHORT	i, Loop = 0, StartBlock = 0, EndBlock = 0;
-	USHORT	LogicalAddress[1] = {0}, BlkNum = 0xffff;
+	USHORT	eFuseData;
+	USHORT	LogicalAddress, BlkNum = 0xffff;
 	UCHAR	EFSROM_AOUT;
 	USHORT addr, tmpaddr, InBuf[3], tmpOffset;
 	USHORT buffer[8];
 	BOOLEAN		bWriteSuccess = TRUE;
 	struct _RTMP_CHIP_CAP *cap = hc_get_chip_cap(pAd->hdev_ctrl);
 
-	MTWF_DBG(pAd, DBG_CAT_HW, DBG_SUBCAT_ALL, DBG_LVL_INFO, "eFuseWriteRegisters Offset=%x, pData=%x\n", Offset, *pData);
+	MTWF_LOG(DBG_CAT_HW, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("eFuseWriteRegisters Offset=%x, pData=%x\n", Offset, *pData));
 
 	/*set start block and end block number, start from tail of mapping table*/
 	if ((cap->EFUSE_USAGE_MAP_END % 2) != 0)
@@ -464,7 +493,7 @@ static NTSTATUS eFuseWriteRegisters(
 	/*The address of EEPROM is 2-bytes alignment.*/
 	/*The last bit is used for alignment, so it must be 0.*/
 	tmpOffset = Offset & 0xfffe;
-	EFSROM_AOUT = eFuseReadRegisters(pAd, tmpOffset, 2, NULL);
+	EFSROM_AOUT = eFuseReadRegisters(pAd, tmpOffset, 2, &eFuseData);
 
 	if (EFSROM_AOUT == 0x3f) {
 		/*find available logical address pointer	*/
@@ -474,14 +503,14 @@ static NTSTATUS eFuseWriteRegisters(
 		for (i = StartBlock; i >= EndBlock; i -= 2) {
 			/*Retrive the logical block nubmer form each logical address pointer*/
 			/*It will access two logical address pointer each time.*/
-			EfusePhysicalReadRegisters(pAd, i, 2, &LogicalAddress[0]);
+			EfusePhysicalReadRegisters(pAd, i, 2, &LogicalAddress);
 
 			/*To avoid the odd byte problem, ex. We read the 21|20 bytes and if 21 is the */
 			/* end byte. Then, the EFUSE_USAGE_MAP_END which is 21 is not equal to*/
 			/* i which is 20. Therefore, this 21th byte could be used.*/
 			/*Otherwise, if 20 is the stop byte, i which is 20 is equal EFUSE_USAGE_MAP_END.*/
 			/* It means the 21th byte could not be used.*/
-			if (((LogicalAddress[0] >> 8) & 0xff) == 0) {
+			if (((LogicalAddress >> 8) & 0xff) == 0) {
 				/*Not used logical address pointer*/
 				if (i != cap->EFUSE_USAGE_MAP_END) {
 					BlkNum = i - cap->EFUSE_USAGE_MAP_START + 1;
@@ -489,7 +518,7 @@ static NTSTATUS eFuseWriteRegisters(
 				}
 			}
 
-			if ((LogicalAddress[0] & 0xff) == 0) {
+			if ((LogicalAddress & 0xff) == 0) {
 				/*Not used logical address pointer*/
 				if (i != (cap->EFUSE_USAGE_MAP_START - 1)) {
 					BlkNum = i - cap->EFUSE_USAGE_MAP_START;
@@ -500,10 +529,10 @@ static NTSTATUS eFuseWriteRegisters(
 	} else
 		BlkNum = EFSROM_AOUT;
 
-	MTWF_DBG(pAd, DBG_CAT_HW, DBG_SUBCAT_ALL, DBG_LVL_INFO, "eFuseWriteRegisters BlkNum = %d\n", BlkNum);
+	MTWF_LOG(DBG_CAT_HW, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("eFuseWriteRegisters BlkNum = %d\n", BlkNum));
 
 	if (BlkNum == 0xffff) {
-		MTWF_DBG(pAd, DBG_CAT_HW, DBG_SUBCAT_ALL, DBG_LVL_INFO, "eFuseWriteRegisters: out of free E-fuse space!!!\n");
+		MTWF_LOG(DBG_CAT_HW, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("eFuseWriteRegisters: out of free E-fuse space!!!\n"));
 		return FALSE;
 	}
 
@@ -581,23 +610,23 @@ static NTSTATUS eFuseWriteRegisters(
 
 		/*Step 6. invlidate mapping entry and find a free mapping entry if not succeed*/
 		if (!bWriteSuccess) {
-			MTWF_DBG(pAd, DBG_CAT_HW, DBG_SUBCAT_ALL, DBG_LVL_INFO, "Not bWriteSuccess BlkNum = %d\n", BlkNum);
+			MTWF_LOG(DBG_CAT_HW, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("Not bWriteSuccess BlkNum = %d\n", BlkNum));
 			/* the offset of current mapping entry*/
 			addr = cap->EFUSE_USAGE_MAP_START + BlkNum;
 			/*find a new mapping entry*/
 			BlkNum = 0xffff;
 
 			for (i = StartBlock; i >= EndBlock; i -= 2) {
-				EfusePhysicalReadRegisters(pAd, i, 2, &LogicalAddress[0]);
+				EfusePhysicalReadRegisters(pAd, i, 2, &LogicalAddress);
 
-				if (((LogicalAddress[0] >> 8) & 0xff) == 0) {
+				if (((LogicalAddress >> 8) & 0xff) == 0) {
 					if (i != cap->EFUSE_USAGE_MAP_END) {
 						BlkNum = i + 1 - cap->EFUSE_USAGE_MAP_START;
 						break;
 					}
 				}
 
-				if ((LogicalAddress[0] & 0xff) == 0) {
+				if ((LogicalAddress & 0xff) == 0) {
 					if (i != (cap->EFUSE_USAGE_MAP_START - 1)) {
 						BlkNum = i - cap->EFUSE_USAGE_MAP_START;
 						break;
@@ -605,10 +634,10 @@ static NTSTATUS eFuseWriteRegisters(
 				}
 			}
 
-			MTWF_DBG(pAd, DBG_CAT_HW, DBG_SUBCAT_ALL, DBG_LVL_INFO, "Not bWriteSuccess and allocate new BlkNum = %d\n", BlkNum);
+			MTWF_LOG(DBG_CAT_HW, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("Not bWriteSuccess and allocate new BlkNum = %d\n", BlkNum));
 
 			if (BlkNum == 0xffff) {
-				MTWF_DBG(pAd, DBG_CAT_HW, DBG_SUBCAT_ALL, DBG_LVL_INFO, "eFuseWriteRegisters: out of free E-fuse space!!!\n");
+				MTWF_LOG(DBG_CAT_HW, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("eFuseWriteRegisters: out of free E-fuse space!!!\n"));
 				return FALSE;
 			}
 
@@ -646,7 +675,7 @@ static NTSTATUS eFuseWriteRegisters(
 	} while (!bWriteSuccess && Loop < 2);
 
 	if (!bWriteSuccess)
-		MTWF_DBG(pAd, DBG_CAT_HW, DBG_SUBCAT_ALL, DBG_LVL_ERROR, "Efsue Write Failed!!\n");
+		MTWF_LOG(DBG_CAT_HW, DBG_SUBCAT_ALL, DBG_LVL_ERROR, ("Efsue Write Failed!!\n"));
 
 	return TRUE;
 }
@@ -680,7 +709,7 @@ static VOID eFuseWritePhysical(
 	USHORT Length = pInBuf[1];					/* length*/
 	USHORT *pValueX = &pInBuf[2];				/* value ...		*/
 
-	MTWF_DBG(pAd, DBG_CAT_HW, DBG_SUBCAT_ALL, DBG_LVL_DEBUG, "eFuseWritePhysical Offset=0x%x, length=%d\n", Offset, Length);
+	MTWF_LOG(DBG_CAT_HW, DBG_SUBCAT_ALL, DBG_LVL_INFO, ("eFuseWritePhysical Offset=0x%x, length=%d\n", Offset, Length));
 
 	/* Little-endian		S	|	S	Big-endian*/
 	/* addr	3	2	1	0	|	0	1	2	3*/
@@ -772,8 +801,7 @@ INT set_eFuseGetFreeBlockCount_Proc(RTMP_ADAPTER *pAd, RTMP_STRING *arg)
 		return FALSE;
 
 	eFuseGetFreeBlockCount(pAd, &free_num);
-
-	MTWF_DBG(pAd, DBG_CAT_HW, DBG_SUBCAT_ALL, DBG_LVL_INFO, "efuseFreeNumber = %d\n", free_num);
+	MTWF_LOG(DBG_CAT_HW, DBG_SUBCAT_ALL, DBG_LVL_OFF, ("efuseFreeNumber = %d\n", free_num));
 	return TRUE;
 }
 
@@ -794,9 +822,9 @@ INT set_eFusedump_Proc(RTMP_ADAPTER *pAd, RTMP_STRING *arg)
 		eFuseReadPhysical(pAd, &InBuf[0], 4, &InBuf[2], 2);
 
 		if (i % 4 == 0)
-			MTWF_DBG(pAd, DBG_CAT_HW, DBG_SUBCAT_ALL, DBG_LVL_INFO, "\nBlock %x:", i / 8);
+			MTWF_LOG(DBG_CAT_HW, DBG_SUBCAT_ALL, DBG_LVL_OFF, ("\nBlock %x:", i / 8));
 
-		MTWF_DBG(pAd, DBG_CAT_HW, DBG_SUBCAT_ALL, DBG_LVL_INFO, "%04x ", InBuf[2]);
+		MTWF_LOG(DBG_CAT_HW, DBG_SUBCAT_ALL, DBG_LVL_OFF, ("%04x ", InBuf[2]));
 	}
 
 	return TRUE;
@@ -836,12 +864,12 @@ INT	set_eFuseLoadFromBin_Proc(RTMP_ADAPTER *pAd, RTMP_STRING *arg)
 	else
 		NdisMoveMemory(src, EEPROM_DEFULT_BIN_FILE, strlen(EEPROM_DEFULT_BIN_FILE));
 
-	MTWF_DBG(pAd, DBG_CAT_HW, DBG_SUBCAT_ALL, DBG_LVL_INFO, "FileName=%s\n", src);
+	MTWF_LOG(DBG_CAT_HW, DBG_SUBCAT_ALL, DBG_LVL_OFF, ("FileName=%s\n", src));
 	RtmpOSFSInfoChange(&osfsInfo, TRUE);
 	srcf = RtmpOSFileOpen(src, O_RDONLY, 0);
 
 	if (IS_FILE_OPEN_ERR(srcf)) {
-		MTWF_DBG(pAd, DBG_CAT_HW, DBG_SUBCAT_ALL, DBG_LVL_ERROR, "--> Error opening file %s\n", src);
+		MTWF_LOG(DBG_CAT_HW, DBG_SUBCAT_ALL, DBG_LVL_ERROR, ("--> Error opening file %s\n", src));
 		retval = FALSE;
 		goto recoverFS;
 	} else {
@@ -850,7 +878,7 @@ INT	set_eFuseLoadFromBin_Proc(RTMP_ADAPTER *pAd, RTMP_STRING *arg)
 			TotalByte++;
 
 			if (TotalByte > MAX_EEPROM_BIN_FILE_SIZE) {
-				MTWF_DBG(pAd, DBG_CAT_HW, DBG_SUBCAT_ALL, DBG_LVL_ERROR, "--> Error reading file %s, file size too large[>%d]\n", src, MAX_EEPROM_BIN_FILE_SIZE);
+				MTWF_LOG(DBG_CAT_HW, DBG_SUBCAT_ALL, DBG_LVL_ERROR, ("--> Error reading file %s, file size too large[>%d]\n", src, MAX_EEPROM_BIN_FILE_SIZE));
 				retval = FALSE;
 				goto closeFile;
 			}
@@ -859,29 +887,26 @@ INT	set_eFuseLoadFromBin_Proc(RTMP_ADAPTER *pAd, RTMP_STRING *arg)
 		retval = RtmpOSFileClose(srcf);
 
 		if (retval)
-			MTWF_DBG(pAd, DBG_CAT_HW, DBG_SUBCAT_ALL, DBG_LVL_INFO, "--> Error closing file %s\n", src);
+			MTWF_LOG(DBG_CAT_HW, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("--> Error closing file %s\n", src));
 	}
 
 	RtmpOSFSInfoChange(&osfsInfo, FALSE);
 
 	for (offset = 0; offset < TotalByte; offset += 16) {
 		if (memcmp(ptr, all_ff, 16)) {
-			MTWF_DBG(pAd, DBG_CAT_HW, DBG_SUBCAT_ALL, DBG_LVL_INFO, "offset 0x%04x: ", offset);
+			MTWF_LOG(DBG_CAT_HW, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("offset 0x%04x: ", offset));
 
 			for (index = 0; index < 16; index += 2) {
 				value = *(USHORT *)(ptr + index);
 				/* eFuseWrite(pAd, offset + index ,&value, 2); */
-				MTWF_DBG(pAd, DBG_CAT_HW, DBG_SUBCAT_ALL, DBG_LVL_INFO, "0x%04x ", value);
+				MTWF_LOG(DBG_CAT_HW, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("0x%04x ", value));
 			}
 
-			MTWF_DBG(pAd, DBG_CAT_HW, DBG_SUBCAT_ALL, DBG_LVL_INFO, "\n");
+			MTWF_LOG(DBG_CAT_HW, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("\n"));
 		}
 
 		ptr += 16;
 	}
-
-	if (memPtr)
-		os_free_mem(memPtr);
 
 	return TRUE;
 closeFile:
@@ -901,7 +926,7 @@ recoverFS:
 }
 
 
-BOOLEAN rtmp_ee_efuse_read16(RTMP_ADAPTER *pAd, UINT32 Offset, UINT16 *pValue)
+BOOLEAN rtmp_ee_efuse_read16(RTMP_ADAPTER *pAd, UINT16 Offset, UINT16 *pValue)
 {
 	UCHAR block[EFUSE_BLOCK_SIZE] = "";
 	UINT isVaild = 0;
@@ -914,9 +939,9 @@ BOOLEAN rtmp_ee_efuse_read16(RTMP_ADAPTER *pAd, UINT32 Offset, UINT16 *pValue)
 		*pValue = (block[index] | (block[index + 1] << 8));
 
 	if (isVaild) {
-		MTWF_DBG(pAd, DBG_CAT_HW, DBG_SUBCAT_ALL, DBG_LVL_DEBUG,
-				 "Not found valid block for this offset (%x)\n",
-				  Offset);
+		MTWF_LOG(DBG_CAT_HW, DBG_SUBCAT_ALL, DBG_LVL_INFO,
+				 ("%s:  Not found valid block for this offset (%x)\n",
+				  __func__, Offset));
 		return FALSE;
 	} else
 		return TRUE;
@@ -924,7 +949,7 @@ BOOLEAN rtmp_ee_efuse_read16(RTMP_ADAPTER *pAd, UINT32 Offset, UINT16 *pValue)
 
 int rtmp_ee_efuse_write16(
 	IN RTMP_ADAPTER *pAd,
-	IN UINT32 Offset,
+	IN USHORT Offset,
 	IN USHORT data)
 {
 	UCHAR block[EFUSE_BLOCK_SIZE] = "";
@@ -955,6 +980,7 @@ INT rtmp_ee_write_to_efuse(
 	UCHAR	*buffer = NULL;
 	struct _RTMP_CHIP_OP *ops = hc_get_chip_ops(pAd->hdev_ctrl);
 
+#ifdef RF_LOCKDOWN
 	BOOL RFlockDown = FALSE;
 
 	/* Check RF lock down flag in Effuse column */
@@ -965,11 +991,13 @@ INT rtmp_ee_write_to_efuse(
 	if (RFlockDown)
 		return TRUE;
 
+#endif /* RF_LOCKDOWN */
+
 	if (ops->keep_efuse_field_only) {
 		os_alloc_mem(pAd, (UCHAR **)&buffer, length);
 		if (buffer == NULL) {
-			MTWF_DBG(pAd, DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-				"os_alloc_mem fail\n");
+			MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
+				("%s: os_alloc_mem fail\n", __func__));
 			return FALSE;
 		}
 
@@ -981,29 +1009,29 @@ INT rtmp_ee_write_to_efuse(
 
 	for (offset = 0; offset < length; offset += EFUSE_BLOCK_SIZE) {
 		if (memcmp(ptr, all_ff, EFUSE_BLOCK_SIZE)) {
-			MTWF_DBG(pAd, DBG_CAT_HW, DBG_SUBCAT_ALL, DBG_LVL_INFO, "offset 0x%04x:\n", offset);
-			NeedWrite = FALSE;
+			MTWF_LOG(DBG_CAT_HW, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("offset 0x%04x:\n", offset));
+			NeedWrite = false;
 			MtCmdEfuseAccessRead(pAd, offset, &block[0], &isVaild);
 
 			for (index = 0; index < EFUSE_BLOCK_SIZE; index++) {
 				if (block[index] != ptr[index])
-					NeedWrite = TRUE;
+					NeedWrite = true;
 				else
 					continue;
 
-				MTWF_DBG(pAd, DBG_CAT_HW, DBG_SUBCAT_ALL, DBG_LVL_DEBUG, "index 0x%04x: ", index);
-				MTWF_DBG(pAd, DBG_CAT_HW, DBG_SUBCAT_ALL, DBG_LVL_DEBUG,
-						 "orignal block value=0x%04x, write value=0x%04x\n", block[index], ptr[index]);
+				MTWF_LOG(DBG_CAT_HW, DBG_SUBCAT_ALL, DBG_LVL_INFO, ("index 0x%04x: ", index));
+				MTWF_LOG(DBG_CAT_HW, DBG_SUBCAT_ALL, DBG_LVL_INFO,
+						 ("orignal block value=0x%04x, write value=0x%04x\n", block[index], ptr[index]));
 				block[index] = ptr[index];
 			}
 
 			if (NeedWrite) {
-				MTWF_DBG(pAd, DBG_CAT_HW, DBG_SUBCAT_ALL, DBG_LVL_INFO, "write block content: ");
+				MTWF_LOG(DBG_CAT_HW, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("write block content: "));
 
 				for (i = 0; i < EFUSE_BLOCK_SIZE; i++)
-					MTWF_DBG(pAd, DBG_CAT_HW, DBG_SUBCAT_ALL, DBG_LVL_INFO, "%x ", (UINT)block[i]);
+					MTWF_LOG(DBG_CAT_HW, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("%x ", (UINT)block[i]));
 
-				MTWF_DBG(pAd, DBG_CAT_HW, DBG_SUBCAT_ALL, DBG_LVL_INFO, "\n");
+				MTWF_LOG(DBG_CAT_HW, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("\n"));
 				MtCmdEfuseAccessWrite(pAd, offset, &block[0]);
 			}
 		}
@@ -1021,125 +1049,131 @@ INT rtmp_ee_write_to_efuse(
 VOID eFuseGetFreeBlockCount(IN PRTMP_ADAPTER pAd,
 							PUINT EfuseFreeBlock)
 {
-	struct _RTMP_CHIP_OP *ops = hc_get_chip_ops(pAd->hdev_ctrl);
+	USHORT i = 0, StartBlock = 0, EndBlock = 0;
+	USHORT	LogicalAddress;
+	USHORT	FirstFreeBlock = 0xffff, LastFreeBlock = 0xffff;
+	struct _RTMP_CHIP_CAP *cap = hc_get_chip_cap(pAd->hdev_ctrl);
 #ifndef CAL_FREE_IC_SUPPORT
 
 	if (!pAd->bUseEfuse) {
-		MTWF_DBG(pAd, DBG_CAT_HW, DBG_SUBCAT_ALL, DBG_LVL_INFO, "eFuseGetFreeBlockCount Only supports efuse Mode\n");
+		MTWF_LOG(DBG_CAT_HW, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("eFuseGetFreeBlockCount Only supports efuse Mode\n"));
 		return;
 	}
 
 #endif /* CAL_FREE_IC_SUPPORT */
 	*EfuseFreeBlock = 0;
 
-	if (ops->get_efuse_free_blk_bnum) {
-		/* blk section = 0x0 implies checking D-Die part */
-		*EfuseFreeBlock = ops->get_efuse_free_blk_bnum(pAd, 0x0);;
-	} else {
-		USHORT i = 0, StartBlock = 0, EndBlock = 0;
-		USHORT	LogicalAddress[1] = {0};
-		USHORT	FirstFreeBlock = 0xffff, LastFreeBlock = 0xffff;
-		struct _RTMP_CHIP_CAP *cap = hc_get_chip_cap(pAd->hdev_ctrl);
+	/* find first free block*/
+	if ((cap->EFUSE_USAGE_MAP_START % 2) != 0)
+		StartBlock = cap->EFUSE_USAGE_MAP_START - 1;
+	else
+		StartBlock = cap->EFUSE_USAGE_MAP_START;
 
-		/* find first free block*/
-		if ((cap->EFUSE_USAGE_MAP_START % 2) != 0)
-			StartBlock = cap->EFUSE_USAGE_MAP_START - 1;
-		else
-			StartBlock = cap->EFUSE_USAGE_MAP_START;
+	if ((cap->EFUSE_USAGE_MAP_END % 2) != 0)
+		EndBlock = cap->EFUSE_USAGE_MAP_END - 1;
+	else
+		EndBlock = cap->EFUSE_USAGE_MAP_END;
 
-		if ((cap->EFUSE_USAGE_MAP_END % 2) != 0)
-			EndBlock = cap->EFUSE_USAGE_MAP_END - 1;
-		else
-			EndBlock = cap->EFUSE_USAGE_MAP_END;
+	for (i = StartBlock; i <= EndBlock; i += 2) {
+		EfusePhysicalReadRegisters(pAd, i, 2, &LogicalAddress);
 
-		for (i = StartBlock; i <= EndBlock; i += 2) {
-			EfusePhysicalReadRegisters(pAd, i, 2, &LogicalAddress[0]);
-
-			if ((LogicalAddress[0] & 0xff) == 0) {
-				if (i != (cap->EFUSE_USAGE_MAP_START - 1)) {
-					FirstFreeBlock = i;
-					break;
-				}
-			}
-
-			if (((LogicalAddress[0] >> 8) & 0xff) == 0) {
-				if (i != cap->EFUSE_USAGE_MAP_END) {
-					FirstFreeBlock = i + 1;
-					break;
-				}
+		if ((LogicalAddress & 0xff) == 0) {
+			if (i != (cap->EFUSE_USAGE_MAP_START - 1)) {
+				FirstFreeBlock = i;
+				break;
 			}
 		}
 
-		MTWF_DBG(pAd, DBG_CAT_HW, DBG_SUBCAT_ALL, DBG_LVL_INFO, "eFuseGetFreeBlockCount, FirstFreeBlock= 0x%x\n", FirstFreeBlock);
-
-		/*if not find, return free block number = 0*/
-		if (FirstFreeBlock == 0xffff) {
-			*EfuseFreeBlock = 0;
-			return;
-		}
-
-
-		for (i = EndBlock; i >= StartBlock; i -= 2) {
-			EfusePhysicalReadRegisters(pAd, i, 2, &LogicalAddress[0]);
-
-			if (((LogicalAddress[0] >> 8) & 0xff) == 0) {
-				if (i != cap->EFUSE_USAGE_MAP_END) {
-					LastFreeBlock = i + 1;
-					break;
-				}
-			}
-
-			if ((LogicalAddress[0] & 0xff) == 0) {
-				if (i != (cap->EFUSE_USAGE_MAP_START - 1)) {
-					LastFreeBlock = i;
-					break;
-				}
+		if (((LogicalAddress >> 8) & 0xff) == 0) {
+			if (i != cap->EFUSE_USAGE_MAP_END) {
+				FirstFreeBlock = i + 1;
+				break;
 			}
 		}
-
-		MTWF_DBG(pAd, DBG_CAT_HW, DBG_SUBCAT_ALL, DBG_LVL_INFO, "eFuseGetFreeBlockCount, LastFreeBlock= 0x%x\n", LastFreeBlock);
-
-		/*if not find last free block, return free block number = 0, this should not happen since we have checked first free block number previously*/
-		if (LastFreeBlock == 0xffff) {
-			*EfuseFreeBlock = 0;
-			return;
-		}
-
-		/* return total free block number, last free block number must >= first free block number*/
-		if (LastFreeBlock < FirstFreeBlock)
-			*EfuseFreeBlock = 0;
-		else
-			*EfuseFreeBlock = LastFreeBlock - FirstFreeBlock + 1;
 	}
 
-	MTWF_DBG(pAd, DBG_CAT_HW, DBG_SUBCAT_ALL, DBG_LVL_INFO, "eFuseGetFreeBlockCount is %d\n", *EfuseFreeBlock);
+	MTWF_LOG(DBG_CAT_HW, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("eFuseGetFreeBlockCount, FirstFreeBlock= 0x%x\n", FirstFreeBlock));
+
+	/*if not find, return free block number = 0*/
+	if (FirstFreeBlock == 0xffff) {
+		*EfuseFreeBlock = 0;
+		return;
+	}
+
+
+	for (i = EndBlock; i >= StartBlock; i -= 2) {
+		EfusePhysicalReadRegisters(pAd, i, 2, &LogicalAddress);
+
+		if (((LogicalAddress >> 8) & 0xff) == 0) {
+			if (i != cap->EFUSE_USAGE_MAP_END) {
+				LastFreeBlock = i + 1;
+				break;
+			}
+		}
+
+		if ((LogicalAddress & 0xff) == 0) {
+			if (i != (cap->EFUSE_USAGE_MAP_START - 1)) {
+				LastFreeBlock = i;
+				break;
+			}
+		}
+	}
+
+	MTWF_LOG(DBG_CAT_HW, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("eFuseGetFreeBlockCount, LastFreeBlock= 0x%x\n", LastFreeBlock));
+
+	/*if not find last free block, return free block number = 0, this should not happen since we have checked first free block number previously*/
+	if (LastFreeBlock == 0xffff) {
+		*EfuseFreeBlock = 0;
+		return;
+	}
+
+	/* return total free block number, last free block number must >= first free block number*/
+	if (LastFreeBlock < FirstFreeBlock)
+		*EfuseFreeBlock = 0;
+	else
+		*EfuseFreeBlock = LastFreeBlock - FirstFreeBlock + 1;
+
+	MTWF_LOG(DBG_CAT_HW, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("eFuseGetFreeBlockCount is %d\n", *EfuseFreeBlock));
 }
 
 
 INT eFuse_init(RTMP_ADAPTER *pAd)
 {
 	UINT EfuseFreeBlock = 0;
+#ifdef CAL_FREE_IC_SUPPORT
+	BOOLEAN bCalFree = 0;
+#endif
 	struct _RTMP_CHIP_CAP *cap = hc_get_chip_cap(pAd->hdev_ctrl);
 	/*RT3572 means 3062/3562/3572*/
 	/*3593 means 3593*/
-	MTWF_DBG(pAd,DBG_CAT_HW, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-			 "NVM is Efuse and its size =%x[%x-%x]\n",
+	MTWF_LOG(DBG_CAT_HW, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
+			 ("NVM is Efuse and its size =%x[%x-%x]\n",
 			  cap->EFUSE_USAGE_MAP_SIZE,
-			  cap->EFUSE_USAGE_MAP_START, cap->EFUSE_USAGE_MAP_END);
+			  cap->EFUSE_USAGE_MAP_START, cap->EFUSE_USAGE_MAP_END));
 	eFuseGetFreeBlockCount(pAd, &EfuseFreeBlock);
 	/*If the used block of efuse is less than 5. We assume the default value*/
 	/* of this efuse is empty and change to the buffer mode in odrder to */
 	/*bring up interfaces successfully.*/
 
 	if (EfuseFreeBlock >= cap->EFUSE_RESERVED_SIZE) {
-		MTWF_DBG(pAd, DBG_CAT_HW, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-				 "NVM is efuse and the information is too less to bring up the interface\n");
-		MTWF_DBG(pAd, DBG_CAT_HW, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-				 "Load EEPROM buffer from BIN, and force to use BIN buffer mode\n");
+		MTWF_LOG(DBG_CAT_HW, DBG_SUBCAT_ALL, DBG_LVL_OFF,
+				 ("NVM is efuse and the information is too less to bring up the interface\n"));
+		MTWF_LOG(DBG_CAT_HW, DBG_SUBCAT_ALL, DBG_LVL_OFF,
+				 ("Load EEPROM buffer from BIN, and force to use BIN buffer mode\n"));
 		pAd->bUseEfuse = FALSE;
 		rtmp_ee_load_from_bin(pAd);
 		/* Forse to use BIN eeprom buffer mode */
 		RtmpChipOpsEepromHook(pAd, pAd->infType, E2P_BIN_MODE);
+#ifdef CAL_FREE_IC_SUPPORT
+		RTMP_CAL_FREE_IC_CHECK(pAd, bCalFree);
+
+		if (bCalFree) {
+			MTWF_LOG(DBG_CAT_HW, DBG_SUBCAT_ALL, DBG_LVL_ERROR, ("Cal Free IC!!\n"));
+			RTMP_CAL_FREE_DATA_GET(pAd);
+		} else
+			MTWF_LOG(DBG_CAT_HW, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("Non Cal Free IC!!\n"));
+
+#endif /* CAL_FREE_IC_SUPPORT */
 	} else
 		rtmp_ee_load_from_efuse(pAd);
 
@@ -1149,13 +1183,14 @@ INT eFuse_init(RTMP_ADAPTER *pAd)
 
 INT efuse_probe(RTMP_ADAPTER *pAd)
 {
-	UINT32 eFuseCtrl = 0, ctrl_reg;
+	UINT32 eFuseCtrl, ctrl_reg;
 
 	if (WaitForAsicReady(pAd) == FALSE)
 		return -1;
 
 	pAd->bUseEfuse = FALSE;
 #ifdef MT_MAC
+
 	if (IS_HIF_TYPE(pAd, HIF_MT))
 		ctrl_reg = MT_EE_CTRL;
 	else
@@ -1184,21 +1219,18 @@ VOID rtmp_ee_load_from_efuse(RTMP_ADAPTER *pAd)
 	EEPROM_CONTROL *pE2pCtrl = &pAd->E2pCtrl;
 	struct _RTMP_CHIP_CAP *cap = hc_get_chip_cap(pAd->hdev_ctrl);
 
-	MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO,
-			 "Load EEPROM buffer from efuse, and change to BIN buffer mode\n");
+	MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_OFF,
+			 ("Load EEPROM buffer from efuse, and change to BIN buffer mode\n"));
 	/* If the number of the used block is less than 5, assume the efuse is not well-calibrated, and force to use buffer mode */
 	eFuseGetFreeBlockCount(pAd, &free_blk);
 
 	if (free_blk >= cap->EFUSE_RESERVED_SIZE)
 		return;
 
-	NdisZeroMemory(pAd->EEPROMImage, cap->EEPROM_DEFAULT_BIN_SIZE);
+	NdisZeroMemory(pAd->EEPROMImage, MAX_EEPROM_BIN_FILE_SIZE);
 
-	for (i = 0; i < cap->EEPROM_DEFAULT_BIN_SIZE; i += 2) {
-		if (IS_MT7663(pAd) || IS_MT7626(pAd) || IS_MT7915(pAd) || IS_MT7916(pAd))
-			rtmp_ee_efuse_read16(pAd, i, &efuse_val);
-		else
-			eFuseRead(pAd, i, &efuse_val, 2);
+	for (i = 0; i < MAX_EEPROM_BIN_FILE_SIZE; i += 2) {
+		eFuseRead(pAd, i, &efuse_val, 2);
 		efuse_val = cpu2le16 (efuse_val);
 		NdisMoveMemory(&pAd->EEPROMImage[i], &efuse_val, 2);
 	}
@@ -1213,24 +1245,42 @@ VOID rtmp_ee_load_from_efuse(RTMP_ADAPTER *pAd)
 #ifdef CONFIG_ATE
 INT Set_LoadEepromBufferFromEfuse_Proc(RTMP_ADAPTER *pAd, RTMP_STRING *arg)
 {
-	rtmp_ee_load_from_efuse(pAd);
-	return TRUE;
+	UINT bEnable = os_str_tol(arg, 0, 10);
+
+	if (bEnable < 0)
+		return FALSE;
+	else {
+		rtmp_ee_load_from_efuse(pAd);
+		return TRUE;
+	}
 }
 
 
 INT set_eFuseBufferModeWriteBack_Proc(RTMP_ADAPTER *pAd, RTMP_STRING *arg)
 {
-	MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO, "Write EEPROM buffer back to eFuse\n");
-	Set_EepromBufferWriteBack_Proc(pAd, "1");
-	return TRUE;
+	UINT bEnable = os_str_tol(arg, 0, 10);
+
+	if (bEnable < 0)
+		return FALSE;
+	else {
+		MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("%s::Write EEPROM buffer back to eFuse\n", __func__));
+		Set_EepromBufferWriteBack_Proc(pAd, "1");
+		return TRUE;
+	}
 }
 
 
 INT set_BinModeWriteBack_Proc(RTMP_ADAPTER *pAd, RTMP_STRING *arg)
 {
-	MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO, "Write EEPROM buffer back to BIN\n");
-	Set_EepromBufferWriteBack_Proc(pAd, "4");
-	return TRUE;
+	UINT bEnable = os_str_tol(arg, 0, 10);
+
+	if (bEnable < 0)
+		return FALSE;
+	else {
+		MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("%s::Write EEPROM buffer back to BIN\n", __func__));
+		Set_EepromBufferWriteBack_Proc(pAd, "4");
+		return TRUE;
+	}
 }
 
 #endif /* CONFIG_ATE */
@@ -1241,31 +1291,10 @@ INT show_efuseinfo_proc(RTMP_ADAPTER *pAd, RTMP_STRING *arg)
 	USHORT  length = cap->EEPROM_DEFAULT_BIN_SIZE;
 	UCHAR   index;
 	USHORT offset = 0;
-	USHORT value = 0;
-#if defined(MT7986)
-	/* 2nd adie handler */
-	UCHAR   band_idx = 0;
-	struct _RTMP_CHIP_CAP *chip_cap = hc_get_chip_cap(pAd->hdev_ctrl);
-	struct  wifi_dev *wdev = NULL;
-	POS_COOKIE pObj = (POS_COOKIE)pAd->OS_Cookie;
+	USHORT value;
 
-	wdev = get_wdev_by_ioctl_idx_and_iftype(pAd, pObj->ioctl_if, pObj->ioctl_if_type);
-
-	if (wdev->pHObj) {
-		band_idx= HcGetBandByWdev(wdev);
-	}
-
-	MTWF_PRINT("band_idx:%d\n", band_idx);
-
-	if (IS_MT7986(pAd) && band_idx == BAND1) {
-			MTWF_PRINT("adie1 offset:0x%x\n", MT7986_ADIE1_EFUSE_OFFSET);
-			offset += MT7986_ADIE1_EFUSE_OFFSET;
-			length += MT7986_ADIE1_EFUSE_OFFSET;
-	}
-#endif
-
-	for (; offset < length; offset += EFUSE_BLOCK_SIZE) {
-		MTWF_PRINT("offset 0x%04x: ", offset);
+	for (offset = 0; offset < length; offset += EFUSE_BLOCK_SIZE) {
+		MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_OFF, ("offset 0x%04x: ", offset));
 
 		for (index = 0; index < EFUSE_BLOCK_SIZE; index += 2) {
 			BOOLEAN NotValid;
@@ -1275,11 +1304,12 @@ INT show_efuseinfo_proc(RTMP_ADAPTER *pAd, RTMP_STRING *arg)
 			if (NotValid)
 				value = 0xffff;
 
-			MTWF_PRINT("%02x ", value & 0xFF);
-			MTWF_PRINT("%02x ",  (value >> 8) & 0xFF);
+			MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_OFF, ("%02x ", value & 0xFF));
+			MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_OFF,
+					 ("%02x ",  (value >> 8) & 0xFF));
 		}
 
-		MTWF_PRINT ("\n");
+		MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_OFF, ("\n"));
 	}
 
 	return TRUE;

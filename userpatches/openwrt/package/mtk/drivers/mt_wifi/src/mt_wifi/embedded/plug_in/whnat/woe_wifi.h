@@ -1,17 +1,13 @@
 /*
- * Copyright (c) [2020], MediaTek Inc. All rights reserved.
- *
- * This software/firmware and related documentation ("MediaTek Software") are
- * protected under relevant copyright laws.
- * The information contained herein is confidential and proprietary to
- * MediaTek Inc. and/or its licensors.
- * Except as otherwise provided in the applicable licensing terms with
- * MediaTek Inc. and/or its licensors, any reproduction, modification, use or
- * disclosure of MediaTek Software, and information contained herein, in whole
- * or in part, shall be strictly prohibited.
-*/
-/*
  ***************************************************************************
+ * MediaTek Inc.
+ *
+ * All rights reserved. source code is an unpublished work and the
+ * use of a copyright notice does not imply otherwise. This source code
+ * contains confidential trade secret material of MediaTek. Any attemp
+ * or participation in deciphering, decoding, reverse engineering or in any
+ * way altering the source code is stricitly prohibited, unless the prior
+ * written consent of MediaTek, Inc. is obtained.
  ***************************************************************************
 
 	Module Name: wifi_offload
@@ -19,7 +15,9 @@
 */
 #ifndef _WOE_WIFI_H_
 
-#include "woe_client_jedi.h"
+#ifdef MT7615
+#include "woe_mt7615.h"
+#endif
 
 /*TX hook structure*/
 struct wlan_tx_info {
@@ -37,9 +35,6 @@ struct wifi_entry {
 	unsigned int irq;
 	unsigned int wpdma_base;
 	unsigned int tx_ring_num;
-	unsigned int tx_ring_len;
-	unsigned int tx_token_nums;
-	unsigned int sw_tx_token_nums;
 	unsigned int *int_mask;
 	unsigned long base_addr;
 };
@@ -66,7 +61,6 @@ unsigned int wifi_ser_status(void *ser_ctrl);
 int wifi_slot_get(void *cookie);
 void wifi_cap_get(struct wifi_entry *wifi);
 unsigned int wifi_wpdma_base_get(void *cookie);
-void *wifi_get_hw_ctrl(void *cookie);
 
 
 #endif /*_WOE_WIFI_H_*/

@@ -1,17 +1,18 @@
 /*
- * Copyright (c) [2020], MediaTek Inc. All rights reserved.
- *
- * This software/firmware and related documentation ("MediaTek Software") are
- * protected under relevant copyright laws.
- * The information contained herein is confidential and proprietary to
- * MediaTek Inc. and/or its licensors.
- * Except as otherwise provided in the applicable licensing terms with
- * MediaTek Inc. and/or its licensors, any reproduction, modification, use or
- * disclosure of MediaTek Software, and information contained herein, in whole
- * or in part, shall be strictly prohibited.
-*/
-/*
  ***************************************************************************
+ * Ralink Tech Inc.
+ * 4F, No. 2 Technology 5th Rd.
+ * Science-based Industrial Park
+ * Hsin-chu, Taiwan, R.O.C.
+ *
+ * (c) Copyright 2002-2004, Ralink Technology, Inc.
+ *
+ * All rights reserved. Ralink's source code is an unpublished work and the
+ * use of a copyright notice does not imply otherwise. This source code
+ * contains confidential trade secret material of Ralink Tech. Any attemp
+ * or participation in deciphering, decoding, reverse engineering or in any
+ * way altering the source code is stricitly prohibited, unless the prior
+ * written consent of Ralink Technology, Inc. is obtained.
  ***************************************************************************
 
 	Module Name:
@@ -159,7 +160,7 @@ VOID	RTMPInitWepEngine(
 	os_alloc_mem(NULL, (UCHAR **)&seed, sizeof(UCHAR)*16);
 
 	if (seed == NULL) {
-		MTWF_DBG(NULL, DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_ERROR, "seed Allocate memory fail!!!\n");
+		MTWF_LOG(DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_ERROR, ("%s: seed Allocate memory fail!!!\n", __func__));
 		return;
 	}
 
@@ -229,13 +230,13 @@ BOOLEAN RTMPSoftEncryptWEP(
 	os_alloc_mem(NULL, (UCHAR **)&ARC4_CTX, sizeof(ARC4_CTX_STRUC));
 
 	if (ARC4_CTX == NULL) {
-		MTWF_DBG(NULL, DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_ERROR, "ARC4_CTX Allocate memory fail!!!\n");
+		MTWF_LOG(DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_ERROR, ("%s: ARC4_CTX Allocate memory fail!!!\n", __func__));
 		return FALSE;
 	}
 
 	if (pKey->KeyLen == 0) {
 		os_free_mem(ARC4_CTX);
-		MTWF_DBG(NULL, DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_ERROR, "The key is empty !\n");
+		MTWF_LOG(DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_ERROR, ("%s : The key is empty !\n", __func__));
 		return FALSE;
 	}
 
@@ -293,13 +294,13 @@ BOOLEAN RTMPSoftDecryptWEP(
 	os_alloc_mem(NULL, (UCHAR **)&ARC4_CTX, sizeof(ARC4_CTX_STRUC));
 
 	if (ARC4_CTX == NULL) {
-		MTWF_DBG(NULL, DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_ERROR, "ARC4_CTX Allocate memory fail!!!\n");
+		MTWF_LOG(DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_ERROR, ("%s: ARC4_CTX Allocate memory fail!!!\n", __func__));
 		return FALSE;
 	}
 
 	if (pKey->KeyLen == 0) {
 		os_free_mem(ARC4_CTX);
-		MTWF_DBG(NULL, DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_ERROR, "The key is not available !\n");
+		MTWF_LOG(DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_ERROR, ("%s : The key is not available !\n", __func__));
 		return FALSE;
 	}
 
@@ -336,7 +337,7 @@ BOOLEAN RTMPSoftDecryptWEP(
 
 	if (crc32 != cpu2le32(trailfcs)) {
 		os_free_mem(ARC4_CTX);
-		MTWF_DBG(NULL, DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_ERROR, "! WEP Data CRC Error !\n");	 /*CRC error.*/
+		MTWF_LOG(DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_ERROR, ("! WEP Data CRC Error !\n"));	 /*CRC error.*/
 		return FALSE;
 	}
 

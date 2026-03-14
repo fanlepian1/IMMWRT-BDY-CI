@@ -1,7 +1,7 @@
 ifeq ($(CONFIG_DEFAULTS_KERNEL_4_4),y)
 WIFI_DRV_PATH = drivers/net/wireless/mediatek
 else
-WIFI_DRV_PATH = drivers/net/wireless
+WIFI_DRV_PATH = drivers/net/wireless/mtk/mt7615e
 endif
 
 EXTRA_CFLAGS = -I$(WIFI_DRV_PATH)/mt_wifi/include \
@@ -22,7 +22,6 @@ EXTRA_CFLAGS = -I$(WIFI_DRV_PATH)/mt_wifi/include \
 DRV_NAME = mt_wifi
 SRC_DIR = ../mt_wifi
 SRC_EMBEDDED_DIR = ../mt_wifi/embedded
-SERV_DIR = ../wlan_service
 obj-$(CONFIG_MT_STA_SUPPORT) += $(DRV_NAME).o
 endif
 
@@ -56,7 +55,6 @@ cmm_objs := $(SRC_EMBEDDED_DIR)/common/action.o\
 		$(SRC_EMBEDDED_DIR)/common/cmm_cfg.o\
 		$(SRC_EMBEDDED_DIR)/common/cmm_cmd.o\
 		$(SRC_EMBEDDED_DIR)/common/cmm_data.o\
-		$(SRC_EMBEDDED_DIR)/common/capi.o\
 		$(SRC_EMBEDDED_DIR)/common/qm.o\
 		$(SRC_EMBEDDED_DIR)/common/fq_qm.o\
 		$(SRC_EMBEDDED_DIR)/common/fp_fair_qm.o\
@@ -76,11 +74,6 @@ cmm_objs := $(SRC_EMBEDDED_DIR)/common/action.o\
 		$(SRC_EMBEDDED_DIR)/mgmt/be_ht.o\
 		$(SRC_EMBEDDED_DIR)/mgmt/be_vht.o\
                 $(SRC_EMBEDDED_DIR)/mgmt/bss_ops.o\
-		$(SRC_EMBEDDED_DIR)/fsm/fsm_sync.o\
-		$(SRC_EMBEDDED_DIR)/fsm/fsm_assoc.o\
-		$(SRC_EMBEDDED_DIR)/fsm/fsm_sync.o\
-		$(SRC_EMBEDDED_DIR)/fsm/fsm_cntl.o\
-		$(SRC_EMBEDDED_DIR)/fsm/fsm_auth.o\
 		$(SRC_EMBEDDED_DIR)/common/cmm_sanity.o\
 		$(SRC_EMBEDDED_DIR)/common/vendor.o\
 		$(SRC_EMBEDDED_DIR)/security/sae.o\
@@ -107,32 +100,19 @@ cmm_objs := $(SRC_EMBEDDED_DIR)/common/action.o\
 		$(SRC_EMBEDDED_DIR)/common/op_class.o\
 		$(SRC_EMBEDDED_DIR)/common/rt_os_util.o\
 		$(SRC_EMBEDDED_DIR)/common/scan.o\
-		$(SRC_EMBEDDED_DIR)/common/scan_util.o\
 		$(SRC_EMBEDDED_DIR)/common/sys_log.o\
 		$(SRC_EMBEDDED_DIR)/common/txpower.o\
                 $(SRC_EMBEDDED_DIR)/common/cmm_info_element.o\
-                $(SRC_EMBEDDED_DIR)/common/log_time.o\
 		$(SRC_DIR)/chips/rtmp_chip.o\
 		$(SRC_EMBEDDED_DIR)/mgmt/mgmt_hw.o\
 		$(SRC_EMBEDDED_DIR)/mgmt/mgmt_entrytb.o\
 		$(SRC_EMBEDDED_DIR)/common/wdev.o\
-		$(SRC_EMBEDDED_DIR)/common/multi_hif.o\
 		$(SRC_DIR)/os/linux/rt_profile.o\
 		$(SRC_DIR)/os/linux/tm.o\
 		$(SRC_EMBEDDED_DIR)/common/cmm_rvr_dbg.o\
 		$(SRC_DIR)/protocol/protection.o\
-                $(SRC_DIR)/phystate/phystate.o\
 		$(SRC_EMBEDDED_DIR)/common/misc_app.o
 
-ifeq ($(CONFIG_WIFI_TWT_SUPPORT),y)
-EXTRA_CFLAGS += -DWIFI_TWT_SUPPORT
-cmm_objs +=$(SRC_DIR)/protocol/twt_core.o
-cmm_objs +=$(SRC_EMBEDDED_DIR)/hw_ctrl/hdev/twt_ctrl.o
-endif
-
-ifeq ($(CONFIG_DOT11_HE_AX),y)
-cmm_objs +=$(SRC_EMBEDDED_DIR)/hw_ctrl/hdev/bcolor_ctrl.o
-endif
 ########################################################
 # SAE files
 ########################################################
@@ -152,7 +132,7 @@ endif
 # OWE related files
 ########################################################
 ifeq ($(CONFIG_OWE_SUPPORT),y)
-   EXTRA_CFLAGS += -DCONFIG_OWE_SUPPORT -DDOT11_SAE_OPENSSL_BN -DDOT11W_PMF_SUPPORT
+   EXTRA_CFLAGS += -DCONFIG_OWE_SUPPORT -DDOT11W_PMF_SUPPORT -DDOT11_SAE_OPENSSL_BN
 
     cmm_objs += $(SRC_EMBEDDED_DIR)/security/crypt_bignum.o\
                 $(SRC_EMBEDDED_DIR)/security/crypt_biginteger.o\
@@ -240,20 +220,12 @@ endif
 # VHT
 ifeq ($(CONFIG_DOT11_VHT_AC),y)
     EXTRA_CFLAGS += -DDOT11_VHT_AC
-    spec_objs += $(SRC_EMBEDDED_DIR)/mgmt/mgmt_vht.o
+    spec_objs += $(SRC_EMBEDDED_DIR)/mgmt/mgmt_vht.o\
+            $(SRC_EMBEDDED_DIR)/common/vht.o
 	# WFA VHT R2 PF
 	ifeq ($(CONFIG_WFA_VHT_R2_PF),y)
 		EXTRA_CFLAGS += -DWFA_VHT_R2_PF
 	endif
-endif
-
-# HE
-ifeq ($(CONFIG_DOT11_HE_AX),y)
-    EXTRA_CFLAGS += -DDOT11_HE_AX
-    spec_objs += $(SRC_EMBEDDED_DIR)/mgmt/mgmt_he.o\
-	$(SRC_EMBEDDED_DIR)/mgmt/be_he.o\
-	$(SRC_EMBEDDED_DIR)/wlan_config/config_he.o\
-	$(SRC_EMBEDDED_DIR)/mgmt/bss_color.o
 endif
 
 # WAPI
@@ -315,7 +287,7 @@ endif
 #endif
 #SNIFFER
 ifeq ($(CONFIG_SNIFFER_SUPPORT),y)
-    EXTRA_CFLAGS += -DSNIFFER_SUPPORT
+    EXTRA_CFLAGS += -DCONFIG_SNIFFER_SUPPORT
 
     spec_objs += $(MT_WIFI_DIR)/common/sniffer_radiotap.o\
                  $(MT_WIFI_DIR)/common/sniffer_prism.o
@@ -346,6 +318,12 @@ ifeq ($(CONFIG_IGMP_SNOOP_SUPPORT),y)
     func_objs += $(SRC_EMBEDDED_DIR)/common/igmp_snoop.o
 endif
 
+ifeq ($(CONFIG_BLOCK_NET_IF),y)
+    EXTRA_CFLAGS += -DBLOCK_NET_IF
+
+    func_objs += $(SRC_EMBEDDED_DIR)/common/netif_block.o
+endif
+
 ifeq ($(CONFIG_SINGLE_SKU),y)
     EXTRA_CFLAGS += -DSINGLE_SKU
     ifeq ($(CONFIG_RALINK_RT6352),y)
@@ -369,43 +347,25 @@ ifeq ($(CONFIG_LED_CONTROL_SUPPORT),y)
     func_objs += $(SRC_EMBEDDED_DIR)/common/rt_led.o
 endif
 
-# CTXD_MEM_CPY
-ifeq ($(CONFIG_CTXD_MEM_CPY_SUPPORT),y)
-    EXTRA_CFLAGS += -DCTXD_MEM_CPY -DCONFIG_TX_DELAY
-endif
-
-# CTXD_SCATTER_AND_GATHER
-ifeq ($(CONFIG_CTXD_SCATTER_AND_GATHER_SUPPORT),y)
-    EXTRA_CFLAGS += -DCTXD_SCATTER_AND_GATHER -DCONFIG_TX_DELAY
-endif
 
 ########################################################
 # STA feature related files
 ########################################################
 sta_objs := \
+	$(SRC_EMBEDDED_DIR)/sta/assoc.o\
+	$(SRC_EMBEDDED_DIR)/sta/auth.o\
+	$(SRC_EMBEDDED_DIR)/sta/auth_rsp.o\
+	$(SRC_EMBEDDED_DIR)/sta/sync.o\
 	$(SRC_EMBEDDED_DIR)/sta/sanity.o\
 	$(SRC_EMBEDDED_DIR)/sta/sta_data.o\
+	$(SRC_EMBEDDED_DIR)/sta/connect.o\
     $(SRC_EMBEDDED_DIR)/sta/sta_sec.o\
 	$(SRC_EMBEDDED_DIR)/sta/wpa.o\
 	$(SRC_EMBEDDED_DIR)/sta/sta_cfg.o\
-	$(SRC_EMBEDDED_DIR)/sta/adhoc.o\
-	$(SRC_EMBEDDED_DIR)/sta/sta.o\
-	$(SRC_EMBEDDED_DIR)/fsm/sta_mgmt_cntl.o\
-	$(SRC_EMBEDDED_DIR)/fsm/sta_mgmt_assoc.o\
-	$(SRC_EMBEDDED_DIR)/fsm/sta_mgmt_auth.o\
-	$(SRC_EMBEDDED_DIR)/fsm/sta_mgmt_sync.o
-
-# THERMAL
-ifeq ($(CONFIG_THERMAL_PROTECT_SUPPORT),y)
-    EXTRA_CFLAGS += -DTHERMAL_PROTECT_SUPPORT
-endif
+	$(SRC_EMBEDDED_DIR)/sta/sta.o
 
 ifeq ($(CONFIG_ATE_SUPPORT),y)
     EXTRA_CFLAGS += -DCONFIG_ATE -DCONFIG_QA -DCONFIG_RT2880_ATE_CMD_NEW -DCONFIG_HW_HAL_OFFLOAD  #-DCSD_VERIFICATION -DINTERNAL_CAPTURE_SUPPORT
-endif
-
-ifeq ($(CONFIG_WLAN_SERVICE),y)
-    EXTRA_CFLAGS += -DCONFIG_WLAN_SERVICE
 endif
 
 ifeq ($(CONFIG_ICAP_SUPPORT),y)
@@ -492,6 +452,7 @@ ifeq ($(CONFIG_FIRST_IF_MT7628),y)
 EXTRA_CFLAGS += -DMT7628 -DMT_BBP -DMT_RF -DRTMP_RBUS_SUPPORT -DRTMP_RF_RW_SUPPORT -DMT_MAC -DRTMP_MAC_PCI -DRTMP_PCI_SUPPORT
 EXTRA_CFLAGS += -DRTMP_FLASH_SUPPORT -DDMA_SCH_SUPPORT -DRTMP_EFUSE_SUPPORT
 EXTRA_CFLAGS += -DCONFIG_ANDES_SUPPORT
+EXTRA_CFLAGS += -DRESOURCE_PRE_ALLOC
 EXTRA_CFLAGS += -DNEW_MBSSID_MODE -DENHANCE_NEW_MBSSID_MODE
 EXTRA_CFLAGS += -DENHANCED_STAT_DISPLAY
 EXTRA_CFLAGS += -DFIFO_EXT_SUPPORT
@@ -581,7 +542,6 @@ EXTRA_CFLAGS += -DUNIFY_FW_CMD
 EXTRA_CFLAGS += -DDBDC_MODE
 EXTRA_CFLAGS += -DNEED_ROM_PATCH
 EXTRA_CFLAGS += -DMAC_INIT_OFFLOAD
-EXTRA_CFLAGS += -DMT_DMAC
 EXTRA_CFLAGS += -DENHANCED_STAT_DISPLAY
 EXTRA_CFLAGS += -DCONFIG_FWOWN_SUPPORT
 EXTRA_CFLAGS += -DTHERMAL_PROTECT_SUPPORT
@@ -610,7 +570,6 @@ chip_objs += $(SRC_DIR)/chips/mt7615.o\
 		$(SRC_DIR)/hw_ctrl/cmm_asic_mt_dmac.o\
 		$(SRC_DIR)/hw_ctrl/cmm_asic_mt_fw.o\
 		$(SRC_DIR)/hw_ctrl/cmm_chip_mt.o\
-		$(SRC_DIR)/mac/mt_cmm_mac.o\
 		$(SRC_DIR)/mac/mt_dmac.o\
                 $(SRC_EMBEDDED_DIR)/mcu/mcu.o\
                 $(SRC_EMBEDDED_DIR)/mcu/andes_core.o\
@@ -626,7 +585,7 @@ chip_objs += $(SRC_DIR)/chips/mt7615.o\
                 $(SRC_EMBEDDED_DIR)/common/hif_pci.o\
                 $(SRC_EMBEDDED_DIR)/common/ee_prom.o\
                 $(SRC_EMBEDDED_DIR)/common/ee_efuse.o\
-		$(SRC_EMBEDDED_DIR)/common/token.o\
+		$(SRC_EMBEDDED_DIR)/common/cut_through.o\
 		$(SRC_DIR)/protocol/tmr.o\
 		$(SRC_DIR)/os/linux/rt_rbus_pci_drv.o\
                 $(SRC_DIR)/os/linux/pci_main_dev.o
@@ -650,6 +609,7 @@ EXTRA_CFLAGS += -DENHANCED_STAT_DISPLAY
 EXTRA_CFLAGS += -DCONFIG_FWOWN_SUPPORT
 EXTRA_CFLAGS += -DCONFIG_KEEP_ALIVE_OFFLOAD -DSTA_LP_PHASE_2_SUPPORT -DCONFIG_PM_BIT_HW_MODE
 EXTRA_CFLAGS += -DMT_WOW_SUPPORT -DCONFIG_PM -DHOST_RESUME_DONE_ACK_SUPPORT
+EXTRA_CFLAGS += -DRESOURCE_PRE_ALLOC
 EXTRA_CFLAGS += -DCONFIG_HW_HAL_OFFLOAD
 #EXTRA_CFLAGS += -DCONFIG_FPGA_MODE
 #EXTRA_CFLAGS += -DMT7622_FPGA
@@ -692,7 +652,6 @@ chip_objs += $(SRC_DIR)/chips/mt7622.o\
                 $(SRC_DIR)/hw_ctrl/cmm_asic_mt_dmac.o\
                 $(SRC_DIR)/hw_ctrl/cmm_asic_mt_fw.o\
                 $(SRC_DIR)/hw_ctrl/cmm_chip_mt.o\
-				$(SRC_DIR)/mac/mt_cmm_mac.o\
                 $(SRC_DIR)/mac/mt_dmac.o\
                 $(SRC_EMBEDDED_DIR)/mcu/mcu.o\
                 $(SRC_EMBEDDED_DIR)/mcu/andes_core.o\
@@ -708,7 +667,7 @@ chip_objs += $(SRC_DIR)/chips/mt7622.o\
                 $(SRC_EMBEDDED_DIR)/common/hif_pci.o\
                 $(SRC_EMBEDDED_DIR)/common/ee_prom.o\
                 $(SRC_EMBEDDED_DIR)/common/ee_efuse.o\
-                $(SRC_EMBEDDED_DIR)/common/token.o\
+                $(SRC_EMBEDDED_DIR)/common/cut_through.o\
                 $(SRC_DIR)/protocol/tmr.o\
                 $(SRC_DIR)/os/linux/rt_rbus_pci_drv.o
 endif
@@ -736,30 +695,12 @@ else
 chip_objs += $(SRC_DIR)/os/linux/rbus_prop_dev.o
 endif
 
-########################################################
-# Wlan service related files
-########################################################
-ifeq ($(CONFIG_WLAN_SERVICE),y)
-EXTRA_CFLAGS += -I$(WIFI_DRV_PATH)/wlan_service/include \
-                -I$(WIFI_DRV_PATH)/wlan_service/service/include \
-                -I$(WIFI_DRV_PATH)/wlan_service/glue/hal/include \
-                -I$(WIFI_DRV_PATH)/wlan_service/glue/osal/include
-
-serv_objs := $(SERV_DIR)/agent/agent.o\
-                $(SERV_DIR)/service/service_test.o\
-                $(SERV_DIR)/service/test_engine.o\
-                $(SERV_DIR)/glue/hal/jedi/test_dmac.o\
-                $(SERV_DIR)/glue/hal/jedi/operation_jedi.o\
-                $(SERV_DIR)/glue/osal/jedi/net_adaption_jedi.o\
-                $(SERV_DIR)/glue/osal/jedi/sys_adaption_jedi.o
-endif
-
 #
 # Root
 #
 
 $(DRV_NAME)-objs += $(sta_objs) $(cmm_objs) $(asic_objs) $(chip_objs) $(rate_objs)\
-                    $(spec_objs) $(func_objs) $(os_objs) $(serv_objs)
+                    $(spec_objs) $(func_objs) $(os_objs)
 
 $(DRV_NAME)-objs += $(SRC_EMBEDDED_DIR)/common/eeprom.o\
 					$(SRC_EMBEDDED_DIR)/common/ee_flash.o\
@@ -779,23 +720,7 @@ $(DRV_NAME)-objs += $(SRC_DIR)/ate/ate_agent.o\
  		    $(SRC_DIR)/ate/LoopBack.o
 endif
 
-ifeq ($(CONFIG_WIFI_SYSDVT), y)
-DVT_DIR=$(WIFI_DRV_PATH)/mt_wifi/embedded/dvt
-DVT_OBJ_PATH=$(SRC_EMBEDDED_DIR)/dvt
-include $(DVT_DIR)/dvt.mk
-$(DRV_NAME)-objs += $(obj_dvt)
-EXTRA_CFLAGS += -DCONFIG_WIFI_SYSDVT -DTRAFFIC_NOTIFY
-EXTRA_CFLAGS += -I$(DVT_DIR)/include
-endif
 
-ifeq ($(CONFIG_WIFI_DBG_TXCMD), y)
-DBG_TXCMD_DIR=$(WIFI_DRV_PATH)/mt_wifi/embedded/dbg_txcmd
-DBG_TXCMD_OBJ_PATH=$(SRC_EMBEDDED_DIR)/dbg_txcmd
-include $(DBG_TXCMD_DIR)/dbg_txcmd.mk
-$(DRV_NAME)-objs += $(obj_dbg_txcmd)
-EXTRA_CFLAGS += -DCONFIG_WIFI_DBG_TXCMD
-EXTRA_CFLAGS += -I$(DBG_TXCMD_DIR)/include
-endif
 ###################
 #  CFLAGS
 ##################

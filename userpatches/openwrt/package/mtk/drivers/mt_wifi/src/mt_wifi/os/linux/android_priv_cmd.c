@@ -57,7 +57,7 @@ int rt_android_private_command_entry(
 	os_alloc_mem(NULL, (UCHAR **)&command, priv_cmd.total_len);
 
 	if (!command) {
-		MTWF_DBG(pAd, DBG_CAT_INIT, DBG_SUBCAT_ALL, DBG_LVL_ERROR, "MEM ALLOC ERROR\n");
+		MTWF_LOG(DBG_CAT_INIT, DBG_SUBCAT_ALL, DBG_LVL_ERROR, ("%s: MEM ALLOC ERROR\n", __func__));
 		return -ENOMEM;
 	}
 
@@ -74,7 +74,7 @@ int rt_android_private_command_entry(
 	} else if (strnicmp(command, ANDROID_CMD_P2P_DEV_ADDR, strlen(ANDROID_CMD_P2P_DEV_ADDR)) == 0)
 		bytes_written = priv_cmd_get_p2p_dev_addr(net_dev, command, priv_cmd.total_len);
 	else {
-		MTWF_DBG(pAd, DBG_CAT_INIT, DBG_SUBCAT_ALL, DBG_LVL_ERROR, "%s: unsupport priv_cmd !!!\n", command);
+		MTWF_LOG(DBG_CAT_INIT, DBG_SUBCAT_ALL, DBG_LVL_ERROR, ("%s: unsupport priv_cmd !!!\n", command));
 		snprintf(command, 3, "OK");
 		bytes_written = strlen("OK");
 	}

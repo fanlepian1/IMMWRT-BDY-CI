@@ -1,17 +1,18 @@
 /*
- * Copyright (c) [2020], MediaTek Inc. All rights reserved.
- *
- * This software/firmware and related documentation ("MediaTek Software") are
- * protected under relevant copyright laws.
- * The information contained herein is confidential and proprietary to
- * MediaTek Inc. and/or its licensors.
- * Except as otherwise provided in the applicable licensing terms with
- * MediaTek Inc. and/or its licensors, any reproduction, modification, use or
- * disclosure of MediaTek Software, and information contained herein, in whole
- * or in part, shall be strictly prohibited.
-*/
-/*
  ***************************************************************************
+ * Ralink Tech Inc.
+ * 4F, No. 2 Technology	5th Rd.
+ * Science-based Industrial Park
+ * Hsin-chu, Taiwan, R.O.C.
+ *
+ * (c) Copyright 2002-2004, Ralink Technology, Inc.
+ *
+ * All rights reserved.	Ralink's source	code is	an unpublished work and the
+ * use of a copyright notice does not imply otherwise. This source code
+ * contains confidential trade secret material of Ralink Tech. Any attemp
+ * or participation in deciphering, decoding, reverse engineering or in any
+ * way altering	the source code	is stricitly prohibited, unless	the prior
+ * written consent of Ralink Technology, Inc. is obtained.
  ***************************************************************************
 
 	Module Name:
@@ -31,40 +32,16 @@
 
 #define WF_PHY_BASE			0x10000
 
-/* CONNAC TALOS PHY BAND0 MACRO */
-#define TALOS_RO_BAND0_PHYCTRL_STS0					(WF_PHY_BASE + 0x0210) /* 0x82070210 */
-#define TALOS_RO_BAND0_PHYCTRL_STS1					(WF_PHY_BASE + 0x0214) /* 0x82070214 */
-#define TALOS_RO_BAND0_PHYCTRL_STS2					(WF_PHY_BASE + 0x0218) /* 0x82070218 */
-#define TALOS_RO_BAND0_PHYCTRL_STS3					(WF_PHY_BASE + 0x021C) /* 0x8207021C */
-#define TALOS_RO_BAND0_PHYCTRL_STS4					(WF_PHY_BASE + 0x0220) /* 0x82070220 */
-#define TALOS_RO_BAND0_PHYCTRL_STS5					(WF_PHY_BASE + 0x0224) /* 0x82070224 */
-#define TALOS_RO_BAND0_PHYCTRL_STS6					(WF_PHY_BASE + 0x0228) /* 0x82070228 */
-#define TALOS_RO_BAND0_PHYCTRL_STS7					(WF_PHY_BASE + 0x022C) /* 0x8207022C */
-#define TALOS_RO_BAND0_PHYCTRL_STS8					(WF_PHY_BASE + 0x0230) /* 0x82070230 */
-#define TALOS_RO_BAND0_PHYCTRL_STS9					(WF_PHY_BASE + 0x0234) /* 0x82070234 */
-#define TALOS_RO_BAND0_PHYCTRL_MU					(WF_PHY_BASE + 0x0238) /* 0x82070238 */
-#define TALOS_CR_BAND0_STSCNT_EN_CTRL				(WF_PHY_BASE + 0x0414) /* 0x82070414 */
-
-/* CONNAC TALOS PHY BAND1 MACRO */
-#define TALOS_CR_BAND1_STSCNT_EN_CTRL				(WF_PHY_BASE + 0x1414) /* 0x82071414 */
-
-/* CONNAC TALOS PHY DBG SIGNAL MACRO */
-#define TALOS_WF_RXTD_RO_AGC_DEBUG_0_RX0_ADDR		(WF_PHY_BASE + 0x3218) /* 0x82073218 */
-#define TALOS_WF_RXTD_RO_AGC_DEBUG_0_RX1_ADDR		(WF_PHY_BASE + 0x3618) /* 0x82073618 */
-#define TALOS_WF_RXTD_RO_AGC_DEBUG_0_RX2_ADDR		(WF_PHY_BASE + 0x3A18) /* 0x82073A18 */
-#define TALOS_WF_RXTD_RO_AGC_DEBUG_0_RX3_ADDR		(WF_PHY_BASE + 0x3E18) /* 0x82073E18 */
-#define TALOS_WF_RXTD_RO_AGC_DEBUG_2_RX0_ADDR		(WF_PHY_BASE + 0x3220) /* 0x82073220 */
-#define TALOS_WF_RXTD_RO_AGC_DEBUG_2_RX1_ADDR		(WF_PHY_BASE + 0x3620) /* 0x82073620 */
-#define TALOS_WF_RXTD_RO_AGC_DEBUG_2_RX2_ADDR		(WF_PHY_BASE + 0x3A20) /* 0x82073A20 */
-#define TALOS_WF_RXTD_RO_AGC_DEBUG_2_RX3_ADDR		(WF_PHY_BASE + 0x3E20) /* 0x82073E20 */
-#define TALOS_WF_CTRL_CR_DBGSGD_MODE_ADDR			(WF_PHY_BASE + 0x0604) /* 0x82070604 */
-
-
-/* NON-CONNAC MACRO */
 #define PHY_PHYSYS_CTRL		(WF_PHY_BASE + 0x0000) /* 0x82070000 */
 #define PHY_PHYCK_CTRL			(WF_PHY_BASE + 0x0004) /* 0x82070004 */
 
 #define PHY_BAND0_PHY_CTRL_0	(WF_PHY_BASE + 0x0200) /* 0x82070200 */
+
+#ifdef SPECIAL_11B_OBW_FEATURE
+#define PHY_BAND0_PHY_CTRL_1	(WF_PHY_BASE + 0x0204) /* 0x82070204 */
+#define PHY_BAND0_PHY_CTRL_8	(WF_PHY_BASE + 0x0304) /* 0x82070304 */
+#endif
+
 #define RO_BAND0_PHYCTRL_STS0	(WF_PHY_BASE + 0x020C) /* 0x8207020C */
 #define RO_BAND0_PHYCTRL_STS1	(WF_PHY_BASE + 0x0210) /* 0x82070210 */
 #define RO_BAND0_PHYCTRL_STS2	(WF_PHY_BASE + 0x0214) /* 0x82070214 */
@@ -141,9 +118,10 @@
 
 #define DCRF_TRACK		(WF_PHY_BASE + 0x200C) /* 0x8207200C */
 
-
 #define PHY_FSD_CTRL_1				(WF_PHY_BASE + 0x50d8) /* 0x820750d8 */
-
+#ifdef SPECIAL_11B_OBW_FEATURE
+#define CR_TXTD_CCK_0				(WF_PHY_BASE + 0x8200) /* 0x82078200 */
+#endif
 #define PHY_TX_BAND0_WF0_CR_TXFE_3	(WF_PHY_BASE + 0x8408) /* 0x82078408 */
 #define PHY_TX_BAND0_WF1_CR_TXFE_3	(WF_PHY_BASE + 0x8420) /* 0x82078420 */
 #define PHY_TX_BAND1_WF0_CR_TXFE_3	(WF_PHY_BASE + 0x8438) /* 0x82078438 */

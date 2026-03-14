@@ -1,16 +1,16 @@
-/*
- * Copyright (c) [2020], MediaTek Inc. All rights reserved.
- *
- * This software/firmware and related documentation ("MediaTek Software") are
- * protected under relevant copyright laws.
- * The information contained herein is confidential and proprietary to
- * MediaTek Inc. and/or its licensors.
- * Except as otherwise provided in the applicable licensing terms with
- * MediaTek Inc. and/or its licensors, any reproduction, modification, use or
- * disclosure of MediaTek Software, and information contained herein, in whole
- * or in part, shall be strictly prohibited.
-*/
 /****************************************************************************
+ * Ralink Tech Inc.
+ * 4F, No. 2 Technology 5th Rd.
+ * Science-based Industrial Park
+ * Hsin-chu, Taiwan, R.O.C.
+ * (c) Copyright 2002, Ralink Technology, Inc.
+ *
+ * All rights reserved. Ralink's source code is an unpublished work and the
+ * use of a copyright notice does not imply otherwise. This source code
+ * contains confidential trade secret material of Ralink Tech. Any attemp
+ * or participation in deciphering, decoding, reverse engineering or in any
+ * way altering the source code is stricitly prohibited, unless the prior
+ * written consent of Ralink Technology, Inc. is obtained.
  ****************************************************************************
 
     Abstract:
@@ -36,30 +36,14 @@
 
 #define AUTO_CH_SEL_SCAN_FUNC_SIZE                  (AUTO_CH_SEL_SCAN_MAX_STATE * AUTO_CH_SEL_SCAN_MAX_MSG)
 
-
-#if defined(TXRX_STAT_SUPPORT) || defined(OFFCHANNEL_SCAN_FEATURE) || defined(OFFCHANNEL_ZERO_LOSS)
-typedef struct _CHANNEL_BUSY_TIME {
+#if defined(OFFCHANNEL_SCAN_FEATURE) || defined(TR181_SUPPORT) || defined(TXRX_STAT_SUPPORT)
+typedef struct _CHANENL_BUSY_TIME {
 	UINT32 Rx_Time;
 	UINT32 Tx_Time;
 	UINT32 Obss_Time;
-#ifdef OFFCHANNEL_ZERO_LOSS
-	UINT32 Tx2_Time;
-	UINT32 PCCA_Time;
-	UINT32 BA_Time;
-	UINT32 SCCA_Time;
-	UINT64 BA_Time_5_sec;
-	UINT64 Rx_Time_5_sec;
-	UINT64 Obss_Time_5_sec;
-	UINT64 PCCA_Time_5_sec;
-	UINT64 SCCA_Time_5_sec;
-	UINT32 BA_Time_5sec_Avg;
-	UINT32 Rx_Time_5sec_Avg;
-	UINT32 Obss_Time_5sec_Avg;
-	UINT32 PCCA_Time_5sec_Avg;
-	UINT32 SCCA_Time_5sec_Avg;
-#endif
 } CHANNEL_BUSY_TIME, *PCHANNEL_BUSY_TIME;
 #endif
+
 #ifdef ACS_CTCC_SUPPORT
 struct acs_scan_ch_group_list {
 	UCHAR best_ctrl_channel; /* Min in group */
@@ -96,8 +80,6 @@ struct acs_scan_supp_ch_list {
 #define CHANNEL_NO_FAT_BELOW	0x20
 #define CHANNEL_40M_CAP			0x40
 #define CHANNEL_80M_CAP			0x80
-#define CHANNEL_160M_CAP		0x100
-
 #endif
 typedef struct {
 	ULONG dirtyness[MAX_NUM_OF_CHANNELS + 1];
@@ -105,21 +87,17 @@ typedef struct {
 	UINT32 FalseCCA[MAX_NUM_OF_CHANNELS + 1];
 	BOOLEAN SkipList[MAX_NUM_OF_CHANNELS + 1];
 #ifdef OFFCHANNEL_SCAN_FEATURE
-	UINT32	ChannelNo;
-	UINT8	ChannelIdx;
-	BOOLEAN GetChannelInfo;
-	CHANNEL_BUSY_TIME ChStats;
-	INT32 AvgNF;
-	UCHAR bandidx;
-	UINT32 diff_time;
+		UINT32	ChannelNo;
+		UINT8	ChannelIdx;
+		BOOLEAN GetChannelInfo;
+		CHANNEL_BUSY_TIME ChStats;
+		INT32 AvgNF;
+		UCHAR bandidx;
+		UINT32 diff_time;
 #endif
-	UINT32 chanbusytime[MAX_NUM_OF_CHANNELS + 1];  /*used for MTK Alg*/
-	UINT32 pcca_time[MAX_NUM_OF_CHANNELS + 1]; /*used for uper daemon Alg*/
-	UINT32 obss_time[MAX_NUM_OF_CHANNELS + 1]; /*used for uper daemon Alg*/
-	UINT32 tx_air_time[MAX_NUM_OF_CHANNELS + 1]; /*used for uper daemon Alg*/
-	UINT32 rx_air_time[MAX_NUM_OF_CHANNELS + 1]; /*used for uper daemon Alg*/
-	UINT32 non_wifi_time[MAX_NUM_OF_CHANNELS + 1]; /*used for uper daemon Alg*/
-	UINT32 cca_nav_tx_time[MAX_NUM_OF_CHANNELS + 1]; /*used for uper daemon Alg*/
+	/* #ifdef AP_QLOAD_SUPPORT */
+	UINT32 chanbusytime[MAX_NUM_OF_CHANNELS + 1]; /* QLOAD ALARM */
+	/* #endif */ /* AP_QLOAD_SUPPORT */
 	BOOLEAN IsABand;
 #ifdef ACS_CTCC_SUPPORT
 	struct auto_ch_sel_score channel_score[MAX_NUM_OF_CHANNELS+1];
@@ -140,7 +118,7 @@ typedef struct {
 } BSSENTRY, *PBSSENTRY;
 
 typedef struct {
-	UINT BssNr;
+	UCHAR BssNr;
 	BSSENTRY BssEntry[MAX_LEN_OF_BSS_TABLE];
 } BSSINFO, *PBSSINFO;
 
@@ -151,10 +129,9 @@ typedef struct _AUTOCH_SEL_CH_LIST {
 	UCHAR Flags;
 	UCHAR CentralChannel;
 	UCHAR Bw;
-	USHORT PhyMode;
+	UCHAR PhyMode;
 	BOOLEAN BwCap;
 	BOOLEAN SkipChannel;
-	BOOLEAN BuildDone;
 
 	/*
 		Channel property:
@@ -191,20 +168,11 @@ typedef struct _AUTOCH_SEL_CTRL {
 	UCHAR ChListNum;
 	ACS_CH_LIST_STATE ACSChStat;
 	UCHAR IsABand;
-	UINT32 pre_obss_time;
-	UINT32 pre_tx_air_time;
-	UINT32 pre_rx_air_time;
-	UINT32 pre_non_wifi_time;
-	UINT32 pre_cca_nav_tx_time;
-	UINT32 pre_pcca_time;
 	RALINK_TIMER_STRUCT AutoChScanTimer;
 	STATE_MACHINE AutoChScanStatMachine;
 	STATE_MACHINE_FUNC AutoChScanFunc[AUTO_CH_SEL_SCAN_FUNC_SIZE];
 	AUTOCH_SEL_CH_LIST AutoChSelChList[MAX_NUM_OF_CHANNELS+1];
 	TIMER_FUNC_CONTEXT ACSTimerFuncContex;
-#ifdef CONFIG_6G_SUPPORT
-	BOOLEAN PSC_ACS;
-#endif
 } AUTOCH_SEL_CTRL, *PAUTOCH_SEL_CTRL;
 
 

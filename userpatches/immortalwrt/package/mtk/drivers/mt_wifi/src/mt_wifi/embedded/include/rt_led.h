@@ -1,16 +1,16 @@
-/*
- * Copyright (c) [2020], MediaTek Inc. All rights reserved.
- *
- * This software/firmware and related documentation ("MediaTek Software") are
- * protected under relevant copyright laws.
- * The information contained herein is confidential and proprietary to
- * MediaTek Inc. and/or its licensors.
- * Except as otherwise provided in the applicable licensing terms with
- * MediaTek Inc. and/or its licensors, any reproduction, modification, use or
- * disclosure of MediaTek Software, and information contained herein, in whole
- * or in part, shall be strictly prohibited.
-*/
 /****************************************************************************
+ * Ralink Tech Inc.
+ * 4F, No. 2 Technology 5th Rd.
+ * Science-based Industrial Park
+ * Hsin-chu, Taiwan, R.O.C.
+ * (c) Copyright 2002-2010, Ralink Technology, Inc.
+ *
+ * All rights reserved. Ralink's source code is an unpublished work and the
+ * use of a copyright notice does not imply otherwise. This source code
+ * contains confidential trade secret material of Ralink Tech. Any attemp
+ * or participation in deciphering, decoding, reverse engineering or in any
+ * way altering the source code is stricitly prohibited, unless the prior
+ * written consent of Ralink Technology, Inc. is obtained.
  ****************************************************************************
 
     Module Name:
@@ -95,6 +95,18 @@
 #endif /* WSC_LED_SUPPORT */
 #endif /* WSC_INCLUDED */
 
+#ifdef VENDOR_FEATURE7_SUPPORT
+#define LED_FORCE_ON    20
+#define LED_FORCE_OFF   21
+
+enum led_force_mode_list{
+    LED_FORCE_MODE_NONE = 0,
+    LED_FORCE_MODE_ON,
+    LED_FORCE_MODE_OFF
+};
+#endif
+
+
 /* LED Index */
 enum led_id_list {
 	LED_ID_WLAN_OD = 0,
@@ -131,8 +143,6 @@ enum led_controller_mode_list {
 	LED_BLINKING_170MS_ON_170MS_OFF = 5,
 	LED_BLINKING_500MS_ON_100MS_OFF = 6,
 	LED_BLINKING_500MS_ON_700MS_OFF = 7,
-	LED_BLINKING_1000MS_ON_1000MS_OFF = 8,
-	LED_BLINKING_2000MS_ON_2000MS_OFF = 9,
 	LED_WPS_3_BLINKING_PER_SECOND_FOR_4_SECONDS = 16,
 	LED_WPS_5S_ON_3S_OFF_THEN_BLINKING = 17,
 	LED_WPS_5S_ON = 18,
@@ -172,14 +182,6 @@ enum led_controller_mode_list {
 #define ACTIVE_LOW	0
 #define ACTIVE_HIGH 1
 
-/* wps led ctr type*/
-enum wps_led_ctrl_type_list {
-	LED_OFF = 0,
-	LED_ON = 1,
-	LED_STATUS = 2,
-	LED_REVERSE = 3
-};
-
 /* */
 /* MCU_LEDCS: MCU LED Control Setting. */
 /* */
@@ -200,10 +202,10 @@ void rtmp_read_led_setting_from_eeprom(IN RTMP_ADAPTER * pAd);
 void RTMPInitLEDMode(IN RTMP_ADAPTER * pAd);
 void RTMPExitLEDMode(IN RTMP_ADAPTER * pAd);
 
-VOID RTMPSetLEDStatus(RTMP_ADAPTER *pAd, UCHAR Status, UCHAR BandIdx);
+VOID RTMPSetLEDStatus(RTMP_ADAPTER *pAd, UCHAR Status);
 VOID RTMPSetSignalLED(RTMP_ADAPTER *pAd, NDIS_802_11_RSSI Dbm);
 
-INT RTMPSetLED(RTMP_ADAPTER *pAd, UCHAR Status, UCHAR BandIdx);
+INT RTMPSetLED(RTMP_ADAPTER *pAd, UCHAR Status);
 
 #ifdef WSC_STA_SUPPORT
 #ifdef WSC_LED_SUPPORT
@@ -226,51 +228,9 @@ typedef struct _LED_CONTROL {
 	UCHAR				RssiSingalstrengthOffet;
 	BOOLEAN				bLedOnScanning;
 	UCHAR				LedStatus;
-#if defined(MT7915) || defined(MT7986) || defined(MT7916) || defined(MT7981)
-	BOOLEAN				LEDControlTimerRunning;
-	RALINK_TIMER_STRUCT	LEDControlTimer;
-	UINT8 				LEDActionType;
-	UINT8				LEDIndex;
-	PLED_INIT_TABLE			Led_Init_Ops;
-#endif
 } LED_CONTROL, *PLED_CONTROL;
 
 void RTMPStartLEDMode(IN RTMP_ADAPTER *pAd);
-
-#if defined(MT7915) || defined(MT7986) || defined(MT7916) || defined(MT7981)
-typedef enum _ACTION_TYPE_NUM{
-	LED_MODE16_ACTION_1 = 0,
-	LED_MODE17_ACTION_1,
-	LED_MODE17_ACTION_2,
-	LED_MODE18_ACTION_1,
-	LED_BLINK_ACTION_500,
-	LED_BLINK_ACTION_1000,
-	LED_BLINK_ACTION_2000,
-	LED_CONTROL_SUCCESS
-} ACTION_TYPE_NUM;
-
-INT rtmp_control_led_cmd(
-	struct _RTMP_ADAPTER *pAd,
-	UCHAR led_idx,
-	UCHAR tx_over_blink,
-	UCHAR reverse_polarity,
-	UCHAR band,
-	UCHAR blink_mode,
-	UCHAR off_time,
-	UCHAR on_time,
-	UCHAR led_control_mode);
-
-VOID LEDControlTimer(
-	IN PVOID SystemSpecific1,
-	IN PVOID FunctionContext,
-	IN PVOID SystemSpecific2,
-	IN PVOID SystemSpecific3);
-
-void LED_WLAN_2G_init(RTMP_ADAPTER *pAd, UINT8 led_index);
-void LED_WLAN_5G_init(RTMP_ADAPTER *pAd, UINT8 led_index);
-void LED_WLAN_WPS_init(RTMP_ADAPTER *pAd, UINT8 led_index);
-void wps_led_control(struct _RTMP_ADAPTER *pAd, UCHAR flag);
-#endif
 
 #endif /* __RT_LED_H__ */
 

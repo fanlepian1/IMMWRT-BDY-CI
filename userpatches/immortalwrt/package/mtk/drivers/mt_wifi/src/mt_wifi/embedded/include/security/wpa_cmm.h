@@ -65,9 +65,7 @@
 #define MT2_EAPOLLogoff              2
 #define MT2_EAPOLKey                 3
 #define MT2_EAPOLASFAlert            4
-#define MT2_EAPOLRetry               5
-#define MT2_EAPOL2way                6
-#define MAX_WPA_MSG                  7
+#define MAX_WPA_MSG                  5
 
 #define WPA_FUNC_SIZE                (MAX_WPA_PTK_STATE * MAX_WPA_MSG)
 
@@ -175,9 +173,6 @@ typedef enum _Dot1xInternalCmd {
 	DOT1X_DISCONNECT_ENTRY,
 	DOT1X_RELOAD_CONFIG,
 	DOT1X_ACL_ENTRY,
-	DOT1X_MLME_EVENT,
-	DOT1X_AEAD_DECR_EVENT,
-	DOT1X_AEAD_ENCR_EVENT,
 #ifdef RADIUS_ACCOUNTING_SUPPORT
 	DOT1X_LOCAL_AUTH_ENTRY
 #endif /*RADIUS_ACCOUNTING_SUPPORT*/
@@ -218,18 +213,14 @@ typedef struct GNU_PACKED _RSN_CAPABILITY {
 	USHORT PreAuth:1;
 } RSN_CAPABILITY, *PRSN_CAPABILITY;
 
-
 typedef struct _CIPHER_KEY {
-	UCHAR Key[32];		/* align SEC_KEY_INFO Key to 32 bytes */
+	UCHAR Key[16];		/* 128 bits max */
 	UCHAR TxMic[8];
 	UCHAR RxMic[8];
 	UCHAR TxTsc[16];	/* TSC value. Change it from 48bit to 128bit */
 	UCHAR RxTsc[16];	/* TSC value. Change it from 48bit to 128bit */
-	UCHAR KeyLen;		/* Key length for each key, 0: entry is invalid */
 	UCHAR CipherAlg;	/* 0:none, 1:WEP64, 2:WEP128, 3:TKIP, 4:AES, 5:CKIP64, 6:CKIP128 */
-#ifdef CONFIG_STA_SUPPORT
-	UCHAR BssId[6];
-#endif				/* CONFIG_STA_SUPPORT */
+	UCHAR KeyLen;		/* Key length for each key, 0: entry is invalid */
 	UCHAR Type;		/* Indicate Pairwise/Group when reporting MIC error */
 } CIPHER_KEY, *PCIPHER_KEY;
 

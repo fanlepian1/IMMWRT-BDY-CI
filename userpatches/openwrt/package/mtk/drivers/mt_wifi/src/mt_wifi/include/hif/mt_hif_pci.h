@@ -1,17 +1,13 @@
 /*
- * Copyright (c) [2020], MediaTek Inc. All rights reserved.
- *
- * This software/firmware and related documentation ("MediaTek Software") are
- * protected under relevant copyright laws.
- * The information contained herein is confidential and proprietary to
- * MediaTek Inc. and/or its licensors.
- * Except as otherwise provided in the applicable licensing terms with
- * MediaTek Inc. and/or its licensors, any reproduction, modification, use or
- * disclosure of MediaTek Software, and information contained herein, in whole
- * or in part, shall be strictly prohibited.
-*/
-/*
  ***************************************************************************
+ * MediaTek Inc.
+ *
+ * All rights reserved. source code is an unpublished work and the
+ * use of a copyright notice does not imply otherwise. This source code
+ * contains confidential trade secret material of MediaTek. Any attemp
+ * or participation in deciphering, decoding, reverse engineering or in any
+ * way altering the source code is stricitly prohibited, unless the prior
+ * written consent of MediaTek, Inc. is obtained.
  ***************************************************************************
 
 	Module Name:
@@ -23,15 +19,40 @@
 
 #include "mac/mac.h"
 #include "rtmp_dmacb.h"
-#include "hif_base.h"
-#include <linux/skbuff.h>
+
+#define HIF_BASE			0x4000
+#define MT_HIF_BASE			0x4000
+
+/*
+	CR definitions
+*/
+#define HIF_SYS_REV			(MT_HIF_BASE + 0x0000)
+#define HIF_FUN_CAP			(MT_HIF_BASE + 0x0004)
+
+
+#define MT_CFG_PCIE_MISC	(MT_HIF_BASE + 0x0014)
+
+#define MT_CFG_LPCR_HOST	(MT_HIF_BASE + 0x01f0)
+
+
+#define MT_HOST_SET_OWN	(1<<0)
+#define MT_HOST_CLR_OWN	(1<<1)
+
+
+#define MT_CFG_LPCR_FW		(MT_HIF_BASE + 0x01f4)
+#define MT_FW_CLR_OWN	(1<<0)
 
 #ifdef ERR_RECOVERY
+#define MT_MCU_INT_EVENT         (MT_HIF_BASE + 0x01f8)
+#define MT7663_MCU_INT_EVENT     (MT_HIF_BASE + 0x0108)
 #define MCU_INT_PDMA0_STOP_DONE	        BIT(0)
 #define MCU_INT_PDMA0_INIT_DONE	        BIT(1)
 #define MCU_INT_SER_TRIGGER_FROM_HOST   BIT(2)
 #define MCU_INT_PDMA0_RECOVERY_DONE	    BIT(3)
 #endif /* ERR_RECOVERY .*/
+
+#define MT_INT_SOURCE_CSR	(MT_HIF_BASE + 0x0200)
+#define MT_INT_MASK_CSR	(MT_HIF_BASE + 0x0204)
 
 #ifdef ERR_RECOVERY
 #define ERROR_DETECT_STOP_PDMA_WITH_FW_RELOAD BIT(1)
@@ -46,6 +67,12 @@
 #define ERROR_DETECT_PLE_ERROR BIT(26)
 #define ERROR_DETECT_PDMA_ERROR BIT(27)
 #define ERROR_DETECT_PCIE_ERROR BIT(28)
+#endif
+
+
+
+#if defined(MT7615) || defined(MT7622) || defined(P18)
+#define MT_MCU_CMD_CSR	(MT_HIF_BASE + 0x0234)
 #endif
 
 #define MT_MCU_CMD_CLEAR_FW_OWN BIT(0)
@@ -63,38 +90,517 @@
 #define ERROR_DETECT_PDMA_ERROR BIT(27)
 #define ERROR_DETECT_PCIE_ERROR BIT(28)
 
-#if defined(P18) || defined(MT7663) || defined(AXE) || defined(MT7626) || \
-	defined(MT7915) || defined(MT7986) || defined(MT7916) || defined(MT7981)
-#define MT7663_ERROR_DETECT_MASK \
-			(ERROR_DETECT_STOP_PDMA \
-			| ERROR_DETECT_RESET_DONE \
-			| ERROR_DETECT_RECOVERY_DONE \
-			| ERROR_DETECT_N9_NORMAL_STATE)
-#endif
 
+#if defined(MT7615) || defined(MT7622) || defined(P18)
+#define ERROR_DETECT_MASK \
+	(ERROR_DETECT_STOP_PDMA_WITH_FW_RELOAD \
+	  | ERROR_DETECT_STOP_PDMA \
+	  | ERROR_DETECT_RESET_DONE \
+	  | ERROR_DETECT_RECOVERY_DONE \
+	  | ERROR_DETECT_N9_NORMAL_STATE \
+	  | ERROR_DETECT_LMAC_ERROR \
+	  | ERROR_DETECT_PSE_ERROR \
+	  | ERROR_DETECT_PLE_ERROR \
+	  | ERROR_DETECT_PDMA_ERROR \
+	  | ERROR_DETECT_PCIE_ERROR)
+#endif
 
 #define ERROR_RECOVERY_PDMA0_STOP_NOTIFY BIT(0)
 #define ERROR_RECOVERY_PDMA0_INIT_DONE_NOTIFY BIT(1)
 #endif /* ERR_RECOVERY */
 
+/*
+	INT_SOURCE_CSR: Interrupt source register. Write one to clear corresponding bit
+	Refer to MT_INT_SOURCE_CSR(0x4000)
+*/
+#ifdef RT_BIG_ENDIAN
+typedef union _MT_INT_SOURCE_CSR_STRUC {
+	struct {
+		UINT32 rsv_31:1;
+		UINT32 mcu_cmd_int:1;
+		UINT32 wf_mac_int_5:1;
+		UINT32 wf_mac_int_4:1;
+		UINT32 wf_mac_int_3:1;
+		UINT32 wf_mac_int_2:1;
+		UINT32 wf_mac_int_1:1;
+		UINT32 wf_mac_int_0:1;
+		UINT32 tx_dly_int:1;
+		UINT32 rx_dly_int:1;
+		UINT32 tx_coherent:1;
+		UINT32 rx_coherent:1;
+		UINT32 tx_done_15:1;
+		UINT32 rsv_18:1;
+		UINT32 tx_done_13:1;
+		UINT32 tx_done_12:1;
+		UINT32 tx_done_11:1;
+		UINT32 tx_done_10:1;
+		UINT32 tx_done_9:1;
+		UINT32 tx_done_8:1;
+		UINT32 tx_done_7:1;
+		UINT32 tx_done_6:1;
+		UINT32 tx_done_5:1;
+		UINT32 tx_done_4:1;
+		UINT32 tx_done_3:1;
+		UINT32 tx_done_2:1;
+		UINT32 tx_done_1:1;
+		UINT32 tx_done_0:1;
+		UINT32 err_det_int_1:1;
+		UINT32 err_det_int_0:1;
+		UINT32 rx_done_1:1;
+		UINT32 rx_done_0:1;
+	} field;
+	UINT32 word;
+} MT_INT_SOURCE_CSR_STRUC;
+#else
+typedef union _MT_INT_SOURCE_CSR_STRUC {
+	struct {
+		UINT32 rx_done_0:1;
+		UINT32 rx_done_1:1;
+		UINT32 err_det_int_0:1;
+		UINT32 err_det_int_1:1;
+		UINT32 tx_done_0:1;
+		UINT32 tx_done_1:1;
+		UINT32 tx_done_2:1;
+		UINT32 tx_done_3:1;
+		UINT32 tx_done_4:1;
+		UINT32 tx_done_5:1;
+		UINT32 tx_done_6:1;
+		UINT32 tx_done_7:1;
+		UINT32 tx_done_8:1;
+		UINT32 tx_done_9:1;
+		UINT32 tx_done_10:1;
+		UINT32 tx_done_11:1;
+		UINT32 tx_done_12:1;
+		UINT32 tx_done_13:1;
+		UINT32 rsv_18:1;
+		UINT32 tx_done_15:1;
+		UINT32 rx_coherent:1;
+		UINT32 tx_coherent:1;
+		UINT32 rx_dly_int:1;
+		UINT32 tx_dly_int:1;
+		UINT32 wf_mac_int_0:1;
+		UINT32 wf_mac_int_1:1;
+		UINT32 wf_mac_int_2:1;
+		UINT32 wf_mac_int_3:1;
+		UINT32 wf_mac_int_4:1;
+		UINT32 wf_mac_int_5:1;
+		UINT32 mcu_cmd_int:1;
+		UINT32 rsv_31:1;
+	} field;
+	UINT32 word;
+} MT_INT_SOURCE_CSR_STRUC;
+#endif /* RT_BIG_ENDIAN */
 
-#define MT_INT_RX_DLY_BIT		(1<<22)
-#define MT_FW_CLEAR_OWN_BIT		(1<<31) /* 7615 and 7622 only, equal MT_FW_CLR_OWN_INT, used by mt_mac_fw_own_func */
-#define MT_McuCommand		(1<<30) /* 7615 and 7622, equal MT_INT_MCU_CMD, CONNAC use MT_INT_MCU2HOST_SW_INT_STS, used by mt_mac_recovery_func */
-#define MT_INT_SUBSYS_INT_STS_BIT				(1<<28) /* CONNAC only, equal MT_INT_SUBSYS_INT_STS, change in AXE, used by mt_subsys_int_func */
-#define MT_INT_MCU2HOST_SW_INT_STS_BIT			(1<<29) /* CONNAC only, equal MT_INT_MCU2HOST_SW_INT_STS, change in AXE, used by mt_mac_recovery_func */
 
-#define MT_WPDMA_MEM_RNG_ERR   (0x4000 + 0x0224) /* 7615 and 7622 SER flow */
-#ifdef CONFIG_WIFI_MSI_SUPPORT
-#define MSI_IRQ0	0
-#define MSI_IRQ1	1
-#define MSI_IRQ2	2
-#define MSI_IRQ3	3
-#define MSI_IRQ4	4
-#define MSI_IRQ5	5
-#define MSI_IRQ6	6
-#define MSI_IRQ7	7
+/* INT_MASK_CSR:   Interrupt MASK register.   1: the interrupt is mask OFF */
+#define WPDMA_INT_MSK        (HIF_BASE + 0x204)
+#ifdef RT_BIG_ENDIAN
+typedef union _MT_WPDMA_INT_MASK {
+	struct {
+		UINT32 rsv_31:1;
+		UINT32 mcu_cmd_int:1;
+		UINT32 wf_mac_int_5:1;
+		UINT32 wf_mac_int_4:1;
+		UINT32 wf_mac_int_3:1;
+		UINT32 wf_mac_int_2:1;
+		UINT32 wf_mac_int_1:1;
+		UINT32 wf_mac_int_0:1;
+		UINT32 tx_dly_int:1;
+		UINT32 rx_dly_int:1;
+		UINT32 tx_coherent:1;
+		UINT32 rx_coherent:1;
+		UINT32 tx_done_15:1;
+		UINT32 rsv_18:1;
+		UINT32 tx_done_13:1;
+		UINT32 tx_done_12:1;
+		UINT32 tx_done_11:1;
+		UINT32 tx_done_10:1;
+		UINT32 tx_done_9:1;
+		UINT32 tx_done_8:1;
+		UINT32 tx_done_7:1;
+		UINT32 tx_done_6:1;
+		UINT32 tx_done_5:1;
+		UINT32 tx_done_4:1;
+		UINT32 tx_done_3:1;
+		UINT32 tx_done_2:1;
+		UINT32 tx_done_1:1;
+		UINT32 tx_done_0:1;
+		UINT32 err_det_int_1:1;
+		UINT32 err_det_int_0:1;
+		UINT32 rx_done_1:1;
+		UINT32 rx_done_0:1;
+	} field;
+	UINT32 word;
+} MT_WPMDA_INT_MASK;
+#else
+typedef union _MT_WPDMA_INT_MASK {
+	struct {
+		UINT32 rx_done_0:1;
+		UINT32 rx_done_1:1;
+		UINT32 err_det_int_0:1;
+		UINT32 err_det_int_1:1;
+		UINT32 tx_done_0:1;
+		UINT32 tx_done_1:1;
+		UINT32 tx_done_2:1;
+		UINT32 tx_done_3:1;
+		UINT32 tx_done_4:1;
+		UINT32 tx_done_5:1;
+		UINT32 tx_done_6:1;
+		UINT32 tx_done_7:1;
+		UINT32 tx_done_8:1;
+		UINT32 tx_done_9:1;
+		UINT32 tx_done_10:1;
+		UINT32 tx_done_11:1;
+		UINT32 tx_done_12:1;
+		UINT32 tx_done_13:1;
+		UINT32 rsv_18:1;
+		UINT32 tx_done_15:1;
+		UINT32 rx_coherent:1;
+		UINT32 tx_coherent:1;
+		UINT32 rx_dly_int:1;
+		UINT32 tx_dly_int:1;
+		UINT32 wf_mac_int_0:1;
+		UINT32 wf_mac_int_1:1;
+		UINT32 wf_mac_int_2:1;
+		UINT32 wf_mac_int_3:1;
+		UINT32 wf_mac_int_4:1;
+		UINT32 wf_mac_int_5:1;
+		UINT32 mcu_cmd_int:1;
+		UINT32 rsv_31:1;
+	} field;
+	UINT32 word;
+} MT_WPMDA_INT_MASK;
+#endif /* RT_BIG_ENDIAN */
+
+#define MT_INT_R0_DONE		(1<<0)
+#define MT_INT_R1_DONE		(1<<1)
+
+#define MT_INT_ERR_DET0	(1<<2)
+#define MT_INT_ERR_DET1	(1<<3)
+
+#define MT_INT_T0_DONE		(1<<4)
+#define MT_INT_T1_DONE		(1<<5)
+#define MT_INT_T2_DONE		(1<<6)
+#define MT_INT_T3_DONE		(1<<7)
+#define MT_INT_T4_DONE		(1<<8)
+#define MT_INT_T5_DONE		(1<<9)
+#define MT_INT_T6_DONE		(1<<10)
+#define MT_INT_T7_DONE		(1<<11)
+#define MT_INT_T8_DONE		(1<<12)
+#define MT_INT_T9_DONE		(1<<13)
+#define MT_INT_T10_DONE	(1<<14)
+#define MT_INT_T11_DONE	(1<<15)
+#define MT_INT_T12_DONE	(1<<16)
+#define MT_INT_T13_DONE	(1<<17)
+#define MT_INT_T14_DONE	(1<<18) /* mt7615 don't have this INT*/
+#define MT_INT_T15_DONE	(1<<19)
+
+#define MT_INT_TX_DONE (MT_INT_T0_DONE | MT_INT_T1_DONE | MT_INT_T2_DONE | MT_INT_T3_DONE |\
+			MT_INT_T4_DONE | MT_INT_T5_DONE | MT_INT_T6_DONE | MT_INT_T7_DONE |\
+			MT_INT_T8_DONE | MT_INT_T9_DONE | MT_INT_T10_DONE | MT_INT_T11_DONE |\
+			MT_INT_T12_DONE | MT_INT_T13_DONE | MT_INT_T14_DONE | MT_INT_T15_DONE)
+
+#define MT_INT_RX_COHE		(1<<20)
+#define MT_INT_TX_COHE		(1<<21)
+
+#define MT_INT_RX_DLY		(1<<22)
+#define MT_INT_TX_DLY		(1<<23)
+
+#define WF_MAC_INT_0		(1<<24)
+#define WF_MAC_INT_1		(1<<25)
+#define WF_MAC_INT_2		(1<<26)
+#define WF_MAC_INT_3		(1<<27)
+#define WF_MAC_INT_4		(1<<28)
+#define WF_MAC_INT_5		(1<<29)
+
+
+#define MT_INT_MCU_CMD		(1<<30)
+
+
+#define MT_FW_CLEAR_OWN_BIT		(1<<31)
+
+#ifdef MULTI_LAYER_INTERRUPT
+#define MT_INT_WPDMA2HOST_ERR_INT_STS		(1<<24)
+#define MT_INT_SUBSYS_INT_STS				(1<<28)
+#define MT_INT_MCU2HOST_SW_INT_STS			(1<<29)
 #endif
+
+
+#define MT_RxINT		(MT_INT_R0_DONE | MT_INT_R1_DONE /* | MT_INT_RX_DLY */)	 /* Delayed Rx or indivi rx */
+
+#define MT_TxMgmtInt		(MT_INT_T4_DONE /*| INT_TX_DLY*/)
+
+#define MT_TxCoherent		MT_INT_TX_COHE
+#define MT_RxCoherent		MT_INT_RX_COHE
+#define MT_TxRxCoherent		(MT_INT_TX_COHE | MT_INT_RX_COHE)
+#define MT_MacInt		(WF_MAC_INT_0 | WF_MAC_INT_1 | \
+						 WF_MAC_INT_2 | WF_MAC_INT_3 | \
+						 WF_MAC_INT_4 | WF_MAC_INT_5)
+
+#define MT_CoherentInt		(MT_INT_RX_COHE | MT_INT_TX_COHE)
+#define MT_DelayInt			(MT_INT_RX_DLY | MT_INT_TX_DLY)
+
+#define MT_McuCommand		MT_INT_MCU_CMD	/* mcu */
+#define MT_FW_CLR_OWN_INT	MT_FW_CLEAR_OWN_BIT
+
+#define MT_INT_RX			(MT_INT_R0_DONE | MT_INT_R1_DONE)
+#define MT_INT_RX_DATA		(MT_INT_R0_DONE)
+#define MT_INT_RX_CMD		(MT_INT_R1_DONE)
+
+#define MT_INT_AC0_DLY		(MT_INT_T0_DONE)
+#define MT_INT_AC1_DLY		(MT_INT_T1_DONE)
+#define MT_INT_AC2_DLY		(MT_INT_T2_DONE)
+#define MT_INT_AC3_DLY		(MT_INT_T3_DONE)
+#define MT_INT_AC4_DLY		(MT_INT_T4_DONE)
+#define MT_INT_AC5_DLY		(MT_INT_T5_DONE)
+#define MT_INT_AC6_DLY		(MT_INT_T6_DONE)
+#define MT_INT_AC7_DLY		(MT_INT_T7_DONE)
+#define MT_INT_AC8_DLY		(MT_INT_T8_DONE)
+#define MT_INT_AC9_DLY		(MT_INT_T9_DONE)
+#define MT_INT_AC10_DLY		(MT_INT_T10_DONE)
+#define MT_INT_AC11_DLY		(MT_INT_T11_DONE)
+#define MT_INT_AC12_DLY		(MT_INT_T12_DONE)
+#define MT_INT_AC13_DLY		(MT_INT_T13_DONE)
+#if defined(MT7622) || defined(P18) || defined(MT7663)
+#define MT_INT_AC14_DLY		(MT_INT_T14_DONE)
+#endif
+#define MT_INT_AC15_DLY		(MT_INT_T15_DONE)
+
+#define MT_INT_CMD			(MT_INT_T5_DONE)
+
+#define MT_INT_MGMT_DLY	    (MT_INT_T4_DONE)
+#define MT_INT_BMC_DLY		(MT_INT_T8_DONE) /* (MT_INT_T6_DONE) */
+#define MT_INT_BCN_DLY		(MT_INT_T7_DONE) /* (MT_INT_T15_DONE) */
+
+#define MT_DELAYINTMASK	0x3FFBFFFF
+#define MT_INTMASK			0x3FFBFFFF
+
+
+/*
+	CR WPDMA GLO CFG
+*/
+#define MT_WPDMA_GLO_CFG	    (MT_HIF_BASE + 0x0208)
+#define TX_DMA_EN               (1 << 0)
+#define TX_DMA_BUSY             (1 << 1)
+#define RX_DMA_EN               (1 << 2)
+#define RX_DMA_BUSY             (1 << 3)
+#define TX_WB_DDONE             (1 << 6)
+#define BIG_ENDIAN              (1 << 7)
+/* #define 32B_DESP_EN             (1 << 8) */
+#define SHARE_FIFO_EN           (1 << 9)
+
+#define FIFO_LITTLE_ENDIAN      (1 << 12)
+
+#define SW_RST                  (1 << 24)
+#define FORCE_TX_EOF            (1 << 25)
+#define OMIT_RX_INFO            (1 << 27)
+#define OMIT_TX_INFO            (1 << 28)
+#define BYTE_SWAP               (1 << 29)
+#define CLK_GATE_DIS            (1 << 30)
+#define RX_2B_OFFSET            (1 << 31)
+
+#define WPDMA_RST_PTR		(MT_HIF_BASE + 0x020c)
+#ifdef RT_BIG_ENDIAN
+typedef union _WPDMA_RST_IDX_STRUC {
+	struct {
+		UINT32		rsv_18_31:14;
+		UINT32		RST_DRX_IDX1:1;
+		UINT32		RST_DRX_IDX0:1;
+		UINT32		rsv_2_15:14;
+		UINT32		RST_DTX_IDX1:1;
+		UINT32		RST_DTX_IDX0:1;
+	} field;
+	UINT32			word;
+} WPDMA_RST_IDX_STRUC;
+#else
+typedef union _WPDMA_RST_IDX_STRUC {
+	struct {
+		UINT32		RST_DTX_IDX0:1;
+		UINT32		RST_DTX_IDX1:1;
+		UINT32		rsv_2_15:14;
+		UINT32		RST_DRX_IDX0:1;
+		UINT32		RST_DRX_IDX1:1;
+		UINT32		rsv_18_31:14;
+	} field;
+	UINT32			word;
+} WPDMA_RST_IDX_STRUC;
+#endif /* RT_BIG_ENDIAN */
+
+
+#define MT_DELAY_INT_CFG	(MT_HIF_BASE + 0x0210)
+#ifdef RT_BIG_ENDIAN
+typedef	union _DELAY_INT_CFG_STRUC {
+	struct {
+		UINT32		TXDLY_INT_EN:1;
+		UINT32		TXMAX_PINT:7;
+		UINT32		TXMAX_PTIME:8;
+		UINT32		RXDLY_INT_EN:1;
+		UINT32		RXMAX_PINT:7;
+		UINT32		RXMAX_PTIME:8;
+	} field;
+	UINT32			word;
+} DELAY_INT_CFG_STRUC;
+#else
+typedef	union _DELAY_INT_CFG_STRUC {
+	struct {
+		UINT32		RXMAX_PTIME:8;
+		UINT32		RXMAX_PINT:7;
+		UINT32		RXDLY_INT_EN:1;
+		UINT32		TXMAX_PTIME:8;
+		UINT32		TXMAX_PINT:7;
+		UINT32		TXDLY_INT_EN:1;
+	} field;
+	UINT32			word;
+} DELAY_INT_CFG_STRUC;
+#endif /* RT_BIG_ENDIAN */
+
+
+#define MT_WPDMA_TX_DMAD_RNG	(MT_HIF_BASE + 0x0214)
+#define MT_WPDMA_RX_DMAD_RNG	(MT_HIF_BASE + 0x0218)
+#define MT_WPDMA_TX_PLD_RNG	    (MT_HIF_BASE + 0x021C)
+#define MT_WPDMA_RX_PLD_RNG	    (MT_HIF_BASE + 0x0220)
+#define MT_WPDMA_MEM_RNG_ERR	(MT_HIF_BASE + 0x0224)
+
+#define MT_WPDMA_PAUSE_RX_Q_TH10	(MT_HIF_BASE + 0x0260)
+#define TX_PRE_ADDR_ALIGN_MODE_128	BITS(28, 30)
+#define TX_PRE_ADDR_ALIGN_MODE_UMASK	~(BITS(28, 30))
+
+#define MT_WPDMA_TX_RING0_CTRL0	(MT_HIF_BASE + 0x0300)
+#define MT_WPDMA_TX_RING0_CTRL1	(MT_HIF_BASE + 0x0304)
+#define MT_WPDMA_TX_RING0_CTRL2	(MT_HIF_BASE + 0x0308)
+#define MT_WPDMA_TX_RING0_CTRL3	(MT_HIF_BASE + 0x030C)
+
+#define MT_WPDMA_TX_RING1_CTRL0	(MT_HIF_BASE + 0x0310)
+#define MT_WPDMA_TX_RING1_CTRL1	(MT_HIF_BASE + 0x0314)
+#define MT_WPDMA_TX_RING1_CTRL2	(MT_HIF_BASE + 0x0318)
+#define MT_WPDMA_TX_RING1_CTRL3	(MT_HIF_BASE + 0x031C)
+
+#define MT_WPDMA_TX_RING2_CTRL0	(MT_HIF_BASE + 0x0320)
+#define MT_WPDMA_TX_RING2_CTRL1	(MT_HIF_BASE + 0x0324)
+#define MT_WPDMA_TX_RING2_CTRL2	(MT_HIF_BASE + 0x0328)
+#define MT_WPDMA_TX_RING2_CTRL3	(MT_HIF_BASE + 0x032C)
+
+#define MT_WPDMA_TX_RING3_CTRL0	(MT_HIF_BASE + 0x0330)
+#define MT_WPDMA_TX_RING3_CTRL1	(MT_HIF_BASE + 0x0334)
+#define MT_WPDMA_TX_RING3_CTRL2	(MT_HIF_BASE + 0x0338)
+#define MT_WPDMA_TX_RING3_CTRL3	(MT_HIF_BASE + 0x033C)
+
+#define MT_WPDMA_RX_RING0_CTRL0	(MT_HIF_BASE + 0x0400)
+#define MT_WPDMA_RX_RING0_CTRL1	(MT_HIF_BASE + 0x0404)
+#define MT_WPDMA_RX_RING0_CTRL2	(MT_HIF_BASE + 0x0408)
+#define MT_WPDMA_RX_RING0_CTRL3	(MT_HIF_BASE + 0x040C)
+
+#define MT_WPDMA_RX_RING1_CTRL0	(MT_HIF_BASE + 0x0410)
+#define MT_WPDMA_RX_RING1_CTRL1	(MT_HIF_BASE + 0x0414)
+#define MT_WPDMA_RX_RING1_CTRL2	(MT_HIF_BASE + 0x0418)
+#define MT_WPDMA_RX_RING1_CTRL3	(MT_HIF_BASE + 0x041C)
+
+enum {
+	TX_RING_LOW,
+	TX_RING_HIGH,
+};
+
+enum {
+	TX_RING_HIGH_TO_HIGH,
+	TX_RING_HIGH_TO_LOW,
+	TX_RING_LOW_TO_LOW,
+	TX_RING_LOW_TO_HIGH,
+	TX_RING_UNKNOW_CHANGE,
+};
+
+/*@!Release
+	Tx Ring Layout and assignments
+
+	Totally we have 10 Tx Rings and assigned as following usage:
+	1. RT85592
+		TxRing 0~3: for TxQ Channel 1 with AC_BK/BE/VI/VO
+		TxRing 4    : for TxQ CTRL
+		TxRing 5    : for TxQ MGMT
+		TxRing 6~9: for TxQ Channel 2 with AC_BK/BE/VI/VO
+
+	2. MT7650
+		TxRing 0~3: for TxQ Channel 1 with AC_BK/BE/VI/VO
+		TxRing 4~7: for TxQ Channel 2 with AC_BK/BE/VI/VO
+		TxRing 8    : for TxQ CTRL
+		TxRing 9    : for TxQ MGMT
+
+	For each TxRing, we have four register to control it
+		TX_RINGn_CTRL0 (0x0): base address of this ring(4-DWORD aligned address)
+		TX_RINGn_CTRL1 (0x4): maximum number of TxD count in this ring
+		TX_RINGn_CTRL2 (0x8): Point to the next TxD CPU wants to use
+		TX_RINGn_CTRL3 (0xc): Point to the next TxD DMA wants to use
+*/
+#define MT_RINGREG_DIFF		0x10
+
+#define MT_TX_RING_BASE		(MT_HIF_BASE + 0x0300)
+#define MT_TX_RING_PTR			(MT_TX_RING_BASE + 0x0)
+#define MT_TX_RING_CNT			(MT_TX_RING_BASE + 0x4)
+#define MT_TX_RING_CIDX		(MT_TX_RING_BASE + 0x8)
+#define MT_TX_RING_DIDX		(MT_TX_RING_BASE + 0xc)
+
+/* following address is base on TX_CHAN_BASE_X */
+#define MT_TX_RING_BK_BASE		0x0
+#define MT_TX_RING_BK_CNT		(MT_TX_RING_BK_BASE + 0x04)
+#define MT_TX_RING_BK_CIDX		(MT_TX_RING_BK_BASE + 0x08)
+#define MT_TX_RING_BK_DIDX		(MT_TX_RING_BK_BASE + 0x0c)
+
+#define MT_TX_RING_BE_BASE		(MT_TX_RING_BK_BASE + MT_RINGREG_DIFF)
+#define MT_TX_RING_BE_CNT		(MT_TX_RING_BE_BASE + 0x04)
+#define MT_TX_RING_BE_CIDX		(MT_TX_RING_BE_BASE + 0x08)
+#define MT_TX_RING_BE_DIDX		(MT_TX_RING_BE_BASE + 0x0c)
+
+#define MT_TX_RING_VI_BASE		(MT_TX_RING_BE_BASE + MT_RINGREG_DIFF)
+#define MT_TX_RING_VI_CNT		(MT_TX_RING_VI_BASE + 0x04)
+#define MT_TX_RING_VI_CIDX		(MT_TX_RING_VI_BASE + 0x08)
+#define MT_TX_RING_VI_DIDX		(MT_TX_RING_VI_BASE + 0x0c)
+
+#define MT_TX_RING_VO_BASE	(MT_TX_RING_VI_BASE + MT_RINGREG_DIFF)
+#define MT_TX_RING_VO_CNT		(MT_TX_RING_VO_BASE + 0x04)
+#define MT_TX_RING_VO_CIDX		(MT_TX_RING_VO_BASE + 0x08)
+#define MT_TX_RING_VO_DIDX		(MT_TX_RING_VO_BASE + 0x0c)
+
+
+#define MT_TX_RING_BCN_IDX		7
+
+/*
+	Rx Ring Layput and assignments
+
+	Totally we have 2 Rx Rings and assigned as following usage:
+		RxRing 0: for all received data packets
+		RxRing 1: for internal ctrl/info packets generated by on-chip CPU.
+
+	For each TxRing, we have four register to control it
+		RX_RING_CTRL0 (0x0): base address of this ring(4-DWORD aligned address)
+		RX_RING_CTRL1 (0x4): maximum number of RxD count in this ring
+		RX_RING_CTRL2 (0x8): Point to the next RxD CPU wants to use
+		RX_RING_CTRL3 (0xc): Point to the next RxD DMA wants to use
+*/
+#define MT_RX_RING_BASE	(HIF_BASE + 0x0400)
+#define MT_RX_RING1_BASE	(HIF_BASE + 0x0410)
+#define MT_RX_RING_NUM	2
+#define MT_RX_RING_PTR		(MT_RX_RING_BASE + 0x00)
+#define MT_RX_RING_CNT		(MT_RX_RING_BASE + 0x04)
+#define MT_RX_RING_CIDX	(MT_RX_RING_BASE + 0x08)
+#define MT_RX_RING_DIDX	(MT_RX_RING_BASE + 0x0c)
+
+#define MT_RX_RING1_PTR	(MT_RX_RING_BASE + MT_RINGREG_DIFF * 1)
+#define MT_RX_RING1_CNT	(MT_RX_RING_BASE + MT_RINGREG_DIFF * 1 + 0x04)
+#define MT_RX_RING1_CIDX	(MT_RX_RING_BASE + MT_RINGREG_DIFF * 1 + 0x08)
+#define MT_RX_RING1_DIDX	(MT_RX_RING_BASE + MT_RINGREG_DIFF * 1 + 0x0c)
+
+#define PCI_CFG_DEVICE_CONTROL				(MT_HIF_BASE + 0x2088)
+#define PCI_CFG_MAX_PAYLOAD_SIZE_4K			(BIT(5)|BIT(7))
+#define PCI_CFG_MAX_READ_REQ_4K				(BIT(12)|BIT(14))
+#define PCI_CFG_MAX_PAYLOAD_SIZE_UMASK			~(BITS(5, 7))
+#define PCI_CFG_MAX_READ_REQ_UMASK			~(BITS(12, 14))
+
+#define PCI_K_CNT2					(MT_HIF_BASE + 0x3014)
+#define K_CNT_MAX_PAYLOAD_SIZE_4K			(BIT(0)|BIT(2))
+#define K_CNT_MAX_PAYLOAD_SIZE_UMASK			~(BITS(0, 2))
+
+#define PCI_K_CONF_FUNC0_4				(MT_HIF_BASE + 0x3110)
+#define K_CONF_MAX_PAYLOAD_SIZE_4K			(BIT(0)|BIT(2))
+#define K_CONF_MAX_PAYLOAD_SIZE_UMASK			~(BITS(0, 2))
 
 /* =================================================================================
 	PCI/RBUS TX / RX Frame Descriptors format
@@ -151,14 +657,10 @@ typedef	struct GNU_PACKED _TXD_STRUC {
 } TXD_STRUC;
 #endif /* RT_BIG_ENDIAN */
 
+
 /*
 	Rx descriptor format for Rx Rings
 */
-
-#define RX_TOKEN_ID_MASK (0xffff << 16)
-#define RX_TOKEN_ID_SHIFT 16
-#define TO_HOST_SHIFT 8
-
 #ifdef RT_BIG_ENDIAN
 typedef	struct GNU_PACKED _RXD_STRUC {
 	/* Word 0 */
@@ -193,188 +695,82 @@ typedef	struct GNU_PACKED _RXD_STRUC {
 } RXD_STRUC;
 #endif /* RT_BIG_ENDIAN */
 
-#ifdef RXD_WED_SCATTER_SUPPORT
-#define MAX_RECORD 32
-typedef	struct _RXD_RECORD {
-	/* Word 0 */
-	UINT32		DW0;
-	/* Word 1 */
-	UINT32		DW1;
-	/* Word 2 */
-	UINT32		DW2;
-	/* Word 3 */
-	UINT32		DW3;
-} RXD_RECORD;
+typedef struct _RTMP_MGMT_RING {
+	RTMP_DMACB Cell[MGMT_RING_SIZE];
+	UINT32 TxCpuIdx;
+	UINT32 TxDmaIdx;
+	UINT32 TxSwFreeIdx;	/* software next free tx index */
+	UINT32 hw_desc_base;
+	UINT32 hw_cidx_addr;
+	UINT32 hw_didx_addr;
+	UINT32 hw_cnt_addr;
+} RTMP_MGMT_RING;
 
-struct rx_data {
-	RXD_RECORD RxD_dump;
-	UCHAR buffer[20];
-};
+typedef struct _RTMP_CTRL_RING {
+	RTMP_DMACB Cell[CTL_RING_SIZE];
+	UINT32 TxCpuIdx;
+	UINT32 TxDmaIdx;
+	UINT32 TxSwFreeIdx;	/* software next free tx index */
+	UINT32 hw_desc_base;
+	UINT32 hw_cidx_addr;
+	UINT32 hw_didx_addr;
+	UINT32 hw_cnt_addr;
+} RTMP_CTRL_RING;
 
-struct rx_scatter_data {
-	UINT scatter_cnt;
-	UINT32 gather_size;
-	UINT32 rx_bytes_cnt;
-	UINT32 build_skb_len;
-};
-#endif /* RXD_WED_SCATTER_SUPPORT */
+#if defined(MT7615) || defined(MT7622) || defined(P18) || defined(MT7663)
+typedef struct _RTMP_FWDWLO_RING {
+	UINT32 TxCpuIdx;
+	UINT32 TxDmaIdx;
+	UINT32 TxSwFreeIdx;    /* software next free tx index */
+	UINT32 hw_desc_base;
+	UINT32 hw_cidx_addr;
+	UINT32 hw_didx_addr;
+	UINT32 hw_cnt_addr;
+	UINT32 ring_size;
+	NDIS_SPIN_LOCK RingLock;    /* Ring spinlock */
+	RTMP_DMABUF DescRing;    /* Shared memory for CTRL descriptors */
+	RTMP_DMACB Cell[MGMT_RING_SIZE];
+} RTMP_FWDWLO_RING;
 
-struct rxdmad_info {
-	PNDIS_PACKET pkt;
-	UINT16 ppe_entry;
-	UINT8 csrn;
-};
+typedef struct _RTMP_RING {
+	UINT32 TxCpuIdx;
+	UINT32 TxDmaIdx;
+	UINT32 TxSwFreeIdx;    /* software next free tx index */
+	UINT32 hw_desc_base;
+	UINT32 hw_cidx_addr;
+	UINT32 hw_didx_addr;
+	UINT32 hw_cnt_addr;
+	UINT32 ring_size;
+	NDIS_SPIN_LOCK RingLock;    /* Ring spinlock */
+	RTMP_DMABUF DescRing;    /* Shared memory for Ring descriptors */
+	RTMP_DMACB Cell[0];
+} RTMP_RING;
+#endif /* defined(MT7615) || defined(MT7622) || defined(P18) || defined(MT7663) */
 
-/*
-	Rx descriptor debug format for Rx Rings
-*/
-
-#ifdef RT_BIG_ENDIAN
-typedef	struct GNU_PACKED _RXD_DEBUG_STRUC {
-	/* Word 0 */
-	UINT32		SDP0;
-
-	/* Word 1 */
-	UINT32		DDONE:1;
-	UINT32		LS0:1;
-	UINT32		SDL0:14;
-	UINT32		BURST:1;
-	UINT32		LS1:1;
-	UINT32		QID:2;
-	UINT32		DIDX:12;
-
-	/* Word 2 */
-	UINT32		SW_INFO:20;
-	UINT32		CIDX:12;
-} RXD_DEBUG_STRUC;
-#else
-typedef	struct GNU_PACKED _RXD_DEBUG_STRUC {
-	/* Word	0 */
-	UINT32		SDP0;
-
-	/* Word	1 */
-	UINT32		DIDX:12;
-	UINT32		QID:2;
-	UINT32		LS1:1;
-	UINT32		BURST:1;
-	UINT32		SDL0:14;
-	UINT32		LS0:1;
-	UINT32		DDONE:1;
-
-	/* Word	2 */
-	UINT32		CIDX:12;
-	UINT32		SW_INFO:20;
-} RXD_DEBUG_STRUC;
-#endif /* RT_BIG_ENDIAN */
-
-/* RXD DW1 */
-#define RXDMAD_TO_HOST (1 << 8)
-#define RXDMAD_RING_INFO (1 << 9)
-#define RXDMAD_TO_HOST_A (1 << 12)
-#define RXDMAD_RXD_ERR (1 << 13)
-#define RXDMAD_RXD_DROP (1 << 14)
-#define RXDMAD_M_DONE (1 << 15)
-/* RXD DW2 */
-/* White List of WO pre checked */
-/* WO will toggle the bit[12] for scatter announce from WO */
-#define RXDMAD_WO_INDICATE_SCATTER (1 << 8)
-
-/* RXD DW3 */
-#define RXDMAD_CS_STATUS_MASK (0x0f << 0)
-#define RXDMAD_CS_STATUS_SHIFT 0
-#define RXDMAD_CS_TYPE_MASK (0xf << 4)
-#define RXDMAD_CS_TYPE_SHIFT 4
-#define RXDMAD_C (1 << 8)
-#define RXDMAD_F (1 << 9)
-#define RXDMAD_UN (1 << 10)
-#define RXDMAD_CSRN_MASK (0x1f << 11)
-#define RXDMAD_CSRN_SHIFT 11
-#define RXDMAD_PPE_ENTRY_MASK (0x7fff << 16)
-#define RXDMAD_PPE_ENTRY_SHIFT 16
-#define RXDMAD_PPE_VLD (1 << 31)
+#ifdef MT_MAC
+typedef struct _RTMP_BCN_RING {
+	RTMP_DMACB Cell[BCN_RING_SIZE];
+	UINT32 TxCpuIdx;
+	UINT32 TxDmaIdx;
+	UINT32 TxSwFreeIdx;	/* software next free tx index */
+	UINT32 hw_desc_base;
+	UINT32 hw_cidx_addr;
+	UINT32 hw_didx_addr;
+	UINT32 hw_cnt_addr;
+} RTMP_BCN_RING;
+#endif /* MT_MAC */
 
 #define INC_INDEX(_idx, _RingSize)    \
 	{                                          \
 		(_idx) = (_idx+1) % (_RingSize);       \
 	}
 
-enum {
-	TX_RING_LOW,
-	TX_RING_HIGH,
-};
-
-enum {
-	GET_PKT_DDONE,
-	GET_PKT_IO,
-	GET_PKT_METHOD_NUMS
-};
-
-enum buf_alloc_type {
-	DYNAMIC_PAGE_ALLOC,
-	DYNAMIC_SLAB_ALLOC,
-	PRE_SLAB_ALLOC,
-	DYNAMIC_PAGE_ALLOC_DEBUG,
-	PKT_ALLOC_TYPE_NUMS
-};
-
-/**
- * avg_tp: average T.P
- * dly_number: delay number in unit of interrupt event
- * dly_time: delay time in unit of 20us
- */
-struct dly_ctl_cfg {
-	UINT32 avg_tp;
-	UINT16 dly_number;
-	UINT16 dly_time;
-};
-
-struct hif_pci_ring_bh_group {
-	UINT32 int_mask; /* HW interrupt bitmask */
-	UINT32 ring_num; /* number of ring that's served in the bh group */
-	UINT8 ring_idx[32]; /* ring index (inside struct pci_hif_chip) of the rings in the bh group */
-};
-
-struct hif_pci_tx_ring_desc {
-	UINT32 hw_desc_base;
-	UINT32 hw_int_mask;
-	UINT16 ring_size;
-	enum resource_attr ring_attr;
-	UINT8 band_idx;
-	char *const ring_info;
-};
-
-#define MAX_DDONE_CHECK_TIMES 10
-
-struct hif_pci_rx_ring_desc {
-	UINT32 hw_desc_base;
-	UINT32 hw_int_mask;
-	UINT16 ring_size;
-	enum resource_attr ring_attr;
-	UINT32 event_type;
-	BOOLEAN delay_int_en;
-	struct dly_ctl_cfg *dl_dly_ctl_tbl;
-	UINT32 dl_dly_ctl_tbl_size;
-	struct dly_ctl_cfg *ul_dly_ctl_tbl;
-	UINT32 ul_dly_ctl_tbl_size;
-	UINT16 max_rx_process_cnt;
-	UINT16 max_sw_read_idx_inc;
-	UINT8 buf_type;
-	UINT8 band_idx;
-	char *const ring_info;
-};
-
-struct hif_pci_ring_layout {
-	const struct hif_pci_tx_ring_desc *tx_ring_layout;
-	const struct hif_pci_rx_ring_desc *rx_ring_layout;
-};
-
-struct hif_pci_tx_ring {
-	enum resource_attr ring_attr;
+typedef struct _RTMP_TX_RING {
 	UINT32 hw_didx_addr;
 	UINT32 TxDmaIdx;
 	RTMP_DMACB *Cell;
 	UINT32 TxSwFreeIdx;
-	ULONG tx_ring_state;
+	BOOLEAN tx_ring_state;
 	UINT32 tx_ring_low_water_mark;
 	UINT32 tx_ring_high_water_mark;
 	UINT32 tx_ring_full_cnt;
@@ -382,43 +778,28 @@ struct hif_pci_tx_ring {
 	UINT32 TxCpuIdx;
 	UINT32 hw_desc_base;
 	UINT32 hw_cnt_addr;
-	NDIS_SPIN_LOCK tx_lock;
-	NDIS_SPIN_LOCK tx_done_lock;
-	RTMP_DMABUF desc_ring;
-	RTMP_DMABUF buf_space;
-	UINT32 hw_int_mask;
-	UINT8 resource_idx;
-	UINT8 band_idx;
-	UINT16 ring_size;
-#if defined(CTXD_SCATTER_AND_GATHER) || defined(CTXD_MEM_CPY)
-	UINT8 cur_txd_cnt;
-#endif
-} ____cacheline_aligned;
+} RTMP_TX_RING ____cacheline_aligned;
 
-struct hif_pci_rx_ring {
-	enum resource_attr ring_attr;
-#if LINUX_VERSION_CODE > KERNEL_VERSION(4, 3, 0)
-	struct page_frag_cache rx_page;
-#endif
+enum {
+	FREE_BUF_1k,
+	FREE_BUF_64k,
+};
+
+typedef struct _RTMP_RX_RING {
 	UINT16 max_rx_process_cnt;
 	UINT32 hw_didx_addr;
 	UINT32 RxDmaIdx;
 	UINT32 RxSwReadIdx;
-	UINT16 ring_size;
+	UINT16 RxRingSize;
 	RTMP_DMACB *Cell;
-	UINT8 resource_idx;
-	UINT8 buf_type;
-	UINT8 buf_flags;
-	UINT8 get_pkt_method;
 	UINT16 free_buf_head;
 	UINT16 free_buf_tail;
 	UINT16 free_buf_size;
 	RTMP_DMABUF *free_buf;
-	UINT16 cur_free_buf_len;
+	UINT8 cur_free_buf_len;
 	UINT16 RxBufferSize;
 	UINT16 sw_read_idx_inc;
 	UINT32 RxCpuIdx;
-	UINT8 band_idx;
 	UINT32 hw_cidx_addr;
 	UINT16 free_buf_64k_head;
 	UINT16 free_buf_64k_tail;
@@ -426,268 +807,211 @@ struct hif_pci_rx_ring {
 	RTMP_DMABUF *free_buf_64k;
 	UINT32 hw_desc_base;
 	UINT32 hw_cnt_addr;
-	NDIS_SPIN_LOCK ring_lock;
-	RTMP_DMABUF desc_ring;
-	UINT32 hw_int_mask;
-	UINT8 buf_debug;
-	UINT16 max_sw_read_idx_inc;
-	BOOLEAN delay_int_en;
-	struct dly_ctl_cfg *dl_dly_ctl_tbl;
-	UINT32 dl_dly_ctl_tbl_size;
-	struct dly_ctl_cfg *ul_dly_ctl_tbl;
-	UINT32 ul_dly_ctl_tbl_size;
-	UINT32 event_type;
-} ____cacheline_aligned;
+} RTMP_RX_RING ____cacheline_aligned;
 
-enum {
-	FREE_BUF_1k,
-	FREE_BUF_64k,
+enum PACKET_TYPE {
+	TX_DATA,
+	TX_DATA_HIGH_PRIO,
+	TX_MGMT,
+	TX_ALTX,
+	TX_CMD,
+	TX_FW_DL,
+	TX_DATA_PS,
+	PACKET_TYPE_NUM,
 };
 
 typedef struct _PCI_HIF_T {
-	UINT8 tx_res_num;
-	UINT8 rx_res_num;
-	struct hif_pci_rx_ring **rx_ring;
-	struct hif_pci_tx_ring **tx_ring;
-	BOOLEAN (*dma_done_handle[RING_ATTR_NUM])(
-							struct _RTMP_ADAPTER *pAd,
-							UINT8 resource_idx);
-	/* map swq to SW TxRing resource_idx */
-	UINT8 swq_to_tx_ring[DBDC_BAND_NUM][PACKET_TYPE_NUM][WMM_QUE_NUM];
-	PNDIS_PACKET (*get_pkt_from_rx_resource[PKT_ALLOC_TYPE_NUMS][GET_PKT_METHOD_NUMS])(
-												struct _RTMP_ADAPTER *pAd,
-												BOOLEAN *pbReschedule,
-												UINT32 *pRxPending,
-												UCHAR resource_idx);
-	/* PCI MMIO Base Address, all access will use */
-	PUINT8	CSRBaseAddress;
-
-#ifdef CONFIG_ANDES_SUPPORT
-	/* remain these rings as pointers for easier back-ward compatible.*/
-	struct hif_pci_tx_ring *ctrl_ring;
-	struct hif_pci_tx_ring *fwdl_ring;
-#endif /* CONFIG_ANDES_SUPPORT */
-
-	/* flag that indicate if the PICE power status in configuration space.. */
-	BOOLEAN bPCIclkOff;
-#ifdef CUT_THROUGH
-	VOID *PktTokenCb;
-#endif /* CUT_THROUGH */
-	UINT16 host_msdu_id_rpt_idx;
-	/* lock for IO remap HW */
-	NDIS_SPIN_LOCK io_remap_lock;
-	struct pci_hif_chip *main_hif_chip;
-	struct pci_hif_chip *slave_hif_chip;
-	UINT8 pci_hif_chip_num;
-	struct pci_hif_chip **pci_hif_chip;
-	VOID *net_dev; /* for suspend, resume, get pAd */
-} PCI_HIF_T, *PPCI_HIF_T;
-
-struct pci_task_group {
-	RTMP_NET_TASK_STRUCT tx_dma_done_task;
-	RTMP_NET_TASK_STRUCT rx_data_done_task;
-#ifdef CONFIG_WIFI_MSI_SUPPORT
-	RTMP_NET_TASK_STRUCT rx_data_done_task_msi_band0;
-	RTMP_NET_TASK_STRUCT rx_data_done_task_msi_band1;
-#endif
-	RTMP_NET_TASK_STRUCT rx_event_done_task;
-	RTMP_NET_TASK_STRUCT rx_dly_done_task;
-#ifdef ERR_RECOVERY
-	RTMP_NET_TASK_STRUCT mac_error_recovey_task;
-#endif
-#ifdef CONFIG_FWOWN_SUPPORT
-	RTMP_NET_TASK_STRUCT mac_fw_own_task;
-#endif
-	RTMP_NET_TASK_STRUCT subsys_int_task;
-	RTMP_NET_TASK_STRUCT sw_int_task;
-#ifdef WF_RESET_SUPPORT
-	RTMP_NET_TASK_STRUCT wf_reset_task;
-#endif
-	struct net_device napi_dev;
-	struct napi_struct rx_data_done_napi_task;
-	VOID *priv;
-};
-
-struct pci_schedule_task_ops {
-	INT(*schedule_tx_dma_done)(struct pci_task_group *group);
-	INT(*schedule_rx_data_done)(struct pci_task_group *group);
-#ifdef CONFIG_WIFI_MSI_SUPPORT
-	INT(*schedule_rx_data_done_msi)(struct pci_task_group *group, UINT8 resource_idx);
-#endif
-	INT(*schedule_rx_event_done)(struct pci_task_group *group);
-	INT(*schedule_rx_dly_done)(struct pci_task_group *group);
-#ifdef ERR_RECOVERY
-	INT(*schedule_mac_recovery)(struct pci_task_group *group);
-#endif
-#ifdef CONFIG_FWOWN_SUPPORT
-	INT(*schedule_mac_fw_own)(struct pci_task_group *group);
-#endif
-	INT(*schedule_subsys_int)(struct pci_task_group *group);
-	INT(*schedule_sw_int)(struct pci_task_group *group);
-#ifdef WF_RESET_SUPPORT
-	INT(*schedule_wf_reset)(struct pci_task_group *group);
-#endif
-};
-
-struct pci_hif_chip_cfg {
-	VOID *device;
-	UINT32 device_id;
-	UINT32 irq;
-#ifdef MULTI_INTR_SUPPORT
-	UINT32 multi_intr_2nd;
-	UINT32 multi_intr_3rd;
-	UINT32 multi_intr_4th;
-#endif
-	ULONG csr_addr;
-#ifdef INTERFACE_SPEED_DETECT
-	UINT32 IfaceSpeed;
-#endif
-	BOOLEAN msi_en;
-};
-
-struct pci_hif_chip {
-	UINT32 int_enable_mask ____cacheline_aligned;
-	UINT32 int_ena_reg_addr;
+	UINT32 IntEnableReg ____cacheline_aligned;
 	UINT32 intDisableMask;
 	UINT32 IntPending;
-	UINT8 tx_res_num;
-	UINT8 rx_res_num;
-	struct hif_pci_rx_ring *RxRing;
-	struct hif_pci_tx_ring *TxRing;
-	struct hif_pci_ring_bh_group tx_bh_group;
-	struct hif_pci_ring_bh_group rx_bh_group;
-	struct hif_pci_ring_bh_group rx_data_bh_group;
-	struct hif_pci_ring_bh_group rx_event_bh_group;
-	/* PCI MMIO Base Address, all access will use */
-	PUINT8	CSRBaseAddress;
-	NDIS_SPIN_LOCK LockInterrupt;
-	struct hif_pci_ring_layout ring_layout;
+	RTMP_DMABUF *RxDescRing;
+	NDIS_SPIN_LOCK *RxRingLock;
+	RTMP_RX_RING *RxRing;
+	RTMP_DMABUF *TxBufSpace;
+	RTMP_DMABUF *TxDescRing;
+	NDIS_SPIN_LOCK *TxRingLock;
+	RTMP_TX_RING *TxRing;
+	BOOLEAN (*dma_done_handle[PACKET_TYPE_NUM])(struct _RTMP_ADAPTER *pAd, UINT8 hif_idx);
+
+	PUINT8	CSRBaseAddress; /* PCI MMIO Base Address, all access will use */
+
+	/* System Information */
+	UINT16 VendorID;         /* Read from PCI config */
+	UINT16 DeviceID;         /* Read from PCI config */
+	UINT16 SubVendorID;      /* Read from PCI config */
+	UINT16 SubSystemID;      /* Read from PCI config */
+
+	UINT16 SpecificVendorID; /* Read form Registry */
+	UINT16 SpecificDeviceID; /* Read form Registry */
+	UINT16 RevsionID;        /* Read from PCI config */
+	RTMP_DMABUF MgmtDescRing;	/* Shared memory for MGMT descriptors */
+	RTMP_MGMT_RING MgmtRing;
+	NDIS_SPIN_LOCK MgmtRingLock;	/* Prio Ring spinlock */
+
+#ifdef MT_MAC
+	RTMP_DMABUF BcnDescRing;	/* Shared memory for Beacon descriptors */
+	RTMP_BCN_RING BcnRing;
+	NDIS_SPIN_LOCK BcnRingLock;	/* Beacon Ring spinlock */
+#endif
+
+#ifdef CONFIG_ANDES_SUPPORT
+	RTMP_DMABUF CtrlDescRing;	/* Shared memory for CTRL descriptors */
+	RTMP_CTRL_RING CtrlRing;
+	NDIS_SPIN_LOCK CtrlRingLock;	/* Ctrl Ring spinlock */
+
+#if defined(MT7615) || defined(MT7622) || defined(P18) || defined(MT7663)
+	RTMP_FWDWLO_RING FwDwloRing;
+#endif /* defined(MT7615) || defined(MT7622) || defined(P18) || defined(MT7663) */
+#endif /* CONFIG_ANDES_SUPPORT */
+
+#ifdef MT_MAC
+	RTMP_DMABUF TxBmcBufSpace;	/* Shared memory of all 1st pre-allocated TxBuf associated with each TXD */
+	RTMP_DMABUF TxBmcDescRing;	/* Shared memory for Tx descriptors */
+	NDIS_SPIN_LOCK TxBmcRingLock;	/* Beacon Ring spinlock */
+	RTMP_TX_RING TxBmcRing;		/* BMC */
+#endif /* MT_MAC */
 #ifdef CONFIG_WIFI_MSI_SUPPORT
 	BOOLEAN is_msi;
-	BOOLEAN is_main;
-	UINT32 first_irq;
-	VOID (*msi_isr_message3)(struct pci_hif_chip *hif_chip);
-	VOID (*msi_isr_message4)(struct pci_hif_chip *hif_chip);
-	VOID (*msi_isr_message2_pcie1)(struct pci_hif_chip *hif_chip);
-#endif
-	VOID *pdev; /* pointer to struct device for mem alloc */
-	struct _PCI_HIF_T *hif;
+#endif /* CONFIG_WIFI_MSI_SUPPORT */
+} PCI_HIF_T, *PPCI_HIF_T;
 
-	/* irq */
-	UINT32 irq;
-#ifdef MULTI_INTR_SUPPORT
-	BOOLEAN is_multi_intr;
-	UINT32 multi_irq_2nd;
-	UINT32 multi_irq_3rd;
-	UINT32 multi_irq_4th;
-#endif
+#define MT_WPDMA_GLO_CFG_1      (MT_HIF_BASE + 0x0500)
+#define TXP_ACTIVE_MODE_MASK (0x3 << 0)
+#define TXP_ACTIVE_MODE(p) (((p) & 0x3) << 0)
+#define GET_TXP_ACTIVE_MODE(p) (((p) & TXP_ACTIVE_MODE_MASK) >> 0)
+#define MI_DEPTH_WR_2_0_MASK (0x7 << 13)
+#define MI_DEPTH_WR_2_0(p) (((p) & 0x3) << 13)
+#define GET_MI_DEPTH_WR_2_0(p) (((p) & MI_DEPTH_WR_2_0_MASK) >> 13)
+#define MI_DEPTH_WR_5_3_MASK (0x7 << 16)
+#define MI_DEPTH_WR_5_3(p) (((p) & 0x3) << 16)
+#define GET_MI_DEPTH_WR_5_3(p) (((p) & MI_DEPTH_WR_5_3_MASK) >> 16)
+#define MI_DEPTH_WR_8_6_MASK (0x7 << 19)
+#define MI_DEPTH_WR_8_6(p) (((p) & 0x3) << 19)
+#define GET_MI_DEPTH_WR_8_6(p) (((p) & MI_DEPTH_WR_8_6_MASK) >> 19)
 
-	VOID (*isr)(struct pci_hif_chip *hif_chip);
-#ifdef MULTI_INTR_SUPPORT
-	VOID (*multi_isr)(struct pci_hif_chip *hif_chip);
-	VOID (*multi_isr_2nd)(struct pci_hif_chip *hif_chip);
-	VOID (*multi_isr_3rd)(struct pci_hif_chip *hif_chip);
-	VOID (*multi_isr_4th)(struct pci_hif_chip *hif_chip);
-#endif
+#define MT_WPDMA_TX_PRE_CFG        (MT_HIF_BASE + 0x0510)
+#define TX_RING0_DMAD_PRE_NUM_MASK (0x3 << 0)
+#define TX_RING0_DMAD_PRE_NUM(p) (((p) & 0x3) << 0)
+#define GET_TX_RING0_DMAD_PRE_NUM(p) (((p) & TX_RING0_DMAD_PRE_NUM_MASK) >> 0)
+#define TX_RING1_DMAD_PRE_NUM_MASK (0x3 << 2)
+#define TX_RING1_DMAD_PRE_NUM(p) (((p) & 0x3) << 2)
+#define GET_TX_RING1_DMAD_PRE_NUM(p) (((p) & TX_RING1_DMAD_PRE_NUM_MASK) >> 2)
+#define TX_RING0_DMAD_PRE_HI_PRI_NUM_MASK (0x3 << 16)
+#define TX_RING0_DMAD_PRE_HI_PRI_NUM(p) (((p) & 0x3) << 16)
+#define GET_TX_RING0_DMAD_PRE_HI_PRI_NUM(p) (((p) & TX_RING0_DMAD_PRE_HI_PRI_NUM_MASK) >> 16)
+#define TX_RING1_DMAD_PRE_HI_PRI_NUM_MASK (0x3 << 18)
+#define TX_RING1_DMAD_PRE_HI_PRI_NUM(p) (((p) & 0x3) << 18)
+#define GET_TX_RING1_DMAD_PRE_HI_PRI_NUM(p) (((p) & TX_RING1_DMAD_PRE_HI_PRI_NUM_MASK) >> 18)
 
-#if defined(MT7986) || defined(MT7916) || defined(MT7981)
-#ifdef RTMP_PCI_SUPPORT
-	VOID (*isr_handler)(struct pci_hif_chip *hif_chip);
-#endif /* RTMP_PCI_SUPPORT */
-	struct pci_hif_chip_cfg cfg;
-#endif /* MT7986 || MT7916 || MT7981*/
+#define MT_WPDMA_RX_PRE_CFG        (MT_HIF_BASE + 0x0520)
+#define RX_RING0_DMAD_PRE_NUM_MASK (0x7f << 0)
+#define RX_RING0_DMAD_PRE_NUM(p) (((p) & 0x7f) << 0)
+#define GET_RX_RING0_DMAD_PRE_NUM(p) (((p) & RX_RING0_DMAD_PRE_NUM_MASK) >> 0)
+#define RX_RING1_DMAD_PRE_NUM_MASK (0xf << 8)
+#define RX_RING1_DMAD_PRE_NUM(p) (((p) & 0xf) << 8)
+#define GET_RX_RING1_DMAD_PRE_NUM(p) (((p) & RX_RING1_DMAD_PRE_NUM_MASK) >> 8)
+#define RX_RING0_DMAD_PRE_HI_PRI_NUM_MASK (0x7f << 16)
+#define RX_RING0_DMAD_PRE_HI_PRI_NUM(p) (((p) & 0x7f) << 16)
+#define GET_RX_RING0_DMAD_PRE_HI_PRI_NUM(p) (((p) & RX_RING0_DMAD_PRE_HI_PRI_NUM_MASK) >> 16)
+#define RX_RING1_DMAD_PRE_HI_PRI_NUM_MASK (0xf << 24)
+#define RX_RING1_DMAD_PRE_HI_PRI_NUM(p) (((p) & 0xf) << 24)
+#define GET_RX_RING1_DMAD_PRE_HI_PRI_NUM(p) (((p) & RX_RING1_DMAD_PRE_HI_PRI_NUM_MASK) >> 24)
 
-	/* task management */
-	struct pci_task_group task_group;
-	struct pci_schedule_task_ops *schedule_task_ops;
-	UINT32 tx_dma_1st_buffer_size;
-#if defined(CTXD_SCATTER_AND_GATHER) || defined(CTXD_MEM_CPY)
-	UINT8 max_ctxd_agg_num;
-#endif
-#ifdef CTXD_MEM_CPY
-	UINT8 ctxd_size_unit;
-	UINT8 ct_partial_payload_offset;
-#endif
-};
+#define MT_WPDMA_ABT_CFG           (MT_HIF_BASE + 0x0530)
+#define TRX_DFET_ABT_TYPE_MASK (0x3 << 0)
+#define TRX_DFET_ABT_TYPE(p) (((p) & 0x3) << 0)
+#define GET_TRX_DFET_ABT_TYPE(p) (((p) & TRX_DFET_ABT_TYPE_MASK) >> 0)
+#define TRX_PFET_ABT_TYPE_MASK (0x3 << 2)
+#define TRX_PFET_ABT_TYPE(p) (((p) & 0x3) << 2)
+#define GET_TRX_PFET_ABT_TYPE(p) (((p) & TRX_PFET_ABT_TYPE_MASK) >> 2)
+#define PDMA_DFET_PFET_ABT_TYPE_MASK (0x3 << 4)
+#define PDMA_DFET_PFET_ABT_TYPE(p) (((p) & 0x3) << 4)
+#define GET_PDMA_DFET_PFET_ABT_TYPE(p) (((p) & PDMA_DFET_PFET_ABT_TYPE_MASK) >> 4)
+#define PDMA_DFET_PFET_ABT_W_FULL_IN_DIS_MASK (0x1 << 6)
+#define PDMA_DFET_PFET_ABT_W_FULL_IN_DIS(p) (((p) & 0x1) << 6)
+#define GET_PDMA_DFET_PFET_ABT_W_FULL_IN_DIS(p) (((p) & PDMA_DFET_PFET_ABT_W_FULL_IN_DIS_MASK) >> 6)
+#define REQ_MASK_DIS_MASK (0x1 << 7)
+#define REQ_MASK_DIS(p) (((p) & 0x1) << 7)
+#define GET_REQ_MASK_DIS(p) (((p) & REQ_MASK_DIS_MASK) >> 7)
+#define TXDMAD_PRI_WIN_DIS_MASK (0x1 << 8)
+#define TXDMAD_PRI_WIN_DIS(p) (((p) & 0x1) << 8)
+#define GET_TXDMAD_PRI_WIN_DIS(p) (((p) & TXDMAD_PRI_WIN_DIS_MASK) >> 8)
+#define RXDMAD_PRI_WIN_DIS_MASK (0x1 << 9)
+#define RXDMAD_PRI_WIN_DIS(p) (((p) & 0x1) << 9)
+#define GET_RXDMAD_PRI_WIN_DIS(p) (((p) & RXDMAD_PRI_WIN_DIS_MASK) >> 9)
+#define TXP_PRI_WIN_DIS_MASK (0x1 << 10)
+#define TXP_PRI_WIN_DIS(p) (((p) & 0x1) << 10)
+#define GET_TXP_PRI_WIN_DIS(p) (((p) & TXP_PRI_WIN_DIS_MASK) >> 10)
+#define TXD_PRI_WIN_DIS_MASK (0x1 << 11)
+#define TXD_PRI_WIN_DIS(p) (((p) & 0x1) << 11)
+#define GET_TXD_PRI_WIN_DIS(p) (((p) & TXD_PRI_WIN_DIS_MASK) >> 11)
+#define WRR_DIS_MASK (0x1 << 12)
+#define WRR_DIS(p) (((p) & 0x1) << 12)
+#define GET_WRR_DIS(p) (((p) & WRR_DIS_MASK) >> 12)
+#define D_SP_FIXED_PRI_MASK (0x7 << 13)
+#define D_SP_FIXED_PRI(p) (((p) & 0x7) << 13)
+#define GET_D_SP_FIXED_PRI(p) (((p) & D_SP_FIXED_PRI_MASK) >> 13)
+#define WRR_TIME_SLOT_DURATION_MASK (0xffff << 16)
+#define WRR_TIME_SLOT_DURATION(p) (((p) & 0xffff) << 16)
+#define GET_WRR_TIME_SLOT_DURATION(p) (((p) & WRR_TIME_SLOT_DURATION_MASK) >> 16)
 
-USHORT mtd_pci_write_tx_resource(
-	struct _RTMP_ADAPTER *pAd,
-	struct _TX_BLK *pTxBlk,
-	BOOLEAN bIsLast,
-	USHORT *FreeNumber);
+#define MT_WPDMA_ABT_CFG1          (MT_HIF_BASE + 0x0534)
+#define WRR_TIME_SLOT_PRIORITY_0_MASK (0x3 << 0)
+#define WRR_TIME_SLOT_PRIORITY_0(p) (((p) & 0x3) << 0)
+#define GET_WRR_TIME_SLOT_PRIORITY_0(p) (((p) & WRR_TIME_SLOT_PRIORITY_0_MASK) >> 0)
+#define WRR_TIME_SLOT_PRIORITY_1_MASK (0x3 << 2)
+#define WRR_TIME_SLOT_PRIORITY_1(p) (((p) & 0x3) << 2)
+#define GET_WRR_TIME_SLOT_PRIORITY_1(p) (((p) & WRR_TIME_SLOT_PRIORITY_1_MASK) >> 2)
+#define WRR_TIME_SLOT_PRIORITY_2_MASK (0x3 << 4)
+#define WRR_TIME_SLOT_PRIORITY_2(p) (((p) & 0x3) << 4)
+#define GET_WRR_TIME_SLOT_PRIORITY_2(p) (((p) & WRR_TIME_SLOT_PRIORITY_2_MASK) >> 4)
+#define WRR_TIME_SLOT_PRIORITY_3_MASK (0x3 << 6)
+#define WRR_TIME_SLOT_PRIORITY_3(p) (((p) & 0x3) << 6)
+#define GET_WRR_TIME_SLOT_PRIORITY_3(p) (((p) & WRR_TIME_SLOT_PRIORITY_3_MASK) >> 6)
+#define WRR_TIME_SLOT_PRIORITY_4_MASK (0x3 << 8)
+#define WRR_TIME_SLOT_PRIORITY_4(p) (((p) & 0x3) << 8)
+#define GET_WRR_TIME_SLOT_PRIORITY_4(p) (((p) & WRR_TIME_SLOT_PRIORITY_4_MASK) >> 8)
+#define WRR_TIME_SLOT_PRIORITY_5_MASK (0x3 << 10)
+#define WRR_TIME_SLOT_PRIORITY_5(p) (((p) & 0x3) << 10)
+#define GET_WRR_TIME_SLOT_PRIORITY_5(p) (((p) & WRR_TIME_SLOT_PRIORITY_5_MASK) >> 10)
+#define WRR_TIME_SLOT_PRIORITY_6_MASK (0x3 << 12)
+#define WRR_TIME_SLOT_PRIORITY_6(p) (((p) & 0x3) << 12)
+#define GET_WRR_TIME_SLOT_PRIORITY_6(p) (((p) & WRR_TIME_SLOT_PRIORITY_6_MASK) >> 12)
+#define WRR_TIME_SLOT_PRIORITY_7_MASK (0x3 << 14)
+#define WRR_TIME_SLOT_PRIORITY_7(p) (((p) & 0x3) << 14)
+#define GET_WRR_TIME_SLOT_PRIORITY_7(p) (((p) & WRR_TIME_SLOT_PRIORITY_7_MASK) >> 14)
+#define WRR_TIME_SLOT_PRIORITY_8_MASK (0x3 << 16)
+#define WRR_TIME_SLOT_PRIORITY_8(p) (((p) & 0x3) << 16)
+#define GET_WRR_TIME_SLOT_PRIORITY_8(p) (((p) & WRR_TIME_SLOT_PRIORITY_8_MASK) >> 16)
+#define WRR_TIME_SLOT_PRIORITY_9_MASK (0x3 << 18)
+#define WRR_TIME_SLOT_PRIORITY_9(p) (((p) & 0x3) << 18)
+#define GET_WRR_TIME_SLOT_PRIORITY_9(p) (((p) & WRR_TIME_SLOT_PRIORITY_9_MASK) >> 18)
+#define WRR_TIME_SLOT_PRIORITY_10_MASK (0x3 << 20)
+#define WRR_TIME_SLOT_PRIORITY_10(p) (((p) & 0x3) << 20)
+#define GET_WRR_TIME_SLOT_PRIORITY_10(p) (((p) & WRR_TIME_SLOT_PRIORITY_10_MASK) >> 20)
+#define WRR_TIME_SLOT_PRIORITY_11_MASK (0x3 << 22)
+#define WRR_TIME_SLOT_PRIORITY_11(p) (((p) & 0x3) << 22)
+#define GET_WRR_TIME_SLOT_PRIORITY_11(p) (((p) & WRR_TIME_SLOT_PRIORITY_11_MASK) >> 22)
+#define WRR_TIME_SLOT_PRIORITY_12_MASK (0x3 << 24)
+#define WRR_TIME_SLOT_PRIORITY_12(p) (((p) & 0x3) << 24)
+#define GET_WRR_TIME_SLOT_PRIORITY_12(p) (((p) & WRR_TIME_SLOT_PRIORITY_12_MASK) >> 24)
+#define WRR_TIME_SLOT_PRIORITY_13_MASK (0x3 << 26)
+#define WRR_TIME_SLOT_PRIORITY_13(p) (((p) & 0x3) << 26)
+#define GET_WRR_TIME_SLOT_PRIORITY_13(p) (((p) & WRR_TIME_SLOT_PRIORITY_13_MASK) >> 26)
+#define WRR_TIME_SLOT_PRIORITY_14_MASK (0x3 << 28)
+#define WRR_TIME_SLOT_PRIORITY_14(p) (((p) & 0x3) << 28)
+#define GET_WRR_TIME_SLOT_PRIORITY_14(p) (((p) & WRR_TIME_SLOT_PRIORITY_14_MASK) >> 28)
+#define WRR_TIME_SLOT_PRIORITY_15_MASK (0x3 << 30)
+#define WRR_TIME_SLOT_PRIORITY_15(p) (((p) & 0x3) << 30)
+#define GET_WRR_TIME_SLOT_PRIORITY_15(p) (((p) & WRR_TIME_SLOT_PRIORITY_15_MASK) >> 30)
 
-#ifdef CTXD_MEM_CPY
-USHORT mtd_pci_write_tx_resource_for_ctxd(
-	struct _RTMP_ADAPTER *pAd,
-	struct _TX_BLK *pTxBlk,
-	BOOLEAN bIsLast,
-	USHORT *FreeNumber);
+#define K_GBL_1 (HIF_BASE + 0x3000)
+#define HIF_K_GBL_CDC_IMP_MASK (1 << 23)
+#define GET_HIF_K_GBL_CDC_IMP(p) (((p) & HIF_K_GBL_CDC_IMP_MASK) >> 23)
 
-VOID mtd_pci_write_last_tx_resource(
-	struct _RTMP_ADAPTER *pAd,
-	UCHAR resource_idx);
-#endif
-
-#ifdef CTXD_SCATTER_AND_GATHER
-VOID mtd_pci_write_last_tx_resource_last_sec(
-	struct _RTMP_ADAPTER *pAd,
-	UCHAR resource_idx);
-#endif
-
-USHORT mt_pci_write_tx_resource(
-	struct _RTMP_ADAPTER *pAd,
-	struct _TX_BLK *pTxBlk,
-	BOOLEAN bIsLast,
-	USHORT *FreeNumber);
-
-VOID mt_pci_write_final_tx_resource(
-	struct _RTMP_ADAPTER *pAd,
-	struct _TX_BLK *pTxBlk,
-	USHORT totalMPDUSize,
-	USHORT FirstTxIdx);
-
-UINT32 pci_dynamic_dly_int_init(
-	void *hdev_ctrl
-	);
-
-UINT32 pci_dynamic_dly_int_adjust(
-	void *hdev_ctrl,
-	UINT32 tx_tp_mpbs,
-	UINT32 rx_tp_mbps
-	);
-
-VOID mt_int_disable(struct _RTMP_ADAPTER *pAd, struct pci_hif_chip *hif_chip, unsigned int mode);
-VOID mt_int_enable(struct _RTMP_ADAPTER *pAd, struct pci_hif_chip *hif_chip, unsigned int mode);
-
-VOID pci_core_ops_register(void *hdev_ctrl);
-VOID pci_core_ops_unregister(void *hdev_ctrl);
-
-static inline struct hif_pci_rx_ring* pci_get_rx_ring_by_ridx(struct _PCI_HIF_T * pci_hif, UINT8 resource_idx)
-{
-	return pci_hif->rx_ring[resource_idx];
-}
-
-static inline struct hif_pci_tx_ring* pci_get_tx_ring_by_ridx(struct _PCI_HIF_T * pci_hif, UINT8 resource_idx)
-{
-	return pci_hif->tx_ring[resource_idx];
-}
-
-#ifdef CONFIG_WIFI_MSI_SUPPORT
-VOID pci_handle_msi_irq(int irq, void *hif_chip);
-#endif
-
-VOID pci_handle_irq(void *hif_chip);
-#ifdef MULTI_INTR_SUPPORT
-VOID pci_handle_multi_irq(void *hif_chip);
-VOID pci_handle_multi_irq_2nd(void *hif_chip);
-VOID pci_handle_multi_irq_3rd(void *hif_chip);
-VOID pci_handle_multi_irq_4th(void *hif_chip);
-#endif
-
-NDIS_STATUS pci_hif_chip_init(VOID **hif_chip, struct pci_hif_chip_cfg *cfg);
-VOID pci_hif_chip_exit(struct pci_hif_chip *hif_chip);
-BOOLEAN pci_rx_event_dma_done_handle(struct _RTMP_ADAPTER *pAd, UINT8 resource_idx);
-VOID pci_rx_all(struct _PCI_HIF_T *pci_hif);
+#define K_CPL_RESOURCE (HIF_BASE + 0x3158)
+#define HIF_K_RX_SPLIT_EN_MASK (1 << 16)
+#define GET_HIF_K_RX_SPLIT_EN(p) (((p) & HIF_K_RX_SPLIT_EN_MASK) >> 16)
 
 #endif /* __MT_HIF_PCI_H__ */
 

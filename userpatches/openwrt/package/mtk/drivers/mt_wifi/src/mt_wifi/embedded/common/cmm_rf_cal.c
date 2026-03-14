@@ -1,17 +1,18 @@
 /*
- * Copyright (c) [2020], MediaTek Inc. All rights reserved.
- *
- * This software/firmware and related documentation ("MediaTek Software") are
- * protected under relevant copyright laws.
- * The information contained herein is confidential and proprietary to
- * MediaTek Inc. and/or its licensors.
- * Except as otherwise provided in the applicable licensing terms with
- * MediaTek Inc. and/or its licensors, any reproduction, modification, use or
- * disclosure of MediaTek Software, and information contained herein, in whole
- * or in part, shall be strictly prohibited.
-*/
-/*
  ***************************************************************************
+ * Ralink Tech Inc.
+ * 4F, No. 2 Technology 5th Rd.
+ * Science-based Industrial Park
+ * Hsin-chu, Taiwan, R.O.C.
+ *
+ * (c) Copyright 2002-2009, Ralink Technology, Inc.
+ *
+ * All rights reserved. Ralink's source code is an unpublished work and the
+ * use of a copyright notice does not imply otherwise. This source code
+ * contains confidential trade secret material of Ralink Tech. Any attemp
+ * or participation in deciphering, decoding, reverse engineering or in any
+ * way altering the source code is stricitly prohibited, unless the prior
+ * written consent of Ralink Technology, Inc. is obtained.
  ***************************************************************************
 
 	Module Name:
@@ -127,10 +128,10 @@ VOID R_Calibration(
 	RTMP_BBP_IO_READ8_BY_REG_ID(pAd, BBP_R47, &saveBBPR47);
 	RTMP_BBP_IO_READ8_BY_REG_ID(pAd, BBP_R49, &saveBBPR49);
 	/* Save MAC registers */
-	RTMP_IO_READ32(pAd->hdev_ctrl, MAC_SYS_CTRL, &saveMacSysCtrl);
-	RTMP_IO_READ32(pAd->hdev_ctrl, RTMP_RF_BYPASS0, &MAC_RF_BYPASS0);
-	RTMP_IO_READ32(pAd->hdev_ctrl, RF_CONTROL0, &MAC_RF_CONTROL0);
-	RTMP_IO_READ32(pAd->hdev_ctrl, PWR_PIN_CFG, &MAC_PWR_PIN_CFG);
+	RTMP_IO_READ32(pAd, MAC_SYS_CTRL, &saveMacSysCtrl);
+	RTMP_IO_READ32(pAd, RTMP_RF_BYPASS0, &MAC_RF_BYPASS0);
+	RTMP_IO_READ32(pAd, RF_CONTROL0, &MAC_RF_CONTROL0);
+	RTMP_IO_READ32(pAd, PWR_PIN_CFG, &MAC_PWR_PIN_CFG);
 	{
 		UINT32 macCfg, macStatus;
 		UINT32 MTxCycle, MRxCycle;
@@ -141,7 +142,7 @@ VOID R_Calibration(
 		AsicSetMacTxRx(pAd, ASIC_MAC_TX, FALSE);
 
 		for (MTxCycle = 0; MTxCycle < 10000; MTxCycle++) {
-			RTMP_IO_READ32(pAd->hdev_ctrl, MAC_STATUS_CFG, &macStatus);
+			RTMP_IO_READ32(pAd, MAC_STATUS_CFG, &macStatus);
 
 			if (macStatus & 0x1)
 				RtmpusecDelay(50);
@@ -162,7 +163,7 @@ VOID R_Calibration(
 		AsicSetMacTxRx(pAd, ASIC_MAC_RX, FALSE);
 
 		for (MRxCycle = 0; MRxCycle < 10000; MRxCycle++) {
-			RTMP_IO_READ32(pAd->hdev_ctrl, MAC_STATUS_CFG, &macStatus);
+			RTMP_IO_READ32(pAd, MAC_STATUS_CFG, &macStatus);
 
 			if (macStatus & 0x2)
 				RtmpusecDelay(50);
@@ -180,9 +181,9 @@ VOID R_Calibration(
 	}
 	/* RF bypass MAC */
 	RFValue = (MAC_RF_BYPASS0 | 0x3004);
-	RTMP_IO_WRITE32(pAd->hdev_ctrl, RTMP_RF_BYPASS0, RFValue);
+	RTMP_IO_WRITE32(pAd, RTMP_RF_BYPASS0, RFValue);
 	RFValue = (MAC_RF_CONTROL0 & (~0x3002));
-	RTMP_IO_WRITE32(pAd->hdev_ctrl, RF_CONTROL0, RFValue);
+	RTMP_IO_WRITE32(pAd, RF_CONTROL0, RFValue);
 	RT635xWriteRFRegister(pAd, RF_BANK5, RF_R04, 0x27);
 	RT635xWriteRFRegister(pAd, RF_BANK5, RF_R17, 0x80);
 	RT635xWriteRFRegister(pAd, RF_BANK5, RF_R18, 0x83);
@@ -191,7 +192,7 @@ VOID R_Calibration(
 	RT635xWriteRFRegister(pAd, RF_BANK0, RF_R01, 0x00);
 	RT635xWriteRFRegister(pAd, RF_BANK0, RF_R34, 0x13);
 	RT635xWriteRFRegister(pAd, RF_BANK0, RF_R35, 0x00);
-	RTMP_IO_WRITE32(pAd->hdev_ctrl, PWR_PIN_CFG, 0x1);
+	RTMP_IO_WRITE32(pAd, PWR_PIN_CFG, 0x1);
 	RTMP_BBP_IO_WRITE8_BY_REG_ID(pAd, BBP_R47, 0x04);
 	RTMP_BBP_IO_WRITE8_BY_REG_ID(pAd, BBP_R22, 0x80);
 	RtmpusecDelay(100);
@@ -221,7 +222,7 @@ VOID R_Calibration(
 	else
 		R_Cal_Code = (UCHAR)RCalCode;
 
-	MTWF_DBG(pAd, DBG_CAT_HW, DBG_SUBCAT_ALL, DBG_LVL_INFO, "D1 = %d, D2 = %d, CalCode = %d !!!\n", D1, D2, RCalCode);
+	MTWF_LOG(DBG_CAT_HW, DBG_SUBCAT_ALL, DBG_LVL_ERROR, ("D1 = %d, D2 = %d, CalCode = %d !!!\n", D1, D2, RCalCode));
 	RT635xWriteRFRegister(pAd, RF_BANK0, RF_R07, R_Cal_Code);
 	RTMP_BBP_IO_WRITE8_BY_REG_ID(pAd, BBP_R22, 0x00);
 	RTMP_BBP_IO_READ8_BY_REG_ID(pAd, BBP_R21, &byteValue);
@@ -245,11 +246,11 @@ VOID R_Calibration(
 	RTMP_BBP_IO_WRITE8_BY_REG_ID(pAd, BBP_R47, saveBBPR47);
 	RTMP_BBP_IO_WRITE8_BY_REG_ID(pAd, BBP_R49, saveBBPR49);
 	/* Restore registers */
-	RTMP_IO_WRITE32(pAd->hdev_ctrl, RTMP_RF_BYPASS0, MAC_RF_BYPASS0);
-	RTMP_IO_WRITE32(pAd->hdev_ctrl, RF_CONTROL0, MAC_RF_CONTROL0);
+	RTMP_IO_WRITE32(pAd, RTMP_RF_BYPASS0, MAC_RF_BYPASS0);
+	RTMP_IO_WRITE32(pAd, RF_CONTROL0, MAC_RF_CONTROL0);
 	/*	Return to normal mode */
-	RTMP_IO_WRITE32(pAd->hdev_ctrl, MAC_SYS_CTRL, saveMacSysCtrl);
-	RTMP_IO_WRITE32(pAd->hdev_ctrl, PWR_PIN_CFG, MAC_PWR_PIN_CFG);
+	RTMP_IO_WRITE32(pAd, MAC_SYS_CTRL, saveMacSysCtrl);
+	RTMP_IO_WRITE32(pAd, PWR_PIN_CFG, MAC_PWR_PIN_CFG);
 }
 
 INT Set_TestRxIQCalibration_Proc(
@@ -348,9 +349,8 @@ VOID RtmpKickOutHwNullFrame(
 			mac_info.SpeEn = 1;
 #ifdef MT_MAC
 			mac_info.OmacIdx = wdev->OmacIdx;
-			mac_info.txpwr_offset = 0;
 #endif
-			asic_write_tmac_info_fixed_rate(pAd, (UCHAR *)pTxWI, &mac_info, &MlmeTransmit);
+			pAd->archOps.write_tmac_info_fixed_rate(pAd, (UCHAR *)pTxWI, &mac_info, &MlmeTransmit);
 			pTxWI->TXWI_O.MCS = 15;
 			pTxWI->TXWI_O.PHYMODE = MODE_HTMIX;
 			pTxWI->TXWI_O.BW = 0;
@@ -361,7 +361,7 @@ VOID RtmpKickOutHwNullFrame(
 
 			for (i = 0; i < TXWISize; i += 4) {
 				longValue =  *ptr + (*(ptr + 1) << 8) + (*(ptr + 2) << 16) + (*(ptr + 3) << 24);
-				RTMP_IO_WRITE32(pAd->hdev_ctrl, HW_CS_CTS_BASE + i, longValue);
+				RTMP_IO_WRITE32(pAd, HW_CS_CTS_BASE + i, longValue);
 				ptr += 4;
 			}
 
@@ -372,7 +372,7 @@ VOID RtmpKickOutHwNullFrame(
 
 			for (i = 0; i < Length; i += 4) {
 				longValue =  *ptr + (*(ptr + 1) << 8) + (*(ptr + 2) << 16) + (*(ptr + 3) << 24);
-				RTMP_IO_WRITE32(pAd->hdev_ctrl, HW_CS_CTS_BASE + TXWISize + i, longValue);
+				RTMP_IO_WRITE32(pAd, HW_CS_CTS_BASE + TXWISize + i, longValue);
 				ptr += 4;
 			}
 		}
@@ -383,11 +383,11 @@ VOID RtmpKickOutHwNullFrame(
 
 	if (bTransmit) {
 		/* kick NULL frame #0 */
-		RTMP_IO_WRITE32(pAd->hdev_ctrl, PBF_CTRL, 0x80);
+		RTMP_IO_WRITE32(pAd, PBF_CTRL, 0x80);
 
 		/* Check MAC Tx/Rx idle */
 		for (k_count = 0; k_count < 200; k_count++) {
-			RTMP_IO_READ32(pAd->hdev_ctrl, PBF_CTRL, &macStatus);
+			RTMP_IO_READ32(pAd, PBF_CTRL, &macStatus);
 
 			if (macStatus & 0x80)
 				RtmpusecDelay(100);
@@ -396,7 +396,7 @@ VOID RtmpKickOutHwNullFrame(
 		}
 
 		if (k_count == 200)
-			MTWF_DBG(pAd, DBG_CAT_HW, DBG_SUBCAT_ALL, DBG_LVL_INFO, "Wait Null Frame SendOut to MAX  !!!\n");
+			MTWF_LOG(DBG_CAT_HW, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("Wait Null Frame SendOut to MAX  !!!\n"));
 	}
 
 	return;
@@ -477,14 +477,14 @@ VOID DPD_AM_AM_LUT_Scaling(
 
 	for (check_loop = 0; check_loop < 2; check_loop++) {
 		if (AntIdx == 0) {
-			MTWF_DBG(NULL, DBG_CAT_HW, DBG_SUBCAT_ALL, DBG_LVL_DEBUG, "DPD Scaling for TX0 !!!\n");
+			MTWF_LOG(DBG_CAT_HW, DBG_SUBCAT_ALL, DBG_LVL_INFO, ("DPD Scaling for TX0 !!!\n"));
 
 			if (check_loop == 0)
 				RTMP_BBP_IO_WRITE8_BY_REG_ID(pAd, BBP_R186, 0x02);
 			else
 				RTMP_BBP_IO_WRITE8_BY_REG_ID(pAd, BBP_R186, 0x03);
 		} else {
-			MTWF_DBG(NULL, DBG_CAT_HW, DBG_SUBCAT_ALL, DBG_LVL_DEBUG, "DPD Scaling for TX1 !!!\n");
+			MTWF_LOG(DBG_CAT_HW, DBG_SUBCAT_ALL, DBG_LVL_INFO, ("DPD Scaling for TX1 !!!\n"));
 
 			if (check_loop == 0)
 				RTMP_BBP_IO_WRITE8_BY_REG_ID(pAd, BBP_R186, 0x04);
@@ -508,7 +508,7 @@ VOID DPD_AM_AM_LUT_Scaling(
 
 			RTMP_BBP_IO_WRITE8_BY_REG_ID(pAd, BBP_R188, AM_scaling);
 			RtmpusecDelay(100);
-			MTWF_DBG(NULL, DBG_CAT_HW, DBG_SUBCAT_ALL, DBG_LVL_DEBUG, "(%d). AM_temp (%d), AM_Dealta (%d), AM_scaling (%d)\n", k_count, AM_temp, AM_Dealta, AM_scaling);
+			MTWF_LOG(DBG_CAT_HW, DBG_SUBCAT_ALL, DBG_LVL_INFO, ("(%d). AM_temp (%d), AM_Dealta (%d), AM_scaling (%d)\n", k_count, AM_temp, AM_Dealta, AM_scaling));
 		}
 	}
 }
@@ -553,54 +553,54 @@ UCHAR DPD_Calibration(
 		/* Compute the corresponding signal values
 		    Do exactly what TXALC does:
 		*/
-		RTMP_IO_READ32(pAd->hdev_ctrl, TX_ALG_CFG_0, &macValue);
+		RTMP_IO_READ32(pAd, TX_ALG_CFG_0, &macValue);
 		txALC_init = (macValue & 0x0000003F);
 		txALC_limit = (macValue & 0x003F0000) >> 16;
-		RTMP_IO_READ32(pAd->hdev_ctrl, TX_ALG_CFG_1, &macValue);
+		RTMP_IO_READ32(pAd, TX_ALG_CFG_1, &macValue);
 		temp_comp = (macValue & 0x0000003F);
 
 		if ((temp_comp & 0x20) == 0x20)
 			temp_comp -= 64;
 
 		tx_alc_txwi = 0;
-		RTMP_IO_READ32(pAd->hdev_ctrl, TX_ALC_VGA3, &macValue);
+		RTMP_IO_READ32(pAd, TX_ALC_VGA3, &macValue);
 		txvga2 = (macValue & 0x001F0000) >> 16;
 		txvga3 = (macValue & 0x0000001F);
-		RTMP_IO_READ32(pAd->hdev_ctrl, TX_ALG_CFG_1, &macValue);
+		RTMP_IO_READ32(pAd, TX_ALG_CFG_1, &macValue);
 		mac_gain_atten = (macValue & 0x00300000) >> 20;
 
 		if (mac_gain_atten == 1) {
-			RTMP_IO_READ32(pAd->hdev_ctrl, TX0_BB_GAIN_ATTEN, &macValue);
+			RTMP_IO_READ32(pAd, TX0_BB_GAIN_ATTEN, &macValue);
 			gain_atten_bb = (macValue & 0x00001F00) >> 8;
 
 			if ((gain_atten_bb & 0x10) == 0x10)
 				gain_atten_bb -= 32;
 
-			RTMP_IO_READ32(pAd->hdev_ctrl, TX0_RF_GAIN_ATTEN, &macValue);
+			RTMP_IO_READ32(pAd, TX0_RF_GAIN_ATTEN, &macValue);
 			gain_atten_rf = (macValue & 0x00007F00) >> 8;
 
 			if ((gain_atten_rf & 0x40) == 0x40)
 				gain_atten_rf -= 128;
 		} else if (mac_gain_atten == 2) {
-			RTMP_IO_READ32(pAd->hdev_ctrl, TX0_BB_GAIN_ATTEN, &macValue);
+			RTMP_IO_READ32(pAd, TX0_BB_GAIN_ATTEN, &macValue);
 			gain_atten_bb = (macValue & 0x001F0000) >> 16;
 
 			if ((gain_atten_bb & 0x10) == 0x10)
 				gain_atten_bb -= 32;
 
-			RTMP_IO_READ32(pAd->hdev_ctrl, TX0_RF_GAIN_ATTEN, &macValue);
+			RTMP_IO_READ32(pAd, TX0_RF_GAIN_ATTEN, &macValue);
 			gain_atten_rf = (macValue & 0x007F0000) >> 16;
 
 			if ((gain_atten_rf & 0x40) == 0x40)
 				gain_atten_rf -= 128;
 		} else if (mac_gain_atten == 3) {
-			RTMP_IO_READ32(pAd->hdev_ctrl, TX0_BB_GAIN_ATTEN, &macValue);
+			RTMP_IO_READ32(pAd, TX0_BB_GAIN_ATTEN, &macValue);
 			gain_atten_bb = (macValue & 0x1F000000) >> 24;
 
 			if ((gain_atten_bb & 0x10) == 0x10)
 				gain_atten_bb -= 32;
 
-			RTMP_IO_READ32(pAd->hdev_ctrl, TX0_RF_GAIN_ATTEN, &macValue);
+			RTMP_IO_READ32(pAd, TX0_RF_GAIN_ATTEN, &macValue);
 			gain_atten_rf = (macValue & 0x7F000000) >> 24;
 
 			if ((gain_atten_rf & 0x40) == 0x40)
@@ -642,7 +642,7 @@ UCHAR DPD_Calibration(
 			if (!ATE_ON(pAd))
 #endif /* CONFIG_ATE */
 			{
-				RTMP_IO_READ32(pAd->hdev_ctrl, TX_ALG_CFG_1, &macValue);
+				RTMP_IO_READ32(pAd, TX_ALG_CFG_1, &macValue);
 				delta_power = (macValue & 0x3F);
 				delta_power = (delta_power & 0x20) ? delta_power - 0x40 : delta_power;
 				target_power += delta_power;
@@ -664,54 +664,54 @@ UCHAR DPD_Calibration(
 		/* Compute the corresponding signal values
 		    Do exactly what TXALC does:
 		*/
-		RTMP_IO_READ32(pAd->hdev_ctrl, TX_ALG_CFG_0, &macValue);
+		RTMP_IO_READ32(pAd, TX_ALG_CFG_0, &macValue);
 		txALC_init = (macValue & 0x00003F00) >> 8;
 		txALC_limit = (macValue & 0x3F000000) >> 24;
-		RTMP_IO_READ32(pAd->hdev_ctrl, TX_ALG_CFG_1, &macValue);
+		RTMP_IO_READ32(pAd, TX_ALG_CFG_1, &macValue);
 		temp_comp = (macValue & 0x0000003F);
 
 		if ((temp_comp & 0x20) == 0x20)
 			temp_comp -= 64;
 
 		tx_alc_txwi = 0;
-		RTMP_IO_READ32(pAd->hdev_ctrl, TX_ALC_VGA3, &macValue);
+		RTMP_IO_READ32(pAd, TX_ALC_VGA3, &macValue);
 		txvga2 = (macValue & 0x1F000000) >> 24;
 		txvga3 = (macValue & 0x00001F00) >> 8;
-		RTMP_IO_READ32(pAd->hdev_ctrl, TX_ALG_CFG_1, &macValue);
+		RTMP_IO_READ32(pAd, TX_ALG_CFG_1, &macValue);
 		mac_gain_atten = (macValue & 0x00C00000) >> 22;
 
 		if (mac_gain_atten == 1) {
-			RTMP_IO_READ32(pAd->hdev_ctrl, TX1_BB_GAIN_ATTEN, &macValue);
+			RTMP_IO_READ32(pAd, TX1_BB_GAIN_ATTEN, &macValue);
 			gain_atten_bb = (macValue & 0x00001F00) >> 8;
 
 			if ((gain_atten_bb & 0x10) == 0x10)
 				gain_atten_bb -= 32;
 
-			RTMP_IO_READ32(pAd->hdev_ctrl, TX1_RF_GAIN_ATTEN, &macValue);
+			RTMP_IO_READ32(pAd, TX1_RF_GAIN_ATTEN, &macValue);
 			gain_atten_rf = (macValue & 0x00007F00) >> 8;
 
 			if ((gain_atten_rf & 0x40) == 0x40)
 				gain_atten_rf -= 128;
 		} else if (mac_gain_atten == 2) {
-			RTMP_IO_READ32(pAd->hdev_ctrl, TX1_BB_GAIN_ATTEN, &macValue);
+			RTMP_IO_READ32(pAd, TX1_BB_GAIN_ATTEN, &macValue);
 			gain_atten_bb = (macValue & 0x001F0000) >> 16;
 
 			if ((gain_atten_bb & 0x10) == 0x10)
 				gain_atten_bb -= 32;
 
-			RTMP_IO_READ32(pAd->hdev_ctrl, TX1_RF_GAIN_ATTEN, &macValue);
+			RTMP_IO_READ32(pAd, TX1_RF_GAIN_ATTEN, &macValue);
 			gain_atten_rf = (macValue & 0x007F0000) >> 16;
 
 			if ((gain_atten_rf & 0x40) == 0x40)
 				gain_atten_rf -= 128;
 		} else if (mac_gain_atten == 3) {
-			RTMP_IO_READ32(pAd->hdev_ctrl, TX1_BB_GAIN_ATTEN, &macValue);
+			RTMP_IO_READ32(pAd, TX1_BB_GAIN_ATTEN, &macValue);
 			gain_atten_bb = (macValue & 0x1F000000) >> 24;
 
 			if ((gain_atten_bb & 0x10) == 0x10)
 				gain_atten_bb -= 32;
 
-			RTMP_IO_READ32(pAd->hdev_ctrl, TX1_RF_GAIN_ATTEN, &macValue);
+			RTMP_IO_READ32(pAd, TX1_RF_GAIN_ATTEN, &macValue);
 			gain_atten_rf = (macValue & 0x7F000000) >> 24;
 
 			if ((gain_atten_rf & 0x40) == 0x40)
@@ -754,7 +754,7 @@ UCHAR DPD_Calibration(
 #endif /* CONFIG_ATE */
 			{
 				/* for single sku */
-				RTMP_IO_READ32(pAd->hdev_ctrl, TX_ALG_CFG_1, &macValue);
+				RTMP_IO_READ32(pAd, TX_ALG_CFG_1, &macValue);
 				delta_power = (macValue & 0x3F);
 				delta_power = (delta_power & 0x20) ? delta_power - 0x40 : delta_power;
 				target_power += delta_power;
@@ -778,7 +778,7 @@ UCHAR DPD_Calibration(
 
 	if (bNeedDoDPD == FALSE) {
 		DPD_Cal_success = FALSE;
-		MTWF_DBG(pAd, DBG_CAT_HW, DBG_SUBCAT_ALL, DBG_LVL_INFO, "Don't need do DPD Calibration  !!!\n");
+		MTWF_LOG(DBG_CAT_HW, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("Don't need do DPD Calibration  !!!\n"));
 		return 0;
 	}
 
@@ -800,11 +800,11 @@ UCHAR DPD_Calibration(
 	}
 
 	/* Save MAC SYS CTRL registers */
-	RTMP_IO_READ32(pAd->hdev_ctrl, MAC_SYS_CTRL, &saveMacSysCtrl);
+	RTMP_IO_READ32(pAd, MAC_SYS_CTRL, &saveMacSysCtrl);
 	/* Save TX PIN CFG registers */
-	RTMP_IO_READ32(pAd->hdev_ctrl, TX_PIN_CFG, &saveTxPinCfg);
+	RTMP_IO_READ32(pAd, TX_PIN_CFG, &saveTxPinCfg);
 	/* Save TX_ALG_CFG_0 registers */
-	RTMP_IO_READ32(pAd->hdev_ctrl, TX_ALG_CFG_0, &saveTxAlgCfg0);
+	RTMP_IO_READ32(pAd, TX_ALG_CFG_0, &saveTxAlgCfg0);
 	/* Save BBP registers */
 	RTMP_BBP_IO_READ8_BY_REG_ID(pAd, BBP_R27, &saveBbpR27);
 	RTMP_BBP_IO_READ8_BY_REG_ID(pAd, BBP_R65, &saveBbpR65);
@@ -847,7 +847,7 @@ UCHAR DPD_Calibration(
 
 	if (AntIdx == 0) {
 		/* Setup the MAC to Transmit-Idle Mode through MAC registers */
-		RTMP_IO_WRITE32(pAd->hdev_ctrl, TX_PIN_CFG, 0x001C0020);
+		RTMP_IO_WRITE32(pAd, TX_PIN_CFG, 0x001C0020);
 		/* Connect RF loopback through MAC registers  */
 		RT635xWriteRFRegister(pAd, RF_BANK0, RF_R01, 0x41);
 		RT635xWriteRFRegister(pAd, RF_BANK4, RF_R11, 0x51);
@@ -861,7 +861,7 @@ UCHAR DPD_Calibration(
 		RT635xWriteRFRegister(pAd, RF_BANK4, RF_R22, 0xA1);
 	} else {
 		/* Setup the MAC to Transmit-Idle Mode through MAC registers */
-		RTMP_IO_WRITE32(pAd->hdev_ctrl, TX_PIN_CFG, 0x001C0080);
+		RTMP_IO_WRITE32(pAd, TX_PIN_CFG, 0x001C0080);
 		/* Connect RF loopback through MAC registers  */
 		RT635xWriteRFRegister(pAd, RF_BANK0, RF_R01, 0x42);
 		RT635xWriteRFRegister(pAd, RF_BANK6, RF_R11, 0x51);
@@ -878,7 +878,7 @@ UCHAR DPD_Calibration(
 	RTMP_BBP_IO_WRITE8_BY_REG_ID(pAd, BBP_R186, 0x00);
 	RTMP_BBP_IO_WRITE8_BY_REG_ID(pAd, BBP_R187, 0x00);
 	RTMP_BBP_IO_WRITE8_BY_REG_ID(pAd, BBP_R188, 0x00);
-	RTMP_IO_READ32(pAd->hdev_ctrl, TX_ALG_CFG_0, &macValue_Tx_Cfg0);
+	RTMP_IO_READ32(pAd, TX_ALG_CFG_0, &macValue_Tx_Cfg0);
 
 	if (AntIdx == 0) {
 		macValue_2nd = macValue_Tx_Cfg0 & 0x3f;
@@ -920,16 +920,16 @@ UCHAR DPD_Calibration(
 
 	for (check_loop = 0; check_loop < 2; check_loop++) {
 		if (check_loop == 0)
-			RTMP_IO_WRITE32(pAd->hdev_ctrl, TX_ALG_CFG_0, macValue_Tx_Cfg0);
+			RTMP_IO_WRITE32(pAd, TX_ALG_CFG_0, macValue_Tx_Cfg0);
 		else
-			RTMP_IO_WRITE32(pAd->hdev_ctrl, TX_ALG_CFG_0, macValue_2nd);
+			RTMP_IO_WRITE32(pAd, TX_ALG_CFG_0, macValue_2nd);
 
 		/* Disable Tx/Rx */
-		RTMP_IO_WRITE32(pAd->hdev_ctrl, MAC_SYS_CTRL, 0x00);
+		RTMP_IO_WRITE32(pAd, MAC_SYS_CTRL, 0x00);
 
 		/* Check MAC Tx/Rx idle */
 		for (k_count = 0; k_count < 1000; k_count++) {
-			RTMP_IO_READ32(pAd->hdev_ctrl, MAC_STATUS_CFG, &macStatus);
+			RTMP_IO_READ32(pAd, MAC_STATUS_CFG, &macStatus);
 
 			if (macStatus & 0x3)
 				RtmpusecDelay(50);
@@ -938,18 +938,18 @@ UCHAR DPD_Calibration(
 		}
 
 		if (k_count == 1000)
-			MTWF_DBG(pAd, DBG_CAT_HW, DBG_SUBCAT_ALL, DBG_LVL_DEBUG, "\nWait MAC Status to MAX  !!!\n");
+			MTWF_LOG(DBG_CAT_HW, DBG_SUBCAT_ALL, DBG_LVL_ERROR, ("\nWait MAC Status to MAX  !!!\n"));
 
 		/* Transmit packet */
 		/* ====================================== */
-		RTMP_IO_WRITE32(pAd->hdev_ctrl, MAC_SYS_CTRL, 0x04);
+		RTMP_IO_WRITE32(pAd, MAC_SYS_CTRL, 0x04);
 		RtmpKickOutHwNullFrame(pAd, FALSE, TRUE);
 		/* Disable Tx/Rx */
-		RTMP_IO_WRITE32(pAd->hdev_ctrl, MAC_SYS_CTRL, 0x00);
+		RTMP_IO_WRITE32(pAd, MAC_SYS_CTRL, 0x00);
 
 		/* Check MAC Tx/Rx idle */
 		for (k_count = 0; k_count < 500; k_count++) {
-			RTMP_IO_READ32(pAd->hdev_ctrl, MAC_STATUS_CFG, &macStatus);
+			RTMP_IO_READ32(pAd, MAC_STATUS_CFG, &macStatus);
 
 			if (macStatus & 0x3)
 				RtmpusecDelay(100);
@@ -958,7 +958,7 @@ UCHAR DPD_Calibration(
 		}
 
 		if (k_count == 500)
-			MTWF_DBG(pAd, DBG_CAT_HW, DBG_SUBCAT_ALL, DBG_LVL_DEBUG, "\nWait MAC Status to MAX  !!!\n");
+			MTWF_LOG(DBG_CAT_HW, DBG_SUBCAT_ALL, DBG_LVL_ERROR, ("\nWait MAC Status to MAX  !!!\n"));
 
 		/* Set BBP DPD parameters through MAC registers  */
 		if (AntIdx == 0)
@@ -1000,7 +1000,7 @@ UCHAR DPD_Calibration(
 		for (index = 0; index < Max_Retry; index++) {
 			while ((VGA_code_idx >= 0) && (VGA_code_idx <= 18)) {
 				VGA_code = RT6352_RFR3R4_TABLE[VGA_code_idx].Value;
-				MTWF_DBG(NULL, DBG_CAT_HW, DBG_SUBCAT_ALL, DBG_LVL_DEBUG, "RF Gain(%d), RF R3/4(%x)\n", RT6352_RFR3R4_TABLE[VGA_code_idx].Register, VGA_code);
+				MTWF_LOG(DBG_CAT_HW, DBG_SUBCAT_ALL, DBG_LVL_INFO, ("RF Gain(%d), RF R3/4(%x)\n", RT6352_RFR3R4_TABLE[VGA_code_idx].Register, VGA_code));
 
 				if (AntIdx == 0) {
 					RT635xWriteRFRegister(pAd, RF_BANK5, RF_R03, (0x20 | VGA_code));
@@ -1010,12 +1010,12 @@ UCHAR DPD_Calibration(
 					RT635xWriteRFRegister(pAd, RF_BANK7, RF_R04, (0x20 | VGA_code));
 				}
 
-				RTMP_IO_WRITE32(pAd->hdev_ctrl, MAC_SYS_CTRL, 0x08);
-				RTMP_IO_WRITE32(pAd->hdev_ctrl, MAC_SYS_CTRL, 0x00);
+				RTMP_IO_WRITE32(pAd, MAC_SYS_CTRL, 0x08);
+				RTMP_IO_WRITE32(pAd, MAC_SYS_CTRL, 0x00);
 
 				/* Check MAC Tx/Rx idle */
 				for (k_count = 0; k_count < 10000; k_count++) {
-					RTMP_IO_READ32(pAd->hdev_ctrl, MAC_STATUS_CFG, &macStatus);
+					RTMP_IO_READ32(pAd, MAC_STATUS_CFG, &macStatus);
 
 					if (macStatus & 0x3)
 						RtmpusecDelay(50);
@@ -1024,7 +1024,7 @@ UCHAR DPD_Calibration(
 				}
 
 				if (k_count == 10000)
-					MTWF_DBG(pAd, DBG_CAT_HW, DBG_SUBCAT_ALL, DBG_LVL_DEBUG, "2. Wait MAC Status to MAX  !!!\n");
+					MTWF_LOG(DBG_CAT_HW, DBG_SUBCAT_ALL, DBG_LVL_ERROR, ("2. Wait MAC Status to MAX  !!!\n"));
 
 				/* Turn on debug tone and start DPD calibration through MAC registers */
 				if (pAd->CommonCfg.Chip_VerID > 1)
@@ -1058,7 +1058,7 @@ UCHAR DPD_Calibration(
 				}
 
 				if (k_count == 1000)
-					MTWF_DBG(pAd, DBG_CAT_HW, DBG_SUBCAT_ALL, DBG_LVL_DEBUG, "Wait capture buffer to MAX  !!!\n");
+					MTWF_LOG(DBG_CAT_HW, DBG_SUBCAT_ALL, DBG_LVL_ERROR, ("Wait capture buffer to MAX  !!!\n"));
 
 				/* Turn off debug tone */
 				RTMP_BBP_IO_WRITE8_BY_REG_ID(pAd, BBP_R244, 0x00);
@@ -1067,22 +1067,22 @@ UCHAR DPD_Calibration(
 				RTMP_BBP_IO_WRITE8_BY_REG_ID(pAd, BBP_R187, 0xFF);
 				RTMP_BBP_IO_READ8_BY_REG_ID(pAd, BBP_R188, &byteValue);
 				AM_63 = byteValue;
-				MTWF_DBG(NULL, DBG_CAT_HW, DBG_SUBCAT_ALL, DBG_LVL_DEBUG, "AM_63 (%d)\n", AM_63);
+				MTWF_LOG(DBG_CAT_HW, DBG_SUBCAT_ALL, DBG_LVL_INFO, ("AM_63 (%d)\n", AM_63));
 
 				if (VGA_Lower_Bound > AM_63)
 					VGA_code_idx++;
 				else if (VGA_Upper_Bound < AM_63)
 					VGA_code_idx--;
 				else {
-					MTWF_DBG(NULL, DBG_CAT_HW, DBG_SUBCAT_ALL, DBG_LVL_DEBUG, "Appropriate VGA Gain(%d), R66(%x)\n", RT6352_VGA_TABLE[VGA_code_idx].Register, VGA_code);
-					MTWF_DBG(NULL, DBG_CAT_HW, DBG_SUBCAT_ALL, DBG_LVL_DEBUG, "AM_63 (%d)\n", AM_63);
+					MTWF_LOG(DBG_CAT_HW, DBG_SUBCAT_ALL, DBG_LVL_INFO, ("Appropriate VGA Gain(%d), R66(%x)\n", RT6352_VGA_TABLE[VGA_code_idx].Register, VGA_code));
+					MTWF_LOG(DBG_CAT_HW, DBG_SUBCAT_ALL, DBG_LVL_INFO, ("AM_63 (%d)\n", AM_63));
 					break;
 				}
 			}
 
 			/* VGA_code cannot be found, report error and stop DPD calibration */
 			if ((VGA_code_idx < 0) || (VGA_code_idx > 18)) {
-				MTWF_DBG(pAd, DBG_CAT_HW, DBG_SUBCAT_ALL, DBG_LVL_ERROR, " VGA Code idx overflow(%d), AM_63(%d) !!!\n", VGA_code_idx, AM_63);
+				MTWF_LOG(DBG_CAT_HW, DBG_SUBCAT_ALL, DBG_LVL_ERROR, (" VGA Code idx overflow(%d), AM_63(%d) !!!\n", VGA_code_idx, AM_63));
 				DPD_Cal_success = FALSE;
 				break;
 			}
@@ -1101,12 +1101,12 @@ UCHAR DPD_Calibration(
 			RTMP_BBP_IO_WRITE8_BY_REG_ID(pAd, BBP_R187, 0x2B);
 			RTMP_BBP_IO_READ8_BY_REG_ID(pAd, BBP_R188, &byteValue);
 			AM_10 = byteValue;
-			MTWF_DBG(NULL, DBG_CAT_HW, DBG_SUBCAT_ALL, DBG_LVL_DEBUG, "AM_SUM = %d, AM_10 = %d !!!\n", AM_SUM, AM_10);
-			MTWF_DBG(NULL, DBG_CAT_HW, DBG_SUBCAT_ALL, DBG_LVL_DEBUG, "(AM_SUM - 5.5*AM_10) = (%d) @@\n", (AM_SUM - ((11 * AM_10) / 2)));
+			MTWF_LOG(DBG_CAT_HW, DBG_SUBCAT_ALL, DBG_LVL_INFO, ("AM_SUM = %d, AM_10 = %d !!!\n", AM_SUM, AM_10));
+			MTWF_LOG(DBG_CAT_HW, DBG_SUBCAT_ALL, DBG_LVL_INFO, ("(AM_SUM - 5.5*AM_10) = (%d) @@\n", (AM_SUM - ((11 * AM_10) / 2))));
 
 			if (AntIdx == 0) {
 				if (((AM_SUM - ((11 * AM_10) / 2)) >= -3) && ((AM_SUM - ((11 * AM_10) / 2)) <= Pass_Thres)) {
-					MTWF_DBG(pAd, DBG_CAT_HW, DBG_SUBCAT_ALL, DBG_LVL_INFO, "DPD Calibration Pass for TX0 !!!\n");
+					MTWF_LOG(DBG_CAT_HW, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("DPD Calibration Pass for TX0 !!!\n"));
 
 					if (check_loop == 0)
 						pAd->Tx0_DPD_ALC_tag0_flag = 0x1;
@@ -1122,7 +1122,7 @@ UCHAR DPD_Calibration(
 			} else {
 				if (index == 4) {
 					if (((AM_SUM - ((11 * AM_10) / 2)) >= -9) && ((AM_SUM - ((11 * AM_10) / 2)) <= 12)) {
-						MTWF_DBG(pAd, DBG_CAT_HW, DBG_SUBCAT_ALL, DBG_LVL_INFO, "DPD Calibration Pass for TX1 !!!\n");
+						MTWF_LOG(DBG_CAT_HW, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("DPD Calibration Pass for TX1 !!!\n"));
 
 						if (check_loop == 0)
 							pAd->Tx1_DPD_ALC_tag0_flag = 0x1;
@@ -1134,7 +1134,7 @@ UCHAR DPD_Calibration(
 					}
 				} else {
 					if (((AM_SUM - ((11 * AM_10) / 2)) >= -5) && ((AM_SUM - ((11 * AM_10) / 2)) <= 5)) {
-						MTWF_DBG(pAd, DBG_CAT_HW, DBG_SUBCAT_ALL, DBG_LVL_INFO, "DPD Calibration Pass for TX1 !!!\n");
+						MTWF_LOG(DBG_CAT_HW, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("DPD Calibration Pass for TX1 !!!\n"));
 
 						if (check_loop == 0)
 							pAd->Tx1_DPD_ALC_tag0_flag = 0x1;
@@ -1217,9 +1217,9 @@ UCHAR DPD_Calibration(
 
 	RTMP_BBP_IO_WRITE8_BY_REG_ID(pAd, BBP_R244, saveBbpR244);
 	/* Restore MAC registers */
-	RTMP_IO_WRITE32(pAd->hdev_ctrl, TX_ALG_CFG_0, saveTxAlgCfg0);
-	RTMP_IO_WRITE32(pAd->hdev_ctrl, TX_PIN_CFG, saveTxPinCfg);
-	RTMP_IO_WRITE32(pAd->hdev_ctrl, MAC_SYS_CTRL, saveMacSysCtrl);
+	RTMP_IO_WRITE32(pAd, TX_ALG_CFG_0, saveTxAlgCfg0);
+	RTMP_IO_WRITE32(pAd, TX_PIN_CFG, saveTxPinCfg);
+	RTMP_IO_WRITE32(pAd, MAC_SYS_CTRL, saveMacSysCtrl);
 	return 2;
 }
 
@@ -1232,7 +1232,7 @@ VOID DoDPDCalibration(
 #ifdef CONFIG_ATE
 	UCHAR saveBbpR1 = 0, saveRfB0R2 = 0, BBPValue = 0, RFValue = 0;
 #endif /* CONFIG_ATE */
-	MTWF_DBG(NULL, DBG_CAT_HW, DBG_SUBCAT_ALL, DBG_LVL_DEBUG, " Do DPD Calibration !!!\n");
+	MTWF_LOG(DBG_CAT_HW, DBG_SUBCAT_ALL, DBG_LVL_INFO, (" Do DPD Calibration !!!\n"));
 #ifdef CONFIG_ATE
 
 	if (ATE_ON(pAd)) {
@@ -1355,10 +1355,10 @@ VOID DoDPDCalibration(
 			RTMP_BBP_IO_WRITE8_BY_REG_ID(pAd, BBP_R187, 0x00);
 			RTMP_BBP_IO_WRITE8_BY_REG_ID(pAd, BBP_R188, 0x00);
 		} else {
-			MTWF_DBG(pAd, DBG_CAT_HW, DBG_SUBCAT_ALL, DBG_LVL_INFO, " Enable DPD Compensation !!!\n");
-			MTWF_DBG(NULL, DBG_CAT_HW, DBG_SUBCAT_ALL, DBG_LVL_DEBUG, " DPD Calibration Ant00 = %d, Ant01 = %d, Ant10 = %d,  Ant11 = %d!!!\n",
+			MTWF_LOG(DBG_CAT_HW, DBG_SUBCAT_ALL, DBG_LVL_TRACE, (" Enable DPD Compensation !!!\n"));
+			MTWF_LOG(DBG_CAT_HW, DBG_SUBCAT_ALL, DBG_LVL_INFO, (" DPD Calibration Ant00 = %d, Ant01 = %d, Ant10 = %d,  Ant11 = %d!!!\n",
 					 pAd->Tx0_DPD_ALC_tag0_flag, pAd->Tx0_DPD_ALC_tag1_flag,
-					 pAd->Tx1_DPD_ALC_tag0_flag, pAd->Tx1_DPD_ALC_tag1_flag);
+					 pAd->Tx1_DPD_ALC_tag0_flag, pAd->Tx1_DPD_ALC_tag1_flag));
 			/* Enable DPD Compensation */
 			RTMP_BBP_IO_WRITE8_BY_REG_ID(pAd, BBP_R186, 0x00);
 			RTMP_BBP_IO_WRITE8_BY_REG_ID(pAd, BBP_R187, 0x04);
@@ -1380,7 +1380,7 @@ VOID DoDPDCalibration(
 		RTMP_BBP_IO_WRITE8_BY_REG_ID(pAd, BBP_R21, 0x1);
 		RTMP_BBP_IO_WRITE8_BY_REG_ID(pAd, BBP_R21, 0x0);
 	} else
-		MTWF_DBG(NULL, DBG_CAT_HW, DBG_SUBCAT_ALL, DBG_LVL_DEBUG, " DPD Calibration Ant0 = %d, Ant1 = %d !!!\n", Ant0, Ant1);
+		MTWF_LOG(DBG_CAT_HW, DBG_SUBCAT_ALL, DBG_LVL_INFO, (" DPD Calibration Ant0 = %d, Ant1 = %d !!!\n", Ant0, Ant1));
 
 	return;
 }
@@ -1737,8 +1737,8 @@ INT Set_DPDCalPassThres_Proc(
 	struct _RTMP_CHIP_CAP *cap = hc_get_chip_cap(pAd->hdev_ctrl);
 
 	cap->DPDCalPassThres = os_str_tol(arg, 0, 10);
-	MTWF_DBG(NULL, DBG_CAT_HW, DBG_SUBCAT_ALL, DBG_LVL_DEBUG,
-			 "DPD Pass Threshold = %d\n", cap->DPDCalPassThres);
+	MTWF_LOG(DBG_CAT_HW, DBG_SUBCAT_ALL, DBG_LVL_INFO,
+			 ("DPD Pass Threshold = %d\n", cap->DPDCalPassThres));
 	return TRUE;
 }
 
@@ -1791,11 +1791,11 @@ static INT RF_lp_Config(
 	UCHAR rf_val;
 
 	if (bTxCal) {
-		RTMP_IO_WRITE32(pAd->hdev_ctrl, RF_CONTROL0, 0x04);
-		RTMP_IO_WRITE32(pAd->hdev_ctrl, RTMP_RF_BYPASS0, 0x06);
+		RTMP_IO_WRITE32(pAd, RF_CONTROL0, 0x04);
+		RTMP_IO_WRITE32(pAd, RTMP_RF_BYPASS0, 0x06);
 	} else {
-		RTMP_IO_WRITE32(pAd->hdev_ctrl, RF_CONTROL0, 0x02);
-		RTMP_IO_WRITE32(pAd->hdev_ctrl, RTMP_RF_BYPASS0, 0x06);
+		RTMP_IO_WRITE32(pAd, RF_CONTROL0, 0x02);
+		RTMP_IO_WRITE32(pAd, RTMP_RF_BYPASS0, 0x06);
 	}
 
 	RT635xReadRFRegister(pAd, RF_BANK5, RF_R17, &rf_val);
@@ -1886,10 +1886,10 @@ BOOLEAN BW_Filter_Calibration(
 	UINT32 MAC_RF_CONTROL0, MAC_RF_BYPASS0;
 	struct wifi_dev *wdev = get_default_wdev(pAd);
 
-	MTWF_DBG(pAd, DBG_CAT_HW, DBG_SUBCAT_ALL, DBG_LVL_INFO, " %s BW Filter Calibration !!!\n", (bTxCal == TRUE ? "TX" : "RX"));
+	MTWF_LOG(DBG_CAT_HW, DBG_SUBCAT_ALL, DBG_LVL_ERROR, (" %s BW Filter Calibration !!!\n", (bTxCal == TRUE ? "TX" : "RX")));
 	/* Save MAC registers */
-	RTMP_IO_READ32(pAd->hdev_ctrl, RF_CONTROL0, &MAC_RF_CONTROL0);
-	RTMP_IO_READ32(pAd->hdev_ctrl, RTMP_RF_BYPASS0, &MAC_RF_BYPASS0);
+	RTMP_IO_READ32(pAd, RF_CONTROL0, &MAC_RF_CONTROL0);
+	RTMP_IO_READ32(pAd, RTMP_RF_BYPASS0, &MAC_RF_BYPASS0);
 	/* save BBP registers */
 	RTMP_BBP_IO_READ8_BY_REG_ID(pAd, BBP_R23, &saveBBPR23);
 	RTMP_BBP_IO_WRITE8_BY_REG_ID(pAd, BBP_R158, 0x0);
@@ -1932,7 +1932,7 @@ BOOLEAN BW_Filter_Calibration(
 	do {
 		RtmpusecDelay(500);
 		RT635xReadRFRegister(pAd, RF_BANK5, RF_R01, &rf_val);
-		MTWF_DBG(NULL, DBG_CAT_HW, DBG_SUBCAT_ALL, DBG_LVL_DEBUG, "ABB.R1 = %d, Cnt = %d\n", rf_val, cnt);
+		MTWF_LOG(DBG_CAT_HW, DBG_SUBCAT_ALL, DBG_LVL_INFO, ("ABB.R1 = %d, Cnt = %d\n", rf_val, cnt));
 
 		if (((rf_val & 0x1) == 0x00) || (cnt == 40))
 			break;
@@ -1968,8 +1968,8 @@ BOOLEAN BW_Filter_Calibration(
 				filter_target = rx_filter_target_40m;
 		}
 
-		MTWF_DBG(NULL, DBG_CAT_HW, DBG_SUBCAT_ALL, DBG_LVL_DEBUG, "%s():Start BW Cal for %dMHz\n",
-				 __func__, (bw == BW_20 ? 20 : 40));
+		MTWF_LOG(DBG_CAT_HW, DBG_SUBCAT_ALL, DBG_LVL_INFO, ("%s():Start BW Cal for %dMHz\n",
+				 __func__, (bw == BW_20 ? 20 : 40)));
 		RT635xReadRFRegister(pAd, RF_BANK5, RF_R08, &rf_val);
 		rf_val &= (~0x04);
 
@@ -2113,8 +2113,8 @@ do_cal:
 		bbp_val |= 0x10;
 
 	RTMP_BBP_IO_WRITE8_BY_REG_ID(pAd, BBP_R4, bbp_val);
-	RTMP_IO_WRITE32(pAd->hdev_ctrl, RF_CONTROL0, MAC_RF_CONTROL0);
-	RTMP_IO_WRITE32(pAd->hdev_ctrl, RTMP_RF_BYPASS0, MAC_RF_BYPASS0);
+	RTMP_IO_WRITE32(pAd, RF_CONTROL0, MAC_RF_CONTROL0);
+	RTMP_IO_WRITE32(pAd, RTMP_RF_BYPASS0, MAC_RF_BYPASS0);
 	return TRUE;
 }
 
@@ -2137,11 +2137,11 @@ VOID RxDCOC_Calibration(
 	RTMP_BBP_IO_READ8_BY_REG_ID(pAd, BBP_R159, &BbpReg);
 	BbpReg |= 0x10;
 	RTMP_BBP_IO_WRITE8_BY_REG_ID(pAd, BBP_R159, BbpReg);
-	RTMP_IO_READ32(pAd->hdev_ctrl, MAC_SYS_CTRL, &MacValue);
-	RTMP_IO_WRITE32(pAd->hdev_ctrl, MAC_SYS_CTRL, 0x8);
+	RTMP_IO_READ32(pAd, MAC_SYS_CTRL, &MacValue);
+	RTMP_IO_WRITE32(pAd, MAC_SYS_CTRL, 0x8);
 
 	for (k_count = 0; k_count < 10000; k_count++) {
-		RTMP_IO_READ32(pAd->hdev_ctrl, MAC_STATUS_CFG, &MacValue1);
+		RTMP_IO_READ32(pAd, MAC_STATUS_CFG, &MacValue1);
 
 		if (MacValue1 & 0x1)
 			RtmpusecDelay(50);
@@ -2178,7 +2178,7 @@ VOID RxDCOC_Calibration(
 	RTMP_BBP_IO_READ8_BY_REG_ID(pAd, BBP_R159, &BbpReg);
 	BbpReg = BbpReg & (~0x40);
 	RTMP_BBP_IO_WRITE8_BY_REG_ID(pAd, BBP_R159, BbpReg);
-	RTMP_IO_WRITE32(pAd->hdev_ctrl, MAC_SYS_CTRL, MacValue);
+	RTMP_IO_WRITE32(pAd, MAC_SYS_CTRL, MacValue);
 	/* Write CAL R141 bit[4] = 0 (Disable calibrate MID-GAIN) */
 	RTMP_BBP_IO_WRITE8_BY_REG_ID(pAd, BBP_R158, BBP_R141);
 	RTMP_BBP_IO_READ8_BY_REG_ID(pAd, BBP_R159, &BbpReg);
@@ -2243,22 +2243,22 @@ VOID RXIQ_Calibration(
 							0x3b, 0x3c, 0x3d,
 							0x3e, 0x3f
 						   };
-	MTWF_DBG(NULL, DBG_CAT_HW, DBG_SUBCAT_ALL, DBG_LVL_DEBUG, " RxIQ Calibration !!!\n");
-	RTMP_IO_READ32(pAd->hdev_ctrl, MAC_SYS_CTRL, &saveMacSysCtrl);
-	RTMP_IO_READ32(pAd->hdev_ctrl, RF_CONTROL0, &orig_RF_CONTROL0);
-	RTMP_IO_READ32(pAd->hdev_ctrl, RTMP_RF_BYPASS0, &orig_RF_BYPASS0);
-	RTMP_IO_READ32(pAd->hdev_ctrl, RF_CONTROL1, &orig_RF_CONTROL1);
-	RTMP_IO_READ32(pAd->hdev_ctrl, RF_BYPASS1, &orig_RF_BYPASS1);
-	RTMP_IO_READ32(pAd->hdev_ctrl, RF_CONTROL3, &orig_RF_CONTROL3);
-	RTMP_IO_READ32(pAd->hdev_ctrl, RF_BYPASS3, &orig_RF_BYPASS3);
+	MTWF_LOG(DBG_CAT_HW, DBG_SUBCAT_ALL, DBG_LVL_INFO, (" RxIQ Calibration !!!\n"));
+	RTMP_IO_READ32(pAd, MAC_SYS_CTRL, &saveMacSysCtrl);
+	RTMP_IO_READ32(pAd, RF_CONTROL0, &orig_RF_CONTROL0);
+	RTMP_IO_READ32(pAd, RTMP_RF_BYPASS0, &orig_RF_BYPASS0);
+	RTMP_IO_READ32(pAd, RF_CONTROL1, &orig_RF_CONTROL1);
+	RTMP_IO_READ32(pAd, RF_BYPASS1, &orig_RF_BYPASS1);
+	RTMP_IO_READ32(pAd, RF_CONTROL3, &orig_RF_CONTROL3);
+	RTMP_IO_READ32(pAd, RF_BYPASS3, &orig_RF_BYPASS3);
 	/* BBP store */
 	RTMP_BBP_IO_READ8_BY_REG_ID(pAd, BBP_R1, &BBP1);
 	RTMP_BBP_IO_READ8_BY_REG_ID(pAd, BBP_R4, &BBP4);
-	RTMP_IO_WRITE32(pAd->hdev_ctrl, MAC_SYS_CTRL, 0x0);
+	RTMP_IO_WRITE32(pAd, MAC_SYS_CTRL, 0x0);
 
 	/* Check MAC Tx/Rx idle */
 	for (k_count = 0; k_count < 10000; k_count++) {
-		RTMP_IO_READ32(pAd->hdev_ctrl, MAC_STATUS_CFG, &macStatus);
+		RTMP_IO_READ32(pAd, MAC_STATUS_CFG, &macStatus);
 
 		if (macStatus & 0x3)
 			RtmpusecDelay(50);
@@ -2267,7 +2267,7 @@ VOID RXIQ_Calibration(
 	}
 
 	if (k_count == 10000)
-		MTWF_DBG(pAd, DBG_CAT_HW, DBG_SUBCAT_ALL, DBG_LVL_DEBUG, "Wait MAC Status to MAX  !!!\n");
+		MTWF_LOG(DBG_CAT_HW, DBG_SUBCAT_ALL, DBG_LVL_ERROR, ("Wait MAC Status to MAX  !!!\n"));
 
 	bbpval = BBP4 & (~0x18);
 	bbpval = BBP4 | 0x00;
@@ -2277,14 +2277,14 @@ VOID RXIQ_Calibration(
 	RTMP_BBP_IO_WRITE8_BY_REG_ID(pAd, BBP_R21, bbpval);
 	bbpval = bbpval & 0xFE;
 	RTMP_BBP_IO_WRITE8_BY_REG_ID(pAd, BBP_R21, bbpval);
-	RTMP_IO_WRITE32(pAd->hdev_ctrl, RF_CONTROL1, 0x00000202); /* 0x0520 */
-	RTMP_IO_WRITE32(pAd->hdev_ctrl, RF_BYPASS1, 0x00000303); /* 0x0524 */
+	RTMP_IO_WRITE32(pAd, RF_CONTROL1, 0x00000202); /* 0x0520 */
+	RTMP_IO_WRITE32(pAd, RF_BYPASS1, 0x00000303); /* 0x0524 */
 #ifdef RT6352_EP_SUPPORT
-	RTMP_IO_WRITE32(pAd->hdev_ctrl, RF_CONTROL3, 0x0101); /* 0x0530 */
+	RTMP_IO_WRITE32(pAd, RF_CONTROL3, 0x0101); /* 0x0530 */
 #else
-	RTMP_IO_WRITE32(pAd->hdev_ctrl, RF_CONTROL3, 0x0000); /* 0x0530 */
+	RTMP_IO_WRITE32(pAd, RF_CONTROL3, 0x0000); /* 0x0530 */
 #endif /* RT6352_EP_SUPPORT */
-	RTMP_IO_WRITE32(pAd->hdev_ctrl, RF_BYPASS3, 0xF1F1); /* 0x0534 */
+	RTMP_IO_WRITE32(pAd, RF_BYPASS3, 0xF1F1); /* 0x0534 */
 	/* B)   Store RF Original Setting */
 	RT635xReadRFRegister(pAd, RF_BANK0, RF_R01, &RFB0R1);
 	RT635xReadRFRegister(pAd, RF_BANK0, RF_R02, &RFB0R2);
@@ -2345,12 +2345,12 @@ VOID RXIQ_Calibration(
 	RTMP_BBP_IO_READ8_BY_REG_ID(pAd, BBP_R159, &bbpval);
 	bbpval = bbpval & (~0x7);
 	RTMP_BBP_IO_WRITE8_BY_REG_ID(pAd, BBP_R159, bbpval);
-	RTMP_IO_WRITE32(pAd->hdev_ctrl, RF_CONTROL0, 0x00000004); /* 0x0518 */
+	RTMP_IO_WRITE32(pAd, RF_CONTROL0, 0x00000004); /* 0x0518 */
 	RtmpusecDelay(1);
-	RTMP_IO_WRITE32(pAd->hdev_ctrl, RF_CONTROL0, 0x00000006); /* 0x0518 */
+	RTMP_IO_WRITE32(pAd, RF_CONTROL0, 0x00000006); /* 0x0518 */
 	RtmpusecDelay(1);
-	RTMP_IO_WRITE32(pAd->hdev_ctrl, RTMP_RF_BYPASS0, 0x00003376); /* 0x051c */
-	RTMP_IO_WRITE32(pAd->hdev_ctrl, RF_CONTROL0, 0x00001006); /* 0x0518 */
+	RTMP_IO_WRITE32(pAd, RTMP_RF_BYPASS0, 0x00003376); /* 0x051c */
+	RTMP_IO_WRITE32(pAd, RF_CONTROL0, 0x00001006); /* 0x0518 */
 	RtmpusecDelay(1);
 #ifdef RT6352_EP_SUPPORT
 	RTMP_BBP_IO_WRITE8_BY_REG_ID(pAd, BBP_R23, 0x06);
@@ -2375,7 +2375,7 @@ VOID RXIQ_Calibration(
 			rfval = RFB0R42 & (~0x50);
 			rfval = RFB0R42 | 0x10;
 			RT635xWriteRFRegister(pAd, RF_BANK0, RF_R42, rfval);
-			RTMP_IO_WRITE32(pAd->hdev_ctrl, RF_CONTROL0, 0x00001006); /* 0x0518 */
+			RTMP_IO_WRITE32(pAd, RF_CONTROL0, 0x00001006); /* 0x0518 */
 			RtmpusecDelay(1);
 			/* BBP only Tx0 */
 			bbpval = BBP1 & (~0x18);
@@ -2395,7 +2395,7 @@ VOID RXIQ_Calibration(
 			rfval = RFB0R42 & (~0x50);
 			rfval = RFB0R42 | 0x40;
 			RT635xWriteRFRegister(pAd, RF_BANK0, RF_R42, rfval);
-			RTMP_IO_WRITE32(pAd->hdev_ctrl, RF_CONTROL0, 0x00002006); /* 0x0518 */
+			RTMP_IO_WRITE32(pAd, RF_CONTROL0, 0x00002006); /* 0x0518 */
 			RtmpusecDelay(1);
 			/* BBP only Tx1 */
 			bbpval = BBP1 & (~0x18);
@@ -2428,7 +2428,7 @@ VOID RXIQ_Calibration(
 			}
 
 			if ((bbpval & 0xff) == 0x93) {
-				MTWF_DBG(pAd, DBG_CAT_HW, DBG_SUBCAT_ALL, DBG_LVL_ERROR, "Fatal Error: Calibration doesn't finish");
+				MTWF_LOG(DBG_CAT_HW, DBG_SUBCAT_ALL, DBG_LVL_ERROR, ("Fatal Error: Calibration doesn't finish"));
 				goto Restore_Value;
 			}
 
@@ -2473,8 +2473,8 @@ VOID RXIQ_Calibration(
 
 			/* Software AGC */
 			bbpval1 = si - mi * mi;
-			MTWF_DBG(pAd, DBG_CAT_HW, DBG_SUBCAT_ALL, DBG_LVL_INFO, "RXIQ si=%d, sq=%d, riq=%d, bbpval %d, vga_idx %d\n",
-					 si, sq, riq, bbpval1, vga_idx);
+			MTWF_LOG(DBG_CAT_HW, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("RXIQ si=%d, sq=%d, riq=%d, bbpval %d, vga_idx %d\n",
+					 si, sq, riq, bbpval1, vga_idx));
 
 			if (bbpval1 >= (100 * 100))
 				break;
@@ -2503,7 +2503,7 @@ VOID RXIQ_Calibration(
 		Sigma_i = do_sqrt_accumulation(100 * (si - mi * mi));
 		Sigma_q = do_sqrt_accumulation(100 * (sq - mq * mq));
 		R_iq = 10 * (riq - (mi * mq));
-		MTWF_DBG(pAd, DBG_CAT_HW, DBG_SUBCAT_ALL, DBG_LVL_INFO, "Sigma_i=%d, Sigma_q=%d, R_iq=%d\n", Sigma_i, Sigma_q, R_iq);
+		MTWF_LOG(DBG_CAT_HW, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("Sigma_i=%d, Sigma_q=%d, R_iq=%d\n", Sigma_i, Sigma_q, R_iq));
 
 		if (((Sigma_i <= 1400) && (Sigma_i >= 1000))
 			&& ((Sigma_i - Sigma_q) <= 112)
@@ -2511,27 +2511,27 @@ VOID RXIQ_Calibration(
 			&& ((mi <= 32) && (mi >= -32))
 			&& ((mq <= 32) && (mq >= -32))) {
 			R_iq = 10 * (riq - (mi * mq));
-			MTWF_DBG(pAd, DBG_CAT_HW, DBG_SUBCAT_ALL, DBG_LVL_INFO, "RXIQ Sigma_i=%d, Sigma_q=%d, R_iq=%d\n", Sigma_i, Sigma_q, R_iq);
+			MTWF_LOG(DBG_CAT_HW, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("RXIQ Sigma_i=%d, Sigma_q=%d, R_iq=%d\n", Sigma_i, Sigma_q, R_iq));
 			/* G)   Calculate Gain/ Phase imbalance */
 			G_rx = (1000 * Sigma_q) / Sigma_i;
 			G_imb = ((-2) * 128 * (1000 - G_rx)) / (1000 + G_rx);
 			Ph_rx = (R_iq * 2292) / (Sigma_i * Sigma_q);
-			MTWF_DBG(pAd, DBG_CAT_HW, DBG_SUBCAT_ALL, DBG_LVL_INFO, "RXIQ G_imb=%d, Ph_rx=%d\n", G_imb, Ph_rx);
+			MTWF_LOG(DBG_CAT_HW, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("RXIQ G_imb=%d, Ph_rx=%d\n", G_imb, Ph_rx));
 
 			if ((Ph_rx > 20) || (Ph_rx < -20)) {
 				Ph_rx = 0;
-				MTWF_DBG(pAd, DBG_CAT_HW, DBG_SUBCAT_ALL, DBG_LVL_ERROR, "RXIQ calibration FAIL\n");
+				MTWF_LOG(DBG_CAT_HW, DBG_SUBCAT_ALL, DBG_LVL_ERROR, ("RXIQ calibration FAIL\n"));
 			}
 
 			if ((G_imb > 12) || (G_imb < -12)) {
 				G_imb = 0;
-				MTWF_DBG(pAd, DBG_CAT_HW, DBG_SUBCAT_ALL, DBG_LVL_ERROR, "RXIQ calibration FAIL\n");
+				MTWF_LOG(DBG_CAT_HW, DBG_SUBCAT_ALL, DBG_LVL_ERROR, ("RXIQ calibration FAIL\n"));
 			}
 		} else {
 			G_imb = 0;
 			Ph_rx = 0;
-			MTWF_DBG(pAd, DBG_CAT_HW, DBG_SUBCAT_ALL, DBG_LVL_DEBUG, "RXIQ Sigma_i=%d, Sigma_q=%d, R_iq=%d\n", Sigma_i, Sigma_q, R_iq);
-			MTWF_DBG(pAd, DBG_CAT_HW, DBG_SUBCAT_ALL, DBG_LVL_ERROR, "RXIQ calibration FAIL\n");
+			MTWF_LOG(DBG_CAT_HW, DBG_SUBCAT_ALL, DBG_LVL_ERROR, ("RXIQ Sigma_i=%d, Sigma_q=%d, R_iq=%d\n", Sigma_i, Sigma_q, R_iq));
+			MTWF_LOG(DBG_CAT_HW, DBG_SUBCAT_ALL, DBG_LVL_ERROR, ("RXIQ calibration FAIL\n"));
 		}
 
 		/* H)   Write back compensation value and disable HW calculation */
@@ -2588,18 +2588,18 @@ Restore_Value:
 	RT635xWriteRFRegister(pAd, RF_BANK7, RF_R18, RFB7R18);
 	RT635xWriteRFRegister(pAd, RF_BANK7, RF_R19, RFB7R19);
 	RT635xWriteRFRegister(pAd, RF_BANK7, RF_R20, RFB7R20);
-	RTMP_IO_WRITE32(pAd->hdev_ctrl, RF_CONTROL0, 0x00000006); /* 0x0518 */
+	RTMP_IO_WRITE32(pAd, RF_CONTROL0, 0x00000006); /* 0x0518 */
 	RtmpusecDelay(1);
-	RTMP_IO_WRITE32(pAd->hdev_ctrl, RF_CONTROL0, 0x00000004); /* 0x0518 */
+	RTMP_IO_WRITE32(pAd, RF_CONTROL0, 0x00000004); /* 0x0518 */
 	RtmpusecDelay(1);
-	RTMP_IO_WRITE32(pAd->hdev_ctrl, RF_CONTROL0, orig_RF_CONTROL0);
+	RTMP_IO_WRITE32(pAd, RF_CONTROL0, orig_RF_CONTROL0);
 	RtmpusecDelay(1);
-	RTMP_IO_WRITE32(pAd->hdev_ctrl, RTMP_RF_BYPASS0, orig_RF_BYPASS0);
-	RTMP_IO_WRITE32(pAd->hdev_ctrl, RF_CONTROL1, orig_RF_CONTROL1);
-	RTMP_IO_WRITE32(pAd->hdev_ctrl, RF_BYPASS1, orig_RF_BYPASS1);
-	RTMP_IO_WRITE32(pAd->hdev_ctrl, RF_CONTROL3, orig_RF_CONTROL3);
-	RTMP_IO_WRITE32(pAd->hdev_ctrl, RF_BYPASS3, orig_RF_BYPASS3);
-	RTMP_IO_WRITE32(pAd->hdev_ctrl, MAC_SYS_CTRL, saveMacSysCtrl);
+	RTMP_IO_WRITE32(pAd, RTMP_RF_BYPASS0, orig_RF_BYPASS0);
+	RTMP_IO_WRITE32(pAd, RF_CONTROL1, orig_RF_CONTROL1);
+	RTMP_IO_WRITE32(pAd, RF_BYPASS1, orig_RF_BYPASS1);
+	RTMP_IO_WRITE32(pAd, RF_CONTROL3, orig_RF_CONTROL3);
+	RTMP_IO_WRITE32(pAd, RF_BYPASS3, orig_RF_BYPASS3);
+	RTMP_IO_WRITE32(pAd, MAC_SYS_CTRL, saveMacSysCtrl);
 }
 
 VOID RF_SELF_TXDC_CAL(
@@ -2613,17 +2613,17 @@ VOID RF_SELF_TXDC_CAL(
 	UINT32 mac0518, mac051c, mac0528, mac052c;
 	CHAR  i;
 
-	MTWF_DBG(NULL, DBG_CAT_HW, DBG_SUBCAT_ALL, DBG_LVL_DEBUG, "RF Tx_0 self calibration start\n");
-	RTMP_IO_READ32(pAd->hdev_ctrl, RF_CONTROL0, &mac0518);
-	RTMP_IO_READ32(pAd->hdev_ctrl, RTMP_RF_BYPASS0, &mac051c);
-	RTMP_IO_READ32(pAd->hdev_ctrl, RF_CONTROL2, &mac0528);
-	RTMP_IO_READ32(pAd->hdev_ctrl, RF_BYPASS2, &mac052c);
-	RTMP_IO_WRITE32(pAd->hdev_ctrl, RTMP_RF_BYPASS0, 0x0);
-	RTMP_IO_WRITE32(pAd->hdev_ctrl, RF_BYPASS2, 0x0);
-	RTMP_IO_WRITE32(pAd->hdev_ctrl, RF_CONTROL0, 0xC);
-	RTMP_IO_WRITE32(pAd->hdev_ctrl, RTMP_RF_BYPASS0, 0x3306);
-	RTMP_IO_WRITE32(pAd->hdev_ctrl, RF_CONTROL2, 0x3330);
-	RTMP_IO_WRITE32(pAd->hdev_ctrl, RF_BYPASS2, 0xfffff);
+	MTWF_LOG(DBG_CAT_HW, DBG_SUBCAT_ALL, DBG_LVL_INFO, ("RF Tx_0 self calibration start\n"));
+	RTMP_IO_READ32(pAd, RF_CONTROL0, &mac0518);
+	RTMP_IO_READ32(pAd, RTMP_RF_BYPASS0, &mac051c);
+	RTMP_IO_READ32(pAd, RF_CONTROL2, &mac0528);
+	RTMP_IO_READ32(pAd, RF_BYPASS2, &mac052c);
+	RTMP_IO_WRITE32(pAd, RTMP_RF_BYPASS0, 0x0);
+	RTMP_IO_WRITE32(pAd, RF_BYPASS2, 0x0);
+	RTMP_IO_WRITE32(pAd, RF_CONTROL0, 0xC);
+	RTMP_IO_WRITE32(pAd, RTMP_RF_BYPASS0, 0x3306);
+	RTMP_IO_WRITE32(pAd, RF_CONTROL2, 0x3330);
+	RTMP_IO_WRITE32(pAd, RF_BYPASS2, 0xfffff);
 	RT635xReadRFRegister(pAd, RF_BANK5, RF_R01, &RfB5R1_Org);
 	RT635xReadRFRegister(pAd, RF_BANK7, RF_R01, &RfB7R1_Org);
 	RT635xWriteRFRegister(pAd, RF_BANK5, RF_R01, 0x4);
@@ -2648,12 +2648,12 @@ VOID RF_SELF_TXDC_CAL(
 	}
 
 	RT635xWriteRFRegister(pAd, RF_BANK7, RF_R01, RfB7R1_Org);
-	RTMP_IO_WRITE32(pAd->hdev_ctrl, RTMP_RF_BYPASS0, 0x0);
-	RTMP_IO_WRITE32(pAd->hdev_ctrl, RF_BYPASS2, 0x0);
-	RTMP_IO_WRITE32(pAd->hdev_ctrl, RF_CONTROL0, mac0518);
-	RTMP_IO_WRITE32(pAd->hdev_ctrl, RTMP_RF_BYPASS0, mac051c);
-	RTMP_IO_WRITE32(pAd->hdev_ctrl, RF_CONTROL2, mac0528);
-	RTMP_IO_WRITE32(pAd->hdev_ctrl, RF_BYPASS2, mac052c);
-	MTWF_DBG(NULL, DBG_CAT_HW, DBG_SUBCAT_ALL, DBG_LVL_DEBUG, "RF Tx self calibration end\n");
+	RTMP_IO_WRITE32(pAd, RTMP_RF_BYPASS0, 0x0);
+	RTMP_IO_WRITE32(pAd, RF_BYPASS2, 0x0);
+	RTMP_IO_WRITE32(pAd, RF_CONTROL0, mac0518);
+	RTMP_IO_WRITE32(pAd, RTMP_RF_BYPASS0, mac051c);
+	RTMP_IO_WRITE32(pAd, RF_CONTROL2, mac0528);
+	RTMP_IO_WRITE32(pAd, RF_BYPASS2, mac052c);
+	MTWF_LOG(DBG_CAT_HW, DBG_SUBCAT_ALL, DBG_LVL_INFO, ("RF Tx self calibration end\n"));
 }
 

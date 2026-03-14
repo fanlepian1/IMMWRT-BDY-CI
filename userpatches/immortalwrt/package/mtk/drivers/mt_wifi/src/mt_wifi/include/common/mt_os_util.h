@@ -29,13 +29,6 @@ VOID os_free_mem(
 	PVOID mem
 );
 
-VOID BTM_Free_Peer_Entry(PVOID mem);
-#define BTM_free_Entry(a) \
-	do { \
-		MTWF_DBG(NULL, DBG_CAT_INIT, DBG_SUBCAT_ALL, DBG_LVL_INFO, "Free BTMPeerEntry!!\n"); \
-		BTM_Free_Peer_Entry(a); \
-	} while (0)
-
 VOID os_zero_mem(
 	PVOID ptr,
 	ULONG length
@@ -112,6 +105,7 @@ INT os_usb_vendor_req(
 	PVOID   TransferBuffer,
 	UINT32   TransferBufferLength
 );
+
 #if !defined(COMPOS_WIN) && !defined(COMPOS_TESTMODE_WIN)
 VOID
 os_alloc_dma_buf(

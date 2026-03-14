@@ -10,21 +10,18 @@ static NTSTATUS hw_ctrl_flow_v2_open(struct WIFI_SYS_CTRL *wsys)
 	struct _RTMP_ADAPTER *ad = (PRTMP_ADAPTER)wdev->sys_handle;
 	struct _DEV_INFO_CTRL_T *devinfo =  &wsys->DevInfoCtrl;
 
-	MTWF_DBG(ad, DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_NOTICE, "wdev_idx=%d\n", wsys->wdev->wdev_idx);
 	if (devinfo->EnableFeature) {
 		AsicDevInfoUpdate(
 			ad,
 			devinfo->OwnMacIdx,
 			devinfo->OwnMacAddr,
 			devinfo->BandIdx,
-			devinfo->WdevActive,
+			devinfo->Active,
 			devinfo->EnableFeature
 		);
 		/*update devinfo to wdev*/
 		wifi_sys_update_devinfo(ad, wdev, devinfo);
 	}
-
-	wifi_sys_op_unlock(wdev);
 
 	return NDIS_STATUS_SUCCESS;
 }
@@ -38,22 +35,18 @@ static NTSTATUS hw_ctrl_flow_v2_close(struct WIFI_SYS_CTRL *wsys)
 	struct _RTMP_ADAPTER *ad = (PRTMP_ADAPTER)wdev->sys_handle;
 	struct _DEV_INFO_CTRL_T *devinfo =  &wsys->DevInfoCtrl;
 
-	MTWF_DBG(ad, DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_NOTICE, "wdev_idx=%d\n", wsys->wdev->wdev_idx);
 	if (devinfo->EnableFeature) {
 		AsicDevInfoUpdate(
 			ad,
 			devinfo->OwnMacIdx,
 			devinfo->OwnMacAddr,
 			devinfo->BandIdx,
-			devinfo->WdevActive,
+			devinfo->Active,
 			devinfo->EnableFeature
 		);
 		/*update devinfo to wdev*/
 		wifi_sys_update_devinfo(ad, wdev, devinfo);
 	}
-
-	wifi_sys_op_unlock(wdev);
-
 	return NDIS_STATUS_SUCCESS;
 }
 
@@ -67,11 +60,9 @@ static NTSTATUS hw_ctrl_flow_v2_link_up(struct WIFI_SYS_CTRL *wsys)
 	struct _STA_REC_CTRL_T *sta_rec = &wsys->StaRecCtrl;
 	struct _BSS_INFO_ARGUMENT_T *bss = &wsys->BssInfoCtrl;
 	UINT16 txop_level = TXOP_0;
-	struct _RTMP_CHIP_CAP *cap = hc_get_chip_cap(ad->hdev_ctrl);
 
-	MTWF_DBG(ad, DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_NOTICE, "wdev_idx=%d\n", wsys->wdev->wdev_idx);
 	if (bss->u4BssInfoFeature) {
-		AsicBssInfoUpdate(ad, &wsys->BssInfoCtrl);
+		AsicBssInfoUpdate(ad, wsys->BssInfoCtrl);
 		HcSetEdca(wdev);
 		/*update bssinfo tp wdev*/
 		wifi_sys_update_bssinfo(ad, wdev, bss);
@@ -84,10 +75,10 @@ static NTSTATUS hw_ctrl_flow_v2_link_up(struct WIFI_SYS_CTRL *wsys)
 	}
 
 	if (ad->CommonCfg.bEnableTxBurst) {
-		txop_level = cap->peak_txop;
+		txop_level = TXOP_80;
 
 		if (ad->CommonCfg.bRdg)
-			txop_level = cap->peak_txop;
+			txop_level = TXOP_80;
 	} else {
 		txop_level = TXOP_0;
 	}
@@ -103,9 +94,6 @@ static NTSTATUS hw_ctrl_flow_v2_link_up(struct WIFI_SYS_CTRL *wsys)
 	}
 
 #endif /*CONFIG_AP_SUPPORT*/
-
-	wifi_sys_op_unlock(wdev);
-
 	return NDIS_STATUS_SUCCESS;
 }
 
@@ -118,9 +106,6 @@ static NTSTATUS hw_ctrl_flow_v2_link_down(struct WIFI_SYS_CTRL *wsys)
 	struct _RTMP_ADAPTER *ad = (PRTMP_ADAPTER)wdev->sys_handle;
 	struct _STA_REC_CTRL_T *sta_rec = &wsys->StaRecCtrl;
 	struct _BSS_INFO_ARGUMENT_T *bss = &wsys->BssInfoCtrl;
-	struct wifi_dev *pwdev = NULL;
-	UINT32 i = 0, ActBssidNum = 0;
-	MTWF_DBG(ad, DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_NOTICE, "wdev_idx=%d\n", wsys->wdev->wdev_idx);
 
 	if (sta_rec->EnableFeature) {
 		AsicStaRecUpdate(ad, sta_rec);
@@ -128,34 +113,14 @@ static NTSTATUS hw_ctrl_flow_v2_link_down(struct WIFI_SYS_CTRL *wsys)
 		wifi_sys_update_starec(ad, sta_rec);
 	}
 
-	for (i = 0; i < WDEV_NUM_MAX; i++) {
-		pwdev = ad->wdev_list[i];
-
-		if (pwdev == NULL)
-			continue;
-
-		if (pwdev->if_up_down_state &&
-			(pwdev->wdev_type == WDEV_TYPE_AP ||
-			pwdev->wdev_type == WDEV_TYPE_WDS) &&
-			(pwdev->PhyMode == wdev->PhyMode)) {
-			ActBssidNum++;
-		}
-	}
-
-	if (!wsys->skip_set_txop) {
-		if (ActBssidNum == 1)
-			hw_set_tx_burst(ad, wdev, AC_BE, PRIO_DEFAULT, TXOP_0, 0);
-		else
-			wdev->prio_bitmap &= ~(1 << PRIO_DEFAULT);
-	}
+	if (!wsys->skip_set_txop)
+		hw_set_tx_burst(ad, wdev, AC_BE, PRIO_DEFAULT, TXOP_0, 0);
 
 	if (bss->u4BssInfoFeature) {
-		AsicBssInfoUpdate(ad, &wsys->BssInfoCtrl);
+		AsicBssInfoUpdate(ad, wsys->BssInfoCtrl);
 		/*update bssinfo to wdev*/
 		wifi_sys_update_bssinfo(ad, wdev, bss);
 	}
-
-	wifi_sys_op_unlock(wdev);
 
 	return NDIS_STATUS_SUCCESS;
 }
@@ -169,7 +134,6 @@ static NTSTATUS hw_ctrl_flow_v2_disconnt_act(struct WIFI_SYS_CTRL *wsys)
 	struct _RTMP_ADAPTER *ad = (PRTMP_ADAPTER)wdev->sys_handle;
 	struct _STA_REC_CTRL_T *sta_rec = &wsys->StaRecCtrl;
 
-	MTWF_DBG(ad, DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_NOTICE, "wdev_idx=%d\n", wsys->wdev->wdev_idx);
 	/*release ucast wcid on hw*/
 	if (sta_rec->EnableFeature)
 		AsicStaRecUpdate(ad, sta_rec);
@@ -189,12 +153,11 @@ static NTSTATUS hw_ctrl_flow_v2_disconnt_act(struct WIFI_SYS_CTRL *wsys)
 		wdev->protection = 0;
 		addht->AddHtInfo2.OperaionMode = 0;
 		UpdateBeaconHandler(ad, wdev, BCN_UPDATE_IE_CHG);
+		AsicUpdateProtect(ad);
 	}
 	break;
 #endif /*CONFIG_AP_SUPPORT*/
 	}
-
-	wifi_sys_op_unlock(wdev);
 
 	return NDIS_STATUS_SUCCESS;
 }
@@ -210,20 +173,10 @@ static NTSTATUS hw_ctrl_flow_v2_connt_act(struct WIFI_SYS_CTRL *wsys)
 	PEER_LINKUP_HWCTRL *lu_ctrl = (PEER_LINKUP_HWCTRL *)wsys->priv;
 	UINT16 txop_level = TXOP_0;
 	struct _STA_REC_CTRL_T *sta_rec = &wsys->StaRecCtrl;
-	struct _RTMP_CHIP_CAP *cap = hc_get_chip_cap(ad->hdev_ctrl);
 
-	MTWF_DBG(ad, DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_NOTICE, "wdev_idx=%d\n", wsys->wdev->wdev_idx);
-	/*
-	* check whether add new starec and update para to fw:
-	* 1)if certification enable, directly do AsicStaRecUpdate for TGax test;
-	* 2)if certification disable, we should check starec exist or not.
-	*/
-	if (!ad->CommonCfg.wifi_cert
-		&& get_starec_by_wcid(ad, sta_rec->WlanIdx)) {
-		/* reset psm to active */
-		AsicSetWcidPsm(ad, sta_rec->WlanIdx, PWR_ACTIVE);
+	/*check starec is exist should not add new starec for this wcid*/
+	if (get_starec_by_wcid(ad, sta_rec->WlanIdx))
 		goto end;
-	}
 
 	if (sta_rec->EnableFeature)
 		AsicStaRecUpdate(ad, sta_rec);
@@ -232,10 +185,10 @@ static NTSTATUS hw_ctrl_flow_v2_connt_act(struct WIFI_SYS_CTRL *wsys)
 	wifi_sys_update_starec(ad, sta_rec);
 
 	if (ad->CommonCfg.bEnableTxBurst) {
-		txop_level = cap->peak_txop;
+		txop_level = TXOP_80;
 
 		if (ad->CommonCfg.bRdg)
-			txop_level = cap->peak_txop;
+			txop_level = TXOP_80;
 	} else
 		txop_level = TXOP_0;
 
@@ -251,8 +204,6 @@ static NTSTATUS hw_ctrl_flow_v2_connt_act(struct WIFI_SYS_CTRL *wsys)
 	}
 
 end:
-	wifi_sys_op_unlock(wdev);
-
 	if (lu_ctrl)
 		os_free_mem(lu_ctrl);
 
@@ -270,7 +221,6 @@ static NTSTATUS hw_ctrl_flow_v2_peer_update(struct WIFI_SYS_CTRL *wsys)
 #ifdef RACTRL_FW_OFFLOAD_SUPPORT
 	UINT32 featues = 0;
 
-	MTWF_DBG(ad, DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_INFO, "wdev_idx=%d\n", wsys->wdev->wdev_idx);
 	/*update ra rate*/
 	if ((sta_rec->EnableFeature & STA_REC_RA_UPDATE_FEATURE) && wsys->priv) {
 		AsicRaParamStaRecUpdate(ad,

@@ -1,16 +1,15 @@
-/*
- * Copyright (c) [2020], MediaTek Inc. All rights reserved.
- *
- * This software/firmware and related documentation ("MediaTek Software") are
- * protected under relevant copyright laws.
- * The information contained herein is confidential and proprietary to
- * MediaTek Inc. and/or its licensors.
- * Except as otherwise provided in the applicable licensing terms with
- * MediaTek Inc. and/or its licensors, any reproduction, modification, use or
- * disclosure of MediaTek Software, and information contained herein, in whole
- * or in part, shall be strictly prohibited.
-*/
 /****************************************************************************
+ * Mediatek Inc.
+ * 5F., No.5, Taiyuan 1st St., Zhubei City,
+ * Hsinchu County 302, Taiwan, R.O.C.
+ * (c) Copyright 2014, Mediatek, Inc.
+ *
+ * All rights reserved. Ralink's source code is an unpublished work and the
+ * use of a copyright notice does not imply otherwise. This source code
+ * contains confidential trade secret material of Ralink Tech. Any attemp
+ * or participation in deciphering, decoding, reverse engineering or in any
+ * way altering the source code is stricitly prohibited, unless the prior
+ * written consent of Ralink Technology, Inc. is obtained.
 	****************************************************************************
 
     Module Name:
@@ -37,12 +36,13 @@
 
 /* Debug Level */
 #define DBG_LVL_OFF		0
-#define DBG_LVL_ERROR	1 /* ERROR level in RFC5424 */
-#define DBG_LVL_WARN	2 /* WARN level in RFC5424 */
-#define DBG_LVL_NOTICE	3 /* NOTICE level in RFC5424 */
-#define DBG_LVL_INFO	4 /* INFO level in RFC5424 */
-#define DBG_LVL_DEBUG	5 /* DEBUG level in RFC5424 */
-#define DBG_LVL_MAX		DBG_LVL_DEBUG
+#define DBG_LVL_ERROR	1
+#define DBG_LVL_WARN	2
+#define DBG_LVL_TRACE	3
+#define DBG_LVL_INFO	4
+#define DBG_LVL_LOUD	5
+#define DBG_LVL_NOISY	6
+#define DBG_LVL_MAX		DBG_LVL_NOISY
 #if !defined(EVENT_TRACING)
 /* Debug Category */
 /* if change the definition of below category or update new category, please update cat_str and sub_cat_str in cmm_info.c */
@@ -68,8 +68,6 @@
 #define DBG_CAT_P2P     19 /* P2P, Miracast */
 #define DBG_CAT_TOKEN	20
 #define DBG_CAT_CMW     21 /* CMW Link Test related */
-#define DBG_CAT_BF		22 /* BF */
-#define DBG_CAT_CHN		23 /* Channel related; Channel/ACS/DFS/Scan */
 #define DBG_CAT_RSV1    30 /* reserved index for code development */
 #define DBG_CAT_RSV2    31 /* reserved index for code development */
 #define DBG_CAT_MAX     31
@@ -86,13 +84,8 @@
 
 #define DBG_SUBCAT_MISC    0x00000001u /* misc for all category */
 
-/* SUb-Category of DBG_CAT_TEST */
-#define CATTEST_RFEATURE	0x00000002u
-
 /* Sub-Category of  DBG_CAT_HW */
 #define CATHW_SA		0x00000002u	/* debug flag for smart antenna */
-#define CATHW_SER		0x00000004u	/* debug flag for SER */
-#define CATHW_GREENAP	0x00000008u	/* debug flag for greenap */
 
 /* Sub-Category of  DBG_CAT_HIF */
 #define CATHIF_PCI		0x00000002u
@@ -102,7 +95,6 @@
 /* Sub-Category of  DBG_CAT_AP */
 #define CATAP_MBSS		0x00000002u
 #define CATAP_WDS		0x00000004u
-#define CATAP_BCN		0x00000008u
 
 /* Sub-Category of  DBG_CAT_CLIENT */
 #define CATCLIENT_ADHOC	0x00000002u
@@ -111,9 +103,6 @@
 
 /* Sub-Category of  DBG_CAT_TX */
 #define CATTX_TMAC		0x00000002u	/* debug flag for tmac info dump */
-
-/* Sub-Category of  DBG_CAT_MLME */
-#define CATMLME_WTBL	0x00000002u	/* debug flag for wtbl */
 
 /*  Sub-Category of DBG_CAT_TOKEN */
 #define TOKEN_INFO		0x00000002u
@@ -132,9 +121,6 @@
 #define CATPROTO_FT	0x00000200u
 #define CATPROTO_SCAN	0x00000400u
 #define CATPROTO_FTM    0x00000800u
-#define CATPROTO_OCE    0x00001000u
-#define CATPROTO_TWT    0x00002000u
-#define CATPROTO_COLOR  0x00004000u
 
 /* Sub-Category of  DBG_CAT_SEC */
 #define CATSEC_KEY	    0x00000002u
@@ -145,49 +131,17 @@
 #define CATSEC_SUITEB	    0x00000040u
 #define CATSEC_OWE	    0x00000080u
 #define CATSEC_ECC	    0x00000100u
-#define CATSEC_BCNPROT	0x00000200u
-#define CATSEC_OCV    	0x00000400u
 
 
 /* Sub-Category of  DBG_CAT_PS */
 #define CATPS_UAPSD		0x00000002u
 
-/* Sub-Category of  DBG_CAT_BF */
-#define CATBF_IWCMD		0x00000002u
-#define CATBF_ASSOC		0x00000004u
-
-/* Sub-Category of  DBG_CAT_CHN */
-#define CATCHN_ACS	0x00000002u
-#define CATCHN_DFS	0x00000004u
-#define CATCHN_SCAN	0x00000008u
-#define CATCHN_UNSAFE	0x00000010u
-#define CATCHN_CHN	0x00000020u
 
 /***********************************************************************************
  *	Debugging and printing related definitions and prototypes
  ***********************************************************************************/
 #define PRINT_MAC(addr)	\
 	addr[0], addr[1], addr[2], addr[3], addr[4], addr[5]
-
-#define PRINT_IPV4(addr) \
-	addr[0], addr[1], addr[2], addr[3]
-
-#define PRINT_IPV6(addr) \
-	addr[0], addr[1], addr[2], addr[3], addr[4], addr[5], addr[6], addr[7], \
-	addr[8], addr[9], addr[10], addr[11], addr[12], addr[13], addr[14], addr[15]
-
-#define IPV4STR "%d.%d.%d.%d"
-
-#define IPV6STR \
-	"%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x"
-
-#ifdef MASK_PARTIAL_MACADDR
-#define MACSTR "%02x:**:**:%02x:%02x:%02x"
-#define MAC2STR(addr) (addr)[0], (addr)[3], (addr)[4], (addr)[5]
-#else
-#define MACSTR "%02x:%02x:%02x:%02x:%02x:%02x"
-#define MAC2STR(addr) (addr)[0], (addr)[1], (addr)[2], (addr)[3], (addr)[4], (addr)[5]
-#endif
 
 #ifdef DBG
 extern int			DebugLevel;
@@ -202,75 +156,11 @@ extern UINT32		DebugSubCategory[DBG_LVL_MAX + 1][32];
 				MTWF_PRINT Fmt; \
 	} while (0)
 
-#ifdef DBG_ENHANCE
-#define MTWF_DBG(pAd, Category, SubCategory, Level, ...)	\
-	do {	\
-		if (((0x1 << Category) & DebugCategory)	\
-			&& (SubCategory & DebugSubCategory[Level][Category]))	\
-			mtwf_dbg_prt(pAd,Category,Level,__func__,__LINE__,##__VA_ARGS__);\
-	} while (0)
-#else
-#define MTWF_DBG(pAd, Category, SubCategory, Level, ...)	\
-	do {	\
-		if (((0x1 << Category) & DebugCategory)		\
-			&& (SubCategory & DebugSubCategory[Level][Category]))	\
-			MTWF_PRINT(__VA_ARGS__);	\
-	} while (0)
-#endif
-
-/* Printing log without prefix, NP: No prefix */
-#define MTWF_DBG_NP(Category, SubCategory, Level, ...)	\
-	do {	\
-		if (((0x1 << Category) & DebugCategory)		\
-			&& (SubCategory & DebugSubCategory[Level][Category]))	\
-			MTWF_PRINT(__VA_ARGS__);	\
-	} while (0)
-
 #else
 #define MTWF_LOG(Category, SubCategory, Level, Fmt)
-#define MTWF_DBG(pAd, Category, SubCategory, Level, ...)
-#define MTWF_DBG_NP(Category, SubCategory, Level, ...)
 #endif
 
 void hex_dump(char *str, unsigned char *pSrcBufVA, unsigned int SrcBufLen);
 void hex_dump_with_lvl(char *str, unsigned char *pSrcBufVA, unsigned int SrcBufLen, int dbglvl);
-void hex_dump_with_cat_and_lvl(char *str, UCHAR *pSrcBufVA, UINT SrcBufLen, INT dbgcat, INT dbg_sub_cat, INT dbglvl);
-void hex_dump_always(char *str, unsigned char *pSrcBufVA, unsigned int SrcBufLen);
-
-
-enum {
-	HOST_HELP,
-	HOST_DBG_INFO,
-	TX_FREE_NOTIFY_HOST_INFO,
-	WFDMA_INFO,
-	COUNTER_INFO,
-	RX_TOKEN_POOL_DUMP,
-};
-
-enum {
-	WACPU_HELP,
-	WACPU_DBG_INFO,
-	MSDU_DROP_INFO,
-	AC_TAIL_DROP_INFO,
-	BSS_TABLE_INFO,
-	STAREC_INFO,
-	TX_FREE_NOTIFY_WACPU_INFO,
-	CTXD_INFO,
-	IGMP_INFO,
-	IGMP_WHITE_LIST_INFO,
-	SDO_INFO,
-};
-
-enum {
-	WOCPU_HELP,
-	WOCPU_DBG_INFO,
-	WOCPU_DEV_INFO,
-	WOCPU_BSS_INFO,
-	WOCPU_STA_REC,
-	WOCPU_BA_INFO,
-	WOCPU_FBCMD_Q_INFO,
-	WOCPU_RX_STAT
-};
-
 #endif /* __DEBUG_H__ */
 

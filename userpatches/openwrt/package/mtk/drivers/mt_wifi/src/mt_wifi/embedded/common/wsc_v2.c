@@ -1,17 +1,18 @@
 /*
- * Copyright (c) [2020], MediaTek Inc. All rights reserved.
- *
- * This software/firmware and related documentation ("MediaTek Software") are
- * protected under relevant copyright laws.
- * The information contained herein is confidential and proprietary to
- * MediaTek Inc. and/or its licensors.
- * Except as otherwise provided in the applicable licensing terms with
- * MediaTek Inc. and/or its licensors, any reproduction, modification, use or
- * disclosure of MediaTek Software, and information contained herein, in whole
- * or in part, shall be strictly prohibited.
-*/
-/*
  ***************************************************************************
+ * Ralink Tech Inc.
+ * 4F, No. 2 Technology	5th	Rd.
+ * Science-based Industrial	Park
+ * Hsin-chu, Taiwan, R.O.C.
+ *
+ * (c) Copyright 2002-2006, Ralink Technology, Inc.
+ *
+ * All rights reserved.	Ralink's source	code is	an unpublished work	and	the
+ * use of a	copyright notice does not imply	otherwise. This	source code
+ * contains	confidential trade secret material of Ralink Tech. Any attemp
+ * or participation	in deciphering,	decoding, reverse engineering or in	any
+ * way altering	the	source code	is stricitly prohibited, unless	the	prior
+ * written consent of Ralink Technology, Inc. is obtained.
  ***************************************************************************
 
 	Module Name:
@@ -39,7 +40,7 @@ VOID WscOnOff(
 	struct wifi_dev *wdev;
 	PWSC_V2_INFO	pWpsV2Info;
 
-	wdev = &pAd->ApCfg.MBSSID[ApIdx & 0x1F].wdev;
+	wdev = &pAd->ApCfg.MBSSID[ApIdx & 0x0F].wdev;
 	pWpsV2Info = &wdev->WscControl.WscV2Info;
 
 	if (bOff) {
@@ -47,8 +48,8 @@ VOID WscOnOff(
 		pWpsV2Info->bWpsEnable = FALSE;
 		wdev->WscIEBeacon.ValueLen = 0;
 		wdev->WscIEProbeResp.ValueLen = 0;
-		MTWF_DBG(pAd, DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_INFO,
-				 "WscOnOff - OFF.\n");
+		MTWF_LOG(DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_TRACE,
+				 ("WscOnOff - OFF.\n"));
 	} else {
 		pWpsV2Info->bWpsEnable = TRUE;
 
@@ -61,18 +62,18 @@ VOID WscOnOff(
 							 FALSE,
 							 0,
 							 0,
-							 (ApIdx & 0x1F), NULL, 0, AP_MODE);
+							 (ApIdx & 0x0F), NULL, 0, AP_MODE);
 			WscBuildProbeRespIE(pAd,
 								WSC_MSGTYPE_AP_WLAN_MGR,
 								IsAPConfigured, FALSE,
 								0, 0, ApIdx, NULL, 0, AP_MODE);
-			MTWF_DBG(pAd, DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_INFO,
-					 "WscOnOff - ON.\n");
+			MTWF_LOG(DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_TRACE,
+					 ("WscOnOff - ON.\n"));
 		}
 	}
 
-	MTWF_DBG(pAd, DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_INFO,
-			 "WscOnOff - bWpsEnable = %d\n", pWpsV2Info->bWpsEnable);
+	MTWF_LOG(DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_TRACE,
+			 ("WscOnOff - bWpsEnable = %d\n", pWpsV2Info->bWpsEnable));
 }
 
 VOID WscAddEntryToAclList(
@@ -83,11 +84,6 @@ VOID WscAddEntryToAclList(
 	PRT_802_11_ACL	pACL = NULL;
 	INT i;
 	BOOLEAN bFound = FALSE;
-
-	if (!VALID_MBSS(pAd, ApIdx)) {
-		MTWF_DBG(pAd, DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_ERROR, "ApIdx is invalid!\n");
-		return;
-	}
 
 	pACL = &pAd->ApCfg.MBSSID[ApIdx].AccessControlList;
 	if ((pACL->Policy == 0) ||
@@ -125,7 +121,7 @@ VOID WscSetupLockTimeout(
 	if (pWscControl == NULL)
 		return;
 
-	apidx = pWscControl->EntryIfIdx & 0x1F;
+	apidx = pWscControl->EntryIfIdx & 0x0F;
 	pAd = (PRTMP_ADAPTER)pWscControl->pAd;
 
 	if (pAd == NULL)
@@ -139,7 +135,7 @@ VOID WscSetupLockTimeout(
 			 FALSE,
 			 0,
 			 0,
-			 (pWscControl->EntryIfIdx & 0x1F),
+			 (pWscControl->EntryIfIdx & 0xF),
 			 NULL,
 			 0,
 			 AP_MODE);
@@ -157,8 +153,8 @@ VOID WscSetupLockTimeout(
 		pAd,
 		wdev,
 		BCN_UPDATE_IE_CHG);
-	MTWF_DBG(pAd, DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_INFO,
-		"WscSetupLockTimeout!\n");
+	MTWF_LOG(DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_TRACE,
+		("WscSetupLockTimeout!\n"));
 }
 
 VOID WscCheckPinAttackCount(
@@ -166,13 +162,10 @@ VOID WscCheckPinAttackCount(
 	IN  PWSC_CTRL pWscControl)
 {
 	BOOLEAN	bCancelled;
-	UCHAR apidx = pWscControl->EntryIfIdx & 0x1F;
+	UCHAR apidx = pWscControl->EntryIfIdx & 0x0F;
 	struct wifi_dev *wdev = &pAd->ApCfg.MBSSID[apidx].wdev;
 
 	if ((pWscControl->EntryIfIdx & MIN_NET_DEVICE_FOR_APCLI)
-#ifdef P2P_SUPPORT
-		|| (pWscControl->EntryIfIdx & MIN_NET_DEVICE_FOR_P2P_CLI)
-#endif /* P2P_SUPPORT */
 	   ) {
 		/* APCLI and P2P CLI don't need to do PIN attack checking. */
 		return;
@@ -206,7 +199,7 @@ VOID WscCheckPinAttackCount(
 						 FALSE,
 						 0,
 						 0,
-						 (pWscControl->EntryIfIdx & 0x1F),
+						 (pWscControl->EntryIfIdx & 0xF),
 						 NULL,
 						 0,
 						 AP_MODE);
@@ -338,22 +331,7 @@ BOOLEAN	WscParseV2SubItem(
 
 	pEid = (PEID_STRUCT) (pData + 3);
 	hex_dump("WscParseV2SubItem - pData", (pData + 3), DataLen - 3);
-	if ((Length + 2 + pEid->Len) > MAX_VIE_LEN || (DataLen - 3) > MAX_VIE_LEN) {
-		MTWF_DBG(NULL, DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_ERROR, "pEid->Len or DataLen error!\n");
-		return FALSE;
-	}
 	while ((Length + 2 + pEid->Len) <= (DataLen - 3)) {
-		switch (pEid->Eid) {
-		case WFA_EXT_ID_VERSION2:
-#ifdef CONFIG_MAP_SUPPORT
-		case WFA_EXT_ID_MAP_EXT_ATTRIBUTE:
-#endif
-			if (pEid->Len != sizeof(UCHAR))
-				return FALSE;
-			break;
-		default:
-			break;
-		}
 		if (pEid->Eid == SubID) {
 			*pOutBufLen = pEid->Len;
 			NdisMoveMemory(pOutBuf, &pEid->Octet[0], pEid->Len);
@@ -394,7 +372,7 @@ VOID	WscSendEapFragAck(
 				WscSendMessage(pAdapter, WSC_OPCODE_FRAG_ACK,
 				NULL, 0, pWscControl, STA_MODE, EAP_CODE_RSP);
 		}
-	} else if (IS_ENTRY_PEER_AP(pEntry)) {
+	} else if (IS_ENTRY_APCLI(pEntry)) {
 		WscSendMessage(pAdapter,
 		WSC_OPCODE_FRAG_ACK, NULL, 0,
 		pWscControl, AP_CLIENT_MODE, EAP_CODE_RSP);
@@ -431,7 +409,7 @@ VOID	WscSendEapFragData(
 
 #ifdef CONFIG_AP_SUPPORT
 	IF_DEV_CONFIG_OPMODE_ON_AP(pAdapter) {
-		if (IS_ENTRY_PEER_AP(pEntry))
+		if (IS_ENTRY_APCLI(pEntry))
 			WscSendMessage(pAdapter,
 			WSC_OPCODE_MSG, pData, DataLen,
 			pWscControl, AP_CLIENT_MODE, EAP_CODE_RSP);
@@ -440,12 +418,6 @@ VOID	WscSendEapFragData(
 			pData, DataLen, pWscControl, AP_MODE, EAP_CODE_REQ);
 	}
 #endif /* CONFIG_AP_SUPPORT */
-#ifdef CONFIG_STA_SUPPORT
-	IF_DEV_CONFIG_OPMODE_ON_STA(pAdapter)
-	WscSendMessage(pAdapter,
-	WSC_OPCODE_MSG, pData,
-	DataLen, pWscControl, STA_MODE, EAP_CODE_RSP);
-#endif /* CONFIG_STA_SUPPORT */
 }
 
 #endif /* WSC_V2_SUPPORT */

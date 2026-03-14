@@ -36,11 +36,11 @@
 #include "rt_os_util.h"
 #include "security/dot11i_wpa.h"
 #include <linux/rtnetlink.h>
+#include <linux/fs.h>
 #include <linux/notifier.h>
 #include <linux/oom.h>
 #include <linux/netdevice.h>
 #include <linux/mm.h>
-#include <linux/preempt.h>
 #include <net/sch_generic.h>
 #include "rt_os_net.h"
 #include "rt_config.h"
@@ -51,12 +51,10 @@
 #ifdef CONFIG_FAST_NAT_SUPPORT
 #include <net/ra_nat.h>
 #endif /*CONFIG_FAST_NAT_SUPPORT*/
-#include "multi_hif.h"
 
 #ifdef VLAN_SUPPORT
 #include <linux/if_vlan.h>
 #endif /*VLAN_SUPPORT*/
-#include "wnm.h"
 
 /* TODO */
 #undef RT_CONFIG_IF_OPMODE_ON_AP
@@ -70,18 +68,6 @@
 #define RT_CONFIG_IF_OPMODE_ON_STA(__OpMode)
 #endif
 
-#ifdef CONFIG_CONNINFRA_SUPPORT
-enum consys_drv_type {
-	CONNDRV_TYPE_BT = 0,
-	CONNDRV_TYPE_FM = 1,
-	CONNDRV_TYPE_GPS = 2,
-	CONNDRV_TYPE_WIFI = 3,
-	CONNDRV_TYPE_CONNINFRA = 4,
-	CONNDRV_TYPE_MAX
-};
-int conninfra_pwr_on(enum consys_drv_type drv_type);
-int conninfra_pwr_off(enum consys_drv_type drv_type);
-#endif /* CONFIG_CONNINFRA_SUPPORT */
 
 #if (KERNEL_VERSION(2, 6, 0) <= LINUX_VERSION_CODE)
 #if (KERNEL_VERSION(2, 6, 3) > LINUX_VERSION_CODE)
@@ -90,13 +76,11 @@ static inline void *netdev_priv(struct net_device *dev)
 	return dev->priv;
 }
 #endif
-#else
-#if (KERNEL_VERSION(2, 4, 27) > LINUX_VERSION_CODE)
+#elif (KERNEL_VERSION(2, 4, 27) > LINUX_VERSION_CODE)
 static inline void *netdev_priv(struct net_device *dev)
 {
 	return dev->priv;
 }
-#endif
 #endif
 
 /*
@@ -109,15 +93,13 @@ static inline void netdev_priv_set(struct net_device *dev, void *priv)
 #if (KERNEL_VERSION(2, 6, 3) > LINUX_VERSION_CODE)
 	dev->priv = priv;
 #endif
-#else
-#if (KERNEL_VERSION(2, 4, 27) > LINUX_VERSION_CODE)
+#elif (KERNEL_VERSION(2, 4, 27) > LINUX_VERSION_CODE)
 	dev->priv = priv;
-#endif
 #endif
 }
 
 
-int DebugLevel = DBG_LVL_NOTICE;
+int DebugLevel = DBG_LVL_ERROR;
 
 UINT32 DebugCategory = DBG_CAT_EN_ALL_MASK
 				& ~(0x1 << DBG_CAT_TX)
@@ -125,29 +107,29 @@ UINT32 DebugCategory = DBG_CAT_EN_ALL_MASK
 
 UINT32 DebugSubCategory[DBG_LVL_MAX + 1][32] = {
 	{
-		DBG_SUBCAT_EN_ALL_MASK,			/* bit_0, for DBG_CAT_MISC */
-		DBG_SUBCAT_EN_ALL_MASK,			/* bit_1, for DBG_CAT_INIT */
-		DBG_SUBCAT_EN_ALL_MASK,			/* bit_2, for DBG_CAT_HW */
-		DBG_SUBCAT_EN_ALL_MASK,			/* bit_3, for DBG_CAT_FW */
-		DBG_SUBCAT_EN_ALL_MASK,			/* bit_4, for DBG_CAT_HIF */
-		DBG_SUBCAT_EN_ALL_MASK,			/* bit_5, for DBG_CAT_FPGA */
-		DBG_SUBCAT_EN_ALL_MASK,			/* bit_6, for DBG_CAT_TEST */
-		DBG_SUBCAT_EN_ALL_MASK,			/* bit_7, for DBG_CAT_RA */
-		DBG_SUBCAT_EN_ALL_MASK,			/* bit_8, for DBG_CAT_AP */
-		DBG_SUBCAT_EN_ALL_MASK,			/* bit_9, for DBG_CAT_CLIENT */
-		DBG_SUBCAT_EN_ALL_MASK,			/* bit_10, for DBG_CAT_TX */
-		DBG_SUBCAT_EN_ALL_MASK,			/* bit_11, for DBG_CAT_RX */
-		DBG_SUBCAT_EN_ALL_MASK,			/* bit_12, for DBG_CAT_CFG */
-		DBG_SUBCAT_EN_ALL_MASK,			/* bit_13, for DBG_CAT_MLME */
-		DBG_SUBCAT_EN_ALL_MASK,			/* bit_14, for DBG_CAT_PROTO */
-		DBG_SUBCAT_EN_ALL_MASK,			/* bit_15, for DBG_CAT_SEC */
-		DBG_SUBCAT_EN_ALL_MASK,			/* bit_16, for DBG_CAT_PS */
-		DBG_SUBCAT_EN_ALL_MASK,			/* bit_17, for DBG_CAT_POWER */
-		DBG_SUBCAT_EN_ALL_MASK,			/* bit_18, for DBG_CAT_COEX */
-		DBG_SUBCAT_EN_ALL_MASK,			/* bit_19, for DBG_CAT_P2P */
-		DBG_SUBCAT_EN_ALL_MASK,			/* bit_20, for DBG_CAT_TOKEN */
-		DBG_SUBCAT_EN_ALL_MASK,			/* bit_21, for DBG_CAT_CMW */
-		DBG_SUBCAT_EN_ALL_MASK,			/* bit_22, for DBG_CAT_BF */
+		DBG_SUBCAT_EN_ALL_MASK,			/* bit_0, for DBG_CAT_INIT */
+		DBG_SUBCAT_EN_ALL_MASK,			/* bit_1, for DBG_CAT_HW */
+		DBG_SUBCAT_EN_ALL_MASK,			/* bit_2, for DBG_CAT_FW */
+		DBG_SUBCAT_EN_ALL_MASK,			/* bit_3, for DBG_CAT_HIF */
+		DBG_SUBCAT_EN_ALL_MASK,			/* bit_4, for DBG_CAT_FPGA */
+		DBG_SUBCAT_EN_ALL_MASK,			/* bit_5, for DBG_CAT_TEST */
+		DBG_SUBCAT_EN_ALL_MASK,			/* bit_6, for DBG_CAT_RA */
+		DBG_SUBCAT_EN_ALL_MASK,			/* bit_7, for DBG_CAT_AP */
+		DBG_SUBCAT_EN_ALL_MASK,			/* bit_8, for DBG_CAT_CLIENT */
+		DBG_SUBCAT_EN_ALL_MASK,			/* bit_9, for DBG_CAT_TX */
+		DBG_SUBCAT_EN_ALL_MASK,			/* bit_10, for DBG_CAT_RX */
+		DBG_SUBCAT_EN_ALL_MASK,			/* bit_11, for DBG_CAT_CFG */
+		DBG_SUBCAT_EN_ALL_MASK,			/* bit_12, for DBG_CAT_MLME */
+		DBG_SUBCAT_EN_ALL_MASK,			/* bit_13, for DBG_CAT_PROTO */
+		DBG_SUBCAT_EN_ALL_MASK,			/* bit_14, for DBG_CAT_SEC */
+		DBG_SUBCAT_EN_ALL_MASK,			/* bit_15, for DBG_CAT_PS */
+		DBG_SUBCAT_EN_ALL_MASK,			/* bit_16, for DBG_CAT_POWER */
+		DBG_SUBCAT_EN_ALL_MASK,			/* bit_17, for DBG_CAT_COEX */
+		DBG_SUBCAT_EN_ALL_MASK,			/* bit_18, for DBG_CAT_P2P */
+		DBG_SUBCAT_EN_ALL_MASK,			/* bit_19 */
+		DBG_SUBCAT_EN_ALL_MASK,			/* bit_20 */
+		DBG_SUBCAT_EN_ALL_MASK,			/* bit_21 */
+		DBG_SUBCAT_EN_ALL_MASK,			/* bit_22 */
 		DBG_SUBCAT_EN_ALL_MASK,			/* bit_23 */
 		DBG_SUBCAT_EN_ALL_MASK,			/* bit_24 */
 		DBG_SUBCAT_EN_ALL_MASK,			/* bit_25 */
@@ -158,109 +140,7 @@ UINT32 DebugSubCategory[DBG_LVL_MAX + 1][32] = {
 		DBG_SUBCAT_EN_ALL_MASK,			/* bit_30, for DBG_CAT_RSV1 */
 		DBG_SUBCAT_EN_ALL_MASK			/* bir_31, for DBG_CAT_RSV2 */
 	},
-	{
-		DBG_SUBCAT_EN_ALL_MASK,
-		DBG_SUBCAT_EN_ALL_MASK,
-		DBG_SUBCAT_EN_ALL_MASK,
-		DBG_SUBCAT_EN_ALL_MASK,
-		DBG_SUBCAT_EN_ALL_MASK,
-		DBG_SUBCAT_EN_ALL_MASK,
-		DBG_SUBCAT_EN_ALL_MASK,
-		DBG_SUBCAT_EN_ALL_MASK,
-		DBG_SUBCAT_EN_ALL_MASK,
-		DBG_SUBCAT_EN_ALL_MASK,
-		DBG_SUBCAT_EN_ALL_MASK,
-		DBG_SUBCAT_EN_ALL_MASK,
-		DBG_SUBCAT_EN_ALL_MASK,
-		DBG_SUBCAT_EN_ALL_MASK,
-		DBG_SUBCAT_EN_ALL_MASK,
-		DBG_SUBCAT_EN_ALL_MASK,
-		DBG_SUBCAT_EN_ALL_MASK,
-		DBG_SUBCAT_EN_ALL_MASK,
-		DBG_SUBCAT_EN_ALL_MASK,
-		DBG_SUBCAT_EN_ALL_MASK,
-		DBG_SUBCAT_EN_ALL_MASK,
-		DBG_SUBCAT_EN_ALL_MASK,
-		DBG_SUBCAT_EN_ALL_MASK,
-		DBG_SUBCAT_EN_ALL_MASK,
-		DBG_SUBCAT_EN_ALL_MASK,
-		DBG_SUBCAT_EN_ALL_MASK,
-		DBG_SUBCAT_EN_ALL_MASK,
-		DBG_SUBCAT_EN_ALL_MASK,
-		DBG_SUBCAT_EN_ALL_MASK,
-		DBG_SUBCAT_EN_ALL_MASK,
-		DBG_SUBCAT_EN_ALL_MASK,
-		DBG_SUBCAT_EN_ALL_MASK
-	}, /* ERROR */
-	{
-		DBG_SUBCAT_EN_ALL_MASK,			/* bit_0, for DBG_CAT_MISC */
-		DBG_SUBCAT_EN_ALL_MASK,			/* bit_1, for DBG_CAT_INIT */
-		DBG_SUBCAT_EN_ALL_MASK,			/* bit_2, for DBG_CAT_HW */
-		DBG_SUBCAT_EN_ALL_MASK,
-		DBG_SUBCAT_EN_ALL_MASK,
-		DBG_SUBCAT_EN_ALL_MASK,
-		DBG_SUBCAT_EN_ALL_MASK,
-		DBG_SUBCAT_EN_ALL_MASK,
-		DBG_SUBCAT_EN_ALL_MASK,
-		DBG_SUBCAT_EN_ALL_MASK,
-		DBG_SUBCAT_EN_ALL_MASK,
-		DBG_SUBCAT_EN_ALL_MASK,
-		DBG_SUBCAT_EN_ALL_MASK,
-		DBG_SUBCAT_EN_ALL_MASK,
-		DBG_SUBCAT_EN_ALL_MASK,
-		DBG_SUBCAT_EN_ALL_MASK,
-		DBG_SUBCAT_EN_ALL_MASK,
-		DBG_SUBCAT_EN_ALL_MASK,
-		DBG_SUBCAT_EN_ALL_MASK,
-		DBG_SUBCAT_EN_ALL_MASK,
-		DBG_SUBCAT_EN_ALL_MASK,
-		DBG_SUBCAT_EN_ALL_MASK,
-		DBG_SUBCAT_EN_ALL_MASK,
-		DBG_SUBCAT_EN_ALL_MASK,
-		DBG_SUBCAT_EN_ALL_MASK,
-		DBG_SUBCAT_EN_ALL_MASK,
-		DBG_SUBCAT_EN_ALL_MASK,
-		DBG_SUBCAT_EN_ALL_MASK,
-		DBG_SUBCAT_EN_ALL_MASK,
-		DBG_SUBCAT_EN_ALL_MASK,
-		DBG_SUBCAT_EN_ALL_MASK,
-		DBG_SUBCAT_EN_ALL_MASK
-	}, /* WARN */
-	{
-		DBG_SUBCAT_EN_ALL_MASK,			/* bit_0, for DBG_CAT_MISC */
-		DBG_SUBCAT_EN_ALL_MASK,			/* bit_1, for DBG_CAT_INIT */
-		DBG_SUBCAT_EN_ALL_MASK,			/* bit_2, for DBG_CAT_HW */
-		DBG_SUBCAT_EN_ALL_MASK,
-		DBG_SUBCAT_EN_ALL_MASK,
-		DBG_SUBCAT_EN_ALL_MASK,
-		DBG_SUBCAT_EN_ALL_MASK,
-		DBG_SUBCAT_EN_ALL_MASK,
-		DBG_SUBCAT_EN_ALL_MASK,
-		DBG_SUBCAT_EN_ALL_MASK,
-		DBG_SUBCAT_EN_ALL_MASK,
-		DBG_SUBCAT_EN_ALL_MASK,
-		DBG_SUBCAT_EN_ALL_MASK,
-		DBG_SUBCAT_EN_ALL_MASK,
-		DBG_SUBCAT_EN_ALL_MASK,
-		DBG_SUBCAT_EN_ALL_MASK,
-		DBG_SUBCAT_EN_ALL_MASK,
-		DBG_SUBCAT_EN_ALL_MASK,
-		DBG_SUBCAT_EN_ALL_MASK,
-		DBG_SUBCAT_EN_ALL_MASK,
-		DBG_SUBCAT_EN_ALL_MASK,
-		DBG_SUBCAT_EN_ALL_MASK,
-		DBG_SUBCAT_EN_ALL_MASK,
-		DBG_SUBCAT_EN_ALL_MASK,
-		DBG_SUBCAT_EN_ALL_MASK,
-		DBG_SUBCAT_EN_ALL_MASK,
-		DBG_SUBCAT_EN_ALL_MASK,
-		DBG_SUBCAT_EN_ALL_MASK,
-		DBG_SUBCAT_EN_ALL_MASK,
-		DBG_SUBCAT_EN_ALL_MASK,
-		DBG_SUBCAT_EN_ALL_MASK,
-		DBG_SUBCAT_EN_ALL_MASK
-	}, /* NOTICE */
-	{0}, {0}
+	{[0 ... 31] = DBG_SUBCAT_EN_ALL_MASK}, {0}, {0}, {0}, {0}, {0}
 };
 
 #ifdef OS_ABL_FUNC_SUPPORT
@@ -337,7 +217,7 @@ static inline VOID __RTMP_OS_Init_Timer(
 	IN PVOID data)
 {
 	if (!timer_pending(pTimer)) {
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(4, 14, 0))
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(4, 19, 0))
 		timer_setup(pTimer, function, 0);
 #else
 		init_timer(pTimer);
@@ -431,7 +311,7 @@ NDIS_STATUS os_alloc_mem_suspend(
 		OS_NumOfMemAlloc++;
 #endif /* VENDOR_FEATURE4_SUPPORT */
 #ifdef MEM_ALLOC_INFO_SUPPORT
-		MIListAddHead(&MemInfoList, size, *mem, __func__, __LINE__, __builtin_return_address(0));
+		MIListAddHead(&MemInfoList, size, *mem, __builtin_return_address(0));
 #endif /* MEM_ALLOC_INFO_SUPPORT */
 		return NDIS_STATUS_SUCCESS;
 	} else
@@ -453,8 +333,8 @@ PNDIS_PACKET RTMP_AllocateFragPacketBuffer(VOID *dummy, ULONG len)
 	DEV_ALLOC_SKB(pkt, len);
 
 	if (pkt == NULL) {
-		MTWF_DBG(NULL, DBG_CAT_INIT, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-				 "can't allocate frag rx %ld size packet\n", len);
+		MTWF_LOG(DBG_CAT_INIT, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
+				 ("can't allocate frag rx %ld size packet\n", len));
 	}
 
 	return (PNDIS_PACKET) pkt;
@@ -476,13 +356,16 @@ NDIS_STATUS RTMPAllocateNdisPacket(
 {
 	struct sk_buff *pPacket;
 	/* Add LEN_CCMP_HDR + LEN_CCMP_MIC for PMF */
+#ifdef BB_SOC
+	pPacket = skbmgr_dev_alloc_skb4k();
+#else
 	DEV_ALLOC_SKB(pPacket, (HeaderLen + DataLen + RTMP_PKT_TAIL_PADDING + LEN_CCMP_HDR + LEN_CCMP_MIC));
-
+#endif
 	if (pPacket == NULL) {
 		*ppPacket = NULL;
 #ifdef DEBUG
-		MTWF_DBG(NULL, DBG_CAT_INIT, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-				 KERN_ERR "RTMPAllocateNdisPacket Fail\n\n");
+		MTWF_LOG(DBG_CAT_INIT, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
+				 (KERN_ERR "RTMPAllocateNdisPacket Fail\n\n"));
 #endif
 		return NDIS_STATUS_FAILURE;
 	}
@@ -512,6 +395,7 @@ VOID RTMPFreeNdisPacket(VOID *pReserved, PNDIS_PACKET pPacket)
 	if (pPacket) {
 		dev_kfree_skb_any(RTPKT_TO_OSPKT(pPacket));
 		MEM_DBG_PKT_FREE_INC(pPacket);
+		pPacket = NULL;
 	}
 }
 
@@ -521,6 +405,7 @@ VOID RTMPFreeNdisPacketIRQ(VOID *pReserved, PNDIS_PACKET pPacket)
 	if (pPacket) {
 		dev_kfree_skb_irq(RTPKT_TO_OSPKT(pPacket));
 		MEM_DBG_PKT_FREE_INC(pPacket);
+		pPacket = NULL;
 	}
 }
 
@@ -542,21 +427,15 @@ void RTMP_QueryPacketInfo(
 
 
 
-PNDIS_PACKET ClonePacket(BOOLEAN MonitorOn, PNET_DEV ndev, PNDIS_PACKET pkt, UCHAR *buf, ULONG sz)
+PNDIS_PACKET ClonePacket(BOOLEAN moniflag, PNET_DEV ndev, PNDIS_PACKET pkt, UCHAR *buf, ULONG sz)
 {
 	struct sk_buff *pRxPkt, *pClonedPkt;
 
-	if (pkt == NULL) {
-		MTWF_DBG(NULL, DBG_CAT_INIT, DBG_SUBCAT_ALL, DBG_LVL_ERROR, "Error! pkt is NULL\n");
-		ASSERT(pkt);
-		return NULL;
-	}
-
+	ASSERT(pkt);
 #ifdef SNIFFER_SUPPORT
-	if (!MonitorOn)
-#endif /* SNIFFER_SUPPORT */
-		ASSERT(sz < RX_DATA_BUFFER_SIZE);
-
+	if (moniflag == FALSE)								
+#endif
+	ASSERT(sz < 1530);
 	pRxPkt = RTPKT_TO_OSPKT(pkt);
 	/* clone the packet */
 	pClonedPkt = skb_clone(pRxPkt, MEM_ALLOC_FLAG);
@@ -593,26 +472,6 @@ PNDIS_PACKET DuplicatePacket(PNET_DEV pNetDev, PNDIS_PACKET pPacket)
 
 	return pRetPacket;
 }
-
-#ifdef MAP_TS_TRAFFIC_SUPPORT
-PNDIS_PACKET CopyPacket(
-	IN PNET_DEV if_dev,
-	IN PNDIS_PACKET pkt
-)
-{
-	struct sk_buff *skb = NULL;
-	PNDIS_PACKET pkt_copy = NULL;
-
-	skb = skb_copy(RTPKT_TO_OSPKT(pkt), GFP_ATOMIC);
-
-	if (skb) {
-		skb->dev = if_dev;
-		pkt_copy = OSPKT_TO_RTPKT(skb);
-	}
-
-	return pkt_copy;
-}
-#endif
 
 
 PNDIS_PACKET duplicate_pkt_vlan(
@@ -673,7 +532,7 @@ PNDIS_PACKET duplicate_pkt_with_TKIP_MIC(VOID *pReserved, PNDIS_PACKET pPacket)
 		MEM_DBG_PKT_FREE_INC(skb);
 
 		if (newskb == NULL) {
-			MTWF_DBG(NULL, DBG_CAT_INIT, DBG_SUBCAT_ALL, DBG_LVL_ERROR, "Extend Tx.MIC for packet failed!, dropping packet!\n");
+			MTWF_LOG(DBG_CAT_INIT, DBG_SUBCAT_ALL, DBG_LVL_ERROR, ("Extend Tx.MIC for packet failed!, dropping packet!\n"));
 			return NULL;
 		}
 
@@ -714,8 +573,8 @@ BOOLEAN RTMPL2FrameTxAction(
 	DEV_ALLOC_SKB(skb, (data_len + 2));
 
 	if (!skb) {
-		MTWF_DBG(NULL, DBG_CAT_INIT, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-				 "Error! Can't allocate a skb.\n");
+		MTWF_LOG(DBG_CAT_INIT, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
+				 ("%s : Error! Can't allocate a skb.\n", __func__));
 		return FALSE;
 	}
 
@@ -726,13 +585,7 @@ BOOLEAN RTMPL2FrameTxAction(
 	os_move_mem(GET_OS_PKT_DATAPTR(skb), pData, data_len);
 	/* End this frame */
 	skb_put(GET_OS_PKT_TYPE(skb), data_len);
-	MTWF_DBG(NULL, DBG_CAT_INIT, DBG_SUBCAT_ALL, DBG_LVL_INFO, "%s doen\n", __func__);
-
-	if(!_announce_802_3_packet) {
-		dev_kfree_skb_any(skb);
-		return FALSE;
-	}
-
+	MTWF_LOG(DBG_CAT_INIT, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("%s doen\n", __func__));
 	_announce_802_3_packet(pCtrlBkPtr, skb, OpMode);
 	return TRUE;
 }
@@ -761,8 +614,8 @@ PNDIS_PACKET ExpandPacket(
 		MEM_DBG_PKT_FREE_INC(skb);
 
 		if (newskb == NULL) {
-			MTWF_DBG(NULL, DBG_CAT_INIT, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-					 "Extend Tx buffer for WPI failed!, dropping packet!\n");
+			MTWF_LOG(DBG_CAT_INIT, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
+					 ("Extend Tx buffer for WPI failed!, dropping packet!\n"));
 			return NULL;
 		}
 
@@ -803,12 +656,7 @@ void wlan_802_11_to_802_3_packet(
 {
 	struct sk_buff *pOSPkt;
 
-	if (pHeader802_3 == NULL) {
-		MTWF_DBG(NULL, DBG_CAT_INIT, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-			 "pHeader802_3 is NULL\n");
-		ASSERT(pHeader802_3);
-		return;
-	}
+	ASSERT(pHeader802_3);
 	pOSPkt = RTPKT_TO_OSPKT(pRxPacket);
 	pOSPkt->dev = pNetDev;
 	pOSPkt->data = pData;
@@ -831,18 +679,13 @@ void wlan_802_11_to_802_3_packet(
 							  data_p, TPID);
 	}
 #endif /* CONFIG_AP_SUPPORT */
-#ifdef CONFIG_STA_SUPPORT
-	RT_CONFIG_IF_OPMODE_ON_STA(OpMode) {
-		os_move_mem(skb_push(pOSPkt, LENGTH_802_3), pHeader802_3, LENGTH_802_3);
-	}
-#endif /* CONFIG_STA_SUPPORT */
 }
 
 
 void hex_dump(char *str, UCHAR *pSrcBufVA, UINT SrcBufLen)
 {
 #ifdef DBG
-	hex_dump_with_lvl(str, pSrcBufVA, SrcBufLen, DBG_LVL_INFO);
+	hex_dump_with_lvl(str, pSrcBufVA, SrcBufLen, DBG_LVL_TRACE);
 #endif /* DBG */
 }
 
@@ -852,83 +695,26 @@ void hex_dump_with_lvl(char *str, UCHAR *pSrcBufVA, UINT SrcBufLen, INT dbglvl)
 	unsigned char *pt;
 	int x;
 
-	if ((DebugLevel < dbglvl) || (dbglvl < 0))
+	if (DebugLevel < dbglvl)
 		return;
 
 	pt = pSrcBufVA;
-	MTWF_DBG_NP(DBG_CAT_INIT, DBG_SUBCAT_ALL, dbglvl,
-			 "%s: %p, len = %d\n", str, pSrcBufVA, SrcBufLen);
+	MTWF_LOG(DBG_CAT_INIT, DBG_SUBCAT_ALL, dbglvl,
+			 ("%s: %p, len = %d\n", str, pSrcBufVA, SrcBufLen));
 
 	for (x = 0; x < SrcBufLen; x++) {
 		if (x % 16 == 0)
-			MTWF_DBG_NP(DBG_CAT_INIT, DBG_SUBCAT_ALL, dbglvl,
-					 "0x%04x : ", x);
+			MTWF_LOG(DBG_CAT_INIT, DBG_SUBCAT_ALL, dbglvl,
+					 ("0x%04x : ", x));
 
-		MTWF_DBG_NP(DBG_CAT_INIT, DBG_SUBCAT_ALL, dbglvl, "%02x ", ((unsigned char)pt[x]));
+		MTWF_LOG(DBG_CAT_INIT, DBG_SUBCAT_ALL, dbglvl, ("%02x ", ((unsigned char)pt[x])));
 
 		if (x % 16 == 15)
-			MTWF_DBG_NP(DBG_CAT_INIT, DBG_SUBCAT_ALL, dbglvl, "\n");
+			MTWF_LOG(DBG_CAT_INIT, DBG_SUBCAT_ALL, dbglvl, ("\n"));
 	}
 
-	MTWF_DBG_NP(DBG_CAT_INIT, DBG_SUBCAT_ALL, dbglvl, " ");
-	MTWF_DBG_NP(DBG_CAT_INIT, DBG_SUBCAT_ALL, dbglvl, "\n");
+	MTWF_LOG(DBG_CAT_INIT, DBG_SUBCAT_ALL, dbglvl, ("\n"));
 #endif /* DBG */
-}
-
-void hex_dump_with_cat_and_lvl(char *str, UCHAR *pSrcBufVA, UINT SrcBufLen, INT dbgcat, INT dbg_sub_cat, INT dbglvl)
-{
-#ifdef DBG
-	int x;
-
-	if ((dbgcat < 0) || (dbglvl < 0)) {
-		printk(KERN_ERR "%s: Invalid Parameters!\n", __func__);
-		return;
-	}
-
-	if (!((dbg_sub_cat) & (DebugSubCategory[dbglvl][dbgcat])))
-		return;
-
-	MTWF_DBG_NP(dbgcat, dbg_sub_cat, dbglvl,
-			 "%s: %p, len = %d\n", str, pSrcBufVA, SrcBufLen);
-
-	if (!pSrcBufVA)
-		return;
-
-	for (x = 0; x < SrcBufLen; x++) {
-		if (x % 16 == 0)
-			MTWF_DBG_NP(dbgcat, dbg_sub_cat, dbglvl,
-					 "0x%04x : ", x);
-
-		MTWF_DBG_NP(dbgcat, dbg_sub_cat, dbglvl, "%02x ", ((unsigned char)pSrcBufVA[x]));
-
-		if (x % 16 == 15)
-			MTWF_DBG_NP(dbgcat, dbg_sub_cat, dbglvl, "\n");
-	}
-
-	MTWF_DBG_NP(dbgcat, dbg_sub_cat, dbglvl, "\n");
-#endif /* DBG */
-}
-
-void hex_dump_always(char *str, UCHAR *pSrcBufVA, UINT SrcBufLen)
-{
-	unsigned char *pt;
-	int x;
-
-	pt = pSrcBufVA;
-	MTWF_PRINT("%s: %p, len = %d\n", str, pSrcBufVA, SrcBufLen);
-
-	for (x = 0; x < SrcBufLen; x++) {
-		if (x % 16 == 0)
-			MTWF_PRINT("0x%04x : ", x);
-
-		MTWF_PRINT("%02x ", ((unsigned char)pt[x]));
-
-		if (x % 16 == 15)
-			MTWF_PRINT("\n");
-	}
-
-	MTWF_PRINT(" ");
-	MTWF_PRINT("\n");
 }
 
 
@@ -966,8 +752,9 @@ VOID RtmpOsSendWirelessEvent(
 #if WIRELESS_EXT >= 15
 	pFunc(pAd, Event_flag, pAddr, wdev_idx, Rssi);
 #else
-	MTWF_DBG(pAd, DBG_CAT_INIT, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-			 "The Wireless Extension MUST be v15 or newer.\n");
+	MTWF_LOG(DBG_CAT_INIT, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
+			 ("%s : The Wireless Extension MUST be v15 or newer.\n",
+			  __func__));
 #endif /* WIRELESS_EXT >= 15 */
 }
 #endif /* SYSTEM_LOG_SUPPORT */
@@ -1001,9 +788,9 @@ RTMP_OS_FD RtmpOSFileOpen(char *pPath, int flag, int mode)
 	filePtr = filp_open(pPath, flag, 0);
 
 	if (IS_ERR(filePtr)) {
-		MTWF_DBG(NULL, DBG_CAT_INIT, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-				"Error %ld opening %s\n",
-				-PTR_ERR(filePtr), pPath);
+		MTWF_LOG(DBG_CAT_INIT, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
+				 ("%s(): Error %ld opening %s\n", __func__,
+				  -PTR_ERR(filePtr), pPath));
 	}
 
 	return (RTMP_OS_FD) filePtr;
@@ -1029,15 +816,13 @@ int RtmpOSFileRead(RTMP_OS_FD osfd, char *pDataPtr, int readLen)
 #if (KERNEL_VERSION(3, 19, 0) > LINUX_VERSION_CODE)
 	if (osfd->f_op && osfd->f_op->read) {
 		return osfd->f_op->read(osfd, pDataPtr, readLen, &osfd->f_pos);
-#elif (KERNEL_VERSION(4, 14, 0) <= LINUX_VERSION_CODE)
+#else
+
 	if (osfd->f_mode & FMODE_CAN_READ) {
 		return kernel_read(osfd, pDataPtr, readLen, &osfd->f_pos);
-#else
-	if (osfd->f_mode & FMODE_CAN_READ) {
-		return __vfs_read(osfd, pDataPtr, readLen, &osfd->f_pos);
 #endif
 	} else {
-		MTWF_DBG(NULL, DBG_CAT_INIT, DBG_SUBCAT_ALL, DBG_LVL_ERROR, "no file read method\n");
+		MTWF_LOG(DBG_CAT_INIT, DBG_SUBCAT_ALL, DBG_LVL_ERROR, ("no file read method\n"));
 		return -1;
 	}
 }
@@ -1047,12 +832,12 @@ int RtmpOSFileWrite(RTMP_OS_FD osfd, char *pDataPtr, int writeLen)
 {
 #if (KERNEL_VERSION(4, 1, 0) > LINUX_VERSION_CODE)
 	return osfd->f_op->write(osfd, pDataPtr, (size_t) writeLen, &osfd->f_pos);
-#elif (LINUX_VERSION_CODE >= KERNEL_VERSION(4, 19, 0))
-	return __kernel_write(osfd, pDataPtr, (size_t) writeLen, &osfd->f_pos);
-#elif (KERNEL_VERSION(4, 10, 0) <= LINUX_VERSION_CODE)
+#else
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(4, 19, 0))
 	return kernel_write(osfd, pDataPtr, (size_t) writeLen, &osfd->f_pos);
 #else
-	return __vfs_write(osfd, pDataPtr, (size_t) writeLen, &osfd->f_pos);
+	return kernel_write(osfd, pDataPtr, (size_t) writeLen, &osfd->f_pos);
+#endif
 #endif
 }
 
@@ -1080,10 +865,10 @@ static inline void __RtmpOSFSInfoChange(OS_FS_INFO *pOSFSInfo, BOOLEAN bSet)
 		/* pOSFSInfo->fsgid = (int)(current_fsgid()); */
 #endif
 #endif
-		// pOSFSInfo->fs = get_fs();
-		// set_fs(KERNEL_DS);
+		//pOSFSInfo->fs = get_fs();
+		//set_fs(KERNEL_DS);
 	} else {
-		// set_fs(pOSFSInfo->fs);
+		//set_fs(pOSFSInfo->fs);
 #if (KERNEL_VERSION(2, 6, 29) > LINUX_VERSION_CODE)
 		current->fsuid = pOSFSInfo->fsuid;
 		current->fsgid = pOSFSInfo->fsgid;
@@ -1116,20 +901,20 @@ static inline NDIS_STATUS __RtmpOSTaskKill(OS_TASK *pTask)
 
 #else
 	if (CHECK_PID_LEGALITY(pTask->taskPID)) {
-		MTWF_DBG(NULL, DBG_CAT_INIT, DBG_SUBCAT_ALL, DBG_LVL_INFO,
-				 "Terminate the task(%s) with pid(%d)!\n",
-				  pTask->taskName, GET_PID_NUMBER(pTask->taskPID));
+		MTWF_LOG(DBG_CAT_INIT, DBG_SUBCAT_ALL, DBG_LVL_TRACE,
+				 ("Terminate the task(%s) with pid(%d)!\n",
+				  pTask->taskName, GET_PID_NUMBER(pTask->taskPID)));
 		mb();
 		pTask->task_killed = 1;
 		mb();
 		ret = KILL_THREAD_PID(pTask->taskPID, SIGTERM, 1);
 
 		if (ret) {
-			MTWF_DBG(NULL, DBG_CAT_INIT, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-					 KERN_WARNING
+			MTWF_LOG(DBG_CAT_INIT, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
+					 (KERN_WARNING
 					  "kill task(%s) with pid(%d) failed(retVal=%d)!\n",
 					  pTask->taskName, GET_PID_NUMBER(pTask->taskPID),
-					  ret);
+					  ret));
 		} else {
 			wait_for_completion(&pTask->taskComplete);
 			pTask->taskPID = THREAD_PID_INIT_VALUE;
@@ -1150,7 +935,7 @@ static inline INT __RtmpOSTaskNotifyToExit(OS_TASK *pTask)
 	complete_and_exit(&pTask->taskComplete, 0);
 #endif
 #ifdef WIFI_DIAG
-	diag_del_pid(pTask);
+	DiagDelPid(pTask);
 #endif
 	return 0;
 }
@@ -1186,7 +971,7 @@ static inline void __RtmpOSTaskCustomize(OS_TASK *pTask)
 	complete(&pTask->taskComplete);
 #endif
 #ifdef WIFI_DIAG
-	diag_add_pid(pTask);
+	DiagAddPid(pTask);
 #endif
 }
 
@@ -1201,32 +986,23 @@ static inline NDIS_STATUS __RtmpOSTaskAttach(
 	pid_t pid_number = -1;
 #endif /* KTHREAD_SUPPORT */
 #ifdef KTHREAD_SUPPORT
-	UINT8 retry = 0;
 	pTask->task_killed = 0;
 
 	if (pTask->kthread_task) {
-		MTWF_DBG(NULL, DBG_CAT_INIT, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-				 "non-null kthread_task %s\n",
-				  pTask->taskName);
+		MTWF_LOG(DBG_CAT_INIT, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
+				 ("%s non-null kthread_task %s\n", __func__,
+				  pTask->taskName));
 		status = NDIS_STATUS_FAILURE;
 		goto done;
 	}
 
-RETRY:
-	pTask->kthread_task = kthread_run((cast_fn)fn, (void *)arg, pTask->taskName);
+	pTask->kthread_task = kthread_run((cast_fn)fn, (void *)arg,
+									  pTask->taskName);
 
 	if (IS_ERR(pTask->kthread_task)) {
-		MTWF_DBG(NULL, DBG_CAT_INIT, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-				"kthread_run %s err %ld\n",
-				pTask->taskName, PTR_ERR(pTask->kthread_task));
-
-		/* just an interrupted system call */
-		if ((PTR_ERR(pTask->kthread_task) == EINTR) && (retry < 5)) {
-			retry ++;
-			mdelay(1);
-			goto RETRY;
-		}
-
+		MTWF_LOG(DBG_CAT_INIT, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
+				 ("%s kthread_run %s err %ld\n", __func__,
+				  pTask->taskName, PTR_ERR(pTask->kthread_task)));
 		pTask->kthread_task = NULL;
 		status = NDIS_STATUS_FAILURE;
 		goto done;
@@ -1237,8 +1013,8 @@ RETRY:
 		kernel_thread((cast_fn) fn, (void *)arg, RTMP_OS_MGMT_TASK_FLAGS);
 
 	if (pid_number < 0) {
-		MTWF_DBG(NULL, DBG_CAT_INIT, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-				"Attach task(%s) failed!\n", pTask->taskName);
+		MTWF_LOG(DBG_CAT_INIT, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
+				 ("Attach task(%s) failed!\n", pTask->taskName));
 		status = NDIS_STATUS_FAILURE;
 	} else {
 		/* Wait for the thread to start */
@@ -1248,8 +1024,8 @@ RETRY:
 
 #endif
 done:
-	MTWF_DBG(NULL, DBG_CAT_INIT, DBG_SUBCAT_ALL, DBG_LVL_INFO,
-			 "%s %s end %d\n", __func__, pTask->taskName, status);
+	MTWF_LOG(DBG_CAT_INIT, DBG_SUBCAT_ALL, DBG_LVL_TRACE,
+			 ("%s %s end %d\n", __func__, pTask->taskName, status));
 	return status;
 }
 
@@ -1289,6 +1065,7 @@ BOOLEAN __RtmpOSTaskWait(
 {
 #ifdef KTHREAD_SUPPORT
 	RTMP_WAIT_EVENT_INTERRUPTIBLE((*pStatus), pTask);
+
 	if ((pTask->task_killed == 1) || ((*pStatus) != 0))
 		return FALSE;
 
@@ -1305,23 +1082,6 @@ BOOLEAN __RtmpOSTaskWait(
 	return TRUE;
 }
 
-BOOLEAN __RtmpOSTaskWaitCond(
-	IN VOID *pReserved,
-	IN OS_TASK *pTask,
-	IN UINT32 u4Cond,
-	IN INT32 * pStatus)
-{
-#ifdef KTHREAD_SUPPORT
-	RTMP_WAIT_EVENT_INTERRUPTIBLE_COND((*pStatus), pTask, u4Cond);
-
-	if ((pTask->task_killed == 1) || ((*pStatus) != 0))
-		return FALSE;
-
-#else
-#error "Not yet implemented"
-#endif /* KTHREAD_SUPPORT */
-	return TRUE;
-}
 
 
 #if LINUX_VERSION_CODE <= 0x20402	/* Red Hat 7.1 */
@@ -1337,8 +1097,8 @@ struct net_device *alloc_netdev(
 	dev = kmalloc(alloc_size, GFP_KERNEL);
 
 	if (dev == NULL) {
-		MTWF_DBG(NULL, DBG_CAT_INIT, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-				 "alloc_netdev: Unable to allocate device memory.\n");
+		MTWF_LOG(DBG_CAT_INIT, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
+				 ("alloc_netdev: Unable to allocate device memory.\n"));
 		return NULL;
 	}
 
@@ -1380,20 +1140,10 @@ static UINT32 RtmpOSWirelessEventTranslate(IN UINT32 eventType)
 	case RT_WLAN_EVENT_EXPIRED:
 		eventType = IWEVEXPIRED;
 		break;
-#ifdef P2P_SUPPORT
-
-	case RT_WLAN_EVENT_SHOWPIN:
-		eventType = 0x8C05; /* IWEVP2PKEYSHOWPIN; */
-		break;
-
-	case RT_WLAN_EVENT_PIN:
-		eventType = 0x8C06; /* IWEVP2PKEYPIN; */
-		break;
-#endif /* P2P_SUPPORT */
 
 	default:
-		MTWF_DBG(NULL, DBG_CAT_INIT, DBG_SUBCAT_ALL, DBG_LVL_INFO,
-				 "Unknown event: 0x%x\n", eventType);
+		MTWF_LOG(DBG_CAT_INIT, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
+				 ("Unknown event: 0x%x\n", eventType));
 		break;
 	}
 
@@ -1424,10 +1174,8 @@ int RtmpOSWrielessEventSend(
 		wrqu.data.length = dataLen;
 	else
 		wrqu.data.length = 0;
-#ifdef CONFIG_WEXT_CORE
-	wireless_send_event(pNetDev, eventType, &wrqu, (char *)pData);
-#endif /* CONFIG_WEXT_CORE */
 
+	wireless_send_event(pNetDev, eventType, &wrqu, (char *)pData);
 	return 0;
 }
 
@@ -1457,9 +1205,7 @@ int RtmpOSWrielessEventSendExt(
 		wrqu.data.length = dataLen;
 
 	wrqu.addr.sa_family = family;
-#ifdef CONFIG_WEXT_CORE
 	wireless_send_event(pNetDev, eventType, &wrqu, (char *)pData);
-#endif /* CONFIG_WEXT_CORE */
 	return 0;
 }
 
@@ -1678,16 +1424,7 @@ int RtmpOSNetDevAddrSet(
 	IN PUCHAR dev_name)
 {
 	struct net_device *net_dev = (struct net_device *)pNetDev;
-#ifdef CONFIG_STA_SUPPORT
-	/* work-around for the SuSE due to it has it's own interface name management system. */
-	RT_CONFIG_IF_OPMODE_ON_STA(OpMode) {
-		if (dev_name != NULL) {
-			os_zero_mem(dev_name, 16);
-			os_move_mem(dev_name, net_dev->name, strlen(net_dev->name));
-		}
-	}
-#endif /* CONFIG_STA_SUPPORT */
-	dev_addr_set(net_dev, pMacAddr);
+	os_move_mem(net_dev->dev_addr, pMacAddr, 6);
 	return 0;
 }
 
@@ -1708,8 +1445,6 @@ static int RtmpOSNetDevRequestName(
 		prefixLen,
 		slotNameLen;
 	int Status;
-	int ret;
-	UINT LeftBufferSize;
 
 	prefixLen = strlen(pPrefixStr);
 	ASSERT((prefixLen < IFNAMSIZ));
@@ -1730,45 +1465,37 @@ static int RtmpOSNetDevRequestName(
 		else
 #endif /* RT_SOC_SUPPORT */
 #endif /* MULTIPLE_CARD_SUPPORT */
-			ret = sprintf(suffixName, "%d", ifNameIdx);
-			if (ret < 0) {
-				MTWF_DBG(NULL, DBG_CAT_INIT, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-					 "suffixName sprintf error!!!\n");
-				return NDIS_STATUS_FAILURE;
-			}
+			sprintf(suffixName, "%d", ifNameIdx);
 
 		slotNameLen = strlen(suffixName);
 		ASSERT(((slotNameLen + prefixLen) < IFNAMSIZ));
 
-		if (autoSuffix) {
-			LeftBufferSize = sizeof(desiredName) - strlen(desiredName);
-			ret = snprintf(desiredName + strlen(desiredName), LeftBufferSize, "%s", suffixName);
-			if (os_snprintf_error(LeftBufferSize, ret)) {
-				MTWF_DBG(NULL, DBG_CAT_INIT, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-					 "desiredName snprintf error!!!\n");
-				return NDIS_STATUS_FAILURE;
-			}
-		}
+		if (autoSuffix)
+			strncat(desiredName, suffixName, slotNameLen);
+
 		existNetDev = RtmpOSNetDevGetByName(dev, &desiredName[0]);
 
 		if (existNetDev == NULL)
 			break;
 		else if (autoSuffix == FALSE && existNetDev) {
 			ifNameIdx = 32;	/* Tend to leave loop then return failure */
-			MTWF_DBG(NULL, DBG_CAT_INIT, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-					"Cannot request DevName with string(%s) from OS!\n", pPrefixStr);
+			MTWF_LOG(DBG_CAT_INIT, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
+					("Cannot request DevName with string(%s) from OS!\n", pPrefixStr));
 		}
 
 		RtmpOSNetDeviceRefPut(existNetDev);
 	}
 
 	if (ifNameIdx < 32) {
+#ifdef HOSTAPD_SUPPORT
+		*pIoctlIF = ifNameIdx;
+#endif /*HOSTAPD_SUPPORT */
 		strncpy(&dev->name[0], &desiredName[0], sizeof(dev->name));
 		Status = NDIS_STATUS_SUCCESS;
 	} else {
-		MTWF_DBG(NULL, DBG_CAT_INIT, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-				 "Cannot request DevName with preifx(%s) and in range(0~32) as suffix from OS!\n",
-				  pPrefixStr);
+		MTWF_LOG(DBG_CAT_INIT, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
+				 ("Cannot request DevName with preifx(%s) and in range(0~32) as suffix from OS!\n",
+				  pPrefixStr));
 		Status = NDIS_STATUS_FAILURE;
 	}
 
@@ -1782,41 +1509,21 @@ void RtmpOSNetDevClose(PNET_DEV pNetDev)
 
 void RtmpOSNetDevFree(PNET_DEV pNetDev)
 {
-#if (KERNEL_VERSION(2, 6, 31) <= LINUX_VERSION_CODE)
-	void *tmp_ptr;
-#endif
-
-	if (pNetDev == NULL) {
-		MTWF_DBG(NULL, DBG_CAT_INIT, DBG_SUBCAT_ALL, DBG_LVL_ERROR, "pNetDev is NULL!\n");
-		ASSERT(pNetDev);
-		return;
-	}
-
+	ASSERT(pNetDev);
 #if (KERNEL_VERSION(2, 5, 0) <= LINUX_VERSION_CODE)
-#if (KERNEL_VERSION(2, 6, 31) <= LINUX_VERSION_CODE)
-	tmp_ptr = (void *)pNetDev->netdev_ops;
-#endif
 	free_netdev(pNetDev);
-#if (KERNEL_VERSION(2, 6, 31) <= LINUX_VERSION_CODE)
-	if (tmp_ptr) {
-		vfree(tmp_ptr);
-		tmp_ptr = NULL;
-	}
-#endif
 #else
 	kfree(pNetDev);
 #endif
-	if (pNetDev != NULL)
-		pNetDev = NULL;
 #ifdef VENDOR_FEATURE4_SUPPORT
-	MTWF_DBG(NULL, DBG_CAT_INIT, DBG_SUBCAT_ALL, DBG_LVL_INFO,
-			 "OS_NumOfMemAlloc = %ld, OS_NumOfMemFree = %ld\n",
-			  OS_NumOfMemAlloc, OS_NumOfMemFree);
+	MTWF_LOG(DBG_CAT_INIT, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
+			 ("OS_NumOfMemAlloc = %ld, OS_NumOfMemFree = %ld\n",
+			  OS_NumOfMemAlloc, OS_NumOfMemFree));
 #endif /* VENDOR_FEATURE4_SUPPORT */
 #ifdef VENDOR_FEATURE2_SUPPORT
-	MTWF_DBG(NULL, DBG_CAT_INIT, DBG_SUBCAT_ALL, DBG_LVL_INFO,
-			 "OS_NumOfPktAlloc = %ld, OS_NumOfPktFree = %ld\n",
-			  OS_NumOfPktAlloc, OS_NumOfPktFree);
+	MTWF_LOG(DBG_CAT_INIT, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
+			 ("OS_NumOfPktAlloc = %ld, OS_NumOfPktFree = %ld\n",
+			  OS_NumOfPktAlloc, OS_NumOfPktFree));
 #endif /* VENDOR_FEATURE2_SUPPORT */
 }
 
@@ -1825,9 +1532,9 @@ INT RtmpOSNetDevAlloc(
 	IN UINT32 privDataSize)
 {
 	*new_dev_p = NULL;
-	MTWF_DBG(NULL, DBG_CAT_INIT, DBG_SUBCAT_ALL, DBG_LVL_INFO,
-			 "Allocate a net device with private data size=%d!\n",
-			  privDataSize);
+	MTWF_LOG(DBG_CAT_INIT, DBG_SUBCAT_ALL, DBG_LVL_TRACE,
+			 ("Allocate a net device with private data size=%d!\n",
+			  privDataSize));
 #if LINUX_VERSION_CODE <= 0x20402	/* Red Hat 7.1 */
 	*new_dev_p = alloc_netdev(privDataSize, "eth%d", ether_setup);
 #else
@@ -1905,15 +1612,23 @@ void RtmpOSNetDeviceRefPut(PNET_DEV pNetDev)
 INT RtmpOSNetDevDestory(VOID *pReserved, PNET_DEV pNetDev)
 {
 	/* TODO: Need to fix this */
-	MTWF_DBG(NULL, DBG_CAT_INIT, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-			"WARNING: This function not implement yet!!!\n");
+	MTWF_LOG(DBG_CAT_INIT, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
+			 ("WARNING: This function(%s) not implement yet!!!\n",
+			  __func__));
 	return 0;
 }
 
 
 void RtmpOSNetDevDetach(PNET_DEV pNetDev)
 {
+#if (KERNEL_VERSION(2, 6, 31) <= LINUX_VERSION_CODE)
+	struct net_device_ops *pNetDevOps = (struct net_device_ops *)pNetDev->netdev_ops;
+#endif
 	unregister_netdevice(pNetDev);
+#if (KERNEL_VERSION(2, 6, 31) <= LINUX_VERSION_CODE)
+	vfree(pNetDevOps);
+	pNetDev->netdev_ops = NULL;
+#endif
 }
 
 
@@ -1930,15 +1645,8 @@ static void RALINK_ET_DrvInfoGet(
 	struct net_device *pDev,
 	struct ethtool_drvinfo *pInfo)
 {
-	size_t size = sizeof("RALINK WLAN");
-	int ret;
-
-	strncpy(pInfo->driver, "RALINK WLAN", size);
-	ret = sprintf(pInfo->bus_info, "CSR 0x%lx", pDev->base_addr);
-	if (ret < 0) {
-		MTWF_DBG(NULL, DBG_CAT_INIT, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-			 "bus_info sprintf error!!!\n");
-	}
+	strncpy(pInfo->driver, "RALINK WLAN", sizeof("RALINK WLAN"));
+	sprintf(pInfo->bus_info, "CSR 0x%lx", pDev->base_addr);
 }
 
 static struct ethtool_ops RALINK_Ethtool_Ops = {
@@ -1957,7 +1665,7 @@ int RtmpOSNetDevAttach(
 #if (KERNEL_VERSION(2, 6, 31) <= LINUX_VERSION_CODE)
 	struct net_device_ops *pNetDevOps = (struct net_device_ops *)pNetDev->netdev_ops;
 #endif
-	MTWF_DBG(NULL, DBG_CAT_INIT, DBG_SUBCAT_ALL, DBG_LVL_INFO, "RtmpOSNetDevAttach()--->\n");
+	MTWF_LOG(DBG_CAT_INIT, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("RtmpOSNetDevAttach()--->\n"));
 
 	/* If we need hook some callback function to the net device structrue, now do it. */
 	if (pDevOpHook) {
@@ -1998,19 +1706,11 @@ int RtmpOSNetDevAttach(
 		/*		pNetDev->get_wireless_stats = rt28xx_get_wireless_stats; */
 		pNetDev->get_wireless_stats = pDevOpHook->get_wstats;
 #endif
-#ifdef CONFIG_STA_SUPPORT
-#if WIRELESS_EXT >= 12
-
-		if (OpMode == OPMODE_STA)
-			pDevOpHook->iw_handler = (void *)&rt28xx_iw_handler_def;
-
-#endif /*WIRELESS_EXT >= 12 */
-#endif /* CONFIG_STA_SUPPORT */
 #ifdef CONFIG_APSTA_MIXED_SUPPORT
 #if WIRELESS_EXT >= 12
 
 		if (OpMode == OPMODE_AP)
-			pDevOpHook->iw_handler = (void *)&rt28xx_ap_iw_handler_def;
+			pDevOpHook->iw_handler = &rt28xx_ap_iw_handler_def;
 
 #endif /*WIRELESS_EXT >= 12 */
 #endif /* CONFIG_APSTA_MIXED_SUPPORT */
@@ -2021,7 +1721,8 @@ int RtmpOSNetDevAttach(
 
 #endif /* CONFIG_WIRELESS_EXT */
 		/* copy the net device mac address to the net_device structure. */
-		dev_addr_set(pNetDev, &pDevOpHook->devAddr[0]);
+		os_move_mem(pNetDev->dev_addr, &pDevOpHook->devAddr[0],
+					MAC_ADDR_LEN);
 		rtnl_locked = pDevOpHook->needProtcted;
 	}
 
@@ -2040,7 +1741,7 @@ int RtmpOSNetDevAttach(
 		ret = register_netdev(pNetDev);
 
 	netif_stop_queue(pNetDev);
-	MTWF_DBG(NULL, DBG_CAT_INIT, DBG_SUBCAT_ALL, DBG_LVL_INFO, "<---RtmpOSNetDevAttach(), ret=%d\n", ret);
+	MTWF_LOG(DBG_CAT_INIT, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("<---RtmpOSNetDevAttach(), ret=%d\n", ret));
 
 	if (ret == 0)
 		return NDIS_STATUS_SUCCESS;
@@ -2067,7 +1768,7 @@ PNET_DEV RtmpOSNetDevCreate(
 	status = RtmpOSNetDevAlloc(&pNetDev, privMemSize);
 
 	if (status != NDIS_STATUS_SUCCESS) {
-		MTWF_DBG(NULL, DBG_CAT_INIT, DBG_SUBCAT_ALL, DBG_LVL_ERROR, "Allocate network device fail (%s)...\n", pNamePrefix);
+		MTWF_LOG(DBG_CAT_INIT, DBG_SUBCAT_ALL, DBG_LVL_ERROR, ("Allocate network device fail (%s)...\n", pNamePrefix));
 		return NULL;
 	}
 
@@ -2075,33 +1776,27 @@ PNET_DEV RtmpOSNetDevCreate(
 	status = RtmpOSNetDevOpsAlloc((PVOID) &pNetDevOps);
 
 	if (status != NDIS_STATUS_SUCCESS) {
-		MTWF_DBG(NULL, DBG_CAT_INIT, DBG_SUBCAT_ALL, DBG_LVL_INFO, "Allocate net device ops fail!\n");
+		MTWF_LOG(DBG_CAT_INIT, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("Allocate net device ops fail!\n"));
 		RtmpOSNetDevFree(pNetDev);
 		return NULL;
 	}
-	MTWF_DBG(NULL, DBG_CAT_INIT, DBG_SUBCAT_ALL, DBG_LVL_INFO, "Allocate net device ops success!\n");
+	MTWF_LOG(DBG_CAT_INIT, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("Allocate net device ops success!\n"));
 	pNetDev->netdev_ops = pNetDevOps;
 
 #endif
 	/* find a available interface name, max 32 interfaces */
-#ifdef IWCOMMAND_CFG80211_SUPPORT
-	if ((devType == INT_AP_VLAN)) {
-			strncpy(&pNetDev->name[0], pNamePrefix, sizeof(pNetDev->name));
-	} else
-#endif /* IWCOMMAND_CFG80211_SUPPORT */
-	{
-		status = RtmpOSNetDevRequestName(MC_RowID, pIoctlIF, pNetDev, pNamePrefix, devNum, autoSuffix);
+	status = RtmpOSNetDevRequestName(MC_RowID, pIoctlIF, pNetDev, pNamePrefix, devNum, autoSuffix);
 
-		if (status != NDIS_STATUS_SUCCESS) {
+	if (status != NDIS_STATUS_SUCCESS) {
 		/* error! no any available ra name can be used! */
-			MTWF_DBG(NULL, DBG_CAT_INIT, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-				 "Assign inf name (%s with suffix 0~32) failed\n", pNamePrefix);
-			RtmpOSNetDevFree(pNetDev);
-			return NULL;
-		}
+		MTWF_LOG(DBG_CAT_INIT, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
+				 ("Assign inf name (%s with suffix 0~32) failed\n", pNamePrefix));
+		RtmpOSNetDevFree(pNetDev);
+		return NULL;
 	}
-	MTWF_DBG(NULL, DBG_CAT_INIT, DBG_SUBCAT_ALL, DBG_LVL_INFO, "The name of the new %s interface is %s\n",
-			 pNamePrefix, pNetDev->name);
+
+	MTWF_LOG(DBG_CAT_INIT, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("The name of the new %s interface is %s\n",
+			 pNamePrefix, pNetDev->name));
 
 	return pNetDev;
 }
@@ -2170,7 +1865,7 @@ NDIS_STATUS AdapterBlockAllocateMemory(VOID *handle, VOID **ppAd, UINT32 SizeOfp
 	{
 		struct sk_buff *pPkt = NULL;
 
-		os_alloc_mem(NULL, (UCHAR **)&pPkt, sizeof(struct sk_buff));
+		pPkt = kmalloc(sizeof(struct sk_buff), GFP_ATOMIC);
 
 		if (pPkt == NULL) {
 			*ppAd = NULL;
@@ -2180,11 +1875,11 @@ NDIS_STATUS AdapterBlockAllocateMemory(VOID *handle, VOID **ppAd, UINT32 SizeOfp
 		RTPktOffsetData = (ULONG) (&(pPkt->data)) - (ULONG) pPkt;
 		RTPktOffsetLen = (ULONG) (&(pPkt->len)) - (ULONG) pPkt;
 		RTPktOffsetCB = (ULONG) (pPkt->cb) - (ULONG) pPkt;
-		os_free_mem(pPkt);
+		kfree(pPkt);
 
-		MTWF_DBG(NULL, DBG_CAT_INIT, DBG_SUBCAT_ALL, DBG_LVL_INFO, "packet> data offset = %lu\n", RTPktOffsetData);
-		MTWF_DBG(NULL, DBG_CAT_INIT, DBG_SUBCAT_ALL, DBG_LVL_INFO, "packet> len offset = %lu\n", RTPktOffsetLen);
-		MTWF_DBG(NULL, DBG_CAT_INIT, DBG_SUBCAT_ALL, DBG_LVL_INFO, "packet> cb offset = %lu\n", RTPktOffsetCB);
+		MTWF_LOG(DBG_CAT_INIT, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("packet> data offset = %lu\n", RTPktOffsetData));
+		MTWF_LOG(DBG_CAT_INIT, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("packet> len offset = %lu\n", RTPktOffsetLen));
+		MTWF_LOG(DBG_CAT_INIT, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("packet> cb offset = %lu\n", RTPktOffsetCB));
 	}
 #endif /* OS_ABL_FUNC_SUPPORT */
 	*ppAd = (PVOID) vmalloc(SizeOfpAd);
@@ -2198,13 +1893,13 @@ NDIS_STATUS AdapterBlockAllocateMemory(VOID *handle, VOID **ppAd, UINT32 SizeOfp
 
 
 /* ========================================================================== */
-
 #ifdef VLAN_SUPPORT
 VOID* RtmpOsVLANInsertTag(PNDIS_PACKET pPacket, UINT16 tci)
 {
 	return (VOID*)vlan_insert_tag(RTPKT_TO_OSPKT(pPacket), cpu2be16(ETH_TYPE_VLAN), tci);
 }
 #endif /*VLAN_SUPPORT*/
+
 
 UINT RtmpOsWirelessExtVerGet(VOID)
 {
@@ -2221,67 +1916,59 @@ VOID RtmpDrvAllMacPrint(
 {
 	struct file *file_w;
 	RTMP_STRING *fileName = "MacDump.txt";
-	// mm_segment_t orig_fs;
+	//mm_segment_t orig_fs;
 	RTMP_STRING *msg;
 	UINT32 macAddr = 0, macValue = 0;
-	INT ret;
 
 	os_alloc_mem(NULL, (UCHAR **)&msg, 1024);
 
 	if (!msg)
 		return;
 
-	// orig_fs = get_fs();
-	// set_fs(KERNEL_DS);
+	//orig_fs = get_fs();
+	//set_fs(KERNEL_DS);
 	/* open file */
 	file_w = filp_open(fileName, O_WRONLY | O_CREAT, 0);
 
 	if (IS_ERR(file_w)) {
-		MTWF_DBG(NULL, DBG_CAT_INIT, DBG_SUBCAT_ALL, DBG_LVL_INFO,
-				 "-->2) %s: Error %ld opening %s\n", __func__,
-				  -PTR_ERR(file_w), fileName);
+		MTWF_LOG(DBG_CAT_INIT, DBG_SUBCAT_ALL, DBG_LVL_TRACE,
+				 ("-->2) %s: Error %ld opening %s\n", __func__,
+				  -PTR_ERR(file_w), fileName));
 	} else {
 		if (file_w->f_op) {
 			file_w->f_pos = 0;
 			macAddr = AddrStart;
 
 			while (macAddr <= AddrEnd) {
-				/*				RTMP_IO_READ32(pAd->hdev_ctrl, macAddr, &macValue); // sample */
+				/*				RTMP_IO_READ32(pAd, macAddr, &macValue); // sample */
 				macValue = *pBufMac++;
-				ret = sprintf(msg, "%04x = %08x\n", macAddr, macValue);
-				if (ret < 0) {
-					MTWF_DBG(NULL, DBG_CAT_INIT, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-						 "msg sprintf error!!!\n");
-				}
+				sprintf(msg, "%04x = %08x\n", macAddr, macValue);
 				/* write data to file */
 #if (KERNEL_VERSION(4, 1, 0) > LINUX_VERSION_CODE)
 			if (file_w->f_op->write) {
 				file_w->f_op->write(file_w, msg, strlen(msg), &file_w->f_pos);
 			} else{
-				MTWF_DBG(NULL, DBG_CAT_INIT, DBG_SUBCAT_ALL, DBG_LVL_ERROR, "no file write method\n");
+				MTWF_LOG(DBG_CAT_INIT, DBG_SUBCAT_ALL, DBG_LVL_ERROR, ("no file write method\n"));
 			}
-#elif (LINUX_VERSION_CODE >= KERNEL_VERSION(4, 19, 0))
-			__kernel_write(file_w, msg, strlen(msg), &file_w->f_pos);
-#elif (KERNEL_VERSION(4, 10, 0) <= LINUX_VERSION_CODE)
+#else
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(4, 19, 0))
 			kernel_write(file_w, msg, strlen(msg), &file_w->f_pos);
+
 #else
 			__vfs_write(file_w, msg, strlen(msg), &file_w->f_pos);
 #endif
-				MTWF_DBG(NULL, DBG_CAT_INIT, DBG_SUBCAT_ALL, DBG_LVL_INFO, "%s", msg);
+#endif
+				MTWF_LOG(DBG_CAT_INIT, DBG_SUBCAT_ALL, DBG_LVL_ERROR, ("%s", msg));
 				macAddr += AddrStep;
 			}
 
-			ret = snprintf(msg, 1024, "\nDump all MAC values to %s\n", fileName);
-			if (os_snprintf_error(1024, ret)) {
-				MTWF_DBG(NULL, DBG_CAT_INIT, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-						 "msg snprintf error!!!\n");
-			}
+			snprintf(msg, 1024, "\nDump all MAC values to %s\n", fileName);
 		}
 
 		filp_close(file_w, NULL);
 	}
 
-	// set_fs(orig_fs);
+	//set_fs(orig_fs);
 	os_free_mem(msg);
 }
 
@@ -2294,26 +1981,25 @@ VOID RtmpDrvAllE2PPrint(
 {
 	struct file *file_w;
 	RTMP_STRING *fileName = "EEPROMDump.txt";
-	// mm_segment_t orig_fs;
+	//mm_segment_t orig_fs;
 	RTMP_STRING *msg;
 	USHORT eepAddr = 0;
 	USHORT eepValue;
-	INT ret;
 
 	os_alloc_mem(NULL, (UCHAR **)&msg, 1024);
 
 	if (!msg)
 		return;
 
-	// orig_fs = get_fs();
-	// set_fs(KERNEL_DS);
+	//orig_fs = get_fs();
+	//set_fs(KERNEL_DS);
 	/* open file */
 	file_w = filp_open(fileName, O_WRONLY | O_CREAT, 0);
 
 	if (IS_ERR(file_w)) {
-		MTWF_DBG(NULL, DBG_CAT_INIT, DBG_SUBCAT_ALL, DBG_LVL_INFO,
-				 "-->2) %s: Error %ld opening %s\n", __func__,
-				  -PTR_ERR(file_w), fileName);
+		MTWF_LOG(DBG_CAT_INIT, DBG_SUBCAT_ALL, DBG_LVL_TRACE,
+				 ("-->2) %s: Error %ld opening %s\n", __func__,
+				  -PTR_ERR(file_w), fileName));
 	} else {
 		if (file_w->f_op) {
 			file_w->f_pos = 0;
@@ -2321,42 +2007,35 @@ VOID RtmpDrvAllE2PPrint(
 
 			while (eepAddr <= AddrEnd) {
 				eepValue = *pMacContent;
-				ret = sprintf(msg, "%08x = %04x\n", eepAddr, eepValue);
-				if (ret < 0) {
-					MTWF_DBG(NULL, DBG_CAT_INIT, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-						 "msg sprintf error!!!\n");
-				}
+				sprintf(msg, "%08x = %04x\n", eepAddr, eepValue);
 				/* write data to file */
 #if (KERNEL_VERSION(4, 1, 0) > LINUX_VERSION_CODE)
 				if (file_w->f_op->write) {
 					file_w->f_op->write(file_w, msg, strlen(msg), &file_w->f_pos);
 				} else{
-					MTWF_DBG(NULL, DBG_CAT_INIT, DBG_SUBCAT_ALL, DBG_LVL_ERROR, "no file write method\n");
+					MTWF_LOG(DBG_CAT_INIT, DBG_SUBCAT_ALL, DBG_LVL_ERROR, ("no file write method\n"));
 				}
-#elif (LINUX_VERSION_CODE >= KERNEL_VERSION(4, 19, 0))
-				__kernel_write(file_w, msg, strlen(msg), &file_w->f_pos);
-#elif (KERNEL_VERSION(4, 10, 0) <= LINUX_VERSION_CODE)
+#else
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(4, 19, 0))
 				kernel_write(file_w, msg, strlen(msg), &file_w->f_pos);
+
 #else
 				__vfs_write(file_w, msg, strlen(msg), &file_w->f_pos);
 #endif
-				MTWF_DBG(NULL, DBG_CAT_INIT, DBG_SUBCAT_ALL, DBG_LVL_INFO, "%s", msg);
+#endif
+				MTWF_LOG(DBG_CAT_INIT, DBG_SUBCAT_ALL, DBG_LVL_ERROR, ("%s", msg));
 				eepAddr += AddrStep;
 				pMacContent += (AddrStep >> 1);
 			}
 
-			ret = snprintf(msg, 1024, "\nDump all EEPROM values to %s\n",
+			snprintf(msg, 1024 ,"\nDump all EEPROM values to %s\n",
 					fileName);
-			if (os_snprintf_error(1024, ret)) {
-				MTWF_DBG(NULL, DBG_CAT_INIT, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-						 "msg snprintf error!!!\n");
-			}
 		}
 
 		filp_close(file_w, NULL);
 	}
 
-	// set_fs(orig_fs);
+	//set_fs(orig_fs);
 	os_free_mem(msg);
 }
 
@@ -2368,17 +2047,17 @@ VOID RtmpDrvAllRFPrint(
 {
 	struct file *file_w;
 	RTMP_STRING *fileName = "RFDump.txt";
-	// mm_segment_t orig_fs;
+	//mm_segment_t orig_fs;
 
-	// orig_fs = get_fs();
-	// set_fs(KERNEL_DS);
+	//orig_fs = get_fs();
+	//set_fs(KERNEL_DS);
 	/* open file */
 	file_w = filp_open(fileName, O_WRONLY | O_CREAT, 0);
 
 	if (IS_ERR(file_w)) {
-		MTWF_DBG(NULL, DBG_CAT_INIT, DBG_SUBCAT_ALL, DBG_LVL_INFO,
-				 "-->2) %s: Error %ld opening %s\n", __func__,
-				  -PTR_ERR(file_w), fileName);
+		MTWF_LOG(DBG_CAT_INIT, DBG_SUBCAT_ALL, DBG_LVL_TRACE,
+				 ("-->2) %s: Error %ld opening %s\n", __func__,
+				  -PTR_ERR(file_w), fileName));
 	} else {
 		if (file_w->f_op) {
 			file_w->f_pos = 0;
@@ -2387,22 +2066,22 @@ VOID RtmpDrvAllRFPrint(
 			if (file_w->f_op->write) {
 				file_w->f_op->write(file_w, pBuf, BufLen, &file_w->f_pos);
 			} else{
-				MTWF_DBG(NULL, DBG_CAT_INIT, DBG_SUBCAT_ALL, DBG_LVL_ERROR, "no file write method\n");
+				MTWF_LOG(DBG_CAT_INIT, DBG_SUBCAT_ALL, DBG_LVL_ERROR, ("no file write method\n"));
 			}
-#elif (KERNEL_VERSION(4, 19, 0) <= LINUX_VERSION_CODE)
-			__kernel_write(file_w, pBuf, BufLen, &file_w->f_pos);
-#elif (KERNEL_VERSION(4, 10, 0) <= LINUX_VERSION_CODE)
+#else
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(4, 19, 0))
 			kernel_write(file_w, pBuf, BufLen, &file_w->f_pos);
 
 #else
 			__vfs_write(file_w, pBuf, BufLen, &file_w->f_pos);
+#endif
 #endif
 		}
 
 		filp_close(file_w, NULL);
 	}
 
-	// set_fs(orig_fs);
+	//set_fs(orig_fs);
 }
 
 
@@ -2432,6 +2111,15 @@ VOID RtmpOsCmdUp(RTMP_OS_TASK *pCmdQTask)
 #endif /* KTHREAD_SUPPORT */
 }
 
+BOOLEAN RtmpOsIsCmdThreadRunning(RTMP_OS_TASK *pCmdQTask)
+{
+	OS_TASK *pTask = RTMP_OS_TASK_GET(pCmdQTask);
+#ifdef KTHREAD_SUPPORT
+	return pTask->kthread_running;
+#else
+	return FALSE;
+#endif /* KTHREAD_SUPPORT */
+}
 
 /*
  * ========================================================================
@@ -2456,10 +2144,10 @@ VOID RtmpOsMlmeUp(IN RTMP_OS_TASK *pMlmeQTask)
 		pTask->kthread_running = TRUE;
 		wake_up(&pTask->kthread_q);
 	} else {
-		MTWF_DBG(NULL, DBG_CAT_INIT, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-				 "invalid pTask 0x%p or kthread_task 0x%p\n",
-				  pTask,
-				  (pTask) ? pTask->kthread_task : NULL);
+		MTWF_LOG(DBG_CAT_INIT, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
+				 ("%s invalid pTask 0x%p or kthread_task 0x%p\n",
+				  __func__, pTask,
+				  (pTask) ? pTask->kthread_task : NULL));
 	}
 
 #else
@@ -2493,32 +2181,33 @@ INT32 RtmpOsFileIsErr(IN VOID *pFile)
 	return IS_FILE_OPEN_ERR(pFile);
 }
 
-int RtmpOSIRQRequest(UINT32 irq, const CHAR *name, VOID *func, VOID *data)
-{
-	int retval = 0;
-
-#if defined(CONFIG_ARCH_MT7623) || defined(CONFIG_ARCH_MT7622) || defined(MT7622)
-	retval = request_irq(irq, func, IRQF_SHARED, name, data);
-#else
-	retval = request_irq(irq, func, IRQF_SHARED, name, data);
-#endif
-
-	if (retval != 0)
-		MTWF_DBG(NULL, DBG_CAT_INIT, DBG_SUBCAT_ALL, DBG_LVL_ERROR, "request_irq ERROR(%d)\n", retval);
-
-	return retval;
-}
-
 int RtmpOSIRQRelease(
-	UINT32 irq,
-	VOID *data
-)
+	IN PNET_DEV pNetDev,
+	IN UINT32 infType,
+	IN PPCI_DEV pci_dev,
+	IN BOOLEAN *pHaveMsi)
 {
-#if (KERNEL_VERSION(2, 5, 0) <= LINUX_VERSION_CODE)
-	synchronize_irq(irq);
-#endif
-	free_irq(irq, data);
+#ifdef RTMP_PCI_SUPPORT
 
+	if (infType == RTMP_DEV_INF_PCI || infType == RTMP_DEV_INF_PCIE) {
+#if (KERNEL_VERSION(2, 5, 0) <= LINUX_VERSION_CODE)
+		synchronize_irq(pci_dev->irq);
+#endif
+		free_irq(pci_dev->irq, ((struct net_device *)pNetDev));
+	}
+
+#endif /* RTMP_PCI_SUPPORT */
+#ifdef RTMP_RBUS_SUPPORT
+
+	if (infType == RTMP_DEV_INF_RBUS) {
+		struct net_device *net_dev = (struct net_device *)pNetDev;
+#if (KERNEL_VERSION(2, 5, 0) <= LINUX_VERSION_CODE)
+		synchronize_irq(net_dev->irq);
+#endif
+		free_irq(net_dev->irq, (net_dev));
+	}
+
+#endif /* RTMP_RBUS_SUPPORT */
 	return 0;
 }
 
@@ -2651,83 +2340,29 @@ BOOLEAN RtmpOsStatsAlloc(
  * Note:
  * ========================================================================
  */
-VOID RtmpOsPktRcvHandle(PNDIS_PACKET pNetPkt, VOID *napi)
+VOID RtmpOsPktRcvHandle(PNDIS_PACKET pNetPkt)
 {
-	struct sk_buff *skb = RTPKT_TO_OSPKT(pNetPkt);
+	struct sk_buff *pRxPkt = RTPKT_TO_OSPKT(pNetPkt);
 #ifdef CONFIG_CSO_SUPPORT
 	struct net_device *pNetDev =  GET_OS_PKT_NETDEV(pNetPkt);
 #endif /* CONFIG_CSO_SUPPORT */
-#ifdef IXIA_C50_MODE
-	PRTMP_ADAPTER pAd = NULL;
-	GET_PAD_FROM_NET_DEV(pAd, GET_OS_PKT_NETDEV(pNetPkt));
-#endif
-
 #ifdef CONFIG_CSO_SUPPORT
 
 	if (pNetDev->features & NETIF_F_HW_CSUM) {
 		if (RTMP_GET_TCP_CHKSUM_FAIL(pNetPkt))
-			skb->ip_summed = CHECKSUM_NONE;
+			pRxPkt->ip_summed = CHECKSUM_NONE;
 		else
-			skb->ip_summed = CHECKSUM_UNNECESSARY;
+			pRxPkt->ip_summed = CHECKSUM_UNNECESSARY;
 	}
 
 #endif /* CONFIG_CSO_SUPPORT */
-
-	if (napi && in_serving_softirq())
-		napi_gro_receive((struct napi_struct *)napi, skb);
-	else {
-#ifdef IXIA_C50_MODE
-		if (IS_EXPECTED_LENGTH(pAd, skb->len + 14))
-			pAd->rx_cnt.rx_pkt_to_os[smp_processor_id()]++;
-#endif
-		netif_rx(skb);
-	}
+	netif_rx(pRxPkt);
 }
 
 
 VOID RtmpOsTaskPidInit(RTMP_OS_PID *pPid)
 {
 	*pPid = THREAD_PID_INIT_VALUE;
-}
-
-UINT32 RtmpOsCsumAdd(UINT32 csum, UINT32 addend)
-{
-	UINT32 res = csum;
-	res += addend;
-	return res + (res < addend);
-}
-
-VOID RtmpOsSkbPullRcsum(struct sk_buff *skb, unsigned int len)
-{
-	if (len > skb->len)
-		return;
-
-	skb_pull(skb, len);
-	if (skb->ip_summed == CHECKSUM_COMPLETE)
-		skb->csum = RtmpOsCsumAdd(skb->csum, ~csum_partial(skb->data, len, 0));
-	else if (skb->ip_summed == CHECKSUM_PARTIAL &&
-		 (skb->csum_start - (skb->data - skb->head)) < 0)
-		skb->ip_summed = CHECKSUM_NONE;
-}
-
-VOID RtmpOsSkbResetMacHeader(struct sk_buff *skb)
-{
-	skb_reset_mac_header(skb);
-}
-
-VOID RtmpOsSkbResetNetworkHeader(struct sk_buff *skb)
-{
-	skb_reset_network_header(skb);
-}
-
-VOID RtmpOsSkbResetTransportHeader(struct sk_buff *skb)
-{
-	skb_reset_transport_header(skb);
-}
-
-VOID RtmpOsSkbResetMacLen(struct sk_buff *skb)
-{
-	skb_reset_mac_len(skb);
 }
 
 /*
@@ -2782,7 +2417,7 @@ PNDIS_PACKET RtmpOsPktIappMakeUp(
 	pNetBuf = RtmpOSNetPktAlloc(NULL, size);
 
 	if (!pNetBuf) {
-		MTWF_DBG(NULL, DBG_CAT_INIT, DBG_SUBCAT_ALL, DBG_LVL_ERROR, "Error! Can't allocate a skb.\n");
+		MTWF_LOG(DBG_CAT_INIT, DBG_SUBCAT_ALL, DBG_LVL_ERROR, ("Error! Can't allocate a skb.\n"));
 		return NULL;
 	}
 
@@ -2804,8 +2439,9 @@ PNDIS_PACKET RtmpOsPktIappMakeUp(
 }
 #endif /* IAPP_SUPPORT */
 
+
 #ifdef CONFIG_FAST_NAT_SUPPORT
-VOID RtmpOsPktNatMagicTag(PNDIS_PACKET pNetPkt)
+VOID RtmpOsPktNatMagicTag(IN PNDIS_PACKET pNetPkt)
 {
 	struct sk_buff *pRxPkt = RTPKT_TO_OSPKT(pNetPkt);
 
@@ -2813,14 +2449,6 @@ VOID RtmpOsPktNatMagicTag(PNDIS_PACKET pNetPkt)
 }
 #endif /*CONFIG_FAST_NAT_SUPPORT*/
 
-#ifdef WHNAT_SUPPORT
-VOID RtmpOsPktNatMagicTagInvalid(PNDIS_PACKET pNetPkt)
-{
-	struct sk_buff *pRxPkt = RTPKT_TO_OSPKT(pNetPkt);
-
-	FOE_TAG_PROTECT(pRxPkt) = 0;
-}
-#endif
 /*
  * ========================================================================
  * Routine Description:
@@ -2844,110 +2472,49 @@ VOID RtmpOsDCacheFlush(
 }
 
 
-#ifdef CONFIG_STA_SUPPORT
-INT RtmpOSNotifyRawData(
-	IN PNET_DEV pNetDev,
-	IN PUCHAR buff,
-	IN INT len,
-	IN ULONG type,
-	IN USHORT protocol,
-	VOID *napi)
-{
-	struct sk_buff *skb = NULL;
-
-	DEV_ALLOC_SKB(skb, (len + 2));
-
-	if (!skb) {
-		MTWF_DBG(NULL, DBG_CAT_INIT, DBG_SUBCAT_ALL, DBG_LVL_ERROR, "%s: failed to allocate sk_buff for notification\n", pNetDev->name);
-		return -ENOMEM;
-	}
-
-	skb_reserve(skb, 2);
-	memcpy(skb_put(skb, len), buff, len);
-	skb->len = len;
-	skb->dev = pNetDev;
-#if (KERNEL_VERSION(2, 6, 21) >= LINUX_VERSION_CODE)
-	skb->mac.raw = skb->data;
-#else
-	skb_set_mac_header(skb, 0);
-#endif
-	skb->ip_summed = CHECKSUM_UNNECESSARY;
-	skb->pkt_type = PACKET_OTHERHOST;
-	skb->protocol = htons(protocol);
-	memset(skb->cb, 0, sizeof(skb->cb));
-
-	if (napi && in_serving_softirq())
-		napi_gro_receive((struct napi_struct *)napi, skb);
-	else
-		netif_rx(skb);
-
-	return 0;
-}
-
-#ifdef WIDI_SUPPORT
-INT RtmpOSWidiNotify(
-	IN PNET_DEV pNetDev,
-	IN PUCHAR buff,
-	IN INT len,
-	IN ULONG type)
-{
-	RtmpOSNotifyRawData(pNetDev, buff, len, type, ETH_P_WIDI_NOTIF);
-}
-#endif /*WIDI_SUPPORT */
-#endif /* CONFIG_STA_SUPPORT */
 
 
-inline void OS_SPIN_LOCK_IRQSAVE(NDIS_SPIN_LOCK *lock, unsigned long *flags)
+void OS_SPIN_LOCK_IRQSAVE(NDIS_SPIN_LOCK *lock, unsigned long *flags)
 {
 	spin_lock_irqsave((spinlock_t *)(lock), *flags);
 }
 
-inline void OS_SPIN_UNLOCK_IRQRESTORE(NDIS_SPIN_LOCK *lock, unsigned long *flags)
+void OS_SPIN_UNLOCK_IRQRESTORE(NDIS_SPIN_LOCK *lock, unsigned long *flags)
 {
 	spin_unlock_irqrestore((spinlock_t *)(lock), *flags);
 }
 
-inline void OS_SPIN_LOCK(NDIS_SPIN_LOCK *lock)
+void OS_SPIN_LOCK(NDIS_SPIN_LOCK *lock)
 {
 	spin_lock((spinlock_t *)(lock));
 }
 
-inline void OS_SPIN_UNLOCK(NDIS_SPIN_LOCK *lock)
+void OS_SPIN_UNLOCK(NDIS_SPIN_LOCK *lock)
 {
 	spin_unlock((spinlock_t *)(lock));
 }
 
-inline void OS_SPIN_LOCK_BH(NDIS_SPIN_LOCK *lock)
-{
-	spin_lock_bh((spinlock_t *)(lock));
-}
-
-inline void OS_SPIN_UNLOCK_BH(NDIS_SPIN_LOCK *lock)
-{
-	spin_unlock_bh((spinlock_t *)(lock));
-}
-
-inline void OS_SPIN_LOCK_IRQ(NDIS_SPIN_LOCK *lock)
+void OS_SPIN_LOCK_IRQ(NDIS_SPIN_LOCK *lock)
 {
 	spin_lock_irq((spinlock_t *)(lock));
 }
 
-inline void OS_SPIN_UNLOCK_IRQ(NDIS_SPIN_LOCK *lock)
+void OS_SPIN_UNLOCK_IRQ(NDIS_SPIN_LOCK *lock)
 {
 	spin_unlock_irq((spinlock_t *)(lock));
 }
 
-inline int OS_TEST_BIT(int bit, ULONG *flags)
+int OS_TEST_BIT(int bit, ULONG *flags)
 {
 	return test_bit(bit, flags);
 }
 
-inline void OS_SET_BIT(unsigned int bit, ULONG *flags)
+void OS_SET_BIT(int bit, ULONG *flags)
 {
 	set_bit(bit, flags);
 }
 
-inline void OS_CLEAR_BIT(unsigned int bit, ULONG *flags)
+void OS_CLEAR_BIT(int bit, ULONG *flags)
 {
 	clear_bit(bit, flags);
 }
@@ -2964,27 +2531,16 @@ void OS_LOAD_CODE_FROM_BIN(unsigned char **image, char *bin_name, void *inf_dev,
 #endif /*RTMP_RBUS_SUPPORT*/
 
 	if (request_firmware(&fw_entry, bin_name, dev) != 0) {
-		MTWF_DBG(NULL, DBG_CAT_INIT, DBG_SUBCAT_ALL, DBG_LVL_ERROR, "fw not available(/lib/firmware/%s)\n", bin_name);
+		MTWF_LOG(DBG_CAT_INIT, DBG_SUBCAT_ALL, DBG_LVL_ERROR, ("%s:fw not available(/lib/firmware/%s)\n", __func__, bin_name));
 		*image = NULL;
 		return;
 	}
 
-	os_alloc_mem_suspend(NULL, image, fw_entry->size);
+	*image = kmalloc(fw_entry->size, GFP_KERNEL);
 	memcpy(*image, fw_entry->data, fw_entry->size);
 	*code_len = fw_entry->size;
 	release_firmware(fw_entry);
 }
-
-static struct device *rtmp_get_dev(void *ad)
-{
-	struct device *dev = NULL;
-	RTMP_ADAPTER *pAd = (RTMP_ADAPTER *)ad;
-	POS_COOKIE obj = (POS_COOKIE)pAd->OS_Cookie;
-
-	dev = (struct device *)obj->pDev;
-	return dev;
-}
-
 
 
 void os_load_code_from_bin(void *pAd, unsigned char **image, char *bin_name, UINT32 *code_len)
@@ -2995,22 +2551,15 @@ void os_load_code_from_bin(void *pAd, unsigned char **image, char *bin_name, UIN
 	dev = rtmp_get_dev(pAd);
 
 	if (request_firmware(&fw_entry, bin_name, dev) != 0) {
-		MTWF_DBG(NULL, DBG_CAT_INIT, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-				 "fw not available(/lib/firmware/%s)\n", bin_name);
+		MTWF_LOG(DBG_CAT_INIT, DBG_SUBCAT_ALL, DBG_LVL_TRACE,
+				 ("%s:fw not available(/lib/firmware/%s)\n", __func__, bin_name));
 		*image = NULL;
 		return;
 	}
 
-#ifdef MT7981
-	*image = vmalloc(fw_entry->size);
-#else
 	os_alloc_mem(pAd, image, fw_entry->size);
-#endif
-
-	if (*image) {
-		memcpy(*image, fw_entry->data, fw_entry->size);
-		*code_len = fw_entry->size;
-	}
+	memcpy(*image, fw_entry->data, fw_entry->size);
+	*code_len = fw_entry->size;
 	release_firmware(fw_entry);
 }
 
@@ -3042,7 +2591,7 @@ void RtmpOSFSInfoChange(RTMP_OS_FS_INFO *pOSFSInfoOrg, BOOLEAN bSet)
 					 sizeof(OS_FS_INFO));
 
 		if (pOSFSInfoOrg->pContent == NULL) {
-			MTWF_DBG(NULL, DBG_CAT_INIT, DBG_SUBCAT_ALL, DBG_LVL_ERROR, "alloc file info fail!\n");
+			MTWF_LOG(DBG_CAT_INIT, DBG_SUBCAT_ALL, DBG_LVL_ERROR, ("%s: alloc file info fail!\n", __func__));
 			return;
 		}
 
@@ -3052,7 +2601,7 @@ void RtmpOSFSInfoChange(RTMP_OS_FS_INFO *pOSFSInfoOrg, BOOLEAN bSet)
 	pOSFSInfo = (OS_FS_INFO *) (pOSFSInfoOrg->pContent);
 
 	if (pOSFSInfo == NULL) {
-		MTWF_DBG(NULL, DBG_CAT_INIT, DBG_SUBCAT_ALL, DBG_LVL_ERROR, "pOSFSInfo == NULL!\n");
+		MTWF_LOG(DBG_CAT_INIT, DBG_SUBCAT_ALL, DBG_LVL_ERROR, ("%s: pOSFSInfo == NULL!\n", __func__));
 		return;
 	}
 
@@ -3384,8 +2933,8 @@ BOOLEAN RTMP_OS_Alloc_Rsc(
 		os_alloc_mem(NULL, (UCHAR **) &(pRsc->pContent), RscLen);
 
 		if (pRsc->pContent == NULL) {
-			MTWF_DBG(NULL, DBG_CAT_INIT, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-					 "alloc timer fail!\n");
+			MTWF_LOG(DBG_CAT_INIT, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
+					 ("%s: alloc timer fail!\n", __func__));
 			return FALSE;
 		}
 
@@ -3396,8 +2945,9 @@ BOOLEAN RTMP_OS_Alloc_Rsc(
 						 sizeof(LIST_RESOURCE_OBJ_ENTRY));
 
 			if (pObj == NULL) {
-				MTWF_DBG(NULL, DBG_CAT_INIT, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-						 " alloc timer obj fail!\n");
+				MTWF_LOG(DBG_CAT_INIT, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
+						 ("%s: alloc timer obj fail!\n",
+						  __func__));
 				os_free_mem(pRsc->pContent);
 				pRsc->pContent = NULL;
 				return FALSE;
@@ -3440,8 +2990,8 @@ BOOLEAN RTMP_OS_Alloc_RscOnly(VOID *pRscSrc, UINT32 RscLen)
 		os_alloc_mem(NULL, (UCHAR **) &(pRsc->pContent), RscLen);
 
 		if (pRsc->pContent == NULL) {
-			MTWF_DBG(NULL, DBG_CAT_INIT, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-					 "alloc timer fail!\n");
+			MTWF_LOG(DBG_CAT_INIT, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
+					 ("%s: alloc timer fail!\n", __func__));
 			return FALSE;
 		}
 
@@ -3567,8 +3117,8 @@ VOID RTMP_OS_Free_Rscs(LIST_HEADER *pRscList)
 BOOLEAN RtmpOSTaskAlloc(RTMP_OS_TASK *pTask, LIST_HEADER *pTaskList)
 {
 	if (RTMP_OS_Alloc_RscOnly(pTask, sizeof(OS_TASK)) == FALSE) {
-		MTWF_DBG(NULL, DBG_CAT_INIT, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-				 "alloc task fail!\n");
+		MTWF_LOG(DBG_CAT_INIT, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
+				 ("%s: alloc task fail!\n", __func__));
 		return FALSE;	/* allocate fail */
 	}
 
@@ -3824,8 +3374,8 @@ VOID *RtmpOsTaskDataGet(RTMP_OS_TASK *pTaskOrg)
 BOOLEAN RtmpOsAllocateLock(NDIS_SPIN_LOCK *pLock, LIST_HEADER *pLockList)
 {
 	if (RTMP_OS_Alloc_RscOnly(pLock, sizeof(OS_NDIS_SPIN_LOCK)) == FALSE) {
-		MTWF_DBG(NULL, DBG_CAT_INIT, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-				 " alloc lock fail!\n");
+		MTWF_LOG(DBG_CAT_INIT, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
+				 ("%s: alloc lock fail!\n", __func__));
 		return FALSE;	/* allocate fail */
 	}
 
@@ -3886,8 +3436,8 @@ VOID RtmpOsSpinLockBh(NDIS_SPIN_LOCK *pLockOrg)
 	if (pLock != NULL)
 		OS_SEM_LOCK(pLock);
 	else
-		MTWF_DBG(NULL, DBG_CAT_INIT, DBG_SUBCAT_ALL, DBG_LVL_INFO,
-				 "lock> warning! the lock was freed!\n");
+		MTWF_LOG(DBG_CAT_INIT, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
+				 ("lock> warning! the lock was freed!\n"));
 }
 
 
@@ -3914,8 +3464,8 @@ VOID RtmpOsSpinUnLockBh(NDIS_SPIN_LOCK *pLockOrg)
 	if (pLock != NULL)
 		OS_SEM_UNLOCK(pLock);
 	else
-		MTWF_DBG(NULL, DBG_CAT_INIT, DBG_SUBCAT_ALL, DBG_LVL_INFO,
-				 "lock> warning! the lock was freed!\n");
+		MTWF_LOG(DBG_CAT_INIT, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
+				 ("lock> warning! the lock was freed!\n"));
 }
 
 
@@ -3943,8 +3493,8 @@ VOID RtmpOsIntLock(NDIS_SPIN_LOCK *pLockOrg, ULONG *pIrqFlags)
 	if (pLock != NULL)
 		OS_INT_LOCK(pLock, *pIrqFlags);
 	else
-		MTWF_DBG(NULL, DBG_CAT_INIT, DBG_SUBCAT_ALL, DBG_LVL_INFO,
-				 "lock> warning! the lock was freed!\n");
+		MTWF_LOG(DBG_CAT_INIT, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
+				 ("lock> warning! the lock was freed!\n"));
 }
 
 
@@ -3972,8 +3522,8 @@ VOID RtmpOsIntUnLock(NDIS_SPIN_LOCK *pLockOrg, ULONG IrqFlags)
 	if (pLock != NULL)
 		OS_INT_UNLOCK(pLock, IrqFlags);
 	else
-		MTWF_DBG(NULL, DBG_CAT_INIT, DBG_SUBCAT_ALL, DBG_LVL_INFO,
-				 "lock> warning! the lock was freed!\n");
+		MTWF_LOG(DBG_CAT_INIT, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
+				 ("lock> warning! the lock was freed!\n"));
 }
 
 void RtmpOsSpinLockIrqSave(NDIS_SPIN_LOCK *lock, unsigned long *flags)
@@ -3985,8 +3535,8 @@ void RtmpOsSpinLockIrqSave(NDIS_SPIN_LOCK *lock, unsigned long *flags)
 	if (pLock != NULL)
 		spin_lock_irqsave((spinlock_t *)(pLock), *flags);
 	else
-		MTWF_DBG(NULL, DBG_CAT_INIT, DBG_SUBCAT_ALL, DBG_LVL_INFO,
-				 "lock> warning! the lock was freed!\n");
+		MTWF_LOG(DBG_CAT_INIT, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
+				 ("lock> warning! the lock was freed!\n"));
 }
 
 void RtmpOsSpinUnlockIrqRestore(NDIS_SPIN_LOCK *lock, unsigned long *flags)
@@ -3998,8 +3548,8 @@ void RtmpOsSpinUnlockIrqRestore(NDIS_SPIN_LOCK *lock, unsigned long *flags)
 	if (pLock != NULL)
 		spin_unlock_irqrestore((spinlock_t *)(pLock), *flags);
 	else
-		MTWF_DBG(NULL, DBG_CAT_INIT, DBG_SUBCAT_ALL, DBG_LVL_INFO,
-				 "lock> warning! the lock was freed!\n");
+		MTWF_LOG(DBG_CAT_INIT, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
+				 ("lock> warning! the lock was freed!\n"));
 }
 
 void RtmpOsSpinLockIrq(NDIS_SPIN_LOCK *lock)
@@ -4011,8 +3561,8 @@ void RtmpOsSpinLockIrq(NDIS_SPIN_LOCK *lock)
 	if (pLock != NULL)
 		spin_lock_irq((spinlock_t *)(pLock));
 	else
-		MTWF_DBG(NULL, nDBG_CAT_INIT, DBG_SUBCAT_ALL, DBG_LVL_INFO,
-				 "lock> warning! the lock was freed!\n");
+		MTWF_LOG(DBG_CAT_INIT, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
+				 ("lock> warning! the lock was freed!\n"));
 }
 
 void RtmpOsSpinUnlockIrq(NDIS_SPIN_LOCK *lock)
@@ -4024,8 +3574,8 @@ void RtmpOsSpinUnlockIrq(NDIS_SPIN_LOCK *lock)
 	if (pLock != NULL)
 		spin_unlock_irq((spinlock_t *)(pLock));
 	else
-		MTWF_DBG(NULL, DBG_CAT_INIT, DBG_SUBCAT_ALL, DBG_LVL_INFO,
-				 "lock> warning! the lock was freed!\n");
+		MTWF_LOG(DBG_CAT_INIT, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
+				 ("lock> warning! the lock was freed!\n"));
 }
 
 /*
@@ -4512,7 +4062,7 @@ ULONG RtmpOsCopyToUser(VOID *to, const void *from, ULONG n)
 BOOLEAN RtmpOsSemaInitLocked(RTMP_OS_SEM *pSem, LIST_HEADER *pSemList)
 {
 	if (RTMP_OS_Alloc_RscOnly(pSem, sizeof(OS_SEM)) == FALSE) {
-		MTWF_DBG(NULL, DBG_CAT_INIT, DBG_SUBCAT_ALL, DBG_LVL_ERROR, "alloc semaphore fail!\n");
+		MTWF_LOG(DBG_CAT_INIT, DBG_SUBCAT_ALL, DBG_LVL_ERROR, ("%s: alloc semaphore fail!\n", __func__));
 		return FALSE;
 	}
 
@@ -4540,8 +4090,8 @@ BOOLEAN RtmpOsSemaInitLocked(RTMP_OS_SEM *pSem, LIST_HEADER *pSemList)
 BOOLEAN RtmpOsSemaInit(RTMP_OS_SEM *pSem, LIST_HEADER *pSemList)
 {
 	if (RTMP_OS_Alloc_RscOnly(pSem, sizeof(OS_SEM)) == FALSE) {
-		MTWF_DBG(NULL, DBG_CAT_INIT, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-				 "alloc semaphore fail!\n");
+		MTWF_LOG(DBG_CAT_INIT, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
+				 ("%s: alloc semaphore fail!\n", __func__));
 		return FALSE;
 	}
 
@@ -4576,8 +4126,8 @@ BOOLEAN RtmpOsSemaDestory(RTMP_OS_SEM *pSemOrg)
 		os_free_mem(pSem);
 		pSemOrg->pContent = NULL;
 	} else
-		MTWF_DBG(NULL, DBG_CAT_INIT, DBG_SUBCAT_ALL, DBG_LVL_INFO,
-				 "sem> warning! double-free sem!\n");
+		MTWF_LOG(DBG_CAT_INIT, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
+				 ("sem> warning! double-free sem!\n"));
 
 	return TRUE;
 }
@@ -4890,7 +4440,7 @@ BOOLEAN RtmpOsPktOffsetInit(VOID)
 
 	if ((RTPktOffsetData == 0) && (RTPktOffsetLen == 0)
 		&& (RTPktOffsetCB == 0)) {
-		os_alloc_mem(NULL, (UCHAR **)&pPkt, sizeof(struct sk_buff));
+		pPkt = kmalloc(sizeof(struct sk_buff), GFP_ATOMIC);
 
 		if (pPkt == NULL)
 			return FALSE;
@@ -4898,13 +4448,13 @@ BOOLEAN RtmpOsPktOffsetInit(VOID)
 		RTPktOffsetData = (ULONG) (&(pPkt->data)) - (ULONG) pPkt;
 		RTPktOffsetLen = (ULONG) (&(pPkt->len)) - (ULONG) pPkt;
 		RTPktOffsetCB = (ULONG) (pPkt->cb) - (ULONG) pPkt;
-		os_free_mem(pPkt);
-		MTWF_DBG(NULL, DBG_CAT_INIT, DBG_SUBCAT_ALL, DBG_LVL_INFO,
-				 "packet> data offset = %lu\n", RTPktOffsetData);
-		MTWF_DBG(NULL, DBG_CAT_INIT, DBG_SUBCAT_ALL, DBG_LVL_INFO,
-				 "packet> len offset = %lu\n", RTPktOffsetLen);
-		MTWF_DBG(NULL, DBG_CAT_INIT, DBG_SUBCAT_ALL, DBG_LVL_INFO,
-				 "packet> cb offset = %lu\n", RTPktOffsetCB);
+		kfree(pPkt);
+		MTWF_LOG(DBG_CAT_INIT, DBG_SUBCAT_ALL, DBG_LVL_TRACE,
+				 ("packet> data offset = %lu\n", RTPktOffsetData));
+		MTWF_LOG(DBG_CAT_INIT, DBG_SUBCAT_ALL, DBG_LVL_TRACE,
+				 ("packet> len offset = %lu\n", RTPktOffsetLen));
+		MTWF_LOG(DBG_CAT_INIT, DBG_SUBCAT_ALL, DBG_LVL_TRACE,
+				 ("packet> cb offset = %lu\n", RTPktOffsetCB));
 	}
 
 	return TRUE;
@@ -4929,7 +4479,7 @@ BOOLEAN RtmpOsPktOffsetInit(VOID)
 BOOLEAN RtmpOsAtomicInit(RTMP_OS_ATOMIC *pAtomic, LIST_HEADER *pAtomicList)
 {
 	if (RTMP_OS_Alloc_RscOnly(pAtomic, sizeof(atomic_t)) == FALSE) {
-		MTWF_DBG(NULL, DBG_CAT_INIT, DBG_SUBCAT_ALL, DBG_LVL_ERROR, "alloc atomic fail!\n");
+		MTWF_LOG(DBG_CAT_INIT, DBG_SUBCAT_ALL, DBG_LVL_ERROR, ("%s: alloc atomic fail!\n", __func__));
 		return FALSE;	/* allocate fail */
 	}
 
@@ -5101,11 +4651,6 @@ VOID RTMP_OS_Release_Timer(NDIS_MINIPORT_TIMER *pTimerOrg)
 
 NDIS_STATUS RtmpOSTaskKill(RTMP_OS_TASK *pTask)
 {
-	if (!pTask) {
-		MTWF_LOG(DBG_CAT_INIT, DBG_SUBCAT_ALL, DBG_LVL_WARN,
-			 ("%s(), pTask is Null, return!!!\n", __func__));
-		return NDIS_STATUS_FAILURE;
-	}
 	return __RtmpOSTaskKill(pTask);
 }
 
@@ -5147,10 +4692,6 @@ BOOLEAN RtmpOSTaskWait(VOID *pReserved, RTMP_OS_TASK *pTask, INT32 *pStatus)
 	return __RtmpOSTaskWait(pReserved, pTask, pStatus);
 }
 
-BOOLEAN RtmpOSTaskWaitCond(VOID *pReserved, RTMP_OS_TASK *pTask, UINT32 u4Cond, INT32 *pStatus)
-{
-	return __RtmpOSTaskWaitCond(pReserved, pTask, u4Cond, pStatus);
-}
 
 VOID RtmpOsTaskWakeUp(RTMP_OS_TASK *pTask)
 {
@@ -5167,42 +4708,30 @@ VOID RtmpOsTaskWakeUp(RTMP_OS_TASK *pTask)
 /* pAd MUST allow to be NULL */
 
 #ifdef MEM_ALLOC_INFO_SUPPORT
-static VOID MemInfoListInital(VOID)
+VOID MemInfoListInital(VOID)
 {
-	MemInfoList.type = 0;
-	PktInfoList.type = 1;
 	MIListInit(&MemInfoList);
 	MIListInit(&PktInfoList);
 }
 
-UINT32 ShowMemAllocInfo(UINT show, UINT64 pCaller)
+UINT32 ShowMemAllocInfo(VOID)
 {
-	ShowMIList(&MemInfoList, show, pCaller);
+	MTWF_LOG(DBG_CAT_INIT, DBG_SUBCAT_ALL, DBG_LVL_OFF,
+			 ("Show General Allocated Memory Info:\n"));
+	ShowMIList(&MemInfoList);
+	MTWF_LOG(DBG_CAT_INIT, DBG_SUBCAT_ALL, DBG_LVL_OFF,
+			 ("Maximum Allocated Memory Size: %u\n", MemInfoList.MaxAlcSize));
+	MTWF_LOG(DBG_CAT_INIT, DBG_SUBCAT_ALL, DBG_LVL_OFF,
+			 ("Current Allocated Memory Size: %u\n", MemInfoList.CurAlcSize));
 	return MemInfoList.EntryNumber;
 }
 
-
-UINT32 ShowPktAllocInfo(UINT show, UINT64 pCaller)
+UINT32 ShowPktAllocInfo(VOID)
 {
-	ShowMIList(&PktInfoList, show, pCaller);
+	MTWF_LOG(DBG_CAT_INIT, DBG_SUBCAT_ALL, DBG_LVL_OFF,
+			 ("Show Packet Allocated Memory Info:\n"));
+	ShowMIList(&PktInfoList);
 	return PktInfoList.EntryNumber;
-}
-
-static VOID MemInfoListExit(VOID)
-{
-	UINT32 memalctotal, pktalctotal;
-
-	memalctotal = ShowMemAllocInfo(SHOW_ACTIVE_PCALLER_INFO, 0);
-	pktalctotal = ShowPktAllocInfo(SHOW_ACTIVE_PCALLER_INFO, 0);
-
-	if ((memalctotal != 0) || (pktalctotal != 0)) {
-		MTWF_DBG(NULL, DBG_CAT_INIT, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-				"Error: Memory leak  mem size=%d pkt num=%d!!\n", memalctotal, pktalctotal);
-		ASSERT(0);
-	}
-
-	MIListExit(&MemInfoList);
-	MIListExit(&PktInfoList);
 }
 #endif /* MEM_ALLOC_INFO_SUPPORT */
 
@@ -5219,67 +4748,12 @@ INT os_alloc_mem(
 		OS_NumOfMemAlloc++;
 #endif /* VENDOR_FEATURE4_SUPPORT */
 #ifdef MEM_ALLOC_INFO_SUPPORT
-		MIListAddHead(&MemInfoList, size, *mem, __func__, __LINE__, __builtin_return_address(0));
+		MIListAddHead(&MemInfoList, size, *mem, __builtin_return_address(0));
 #endif /* MEM_ALLOC_INFO_SUPPORT */
 		return NDIS_STATUS_SUCCESS;
 	} else
 		return NDIS_STATUS_FAILURE;
 }
-
-#ifdef CONFIG_DOT11V_WNM
-VOID BTM_Free_Peer_Entry(PVOID mem)
-{
-	RALINK_TIMER_STRUCT *pTimer_req = NULL, *pTimer_rsp = NULL, *pTimer_APrsp = NULL;
-	BOOLEAN Cancelled = FALSE;
-	BTM_PEER_ENTRY *BtmPeerEntry = NULL;
-
-	BtmPeerEntry = (BTM_PEER_ENTRY *)mem;
-	pTimer_req = &BtmPeerEntry->WaitPeerBTMReqTimer;
-	pTimer_rsp = &BtmPeerEntry->WaitPeerBTMRspTimer;
-#ifdef CONFIG_STA_SUPPORT
-	pTimer_APrsp = &BtmPeerEntry->WaitAPBTMRspTimer;
-#endif /* CONFIG_AP_SUPPORT */
-
-	if (pTimer_req->Valid) {
-		MTWF_DBG(NULL, DBG_CAT_INIT, DBG_SUBCAT_ALL, DBG_LVL_ERROR, "WaitPeerBTMReqTimer isn't release!!, Caller = %pS\n",
-				 pTimer_req->pCaller);
-
-		/* Cancel Wait peer wnm request frame */
-		RTMPCancelTimer(&BtmPeerEntry->WaitPeerBTMReqTimer, &Cancelled);
-		RTMPReleaseTimer(&BtmPeerEntry->WaitPeerBTMReqTimer, &Cancelled);
-		if (FALSE == Cancelled)
-			MTWF_DBG(NULL, DBG_CAT_INIT, DBG_SUBCAT_ALL, DBG_LVL_ERROR, "WaitPeerBTMReqTimer release Fail\n");
-		else
-			Cancelled = FALSE;
-	}
-
-	if (pTimer_rsp->Valid) {
-		MTWF_DBG(NULL, DBG_CAT_INIT, DBG_SUBCAT_ALL, DBG_LVL_ERROR, "WaitPeerBTMRspTimer isn't release!!, Caller = %pS\n",
-				 pTimer_rsp->pCaller);
-
-		/* Cancel Wait peer wnm response frame */
-		RTMPCancelTimer(&BtmPeerEntry->WaitPeerBTMRspTimer, &Cancelled);
-		RTMPReleaseTimer(&BtmPeerEntry->WaitPeerBTMRspTimer, &Cancelled);
-		if (FALSE == Cancelled)
-			MTWF_DBG(NULL, DBG_CAT_INIT, DBG_SUBCAT_ALL, DBG_LVL_ERROR, " WaitPeerBTMRspTimer release Fail\n");
-	}
-#ifdef CONFIG_STA_SUPPORT
-	if (pTimer_APrsp->Valid) {
-		MTWF_DBG(NULL, DBG_CAT_INIT, DBG_SUBCAT_ALL, DBG_LVL_ERROR, "WaitAPBTMRspTimer isn't release!!, Caller = %pS\n",
-				 pTimer_APrsp->pCaller);
-
-		/* Cancel Wait peer wnm response frame */
-		RTMPCancelTimer(&BtmPeerEntry->WaitAPBTMRspTimer, &Cancelled);
-		RTMPReleaseTimer(&BtmPeerEntry->WaitAPBTMRspTimer, &Cancelled);
-		if (FALSE == Cancelled)
-			MTWF_DBG(NULL, DBG_CAT_INIT, DBG_SUBCAT_ALL, DBG_LVL_ERROR, "WaitAPBTMRspTimer release Fail\n");
-	}
-#endif /* CONFIG_AP_SUPPORT */
-
-	os_free_mem(BtmPeerEntry);
-
-}
-#endif
 
 VOID os_free_mem(
 	PVOID mem)
@@ -5287,18 +4761,20 @@ VOID os_free_mem(
 #ifdef MEM_ALLOC_INFO_SUPPORT
 	MEM_INFO_LIST_ENTRY *delEntry;
 
-	delEntry = MIListRemove(&MemInfoList, mem, __builtin_return_address(0));
+	delEntry = MIListRemove(&MemInfoList, mem);
 
 	if (delEntry == NULL) {
-		MTWF_DBG(NULL, DBG_CAT_INIT, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-				 "the memory has not been allocated\n");
-		MTWF_DBG(NULL, DBG_CAT_INIT, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-				 "mem addr = %p, caller is %pS\n", mem, __builtin_return_address(0));
+		MTWF_LOG(DBG_CAT_INIT, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
+				 ("the memory has not been allocated\n"));
+		MTWF_LOG(DBG_CAT_INIT, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
+				 ("mem addr = %p, caller is %pS\n", mem, __builtin_return_address(0)));
 		dump_stack();
-	}
+	} else
 #endif /* MEM_ALLOC_INFO_SUPPORT */
-	ASSERT(mem);
-	kfree(mem);
+	{
+		ASSERT(mem);
+		kfree(mem);
+	}
 
 #ifdef VENDOR_FEATURE4_SUPPORT
 	OS_NumOfMemFree++;
@@ -5496,24 +4972,28 @@ VOID starv_log_dump(struct starv_log *ctrl)
 	struct starv_log_entry *entry, *tmp;
 	struct starv_dbg_block *block, *btmp;
 
-	MTWF_PRINT("===========================================================================\n");
+	MTWF_LOG(DBG_CAT_INIT, DBG_SUBCAT_ALL, DBG_LVL_OFF,
+		("===========================================================================\n"));
 
 	NdisAcquireSpinLock(&ctrl->lock);
 	DlListForEachSafe(block, btmp, &ctrl->block_head, struct starv_dbg_block, list) {
-		MTWF_PRINT("[block %s]\t min: %d, max: %d, avg: %d, timeout cnt: %d, total cnt: %d\n",
+		MTWF_LOG(DBG_CAT_INIT, DBG_SUBCAT_ALL, DBG_LVL_OFF,
+			("[block %s]\t min: %d, max: %d, avg: %d, timeout cnt: %d, total cnt: %d\n",
 			block->name,
 			block->min_dur,
 			block->max_dur,
 			block->avg_dur,
 			block->timeout_cnt,
-			block->count);
-		MTWF_PRINT("===========================================================================\n");
+			block->count));
+		MTWF_LOG(DBG_CAT_INIT, DBG_SUBCAT_ALL, DBG_LVL_OFF,
+			("===========================================================================\n"));
 
 		DlListForEachSafe(entry, tmp, &block->log_head, struct starv_log_entry, list) {
 			if (block->log_fn)
 				block->log_fn(entry);
 		}
-		MTWF_PRINT("===========================================================================\n");
+		MTWF_LOG(DBG_CAT_INIT, DBG_SUBCAT_ALL, DBG_LVL_OFF,
+			("===========================================================================\n"));
 		block_init(block);
 	}
 
@@ -5524,8 +5004,9 @@ void starv_timeout_log_basic(struct starv_log_entry *entry)
 {
 	struct starv_log_basic *log = entry->log;
 
-	MTWF_PRINT("[%s] id: %d, qsize: %d, duration: %d ms\n",
-				entry->block->name, log->id, log->qsize, entry->duration);
+	MTWF_LOG(DBG_CAT_INIT, DBG_SUBCAT_ALL, DBG_LVL_OFF,
+				("[%s] id: %d, qsize: %d, duration: %d ms\n",
+				entry->block->name, log->id, log->qsize, entry->duration));
 }
 
 INT register_starv_block(struct starv_dbg_block *block)
@@ -5578,42 +5059,6 @@ VOID starv_log_exit(struct starv_log *ctrl)
 
 #endif /*DBG_STARVATION*/
 
-#if defined(CONFIG_DBG_OOM) && !defined(CONFIG_CPE_SUPPORT)
-#define OOM_NOTIFIER_DUMP_CNT	3
-static INT oom_handler(struct notifier_block *this, unsigned long ev, void *ptr)
-{
-	UCHAR i;
-
-	for (i = 0; i < OOM_NOTIFIER_DUMP_CNT; i++) {
-		MTWF_DBG(NULL, DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_INFO, "Round ##### %d #####\n", i);
-		wifi_dump_info();
-	}
-
-	return NOTIFY_DONE;
-}
-
-static struct notifier_block oom_nb = {
-	.notifier_call = oom_handler,
-};
-
-static INT add_oom_notifier(VOID)
-{
-	MTWF_DBG(NULL, DBG_CAT_CFG, DBG_SUBCAT_ALL, DBG_LVL_INFO, "\n");
-
-	register_oom_notifier(&oom_nb);
-
-	return 0;
-}
-
-static INT del_oom_notifier(VOID)
-{
-	MTWF_DBG(NULL, DBG_CAT_CFG, DBG_SUBCAT_ALL, DBG_LVL_INFO, "\n");
-
-	unregister_oom_notifier(&oom_nb);
-
-	return 0;
-}
-#endif /*CONFIG_DBG_OOM*/
 
 #ifdef CONFIG_DBG_QDISC
 /*
@@ -5624,7 +5069,7 @@ void os_system_tx_queue_dump(PNET_DEV dev)
 	struct netdev_queue *txq;
 	struct Qdisc *q;
 	struct sk_buff *skb;
-	int i = 0, j = 0, k = 0;
+	int i=0,j=0,k=0;
 	struct page *p;
 	size_t page_size;
 	int len;
@@ -5633,16 +5078,17 @@ void os_system_tx_queue_dump(PNET_DEV dev)
 		txq = netdev_get_tx_queue(dev, i);
 		q = rcu_dereference(txq->qdisc);
 		len = qdisc_qlen(q);
-		printk("%s(): devname:%s, q=%p, qlen=%d, page size:%lu\n", __func__, dev->name, q, len, PAGE_SIZE);
+		printk("%s(): devname:%s, q=%p, qlen=%d, page size:%lu\n", __func__,dev->name, q, len, PAGE_SIZE);
 		skb = q->ops->peek(q);
 		/* If we run with a TX queue, check if the queue is too long*/
-		for (j = 0; j < len; j++) {
-			printk("%s(): skb=%p,len:%d, skb->head: %p,%p , dev:%s,\n",
+		for (j=0; j < len; j++) {
+			printk("%s(): skb=%p,len:%d, skb->head: %p,%p , dev:%s, \n",
 				__func__, skb, skb->len, skb->data, skb->data, skb->dev->name);
 			if (skb->head) {
 				p = virt_to_head_page(skb->head);
 				page_size = PAGE_SIZE << compound_order(p);
-				printk("%s(): index:%d, page:%p ,rfcnt:%d, page size:%zu, order:%u\n", __func__, k++, p,OS_PAGE_REF(p), page_size, (unsigned int) compound_order(p));
+				printk("%s(): index:%d, page:%p ,rfcnt:%d, page size:%zu, order:%u, dtor:%d\n", __func__, k++, p,
+					atomic_read(&p->_count), page_size , compound_order(p), p->compound_dtor);
 			}
 			skb = skb->next;
 		}
@@ -5652,54 +5098,3 @@ void os_system_tx_queue_dump(PNET_DEV dev)
 	}
 }
 #endif /*CONFIG_DBG_QDISC*/
-
-/*initial global data structure for single driver*/
-VOID os_module_init(VOID)
-{
-	RTMP_STRING dbg_level[32] = {0};
-	RTMP_STRING dbg_option[32] = {0};
-	NDIS_STATUS retval = NDIS_STATUS_SUCCESS;
-
-#ifdef CONFIG_CONNINFRA_SUPPORT
-	conninfra_pwr_on(CONNDRV_TYPE_WIFI);
-#endif /* CONFIG_CONNINFRA_SUPPORT */
-#ifdef MEM_ALLOC_INFO_SUPPORT
-	MemInfoListInital();
-#endif /* MEM_ALLOC_INFO_SUPPORT */
-	retval = get_dbg_setting_by_profile(dbg_level, dbg_option);
-	if (retval == NDIS_STATUS_SUCCESS) {
-		if (strlen(dbg_level) != 0)
-			Set_Debug_Proc(NULL, dbg_level);
-
-		if (strlen(dbg_option) != 0)
-			Set_DebugOption_Proc(NULL, dbg_option);
-	}
-
-/* Add out-of-memory notifier */
-#if defined(CONFIG_DBG_OOM) && !defined(CONFIG_CPE_SUPPORT)
-	add_oom_notifier();
-#endif /*CONFIG_DBG_OOM*/
-	multi_hif_init();
-#ifdef CONFIG_6G_SUPPORT
-	bssmnger_init();
-#endif
-}
-
-/*exit global data structrue for single driver*/
-VOID os_module_exit(VOID)
-{
-#ifdef CONFIG_6G_SUPPORT
-	bssmnger_deinit();
-#endif
-	multi_hif_exit();
-/* Del out-of-memory notifier */
-#if defined(CONFIG_DBG_OOM) && !defined(CONFIG_CPE_SUPPORT)
-	del_oom_notifier();
-#endif /*CONFIG_DBG_OOM*/
-#ifdef MEM_ALLOC_INFO_SUPPORT
-	MemInfoListExit();
-#endif /*MEM_ALLOC_INFO_SUPPORT*/
-#ifdef CONFIG_CONNINFRA_SUPPORT
-	conninfra_pwr_off(CONNDRV_TYPE_WIFI);
-#endif /* CONFIG_CONNINFRA_SUPPORT */
-}

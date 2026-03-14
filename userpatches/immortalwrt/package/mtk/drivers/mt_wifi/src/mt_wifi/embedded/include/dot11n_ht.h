@@ -1,16 +1,16 @@
-/*
- * Copyright (c) [2020], MediaTek Inc. All rights reserved.
- *
- * This software/firmware and related documentation ("MediaTek Software") are
- * protected under relevant copyright laws.
- * The information contained herein is confidential and proprietary to
- * MediaTek Inc. and/or its licensors.
- * Except as otherwise provided in the applicable licensing terms with
- * MediaTek Inc. and/or its licensors, any reproduction, modification, use or
- * disclosure of MediaTek Software, and information contained herein, in whole
- * or in part, shall be strictly prohibited.
-*/
 /****************************************************************************
+ * Ralink Tech Inc.
+ * 4F, No. 2 Technology 5th Rd.
+ * Science-based Industrial Park
+ * Hsin-chu, Taiwan, R.O.C.
+ * (c) Copyright 2002, Ralink Technology, Inc.
+ *
+ * All rights reserved. Ralink's source code is an unpublished work and the
+ * use of a copyright notice does not imply otherwise. This source code
+ * contains confidential trade secret material of Ralink Tech. Any attemp
+ * or participation in deciphering, decoding, reverse engineering or in any
+ * way altering the source code is stricitly prohibited, unless the prior
+ * written consent of Ralink Technology, Inc. is obtained.
  ****************************************************************************
 
     Module Name:
@@ -24,12 +24,14 @@
     ---------  ----------    ----------------------------------------------
 */
 
+#ifdef DOT11_N_SUPPORT
+
+
 #ifndef _DOT11N_HT_H_
 #define _DOT11N_HT_H_
 
 #include "rtmp_type.h"
 #include "dot11_base.h"
-
 
 /*  HT Capability INFO field in HT Cap IE . */
 typedef struct GNU_PACKED _HT_CAP_INFO {
@@ -251,8 +253,7 @@ typedef struct GNU_PACKED _ADD_HTINFO {
 
 typedef struct GNU_PACKED _ADD_HTINFO2 {
 #ifdef RT_BIG_ENDIAN
-	USHORT  rsv2:3;
-	USHORT  CentFreq2:8
+	USHORT	rsv2:11;
 	USHORT	OBSS_NonHTExist:1;
 	USHORT	rsv:1;
 	USHORT	NonGfPresent:1;
@@ -262,8 +263,7 @@ typedef struct GNU_PACKED _ADD_HTINFO2 {
 	USHORT	NonGfPresent:1;
 	USHORT	rsv:1;
 	USHORT	OBSS_NonHTExist:1;
-	USHORT  CentFreq2:8;
-	USHORT  rsv2:3;
+	USHORT	rsv2:11;
 #endif
 } ADD_HTINFO2, *PADD_HTINFO2;
 
@@ -300,200 +300,6 @@ typedef struct  GNU_PACKED _ADD_HT_INFO_IE {
 	UCHAR				MCSSet[16];		/* Basic MCS set */
 } ADD_HT_INFO_IE, *PADD_HT_INFO_IE;
 
-/* ht_caps_ie.ht_cap_info */
-enum sm_power_save {
-	SMPS_STATIC = 0,
-	SMPS_DYNAMIC = 1,
-	SMPS_RESERVED = 2,
-	SMPS_DISABLE = 3
-};
-
-#define DOT11N_CAP_LDPC (1 << 0)
-#define DOT11N_CAP_SUPPORT_CH_WIDTH_SET (1 << 1)
-#define DOT11N_CAP_SM_PS_SHIFT 2
-#define DOT11N_CAP_SM_PS_MASK (0x3 << 2)
-#define DOT11N_CAP_GF (1 << 4)
-#define DOT11N_CAP_BW20_SGI (1 << 5)
-#define DOT11N_CAP_BW40_SGI (1 << 6)
-#define DOT11N_CAP_TX_STBC (1 << 7)
-#define DOT11N_CAP_RX_STBC_SHIFT 8
-#define DOT11N_CAP_RX_STBC_MASK (0x3 << 8)
-#define DOT11N_CAP_DELAYED_BA (1 << 10)
-#define DOT11N_CAP_MAX_AMSDU_LEN (1 << 11)
-#define DOT11N_CAP_DSSS_CCK_IN_BW40 (1 << 12)
-#define DOT11N_CAP_40M_INTOLERANT (1 << 14)
-#define DOT11N_CAP_L_SIG_TXOP_PROTECT (1 << 15)
-
-/* a-mpdu params */
-enum min_mpdu_start_spacing {
-	INTERVAL_NO_RESTRICTION,
-	INTERVAL_QUARTER_US,
-	INTERVAL_HALF_US,
-	INTERVAL_1_US,
-	INTERVAL_2_US,
-	INTERVAL_4_US,
-	INTERVAL_8_US,
-	INTERVAL_16_US
-};
-
-/* support mcs set field */
-#define RX_MCS_BITMASK(supp_mcs_ptr, mcs)\
-do {\
-	if ((mcs) != 0)\
-		(supp_mcs_ptr)->rx_mcs_bitmask[(mcs) / 8] |= (1 << ((mcs) % 8));\
-} while (0)
-#define DOT11N_RX_HIGHEST_DATA_RATE_MASK 0x3FF
-#define DOT11N_TX_MCS_SET (1 << 0)
-#define DOT11N_TX_RX_MCS_SET_NOT_EQU (1 << 1)
-#define DOT11N_TX_MAX_NSS_SUPPORT_SHIFT 2
-#define DOT11N_TX_MAX_NSS_SUPPORT_MASK (0x3 << 2)
-#define DOT11N_TX_UNEQU_MODULATION (1 << 4)
-
-struct GNU_PACKED ht_support_mcs {
-	UINT8 rx_mcs_bitmask[10];
-	UINT16 rx_high_support_data_rate;
-	UINT32 tx_mcs_set;
-};
-
-/* ht ext caps */
-enum pco_transmit_time {
-	PCO_TX_TIME_400_US = 1,
-	PCO_TX_TIME_1_5_MS,
-	PCO_TX_TIME_5_MS
-};
-
-enum ht_mfb {
-	NO_HT_MFB,
-	RESERVED_HT_MFB,
-	UNSOLICITED_HT_MFB,
-	BOTH_HT_MFB
-};
-
-#define DOT11N_EXT_CAP_PCO 0x1
-#define DOT11N_EXT_CAP_PCO_TX_TIME_SHIFT 1
-#define DOT11N_EXT_CAP_PCO_TX_TIME_MASK (0x3 << 1)
-#define DOT11N_EXT_CAP_MFB_SHIFT 8
-#define DOT11N_EXT_CAP_MFB_MASK (0x3 << 8)
-#define DOT11N_EXT_CAP_HTC (1 << 10)
-#define DOT11N_EXT_CAP_RD_RESPONDER (1 << 11)
-
-/* tx_bf_caps */
-enum txbf_calibration {
-	TXBF_CALI_NOT_SUPPORT,
-	TXBF_CALI_RSP_NO_INITIATE,
-	TXBF_CALI_RSRV,
-	TXBF_CALI_BOTH_RSP_INITIATE
-};
-
-enum txbf_feedback {
-	TXBF_NOT_SUPPORT_FB,
-	TXBF_DELAY_FB,
-	TXBF_IMMED_FB,
-	TXBF_DELAY_IMMED_FB
-};
-
-enum txbf_ant_sounding {
-	TXBF_1_TX_ANT_SND,
-	TXBF_2_TX_ANT_SND,
-	TXBF_3_TX_ANT_SND,
-	TXBF_4_TX_ANT_SND
-};
-
-enum txbf_min_group {
-	TXBF_NO_GROUPING,
-	TXBF_1_2_GROUPING,
-	TXBF_1_4_GROUPING,
-	TXBF_1_2_4_GROUPING
-};
-
-enum txbf_csi_rows {
-	TXBF_1_ROW_CSI,
-	TXBF_2_ROW_CSI,
-	TXBF_3_ROW_CSI,
-	TXBF_4_ROW_CSI
-};
-
-enum txbf_ch_estimation {
-	TXBF_1_STS,
-	TXBF_2_STS,
-	TXBF_3_STS,
-	TXBF_4_STS
-};
-
-#define DOT11N_TXBF_CAP_IMPL_TXBF_RECV 0x1
-#define DOT11N_TXBF_CAP_RX_STAGGER_SOUNDING (1 << 1)
-#define DOT11N_TXBF_CAP_TX_STAGGER_SOUNDING (1 << 2)
-#define DOT11N_TXBF_CAP_RX_NDP (1 << 3)
-#define DOT11N_TXBF_CAP_TX_NDP (1 << 4)
-#define DOT11N_TXBF_CAP_IMPL_TXBF (1 << 5)
-#define DOT11N_TXBF_CAP_CALI_SHIFT 6
-#define DOT11N_TXBF_CAP_CALI_MASK (0x3 << 6)
-#define DOT11N_TXBF_CAP_EXPL_CSI (1 << 8)
-#define DOT11N_TXBF_CAP_EXPL_NCP_STEER (1 << 9)
-#define DOT11N_TXBF_CAP_EXPL_CP_STEER (1 << 10)
-#define DOT11N_TXBF_CAP_EXPL_CSI_FB_SHIFT 11
-#define DOT11N_TXBF_CAP_EXPL_CSI_FB_MASK (0x3 << 11)
-#define DOT11N_TXBF_CAP_EXPL_NCB_FB_SHIFT 13
-#define DOT11N_TXBF_CAP_EXPL_NCB_FB_MASK (0x3 << 13)
-#define DOT11N_TXBF_CAP_EXPL_CB_FB_SHIFT 15
-#define DOT11N_TXBF_CAP_EXPL_CB_FB_MASK (0x3 << 15)
-#define DOT11N_TXBF_CAP_MIN_GROUPING_SHIFT 17
-#define DOT11N_TXBF_CAP_MIN_GROUPING_MAK (0x3 << 17)
-#define DOT11N_TXBF_CAP_CSI_BFER_ANT_SHIFT 19
-#define DOT11N_TXBF_CAP_CSI_BFER_ANT_MASK (0x3 << 19)
-#define DOT11N_TXBF_CAP_NCP_STEER_BFER_ANT_SHIFT 21
-#define DOT11N_TXBF_CAP_NCP_STEER_BFER_ANT_MASK (0x3 << 21)
-#define DOT11N_TXBF_CAP_CP_STEER_BFER_ANT_SHIFT 23
-#define DOT11N_TXBF_CAP_CP_STEER_BFER_ANT_MASK (0x3 << 23)
-#define DOT11N_TXBF_CAP_CSI_MAX_BFER_ROWS_SHIFT 25
-#define DOT11N_TXBF_CAP_CSI_MAX_BFER_ROWS_MASK (0x3 << 25)
-#define DOT11N_TXBF_CAP_CH_ESTIMATION_SHIFT 27
-#define DOT11N_TXBF_CAP_CH_ESTIMATION_MASK (0x3 << 27)
-
-/* asel_caps */
-#define DOT11N_ASEL_CAP_SELECT 0x1
-#define DOT11N_ASEL_CAP_EXPL_CSI_FB_TX (1 << 1)
-#define DOT11N_ASEL_CAP_ANT_IND_FB_TX (1 << 2)
-#define DOT11N_ASEL_CAP_EXPL_CSI_FB (1 << 3)
-#define DOT11N_ASEL_CAP_ANT_IND_FB (1 << 4)
-#define DOT11N_ASEL_CAP_RECV (1 << 5)
-#define DOT11N_ASEL_TX_SOUND_PPDU (1 << 6)
-
-/* ht_caps_ie */
-struct GNU_PACKED ht_caps_ie {
-	UINT16 ht_cap_info;
-	UINT8 ampdu_params;
-	struct ht_support_mcs support_mcs_set;
-	UINT16 ht_ext_caps;
-	UINT32 tx_bf_caps;
-	UINT8 asel_caps;
-};
-
-/* ht_op_info.info_1 */
-#define DOT11N_OPINFO_SEC_CH_OFFSET_MASK 0x3
-#define DOT11N_OPINFO_SEC_STA_CH_WIDTH (1 << 2)
-#define DOT11N_OPINFO_RIFS_MODE (1 << 3)
-/* ht_op_info.info_2 */
-#define DOT11N_OPINFO_HT_PROTECTION_MASK 0x3
-#define DOT11N_OPINFO_NON_GF_STA_PRESENT (1 << 2)
-#define DOT11N_OPINFO_OBSS_NONHT_STA_PRESENT (1 << 4)
-#define DOT11N_OPINFO_CCFS_2_SHIFT 5
-#define DOT11N_OPINFO_CCFS_2_MASK (0x7FF << 5)
-#define DOT11N_OPINFO_DUAL_BEACON (1 << 22)
-#define DOT11N_OPINFO_DUAL_CTS (1 << 23)
-#define DOT11N_OPINFO_STBC_BEACON (1 << 24)
-#define DOT11N_OPINFO_L_SIG_TXOP_PROTECT (1 << 25)
-#define DOT11N_PCO_ACTIVE (1 << 26)
-#define DOT11N_PCO_PHASE (1 << 27)
-struct GNU_PACKED ht_op_info {
-	UINT8 field_1;
-	UINT32 field_2;
-};
-
-struct GNU_PACKED ht_op_ie {
-	UINT8 prim_ch;
-	struct ht_op_info op_info;
-};
 
 /* 802.11n draft3 related structure definitions. */
 /* 7.3.2.60 */
@@ -541,12 +347,7 @@ typedef union GNU_PACKED _BSS_2040_COEXIST_IE {
 	UCHAR   word;
 } BSS_2040_COEXIST_IE, *PBSS_2040_COEXIST_IE;
 
-/* EDCA Param Set IE */
-enum aci_ac {
-	ACI_AC_BE,
-	ACI_AC_BK,
-	ACI_AC_VI,
-	ACI_AC_VO,
-	ACI_AC_NUM
-};
+
 #endif /* _DOT11N_HT_H_ */
+#endif /* DOT11_N_SUPPORT */
+

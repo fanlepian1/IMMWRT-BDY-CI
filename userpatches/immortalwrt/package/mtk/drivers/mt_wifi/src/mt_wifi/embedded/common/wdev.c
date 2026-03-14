@@ -1,33 +1,22 @@
-/*
- * Copyright (c) [2020], MediaTek Inc. All rights reserved.
- *
- * This software/firmware and related documentation ("MediaTek Software") are
- * protected under relevant copyright laws.
- * The information contained herein is confidential and proprietary to
- * MediaTek Inc. and/or its licensors.
- * Except as otherwise provided in the applicable licensing terms with
- * MediaTek Inc. and/or its licensors, any reproduction, modification, use or
- * disclosure of MediaTek Software, and information contained herein, in whole
- * or in part, shall be strictly prohibited.
-*/
+
 /***************************************************************************
+ * MediaTek Inc.
+ * 4F, No. 2 Technology 5th Rd.
+ * Science-based Industrial Park
+ * Hsin-chu, Taiwan, R.O.C.
+ *
+ * (c) Copyright 1997-2012, MediaTek, Inc.
+ *
+ * All rights reserved. MediaTek source code is an unpublished work and the
+ * use of a copyright notice does not imply otherwise. This source code
+ * contains confidential trade secret material of MediaTek. Any attemp
+ * or participation in deciphering, decoding, reverse engineering or in any
+ * way altering the source code is stricitly prohibited, unless the prior
+ * written consent of MediaTek Technology, Inc. is obtained.
  ***************************************************************************
 
 */
 #include "rt_config.h"
-
-BOOLEAN is_testmode_wdev(UINT32 wdev_type)
-{
-	BOOLEAN ret = FALSE;
-
-	if (wdev_type == WDEV_TYPE_ATE_AP ||
-		wdev_type == WDEV_TYPE_ATE_STA ||
-		wdev_type == WDEV_TYPE_SERVICE_TXC ||
-		wdev_type == WDEV_TYPE_SERVICE_TXD)
-		ret = TRUE;
-
-	return ret;
-}
 
 /*define extern function*/
 INT wdev_edca_acquire(struct _RTMP_ADAPTER *ad, struct wifi_dev *wdev)
@@ -43,16 +32,14 @@ INT wdev_edca_acquire(struct _RTMP_ADAPTER *ad, struct wifi_dev *wdev)
 #endif /*WDS_SUPPORT*/
 		edca = &ad->CommonCfg.APEdcaParm[wdev->EdcaIdx];
 		break;
+
+#ifdef APCLI_SUPPORT
+
+	case WDEV_TYPE_APCLI:
+		edca = &ad->ApCfg.ApCliTab[wdev->func_idx].MlmeAux.APEdcaParm;
+		break;
+#endif /* APCLI_SUPPORT */
 #endif /*CONFIG_AP_SUPPORT*/
-#ifdef CONFIG_STA_SUPPORT
-
-	case WDEV_TYPE_STA: {
-		struct _STA_ADMIN_CONFIG *sta_cfg = GetStaCfgByWdev(ad, wdev);
-
-		edca = &sta_cfg->MlmeAux.APEdcaParm;
-	}
-	break;
-#endif /*CONFIG_STA_SUPPORT*/
 
 	default:
 		edca = &ad->CommonCfg.APEdcaParm[wdev->EdcaIdx];
@@ -63,38 +50,12 @@ INT wdev_edca_acquire(struct _RTMP_ADAPTER *ad, struct wifi_dev *wdev)
 	return TRUE;
 }
 
-
-#ifdef SW_CONNECT_SUPPORT
-BOOLEAN wdev_dummy_obj_acquire(struct _RTMP_ADAPTER *ad, struct wifi_dev *wdev)
-{
-	if (!IS_SW_STA_ENABLED(ad))
-		return FALSE;
-
-	switch (wdev->wdev_type) {
-#ifdef CONFIG_AP_SUPPORT
-	case WDEV_TYPE_AP:
-		break;
-#endif /* CONFIG_AP_SUPPORT */
-	default:
-		return FALSE;
-	}
-
-	return HcAcquiredDummyObj(ad, wdev);
-}
-#endif /* SW_CONNECT_SUPPORT */
-
-
 /*define global function*/
 struct wifi_dev *get_default_wdev(struct _RTMP_ADAPTER *ad)
 {
 #ifdef CONFIG_AP_SUPPORT
 	RT_CONFIG_IF_OPMODE_ON_AP(ad->OpMode) {
 		return &ad->ApCfg.MBSSID[MAIN_MBSSID].wdev;
-	}
-#endif
-#ifdef CONFIG_STA_SUPPORT
-	RT_CONFIG_IF_OPMODE_ON_STA(ad->OpMode) {
-		return &ad->StaCfg[MAIN_MSTA_ID].wdev;
 	}
 #endif
 	return NULL;
@@ -122,45 +83,19 @@ INT wdev_idx_unreg(RTMP_ADAPTER *pAd, struct wifi_dev *wdev)
 	}
 
 	if (idx == WDEV_NUM_MAX) {
-		MTWF_DBG(pAd, DBG_CAT_TX, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-				 "Cannot found wdev(%p, type:%d, idx:%d) in wdev_list\n",
-				  wdev, wdev->wdev_type, wdev->wdev_idx);
-		MTWF_DBG(pAd, DBG_CAT_TX, DBG_SUBCAT_ALL, DBG_LVL_INFO, "Dump wdev_list:\n");
+		MTWF_LOG(DBG_CAT_TX, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
+				 ("Cannot found wdev(%p, type:%d, idx:%d) in wdev_list\n",
+				  wdev, wdev->wdev_type, wdev->wdev_idx));
+		MTWF_LOG(DBG_CAT_TX, DBG_SUBCAT_ALL, DBG_LVL_OFF, ("Dump wdev_list:\n"));
 
 		for (idx = 0; idx < WDEV_NUM_MAX; idx++)
-			MTWF_DBG(pAd, DBG_CAT_TX, DBG_SUBCAT_ALL, DBG_LVL_INFO, "Idx %d: 0x%p\n", idx, pAd->wdev_list[idx]);
+			MTWF_LOG(DBG_CAT_TX, DBG_SUBCAT_ALL, DBG_LVL_OFF, ("Idx %d: 0x%p\n", idx, pAd->wdev_list[idx]));
 	}
 
 	NdisReleaseSpinLock(&pAd->WdevListLock);
 	return ((idx < WDEV_NUM_MAX) ? 0 : -1);
 }
 
-#ifdef MAC_REPEATER_SUPPORT
-/*
-	Description:
-	for record Rx Pkt's wlanIdx, TID, Seq.
-	it is used for checking if there is the same A2 send to different A1.
-	according the record. trigger the scoreboard update.
-*/
-static VOID RxTrackingInit(struct wifi_dev *wdev)
-{
-	UCHAR j;
-	RX_TRACKING_T *pTracking = NULL;
-	RX_TA_TID_SEQ_MAPPING *pTaTidSeqMapEntry = NULL;
-
-	pTracking = &wdev->rx_tracking;
-	pTaTidSeqMapEntry = &pTracking->LastRxWlanIdx;
-
-	pTracking->TriggerNum = 0;
-
-	pTaTidSeqMapEntry->RxDWlanIdx = 0xff;
-	pTaTidSeqMapEntry->MuarIdx = 0xff;
-	for (j = 0; j < 8; j++) {
-		pTaTidSeqMapEntry->TID_SEQ[j] = 0xffff;
-	}
-	pTaTidSeqMapEntry->LatestTID = 0xff;
-}
-#endif
 
 INT32 wdev_idx_reg(RTMP_ADAPTER *pAd, struct wifi_dev *wdev)
 {
@@ -182,12 +117,10 @@ INT32 wdev_idx_reg(RTMP_ADAPTER *pAd, struct wifi_dev *wdev)
 
 		if (pAd->wdev_list[idx] == NULL) {
 			pAd->wdev_list[idx] = wdev;
-#ifdef MAC_REPEATER_SUPPORT
-			RxTrackingInit(wdev);
-#endif /* MAC_REPEATER_SUPPORT */
-			MTWF_DBG(pAd, DBG_CAT_TX, DBG_SUBCAT_ALL, DBG_LVL_INFO, "Assign wdev_idx=%d with OmacIdx = %d\n",
+			MTWF_LOG(DBG_CAT_TX, DBG_SUBCAT_ALL, DBG_LVL_OFF, ("%s::Assign wdev_idx=%d with OmacIdx = %d\n",
+					 __func__,
 					 idx,
-					 wdev->OmacIdx);
+					 wdev->OmacIdx));
 			break;
 		}
 	}
@@ -195,7 +128,7 @@ INT32 wdev_idx_reg(RTMP_ADAPTER *pAd, struct wifi_dev *wdev)
 	wdev->wdev_idx = idx;
 
 	if (idx < WDEV_NUM_MAX)
-		MTWF_DBG(pAd, DBG_CAT_TX, DBG_SUBCAT_ALL, DBG_LVL_INFO, "Assign wdev_idx=%d\n", idx);
+		MTWF_LOG(DBG_CAT_TX, DBG_SUBCAT_ALL, DBG_LVL_OFF, ("Assign wdev_idx=%d\n", idx));
 
 	NdisReleaseSpinLock(&pAd->WdevListLock);
 	return ((idx < WDEV_NUM_MAX) ? idx : -1);
@@ -211,7 +144,6 @@ static INT32 GetBssIdx(RTMP_ADAPTER *pAd)
 	RTMP_CHIP_CAP *cap = hc_get_chip_cap(pAd->hdev_ctrl);
 #endif
 	UCHAR BssInfoMax = BSSINFO_NUM_MAX(cap);
-
 	NdisAcquireSpinLock(&pAd->BssInfoIdxBitMapLock);
 	BssInfoIdxBitMap = pAd->BssInfoIdxBitMap0;
 
@@ -219,8 +151,8 @@ static INT32 GetBssIdx(RTMP_ADAPTER *pAd)
 		/* find the first 0 bitfield, then return the bit idx as BssInfoIdx. */
 		if ((BssInfoIdxBitMap & (1 << i)) == 0) {
 			pAd->BssInfoIdxBitMap0 = (BssInfoIdxBitMap | (1 << i));
-			MTWF_DBG(pAd, DBG_CAT_MLME, DBG_SUBCAT_ALL, DBG_LVL_INFO,
-					 "%s: found non-used BssInfoIdx: %d\n", __func__, i);
+			MTWF_LOG(DBG_CAT_MLME, DBG_SUBCAT_ALL, DBG_LVL_TRACE,
+					 ("%s: found non-used BssInfoIdx: %d\n", __func__, i));
 			NdisReleaseSpinLock(&pAd->BssInfoIdxBitMapLock);
 			return i;
 		}
@@ -232,8 +164,8 @@ static INT32 GetBssIdx(RTMP_ADAPTER *pAd)
 		/* find the first 0 bitfield, then return the bit idx as BssInfoIdx. */
 		if ((BssInfoIdxBitMap & (1 << (i - 32))) == 0) {
 			pAd->BssInfoIdxBitMap1 = (BssInfoIdxBitMap | (1 << (i - 32)));
-			MTWF_DBG(pAd, DBG_CAT_MLME, DBG_SUBCAT_ALL, DBG_LVL_INFO,
-					 "%s: found non-used BssInfoIdx: %d\n", __func__, i);
+			MTWF_LOG(DBG_CAT_MLME, DBG_SUBCAT_ALL, DBG_LVL_TRACE,
+					 ("%s: found non-used BssInfoIdx: %d\n", __func__, i));
 			NdisReleaseSpinLock(&pAd->BssInfoIdxBitMapLock);
 			return i;
 		}
@@ -242,8 +174,8 @@ static INT32 GetBssIdx(RTMP_ADAPTER *pAd)
 	NdisReleaseSpinLock(&pAd->BssInfoIdxBitMapLock);
 
 	if (i >= BssInfoMax) {
-		MTWF_DBG(pAd, DBG_CAT_MLME, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-				 "could not find usable BssInfoIdx\n");
+		MTWF_LOG(DBG_CAT_MLME, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
+				 ("%s: could not find usable BssInfoIdx\n", __func__));
 		return no_usable_entry;
 	}
 
@@ -268,23 +200,12 @@ VOID ReleaseBssIdx(RTMP_ADAPTER *pAd, UINT32 BssIdx)
 VOID BssInfoArgumentLink(struct _RTMP_ADAPTER *ad, struct wifi_dev *wdev, struct _BSS_INFO_ARGUMENT_T *bssinfo)
 {
 	HTTRANSMIT_SETTING HTPhyMode;
-#ifdef CONFIG_STA_SUPPORT
-	struct _STA_ADMIN_CONFIG *sta_cfg = GetStaCfgByWdev(ad, wdev);
-#endif /*CONFIG_STA_SUPPORT*/
-#ifdef CONFIG_AP_SUPPORT
-	BSS_STRUCT *pMbss = wdev->func_dev;
-#endif
-#ifdef HIGHPRI_RATE_SPECIFIC
-	UINT8 frame_type;
-#endif
 
 	bssinfo->OwnMacIdx = wdev->OmacIdx;
-	bssinfo->ucBandIdx = wdev->DevInfo.BandIdx;
 	bssinfo->ucBssIndex = GetBssIdx(ad);
 	os_move_mem(bssinfo->Bssid, wdev->bssid, MAC_ADDR_LEN);
 	bssinfo->CipherSuit = SecHWCipherSuitMapping(wdev->SecConfig.PairwiseCipher);
 	bssinfo->ucPhyMode = wdev->PhyMode;
-	bssinfo->priv = (VOID *)wdev;
 	hc_radio_query_by_wdev(wdev, &bssinfo->chan_oper);
 
 	switch (wdev->wdev_type) {
@@ -292,12 +213,8 @@ VOID BssInfoArgumentLink(struct _RTMP_ADAPTER *ad, struct wifi_dev *wdev, struct
 		bssinfo->bssinfo_type = HW_BSSID;
 		bssinfo->NetworkType = NETWORK_INFRA;
 		bssinfo->u4ConnectionType = CONNECTION_INFRA_STA;
-		bssinfo->bmc_wlan_idx = HcAcquireGroupKeyWcid(ad, wdev);
-#ifdef SW_CONNECT_SUPPORT
-		if (wdev->hw_bmc_wcid != WCID_INVALID)
-			bssinfo->bmc_wlan_idx = wdev->hw_bmc_wcid;
-#endif /* SW_CONNECT_SUPPORT */
-		TRTableInsertMcastEntry(ad, wdev->tr_tb_idx, wdev);
+		bssinfo->ucBcMcWlanIdx = HcAcquireGroupKeyWcid(ad, wdev);
+		TRTableInsertMcastEntry(ad, bssinfo->ucBcMcWlanIdx, wdev);
 #ifdef CONFIG_KEEP_ALIVE_OFFLOAD
 		/* STA LP offload */
 		bssinfo->rBssInfoPm.ucKeepAliveEn = TRUE;
@@ -305,28 +222,20 @@ VOID BssInfoArgumentLink(struct _RTMP_ADAPTER *ad, struct wifi_dev *wdev, struct
 #endif
 		bssinfo->rBssInfoPm.ucBeaconLossReportEn = TRUE;
 		bssinfo->rBssInfoPm.ucBeaconLossCount = BEACON_OFFLOAD_LOST_TIME;
-#ifdef	CONFIG_STA_SUPPORT
-		if (sta_cfg) {
-			bssinfo->bcn_period = sta_cfg->MlmeAux.BeaconPeriod;
-			bssinfo->dtim_period = sta_cfg->MlmeAux.DtimPeriod;
-			bssinfo->dbm_to_roam = sta_cfg->dBmToRoam;
-#ifdef DOT11V_MBSSID_SUPPORT
-			bssinfo->max_bssid_indicator =
-				sta_cfg->MlmeAux.max_bssid_indicator;
-			bssinfo->mbssid_index = sta_cfg->MlmeAux.mbssid_index;
-#endif
-		}
-#ifdef UAPSD_SUPPORT
-		uapsd_config_get(wdev, &bssinfo->uapsd_cfg);
-#endif /*UAPSD_SUPPORT*/
-#endif /*CONFIG_STA_SUPPORT*/
+		break;
+	case WDEV_TYPE_APCLI:
+		bssinfo->bssinfo_type = HW_BSSID;
+		bssinfo->NetworkType = NETWORK_INFRA;
+		bssinfo->u4ConnectionType = CONNECTION_INFRA_STA;
+		bssinfo->ucBcMcWlanIdx = HcAcquireGroupKeyWcid(ad, wdev);
+		TRTableInsertMcastEntry(ad, bssinfo->ucBcMcWlanIdx, wdev);
 		break;
 
 	case WDEV_TYPE_ADHOC:
 		bssinfo->bssinfo_type = HW_BSSID;
 		bssinfo->NetworkType = NETWORK_IBSS;
 		bssinfo->u4ConnectionType = CONNECTION_IBSS_ADHOC;
-		bssinfo->bmc_wlan_idx = HcAcquireGroupKeyWcid(ad, wdev);
+		bssinfo->ucBcMcWlanIdx = HcAcquireGroupKeyWcid(ad, wdev);
 		break;
 
 	case WDEV_TYPE_WDS:
@@ -340,73 +249,45 @@ VOID BssInfoArgumentLink(struct _RTMP_ADAPTER *ad, struct wifi_dev *wdev, struct
 		bssinfo->NetworkType = NETWORK_INFRA;
 		bssinfo->u4ConnectionType = CONNECTION_P2P_GO;
 		/* Get a specific WCID to record this MBSS key attribute */
-		bssinfo->bmc_wlan_idx = HcAcquireGroupKeyWcid(ad, wdev);
-#ifdef SW_CONNECT_SUPPORT
-		if (wdev->hw_bmc_wcid != WCID_INVALID)
-			bssinfo->bmc_wlan_idx = wdev->hw_bmc_wcid;
-#endif /* SW_CONNECT_SUPPORT */
-		TRTableInsertMcastEntry(ad, bssinfo->bmc_wlan_idx, wdev);
-		MgmtTableSetMcastEntry(ad, bssinfo->bmc_wlan_idx);
+		bssinfo->ucBcMcWlanIdx = HcAcquireGroupKeyWcid(ad, wdev);
+		TRTableInsertMcastEntry(ad, bssinfo->ucBcMcWlanIdx, wdev);
+		MgmtTableSetMcastEntry(ad, bssinfo->ucBcMcWlanIdx);
 		break;
 
 	case WDEV_TYPE_GC:
 		bssinfo->bssinfo_type = HW_BSSID;
 		bssinfo->NetworkType = NETWORK_P2P;
 		bssinfo->u4ConnectionType = CONNECTION_P2P_GC;
-		bssinfo->bmc_wlan_idx = HcAcquireGroupKeyWcid(ad, wdev);
+		bssinfo->ucBcMcWlanIdx = HcAcquireGroupKeyWcid(ad, wdev);
 		break;
 
 	case WDEV_TYPE_AP:
 	default:
 		/* Get a specific WCID to record this MBSS key attribute */
 		bssinfo->bssinfo_type = HW_BSSID;
-		bssinfo->bmc_wlan_idx = HcAcquireGroupKeyWcid(ad, wdev);
-#ifdef SW_CONNECT_SUPPORT
-		MTWF_DBG(ad, DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_NOTICE,
-				 " bssinfo->bmc_wlan_idx = %d, wdev->hw_bmc_wcid=%d\n", bssinfo->bmc_wlan_idx, wdev->hw_bmc_wcid);
-
-		if (wdev->hw_bmc_wcid != WCID_INVALID)
-			bssinfo->bmc_wlan_idx = wdev->hw_bmc_wcid;
-#endif /* SW_CONNECT_SUPPORT */
-		TRTableInsertMcastEntry(ad, wdev->tr_tb_idx, wdev);
-		MgmtTableSetMcastEntry(ad, wdev->tr_tb_idx);
+		bssinfo->ucBcMcWlanIdx = HcAcquireGroupKeyWcid(ad, wdev);
+		TRTableInsertMcastEntry(ad, bssinfo->ucBcMcWlanIdx, wdev);
+		MgmtTableSetMcastEntry(ad, bssinfo->ucBcMcWlanIdx);
 		bssinfo->NetworkType = NETWORK_INFRA;
 		bssinfo->u4ConnectionType = CONNECTION_INFRA_AP;
 #ifdef CONFIG_AP_SUPPORT
-		bssinfo->bcn_period = ad->CommonCfg.BeaconPeriod[HcGetBandByWdev(wdev)];
-
-		if (pMbss) {
-#ifdef DOT11V_MBSSID_SUPPORT
-			UCHAR DbdcIdx = HcGetBandByWdev(&pMbss->wdev);
-
-			if (IS_BSSID_11V_TRANSMITTED(ad, pMbss, DbdcIdx) ||
-				IS_BSSID_11V_NON_TRANS(ad, pMbss, DbdcIdx)) {
-				bssinfo->max_bssid_indicator = ad->ApCfg.dot11v_max_bssid_indicator[DbdcIdx];
-				bssinfo->mbssid_index = pMbss->mbss_grp_idx;
-			}
+		bssinfo->bcn_period = ad->CommonCfg.BeaconPeriod;
+#ifdef MBSS_DTIM_SUPPORT
+		bssinfo->dtim_period = ad->ApCfg.MBSSID[wdev->func_idx].DtimPeriod;
+#else
+		bssinfo->dtim_period = ad->ApCfg.DtimPeriod;
 #endif
-			bssinfo->dtim_period = pMbss->DtimPeriod;
-		}
 #endif /*CONFIG_AP_SUPPORT*/
 		break;
 	}
 
 	wdev_edca_acquire(ad, wdev);
 	bssinfo->WmmIdx = HcGetWmmIdx(ad, wdev);
-
-#ifdef SW_CONNECT_SUPPORT
-	wdev_dummy_obj_acquire(ad, wdev);
-#endif /* SW_CONNECT_SUPPORT */
-
 	/* Get a specific Tx rate for BMcast frame */
 	os_zero_mem(&HTPhyMode, sizeof(HTTRANSMIT_SETTING));
 
 	if (WMODE_CAP(wdev->PhyMode, WMODE_B) &&
-		WMODE_CAP_2G(wdev->PhyMode)
-#ifdef GN_MIXMODE_SUPPORT
-		&& (!(ad->CommonCfg.GNMixMode))
-#endif /*GN_MIXMODE_SUPPORT*/
-	    ) {
+		(wdev->channel <= 14)) {
 		HTPhyMode.field.MODE = MODE_CCK;
 		HTPhyMode.field.BW = BW_20;
 		HTPhyMode.field.MCS = RATE_1;
@@ -417,59 +298,35 @@ VOID BssInfoArgumentLink(struct _RTMP_ADAPTER *ad, struct wifi_dev *wdev, struct
 	}
 
 #ifdef MCAST_RATE_SPECIFIC
-	if (wdev->wdev_type == WDEV_TYPE_AP) {
-#ifdef MCAST_VENDOR10_CUSTOM_FEATURE
-		bssinfo->McTransmit = (wdev->channel > 14) ? (wdev->rate.MCastPhyMode_5G) : (wdev->rate.MCastPhyMode);
-		bssinfo->BcTransmit = (wdev->channel > 14) ? (wdev->rate.MCastPhyMode_5G) : (wdev->rate.MCastPhyMode);
-#else
-		bssinfo->McTransmit = wdev->rate.mcastphymode;
-		bssinfo->BcTransmit = wdev->rate.mcastphymode;
-#endif
 
-		if ((wdev->channel > 14)
-#ifdef MCAST_VENDOR10_CUSTOM_FEATURE
-		&& (wdev->rate.MCastPhyMode_5G.field.MODE == MODE_CCK)
-#else
-		&& (wdev->rate.mcastphymode.field.MODE == MODE_CCK)
-#endif
-		) {
-			bssinfo->McTransmit = HTPhyMode;
-			bssinfo->BcTransmit = HTPhyMode;
-		}
-	} else {
-		bssinfo->McTransmit = HTPhyMode;
-		bssinfo->BcTransmit = HTPhyMode;
-	}
+	if (wdev->channel > 14)
+		bssinfo->McTransmit = ad->CommonCfg.MCastPhyMode_5G;
+	else
+		bssinfo->McTransmit = ad->CommonCfg.MCastPhyMode;
+
 #else
 	bssinfo->McTransmit = HTPhyMode;
-	bssinfo->BcTransmit = HTPhyMode;
 #endif /* MCAST_RATE_SPECIFIC */
-#ifdef HIGHPRI_RATE_SPECIFIC
-	if (wdev->wdev_type == WDEV_TYPE_AP) {
-		for (frame_type = HIGHPRI_ARP; frame_type < HIGHPRI_MAX_TYPE; frame_type++) {
-			bssinfo->HighPriTransmit[frame_type] = (wdev->channel > 14) ?
-											(wdev->rate.HighPriPhyMode_5G[frame_type]) :
-											(wdev->rate.HighPriPhyMode[frame_type]);
-			if ((wdev->channel > 14) && (wdev->rate.HighPriPhyMode_5G[frame_type].field.MODE == MODE_CCK))
-				bssinfo->HighPriTransmit[frame_type] = HTPhyMode;
-		}
-	} else {
-		for (frame_type = HIGHPRI_ARP; frame_type < HIGHPRI_MAX_TYPE; frame_type++)
-			bssinfo->HighPriTransmit[frame_type] = HTPhyMode;
-	}
-#endif
 
+#ifdef MCAST_BCAST_RATE_SET_SUPPORT
+	if (wdev->channel > 14)
+		bssinfo->BcTransmit = ad->CommonCfg.BCastPhyMode_5G;
+	else
+		bssinfo->BcTransmit = ad->CommonCfg.BCastPhyMode;
+#else
+	bssinfo->BcTransmit = HTPhyMode;
+#endif /* MCAST_BCAST_RATE_SET_SUPPORT */
 #ifdef RACTRL_FW_OFFLOAD_SUPPORT
 	raWrapperConfigSet(ad, wdev, &bssinfo->ra_cfg);
 #endif /*RACTRL_FW_OFFLOAD_SUPPORT*/
 
-#ifdef DOT11_HE_AX
-	fill_bssinfo_he(wdev, bssinfo);
-#endif /*DOT11_HE_AX*/
+#ifdef MIN_PHY_RATE_SUPPORT
+	if (wdev->rate.MinPhyBcMcRate != 0) {
+		bssinfo->McTransmit = wdev->rate.MinPhyBcMcRateTransmit;
+		bssinfo->BcTransmit = wdev->rate.MinPhyBcMcRateTransmit;
+	}
+#endif /* MIN_PHY_RATE_SUPPORT */
 
-#ifdef BCN_PROTECTION_SUPPORT
-	os_move_mem(&bssinfo->bcn_prot_cfg, &wdev->SecConfig.bcn_prot_cfg, sizeof(struct bcn_protection_cfg));
-#endif
 	bssinfo->bss_state = BSS_INITED;
 }
 
@@ -479,17 +336,8 @@ VOID BssInfoArgumentUnLink(RTMP_ADAPTER *pAd, struct wifi_dev *wdev)
 	struct _BSS_INFO_ARGUMENT_T *bss = &wdev->bss_info_argument;
 
 	ReleaseBssIdx(pAd, bss->ucBssIndex);
-#ifdef SW_CONNECT_SUPPORT
-	/* for S/W cases */
-	HcReleaseGroupKeyWcid(pAd, wdev, wdev->tr_tb_idx);
-	HcReleaseDummyObj(pAd, wdev);
-#else /* SW_CONNECT_SUPPORT */
-	HcReleaseGroupKeyWcid(pAd, wdev, bss->bmc_wlan_idx);
-#endif /* !SW_CONNECT_SUPPORT */
+	HcReleaseGroupKeyWcid(pAd, wdev, bss->ucBcMcWlanIdx);
 	HcReleaseEdca(pAd, wdev);
-#ifdef DOT11_HE_AX
-	hc_bcolor_release(wdev, bss->bss_color.color);
-#endif
 	os_zero_mem(bss, sizeof(wdev->bss_info_argument));
 	WDEV_BSS_STATE(wdev) = BSS_INIT;
 }
@@ -504,8 +352,8 @@ INT wdev_ops_register(struct wifi_dev *wdev, enum WDEV_TYPE wdev_type,
 	else if (wmm_detect_method == WMM_DETECT_METHOD2)
 		ops->detect_wmm_traffic = detect_wmm_traffic;
 
-	/* register wifi mlme callback function */
-	wifi_mlme_ops_register(wdev);
+	/*wifi system architecture register*/
+	wifi_sys_ops_register(wdev);
 	return TRUE;
 }
 
@@ -526,109 +374,52 @@ INT32 wdev_init(RTMP_ADAPTER *pAd, struct wifi_dev *wdev, enum WDEV_TYPE wdev_ty
 				PNET_DEV IfDev, INT8 func_idx, VOID *func_dev, VOID *sys_handle)
 {
 	INT32 wdev_idx = 0;
-
 	wdev->wdev_type = wdev_type;
 	wdev->if_dev = IfDev;
 	wdev->func_idx = func_idx;
 	wdev->func_dev = func_dev;
 	wdev->sys_handle = sys_handle;
-	wdev->tr_tb_idx = WCID_INVALID;
-#ifdef SW_CONNECT_SUPPORT
-	wdev->hw_bmc_wcid = WCID_INVALID;
-	wdev->pDummy_obj = NULL;
-#endif /* SW_CONNECT_SUPPORT */
+	wdev->tr_tb_idx = 0xff;
 	wdev->OpStatusFlags = 0;
 	wdev->forbid_data_tx = 0x1 << MSDU_FORBID_CONNECTION_NOT_READY;
 	wdev->bAllowBeaconing = FALSE;
-	wdev->radio_off_req = FALSE;
-
-	RTMP_SEM_EVENT_INIT(&wdev->wdev_op_lock, &pAd->RscSemMemList);
-#if defined(DOT11_SAE_SUPPORT) || defined(SUPP_SAE_SUPPORT)
-	NdisAllocateSpinLock(pAd, &wdev->SecConfig.ptlist_lock);
-#endif
-	wdev->wdev_op_lock_flag = FALSE;
-	NdisZeroMemory(wdev->dbg_wdev_op_lock_caller, sizeof(wdev->dbg_wdev_op_lock_caller));
-
-	wdev->btwt_id = 0;
 	wdev_idx = wdev_idx_reg(pAd, wdev);
-#ifdef TPC_SUPPORT
-#ifdef TPC_MODE_CTRL
-	/*default RSSI thld is -50dBm*/
-	wdev->tpcRssiThld = HIGH_RATE_SENSIT;
-	wdev->pwrCnstrnt = 0;
-	wdev->LastpwrCnst = 0;
-	wdev->wdevStaCnt = 0;
-	wdev->isStaNotSprtTpc = FALSE;
-	/*approximate min sensitivity*/
-	wdev->MinLinkMargin = 127;
-	NdisZeroMemory(wdev->mLkMgnAddr, MAC_ADDR_LEN);
-#endif
-#endif
+
 	init_vie_ctrl(wdev);
 
 	if (wdev_idx < 0)
 		return FALSE;
 
-	if (wdev_type != WDEV_TYPE_REPEATER)
-		hc_obj_init(wdev, wdev_idx);
-
-	MTWF_DBG(pAd, DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_INFO, "(caller:%pS), wdev(%d)\n",
-			 OS_TRACE, wdev->wdev_idx);
+	hc_obj_init(wdev, wdev_idx);
 
 	return TRUE;
 }
 
-VOID wdev_init_for_bound_wdev(struct wifi_dev *wdev, enum WDEV_TYPE wdev_type,
-				PNET_DEV IfDev, INT8 func_idx, VOID *func_dev, VOID *sys_handle)
-{
-	wdev->wdev_type = wdev_type;
-	wdev->if_dev = IfDev;
-	wdev->func_idx = func_idx;
-	wdev->func_dev = func_dev;
-	wdev->sys_handle = sys_handle;
-	wdev->tr_tb_idx = WCID_INVALID;
-	wdev->OpStatusFlags = 0;
-	wdev->forbid_data_tx = 0x1 << MSDU_FORBID_CONNECTION_NOT_READY;
-	wdev->bAllowBeaconing = FALSE;
-	wdev->radio_off_req = FALSE;
-}
-
-
 INT32 wdev_attr_update(RTMP_ADAPTER *pAd, struct wifi_dev *wdev)
 {
-	/* acquire band info that will used for mac address calculating */
-	HcAcquireRadioForWdev(pAd, wdev);
-
 	switch (wdev->wdev_type) {
 #ifdef CONFIG_AP_SUPPORT
 
 	case WDEV_TYPE_AP:
 	case WDEV_TYPE_GO:
-		AsicSetWdevIfAddr(pAd, wdev, OPMODE_AP);
-		MTWF_LOG(DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_WARN, ("%s(): wdevId%d = "MACSTR"\n",
-				 __func__, wdev->wdev_idx, MAC2STR(wdev->if_addr)));
+		AsicSetMbssWdevIfAddr(pAd, wdev->func_idx, (UCHAR *)wdev->if_addr, OPMODE_AP);
+		MTWF_LOG(DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_OFF, ("%s(): wdevId%d = %02x:%02x:%02x:%02x:%02x:%02x\n",
+				 __func__, wdev->wdev_idx, PRINT_MAC(wdev->if_addr)));
 
 		if (wdev->if_dev) {
-			dev_addr_set(wdev->if_dev,wdev->if_addr);
+			NdisMoveMemory(RTMP_OS_NETDEV_GET_PHYADDR(wdev->if_dev),
+						   wdev->if_addr, MAC_ADDR_LEN);
 		}
 
 		COPY_MAC_ADDR(wdev->bssid, wdev->if_addr);
 		break;
 #endif /* CONFIG_AP_SUPPORT */
-#ifdef CONFIG_STA_SUPPORT
-	case WDEV_TYPE_STA:
-		AsicSetWdevIfAddr(pAd, wdev, OPMODE_STA);
-		MTWF_LOG(DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_WARN, ("%s(): wdevId%d = "MACSTR"\n",
-				__func__, wdev->wdev_idx, MAC2STR(wdev->if_addr)));
 
-		if (wdev->if_dev)
-			dev_addr_set(wdev->if_dev, wdev->if_addr);
-		break;
-#endif
 	default:
 		break;
 	}
 
+	HcAcquireRadioForWdev(pAd, wdev);
 	return TRUE;
 }
 
@@ -643,18 +434,10 @@ INT32 wdev_attr_update(RTMP_ADAPTER *pAd, struct wifi_dev *wdev)
  */
 INT32 wdev_deinit(RTMP_ADAPTER *pAd, struct wifi_dev *wdev)
 {
-	MTWF_DBG(pAd, DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_INFO, "(caller:%pS), wdev(%d)\n",
-			 OS_TRACE, wdev->wdev_idx);
-
 	deinit_vie_ctrl(wdev);
-	RTMP_SEM_EVENT_DESTORY(&wifi_dev->wdev_op_lock);
-#if defined(DOT11_SAE_SUPPORT) || defined(SUPP_SAE_SUPPORT)
-	NdisFreeSpinLock(&wdev->SecConfig.ptlist_lock);
-#endif
-	if (wdev->wdev_type != WDEV_TYPE_REPEATER) {
-		wlan_operate_exit(wdev);
-		hc_obj_exit(wdev);
-	}
+
+	wlan_operate_exit(wdev);
+	hc_obj_exit(wdev);
 	wdev_idx_unreg(pAd, wdev);
 	return TRUE;
 }
@@ -712,20 +495,12 @@ struct wifi_dev *WdevSearchByBssid(RTMP_ADAPTER *pAd, UCHAR *Address)
 	}
 	NdisReleaseSpinLock(&pAd->WdevListLock);
 
-	MTWF_DBG(NULL, DBG_CAT_TX, DBG_SUBCAT_ALL, DBG_LVL_DEBUG,
-		"%s: can not find registered wdev\n",
-			__func__);
+	MTWF_LOG(DBG_CAT_TX, DBG_SUBCAT_ALL, DBG_LVL_INFO,
+		("%s: can not find registered wdev\n",
+			__func__));
 	return NULL;
 }
 #endif
-
-VOID wdev_fsm_init(struct wifi_dev *wdev)
-{
-	sync_fsm_ops_init(wdev);
-	cntl_state_machine_init(wdev, &wdev->cntl_machine, wdev->cntl_func);
-	auth_fsm_init((PRTMP_ADAPTER)wdev->sys_handle, wdev, &wdev->auth_machine, wdev->auth_func);
-	assoc_fsm_init((PRTMP_ADAPTER)wdev->sys_handle, wdev, &wdev->assoc_machine, wdev->assoc_func);
-}
 
 /**
  * @param pAd
@@ -766,12 +541,12 @@ struct wifi_dev *wdev_search_by_address(RTMP_ADAPTER *pAd, UCHAR *address)
 		rept_entry = lookup_rept_entry(pAd, address);
 
 		if (rept_entry)
-			return &rept_entry->wdev;
+			return rept_entry->wdev;
 	}
 
 #endif
-	MTWF_DBG(NULL, DBG_CAT_TX, DBG_SUBCAT_ALL, DBG_LVL_DEBUG, "%s: can not find registered wdev\n",
-			 __func__);
+	MTWF_LOG(DBG_CAT_TX, DBG_SUBCAT_ALL, DBG_LVL_INFO, ("%s: can not find registered wdev\n",
+			 __func__));
 	return NULL;
 }
 
@@ -779,7 +554,6 @@ struct wifi_dev *wdev_search_by_omac_idx(RTMP_ADAPTER *pAd, UINT8 BssIndex)
 {
 	UINT16 Index;
 	struct wifi_dev *wdev;
-
 	NdisAcquireSpinLock(&pAd->WdevListLock);
 
 	for (Index = 0; Index < WDEV_NUM_MAX; Index++) {
@@ -794,30 +568,8 @@ struct wifi_dev *wdev_search_by_omac_idx(RTMP_ADAPTER *pAd, UINT8 BssIndex)
 	}
 
 	NdisReleaseSpinLock(&pAd->WdevListLock);
-	MTWF_DBG(pAd, DBG_CAT_TX, DBG_SUBCAT_ALL, DBG_LVL_ERROR, "can not find registered wdev\n");
-	return NULL;
-}
-
-struct wifi_dev *wdev_search_by_band_omac_idx(RTMP_ADAPTER *pAd, UINT8 band_idx, UINT8 omac_idx)
-{
-	UINT16 Index;
-	struct wifi_dev *wdev;
-
-	NdisAcquireSpinLock(&pAd->WdevListLock);
-
-	for (Index = 0; Index < WDEV_NUM_MAX; Index++) {
-		wdev = pAd->wdev_list[Index];
-
-		if (wdev) {
-			if (wdev->DevInfo.BandIdx == band_idx && wdev->OmacIdx == omac_idx) {
-				NdisReleaseSpinLock(&pAd->WdevListLock);
-				return wdev;
-			}
-		}
-	}
-
-	NdisReleaseSpinLock(&pAd->WdevListLock);
-	MTWF_DBG(pAd, DBG_CAT_TX, DBG_SUBCAT_ALL, DBG_LVL_ERROR, "can not find registered wdev\n");
+	MTWF_LOG(DBG_CAT_TX, DBG_SUBCAT_ALL, DBG_LVL_ERROR, ("%s: can not find registered wdev\n",
+			 __func__));
 	return NULL;
 }
 
@@ -825,11 +577,10 @@ inline struct wifi_dev *wdev_search_by_pkt(RTMP_ADAPTER *pAd, PNDIS_PACKET pkt)
 {
 	struct wifi_dev *wdev = NULL;
 	UINT32 wdev_idx = RTMP_GET_PACKET_WDEV(pkt);
-
 	wdev = pAd->wdev_list[wdev_idx];
 
 	if (!wdev)
-		MTWF_DBG(pAd, DBG_CAT_TX, DBG_SUBCAT_ALL, DBG_LVL_ERROR, "error: wdev(wdev_idx = %d) is null from pkt\n", wdev_idx);
+		MTWF_LOG(DBG_CAT_TX, DBG_SUBCAT_ALL, DBG_LVL_ERROR, ("error: wdev(wdev_idx = %d) is null from pkt\n", wdev_idx));
 
 	return wdev;
 }
@@ -837,19 +588,17 @@ inline struct wifi_dev *wdev_search_by_pkt(RTMP_ADAPTER *pAd, PNDIS_PACKET pkt)
 inline struct wifi_dev *wdev_search_by_idx(RTMP_ADAPTER *pAd, UINT32 idx)
 {
 	struct wifi_dev *wdev = NULL;
-
-	if (idx < WDEV_NUM_MAX)
-		wdev = pAd->wdev_list[idx];
+	wdev = pAd->wdev_list[idx];
 
 	if (!wdev)
-		MTWF_DBG(pAd, DBG_CAT_TX, DBG_SUBCAT_ALL, DBG_LVL_ERROR, "error: wdev(wdev_idx = %d) is null from idx\n", idx);
+		MTWF_LOG(DBG_CAT_TX, DBG_SUBCAT_ALL, DBG_LVL_ERROR, ("error: wdev(wdev_idx = %d) is null from idx\n", idx));
 
 	return wdev;
 }
 
-inline struct wifi_dev *wdev_search_by_wcid(RTMP_ADAPTER *pAd, UINT16 wcid)
+inline struct wifi_dev *wdev_search_by_wcid(RTMP_ADAPTER *pAd, UINT8 wcid)
 {
-	struct _STA_TR_ENTRY *tr_entry = &pAd->tr_ctl.tr_entry[wcid];
+	struct _STA_TR_ENTRY *tr_entry = &pAd->MacTab.tr_entry[wcid];
 	struct wifi_dev *wdev = NULL;
 
 	if (tr_entry)
@@ -865,12 +614,12 @@ inline struct wifi_dev *wdev_search_by_wcid(RTMP_ADAPTER *pAd, UINT16 wcid)
 
 struct wifi_dev *wdev_search_by_netdev(RTMP_ADAPTER *pAd, VOID *pDev)
 {
+	UCHAR i = 0;
 	struct net_device *pNetDev = (struct net_device *)pDev;
 	struct wifi_dev *wdev = NULL;
-	UCHAR i = 0;
 
 	if (pNetDev != NULL) {
-		for (; i < WDEV_NUM_MAX; i++) {
+		for (i = 0; i < WDEV_NUM_MAX; i++) {
 			wdev = pAd->wdev_list[i];
 
 			if (wdev == NULL)
@@ -878,34 +627,58 @@ struct wifi_dev *wdev_search_by_netdev(RTMP_ADAPTER *pAd, VOID *pDev)
 
 			if (wdev->if_dev == pNetDev)
 				return wdev;
-#ifdef CONFIG_VLAN_GTK_SUPPORT
-			else if (CFG80211_MatchVlandev(wdev, pNetDev))
-				return wdev;
-#endif
 		}
 	}
 
 	return wdev;
 }
 
+UCHAR decide_phy_bw_by_channel(struct _RTMP_ADAPTER *ad, UCHAR channel)
+{
+	int i;
+	struct wifi_dev *wdev;
+	UCHAR phy_bw = BW_20;
+	UCHAR wdev_bw;
+	UCHAR rfic;
+
+	if (channel <= 14)
+		rfic = RFIC_24GHZ;
+	else
+		rfic = RFIC_5GHZ;
+
+	for (i = 0; i < WDEV_NUM_MAX; i++) {
+		wdev = ad->wdev_list[i];
+
+		/*only when wdev is up & operting init done can join to decision*/
+		if (wdev && (wlan_operate_get_state(wdev) != WLAN_OPER_STATE_INVALID) && (rfic & wmode_2_rfic(wdev->PhyMode))) {
+			wdev_bw = wlan_operate_get_bw(wdev);
+
+			if (wdev_bw > phy_bw)
+				phy_bw = wdev_bw;
+		}
+	}
+
+	if (rfic == RFIC_24GHZ && phy_bw > BW_40)
+		phy_bw = BW_40;
+
+	return phy_bw;
+}
+
 
 void update_att_from_wdev(struct wifi_dev *dev1, struct wifi_dev *dev2)
 {
-	UCHAR ht_bw;
+	UCHAR ht_bw = wlan_operate_get_ht_bw(dev2);
 #ifdef DOT11_VHT_AC
-	UCHAR vht_bw;
+	UCHAR vht_bw = wlan_operate_get_vht_bw(dev2);
 #endif /*DOT11_VHT_AC*/
 	UCHAR ext_cha;
 	UCHAR stbc;
 	UCHAR ldpc;
 	UCHAR tx_stream;
 	UCHAR rx_stream;
-	UCHAR ba_en;
-	UCHAR mpdu_density;
 #ifdef TXBF_SUPPORT
 	UCHAR txbf;
 #endif
-	UCHAR max_mpdu_len;
 
 	/*update configure*/
 	if (wlan_config_get_ext_cha(dev1) == EXTCHA_NOASSIGN) {
@@ -923,8 +696,6 @@ void update_att_from_wdev(struct wifi_dev *dev1, struct wifi_dev *dev2)
 	wlan_config_set_ht_stbc(dev1, stbc);
 	ldpc = wlan_config_get_ht_ldpc(dev2);
 	wlan_config_set_ht_ldpc(dev1, ldpc);
-	mpdu_density = wlan_config_get_min_mpdu_start_space(dev2);
-	wlan_config_set_min_mpdu_start_space(dev1, mpdu_density);
 	stbc = wlan_config_get_vht_stbc(dev2);
 	wlan_config_set_vht_stbc(dev1, stbc);
 	ldpc = wlan_config_get_vht_ldpc(dev2);
@@ -940,47 +711,9 @@ void update_att_from_wdev(struct wifi_dev *dev1, struct wifi_dev *dev2)
 	wlan_config_set_tx_stream(dev1, tx_stream);
 	rx_stream = wlan_config_get_rx_stream(dev2);
 	wlan_config_set_rx_stream(dev1, rx_stream);
-
-	/* HT_BAWinSize */
-	wlan_config_set_ba_txrx_wsize(dev1,
-		wlan_config_get_ba_tx_wsize(dev2),
-		wlan_config_get_ba_rx_wsize(dev2));
-
-	/* VHT Max mpdu length */
-	max_mpdu_len = wlan_config_get_vht_max_mpdu_len(dev2);
-	wlan_config_set_vht_max_mpdu_len(dev1, max_mpdu_len);
-
-#ifdef DOT11_HE_AX
-#ifdef WIFI_TWT_SUPPORT
-	/* STA/APCLI TWT */
-	wlan_config_set_he_twt_support(dev1, wlan_config_get_he_twt_support(dev2));
-#endif /* WIFI_TWT_SUPPORT */
-#ifdef CONFIG_6G_SUPPORT
-	wlan_config_set_he6g_op_present(dev1, wlan_config_get_he6g_op_present(dev2));
-#endif
-#endif /* DOT11_HE_AX */
-
-	ba_en = wlan_config_get_ba_enable(dev2);
-	wlan_config_set_ba_enable(dev1, (ba_en > 0) ? ba_en : 0);
 	dev1->channel = dev2->channel;
-	dev1->quick_ch_change = dev2->quick_ch_change;
-	wlan_config_set_ch_band(dev1, dev2->PhyMode);
 	dev1->bWmmCapable = dev2->bWmmCapable;
 	wlan_operate_update_ht_cap(dev1);
-
-#ifdef MCAST_RATE_SPECIFIC
-	/* temporary soluation due to WDS interface acutally reference */
-	if (dev1->wdev_type == WDEV_TYPE_WDS) {
-#ifdef MCAST_VENDOR10_CUSTOM_FEATURE
-		if (dev1->channel > 14)
-			dev1->rate.MCastPhyMode_5G = dev2->rate.MCastPhyMode_5G;
-		else
-			dev1->rate.MCastPhyMode = dev2->rate.MCastPhyMode;
-#else
-		dev1->rate.mcastphymode = dev2->rate.mcastphymode;
-#endif
-	}
-#endif
 }
 
 
@@ -991,29 +724,25 @@ void wdev_sync_prim_ch(struct _RTMP_ADAPTER *ad, struct wifi_dev *wdev)
 	UCHAR band_idx = HcGetBandByWdev(wdev);
 
 	for (i = 0; i < WDEV_NUM_MAX; i++) {
+
 		tdev = ad->wdev_list[i];
-
-		if (tdev && HcIsRadioAcq(tdev) && (band_idx == HcGetBandByWdev(tdev)))
+		if (tdev && HcIsRadioAcq(tdev) && (band_idx == HcGetBandByWdev(tdev))) {
 			tdev->channel = wdev->channel;
-		else if ((wdev->wdev_type == WDEV_TYPE_AP) &&
-				(tdev != NULL) &&
-				(band_idx == HcGetBandByWdev(tdev)) &&
-				(tdev->PhyMode == wdev->PhyMode))
-			tdev->channel = wdev->channel;
-
-		/* Fix for Apcli linkdown issue when AP interface brinup happens after linkup */
-		else if ((wdev->wdev_type == WDEV_TYPE_STA) &&
+#ifdef CONFIG_MAP_SUPPORT
+			if (tdev->wdev_type == WDEV_TYPE_AP)
+				tdev->quick_ch_change = wdev->quick_ch_change;
+#endif
+		}
+		else if ((wdev->wdev_type == WDEV_TYPE_APCLI) &&
 				(tdev != NULL) &&
 				(tdev->wdev_type == WDEV_TYPE_AP) &&
 				(tdev->if_up_down_state == 0) &&
-				(tdev->PhyMode == wdev->PhyMode))
+				(((tdev->channel > 14) && (wdev->channel > 14)) ||
+				 ((tdev->channel <= 14) && (wdev->channel <= 14)))) {
 			tdev->channel = wdev->channel;
-		if (tdev && ((tdev->wdev_type == WDEV_TYPE_AP) || (tdev->wdev_type == WDEV_TYPE_STA))
-			&& ((wdev->wdev_type == WDEV_TYPE_AP) || (wdev->wdev_type == WDEV_TYPE_STA))) {
+#ifdef CONFIG_MAP_SUPPORT
 			tdev->quick_ch_change = wdev->quick_ch_change;
-			MTWF_DBG(ad, DBG_CAT_CLIENT, CATCLIENT_APCLI, DBG_LVL_DEBUG,
-			"QuickChannel:%d; tdev_type:%d,tdev_idx:%d; wdev_type:%d,wdev_idx:%d==> \n",
-			tdev->quick_ch_change, tdev->wdev_type, tdev->wdev_idx, wdev->wdev_type, wdev->wdev_idx);
+#endif
 		}
 	}
 }
@@ -1027,8 +756,8 @@ void wdev_sync_ht_bw(struct _RTMP_ADAPTER *pAd, struct wifi_dev *wdev, ADD_HTINF
 	BOOLEAN adjustBW = FALSE;
 	struct wifi_dev *mbss_wdev = NULL;
 
-	MTWF_DBG(pAd, DBG_CAT_CLIENT, CATCLIENT_APCLI, DBG_LVL_INFO,
-		"[%s] Entry Bw %d Ch %d==> \n", __func__, add_ht_info->RecomWidth, add_ht_info->ExtChanOffset);
+	MTWF_LOG(DBG_CAT_CLIENT, CATCLIENT_APCLI, DBG_LVL_TRACE,
+		("[%s] Entry Bw %d Ch %d==> \n", __func__, add_ht_info->RecomWidth, add_ht_info->ExtChanOffset));
 
 	/*Moving all same band Soft AP interfaces to new BW proposed by RootAP */
 	for (mbss_idx = 0; mbss_idx < pAd->ApCfg.BssidNum; mbss_idx++) {
@@ -1058,6 +787,7 @@ void wdev_sync_ht_bw(struct _RTMP_ADAPTER *pAd, struct wifi_dev *wdev, ADD_HTINF
 }
 #endif
 
+
 #ifdef DOT11_VHT_AC
 void wdev_sync_vht_bw(struct _RTMP_ADAPTER *pAd, struct wifi_dev *wdev, UCHAR bw, UINT8 channel)
 {
@@ -1066,8 +796,8 @@ void wdev_sync_vht_bw(struct _RTMP_ADAPTER *pAd, struct wifi_dev *wdev, UCHAR bw
 	BOOLEAN adjustCh = FALSE, adjustBw = TRUE;
 	struct wifi_dev *mbss_wdev;
 
-	MTWF_DBG(pAd, DBG_CAT_CLIENT, CATCLIENT_APCLI, DBG_LVL_INFO,
-		"[%s] Entry bw %d ch %d==> \n", __func__, bw, channel);
+	MTWF_LOG(DBG_CAT_CLIENT, CATCLIENT_APCLI, DBG_LVL_TRACE,
+		("[%s] Entry bw %d ch %d==> \n", __func__, bw, channel));
 
 	if (bw >= VHT_BW_160)
 		adjustBw = FALSE;
@@ -1100,15 +830,15 @@ void wdev_sync_vht_bw(struct _RTMP_ADAPTER *pAd, struct wifi_dev *wdev, UCHAR bw
 }
 #endif
 
-BOOLEAN IS_SYNC_BW_POLICY_VALID(struct _RTMP_ADAPTER *pAd, BOOLEAN isHTPolicy, UCHAR policy, UCHAR band_idx)
+BOOLEAN IS_SYNC_BW_POLICY_VALID(struct _RTMP_ADAPTER *pAd, BOOLEAN isHTPolicy, UCHAR policy)
 {
 	BOOLEAN status = FALSE;
 
 	if (isHTPolicy) {
-		if (1 & (pAd->ApCfg.ApCliAutoBWRules[band_idx].minorPolicy.ApCliBWSyncHTSupport >> policy))
+		if (1 & (pAd->ApCfg.ApCliAutoBWRules.minorPolicy.ApCliBWSyncHTSupport >> policy))
 			status = TRUE;
 	} else {
-		if (1 & (pAd->ApCfg.ApCliAutoBWRules[band_idx].minorPolicy.ApCliBWSyncVHTSupport >> policy))
+		if (1 & (pAd->ApCfg.ApCliAutoBWRules.minorPolicy.ApCliBWSyncVHTSupport >> policy))
 			status = TRUE;
 	}
 
@@ -1117,15 +847,13 @@ BOOLEAN IS_SYNC_BW_POLICY_VALID(struct _RTMP_ADAPTER *pAd, BOOLEAN isHTPolicy, U
 #endif
 
 
+
 VOID wdev_if_up_down(RTMP_ADAPTER *pAd, struct wifi_dev *wdev, BOOLEAN if_up_down_state)
 {
 	if (wdev == NULL)
 		return;
 
 	wdev->if_up_down_state = if_up_down_state;
-
-	if (if_up_down_state == FALSE) /* clear counter in inf down */
-		wdev->rx_drop_long_len = 0 ;
 }
 
 void wdev_sync_ch_by_rfic(struct _RTMP_ADAPTER *ad, UCHAR rfic, UCHAR ch)

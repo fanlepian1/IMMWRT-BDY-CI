@@ -1,17 +1,18 @@
 /*
- * Copyright (c) [2020], MediaTek Inc. All rights reserved.
- *
- * This software/firmware and related documentation ("MediaTek Software") are
- * protected under relevant copyright laws.
- * The information contained herein is confidential and proprietary to
- * MediaTek Inc. and/or its licensors.
- * Except as otherwise provided in the applicable licensing terms with
- * MediaTek Inc. and/or its licensors, any reproduction, modification, use or
- * disclosure of MediaTek Software, and information contained herein, in whole
- * or in part, shall be strictly prohibited.
-*/
-/*
  ***************************************************************************
+ * Ralink Tech Inc.
+ * 4F, No. 2 Technology 5th Rd.
+ * Science-based Industrial Park
+ * Hsin-chu, Taiwan, R.O.C.
+ *
+ * (c) Copyright 2002-2006, Ralink Technology, Inc.
+ *
+ * All rights reserved.	Ralink's source	code is	an unpublished work	and	the
+ * use of a	copyright notice does not imply	otherwise. This	source code
+ * contains	confidential trade secret material of Ralink Tech. Any attemp
+ * or participation	in deciphering,	decoding, reverse engineering or in	any
+ * way altering	the	source code	is stricitly prohibited, unless	the	prior
+ * written consent of Ralink Technology, Inc. is obtained.
  ***************************************************************************/
 
 /****************************************************************************
@@ -26,13 +27,12 @@
 #define RTMP_INSERT_IE(_FRAMEBUFER, _TOTALFRAMELEN, _FRAMELEN, _FRAME) {\
 		ULONG _TempLen; \
 		MakeOutgoingFrame((_FRAMEBUFER),	&(_TempLen), \
-						  (_FRAMELEN),	(_FRAME), \
-						  END_OF_ARGS); \
+							(_FRAMELEN),	(_FRAME), \
+							END_OF_ARGS); \
 		*(_TOTALFRAMELEN) += (_TempLen); \
 	}
 
 
-int bcn_rep_cnt;
 VOID RRM_InsertBcnReqIE(
 	IN PRTMP_ADAPTER pAd,
 	OUT PUCHAR pFrameBuf,
@@ -40,53 +40,6 @@ VOID RRM_InsertBcnReqIE(
 	IN PUCHAR pBcnReq)
 {
 	RTMP_INSERT_IE(pFrameBuf, pFrameLen, sizeof(RRM_BEACON_REQ_INFO), pBcnReq);
-}
-
-VOID RRM_InsertBcnRepIE(
-		IN PRTMP_ADAPTER pAd,
-		OUT PUCHAR pFrameBuf,
-		OUT PULONG pFrameLen,
-		IN PUCHAR pBcnRep)
-{
-	RTMP_INSERT_IE(pFrameBuf, pFrameLen, sizeof(RRM_BEACON_REP_INFO), pBcnRep);
-}
-
-static VOID RRM_InsertMeasureRepIE(
-		IN RTMP_ADAPTER *pAd,
-		OUT PUCHAR pFrameBuf,
-		OUT PULONG pFrameLen,
-		IN UINT8 Len,
-		IN PRRM_MEASURE_REP_INFO pMeasureRepIE)
-{
-	ULONG TempLen;
-	UINT8 ElementID = RRM_NEIGHBOR_REP_MEASUREMENT_REPORT_SUB_ID;
-
-	MakeOutgoingFrame(pFrameBuf,                                    &TempLen,
-			1,                                                    &ElementID,
-			1,                                                    &Len,
-			sizeof(RRM_MEASURE_REP_INFO),     pMeasureRepIE,
-			END_OF_ARGS);
-	*pFrameLen = *pFrameLen + TempLen;
-	return;
-}
-
-VOID MakeBeaconRepFrame(
-		IN RTMP_ADAPTER *pAd,
-		OUT PUCHAR pOutBuffer,
-		OUT PULONG pFrameLen,
-		IN UINT8 TotalLen,
-		IN UINT8 Category,
-		IN UINT8 Action,
-		IN PRRM_MEASURE_REP_INFO pMeasureReportIE,
-		IN UINT8 DialogToken)
-{
-	InsertActField(pAd, (pOutBuffer + *pFrameLen), pFrameLen, Category, Action);
-	/* fill Dialog Token*/
-	InsertDialogToken(pAd, (pOutBuffer + *pFrameLen), pFrameLen, DialogToken);
-
-	RRM_InsertMeasureRepIE(pAd, (pOutBuffer + *pFrameLen), pFrameLen,
-			TotalLen, pMeasureReportIE);
-	return;
 }
 
 VOID RRM_InsertBcnReqSsidSubIE(
@@ -100,10 +53,10 @@ VOID RRM_InsertBcnReqSsidSubIE(
 	UINT8 SubId = RRM_BCN_REQ_SUBID_SSID;
 
 	MakeOutgoingFrame(pFrameBuf,		&TempLen,
-					  1,				&SubId,
-					  1,				&SsidLen,
-					  SsidLen,		(PUCHAR)pSsid,
-					  END_OF_ARGS);
+						1,				&SubId,
+						1,				&SsidLen,
+						SsidLen,		(PUCHAR)pSsid,
+						END_OF_ARGS);
 	*pFrameLen = *pFrameLen + TempLen;
 }
 
@@ -119,11 +72,11 @@ VOID RRM_InsertBcnReqRepCndSubIE(
 	UINT8 SubId = RRM_BCN_REQ_SUBID_BCN_REP_INFO;
 
 	MakeOutgoingFrame(pFrameBuf,		&TempLen,
-					  1,				&SubId,
-					  1,				&Len,
-					  1,				&RepCnd,
-					  1,				&Threshold,
-					  END_OF_ARGS);
+						1,				&SubId,
+						1,				&Len,
+						1,				&RepCnd,
+						1,				&Threshold,
+						END_OF_ARGS);
 	*pFrameLen = *pFrameLen + TempLen;
 }
 
@@ -138,17 +91,17 @@ VOID RRM_InsertBcnReqRepDetailSubIE(
 	UINT8 SubId = RRM_BCN_REQ_SUBID_RET_DETAIL;
 
 	MakeOutgoingFrame(pFrameBuf,		&TempLen,
-					  1,				&SubId,
-					  1,				&Len,
-					  1,				&Detail,
-					  END_OF_ARGS);
+						1,				&SubId,
+						1,				&Len,
+						1,				&Detail,
+						END_OF_ARGS);
 	*pFrameLen = *pFrameLen + TempLen;
 }
 
 /*
 	==========================================================================
 	Description:
-		Insert RRM Enable Capabilitys IE into frame for AP mode.
+		Insert RRM Enable Capabilitys IE into frame.
 
 	Parametrs:
 		1. frame buffer pointer.
@@ -157,8 +110,7 @@ VOID RRM_InsertBcnReqRepDetailSubIE(
 	Return	: None.
 	==========================================================================
  */
-#ifdef CONFIG_AP_SUPPORT
-VOID RRM_InsertAPRRMEnCapIE(
+VOID RRM_InsertRRMEnCapIE(
 	IN PRTMP_ADAPTER pAd,
 	OUT PUCHAR pFrameBuf,
 	OUT PULONG pFrameLen,
@@ -167,7 +119,7 @@ VOID RRM_InsertAPRRMEnCapIE(
 	ULONG TempLen;
 	UINT8 Len = 5;
 	UINT8 ElementID = IE_RRM_EN_CAP;
-	RRM_EN_CAP_IE RrmEnCap;
+	PRRM_EN_CAP_IE pRrmEnCap;
 
 	BSS_STRUCT *pMBss = NULL;
 
@@ -175,88 +127,14 @@ VOID RRM_InsertAPRRMEnCapIE(
 		pMBss = &pAd->ApCfg.MBSSID[BssIdx];
 	else
 		return;
-
-	RrmEnCap.word = 0;
-	NdisMoveMemory((PUCHAR)&RrmEnCap, (PUCHAR)&pMBss->wdev.RrmCfg.rrm_capabilities, sizeof(RrmEnCap));
-#ifdef RT_BIG_ENDIAN
-	(*((UINT64 *)&RrmEnCap)) = cpu2le64(*((UINT64 *)&RrmEnCap));
-#endif
+	pRrmEnCap = (PRRM_EN_CAP_IE)&pMBss->wdev.RrmCfg.rrm_capabilities;
 
 	MakeOutgoingFrame(pFrameBuf,					&TempLen,
 					  1,							&ElementID,
 					  1,							&Len,
-					  Len,							(PUCHAR)&RrmEnCap,
+					  Len,						(PUCHAR)&pRrmEnCap->word,
 					  END_OF_ARGS);
 	*pFrameLen = *pFrameLen + TempLen;
-	return;
-}
-#endif /* CONFIG_AP_SUPPORT */
-
-/*
-	==========================================================================
-	Description:
-		Insert RRM Enable Capabilitys IE into frame for STA mode.
-
-	Parametrs:
-		1. frame buffer pointer.
-		2. frame length.
-
-	Return  : None.
-	==========================================================================
- */
-#ifdef CONFIG_STA_SUPPORT
-VOID RRM_InsertSTARRMEnCapIE(
-	IN PRTMP_ADAPTER pAd,
-	OUT PUCHAR pFrameBuf,
-	OUT PULONG pFrameLen,
-	IN INT StaIdx)
-{
-	ULONG TempLen;
-	UINT8 Len = 5;
-	UINT8 ElementID = IE_RRM_EN_CAP;
-	RRM_EN_CAP_IE RrmEnCap;
-	PRRM_CONFIG pRrmCfg;
-
-	if (StaIdx < pAd->MSTANum)
-		pRrmCfg = &pAd->StaCfg[StaIdx].wdev.RrmCfg;
-	else
-		return;
-
-	RrmEnCap.word = 0;
-	NdisMoveMemory((PUCHAR)&RrmEnCap, (PUCHAR)&pRrmCfg->rrm_capabilities, sizeof(RrmEnCap));
-#ifdef RT_BIG_ENDIAN
-	(*((UINT64 *)&RrmEnCap)) = cpu2le64(*((UINT64 *)&RrmEnCap));
-#endif
-
-	MakeOutgoingFrame(pFrameBuf,					&TempLen,
-					  1,							&ElementID,
-					  1,							&Len,
-					  Len,							(PUCHAR)&RrmEnCap,
-					  END_OF_ARGS);
-	*pFrameLen = *pFrameLen + TempLen;
-	return;
-}
-#endif /* CONFIG_STA_SUPPORT */
-
-VOID RRM_InsertRRMEnCapIE(
-	IN PRTMP_ADAPTER pAd,
-	IN struct wifi_dev *wdev,
-	OUT PUCHAR pFrameBuf,
-	OUT PULONG pFrameLen,
-	IN INT BssIdx)
-{
-	switch (wdev->wdev_type) {
-#ifdef CONFIG_STA_SUPPORT
-	case WDEV_TYPE_STA:
-		RRM_InsertSTARRMEnCapIE(pAd, pFrameBuf, pFrameLen, BssIdx);
-		break;
-#endif /* CONFIG_STA_SUPPORT */
-	default:
-#ifdef CONFIG_AP_SUPPORT
-		RRM_InsertAPRRMEnCapIE(pAd, pFrameBuf, pFrameLen, BssIdx);
-#endif /* CONFIG_AP_SUPPORT */
-		break;
-	}
 	return;
 }
 
@@ -271,10 +149,10 @@ VOID RRM_InsertNeighborRepIE(
 	UINT8 IEId = IE_RRM_NEIGHBOR_REP;
 
 	MakeOutgoingFrame(pFrameBuf,						&TempLen,
-					  1,								&IEId,
-					  1,								&Len,
-					  sizeof(RRM_NEIGHBOR_REP_INFO),	pNeighborRepInfo,
-					  END_OF_ARGS);
+						1,								&IEId,
+						1,								&Len,
+						sizeof(RRM_NEIGHBOR_REP_INFO),	pNeighborRepInfo,
+						END_OF_ARGS);
 	*pFrameLen = *pFrameLen + TempLen;
 	return;
 }
@@ -291,16 +169,129 @@ VOID RRM_InsertNeighborTSFOffsetSubIE(
 	UINT8 SubId = RRM_NEIGHBOR_REP_TSF_INFO_SUB_ID;
 
 	MakeOutgoingFrame(pFrameBuf,		&TempLen,
-					  1,				&SubId,
-					  1,				&Len,
-					  2,				&TSFOffset,
-					  2,				&BcnInterval,
-					  END_OF_ARGS);
+						1,				&SubId,
+						1,				&Len,
+						2,				&TSFOffset,
+						2,				&BcnInterval,
+						END_OF_ARGS);
 	*pFrameLen = *pFrameLen + TempLen;
 }
 
+#ifdef FTM_SUPPORT
+VOID RRM_InsertNeighborMsmtRptLocationLCISubIE(
+	IN PRTMP_ADAPTER pAd,
+	OUT PUCHAR pFrameBuf,
+	OUT PULONG pFrameLen,
+	IN	PRRM_CONFIG pRrmCfg,
+	IN PMSMT_RPT_SUBELEMENT pLciHdr,
+	IN PUSAGE_SUBELEMENT pLciUsage,
+	IN PZ_ELEMENT pLciZ,
+	IN PLCI_FIELD pLci,
+	IN BOOLEAN bSetZRpt
+)
+{
+	MEASUREMENT_REPORT LciRpt;
+	ULONG				FrameLen = 0;
+	ULONG				TmpLen = 0;
+	PMEASURE_REPORT_MODE pRptMode = NULL;
 
-#ifdef QUIET_SUPPORT
+	NdisZeroMemory(&LciRpt, sizeof(MEASUREMENT_REPORT));
+	LciRpt.ID = IE_MEASUREMENT_REPORT;
+	LciRpt.Length = sizeof(MEASUREMENT_REPORT) - 2;
+	LciRpt.Token = pRrmCfg->PeerMeasurementToken;
+	pRptMode = (PMEASURE_REPORT_MODE)&LciRpt.ReportMode;
+	pRptMode->field.Late = 0;
+	pRptMode->field.Incapable = 0;
+	pRptMode->field.Refused = 0;
+	LciRpt.Type = MSMT_LCI_RPT;
+	/* 0. LCI */
+	LciRpt.Length += (sizeof(MSMT_RPT_SUBELEMENT) + pLciHdr->Length);
+
+	/* 4. Z element */
+	if (bSetZRpt) {
+		LciRpt.Length += (pLciZ->Length + 2);
+		pLciZ->Floor.field.ExpectedToMove = 0;
+	}
+
+	/* 6. Usage Rules/Policy */
+	pLciUsage->SubElement = LCI_RPTID_USAGE_RULES;
+	pLciUsage->RulesAndPolicy.field.RetransAllowed = 1;
+	pLciUsage->RulesAndPolicy.field.RetExpiresPresent = 0;
+	pLciUsage->RulesAndPolicy.field.LocationPolicy = 0;
+	pLciUsage->Length = pLciUsage->RulesAndPolicy.field.RetExpiresPresent ? \
+						(sizeof(USAGE_SUBELEMENT) - 2) :
+						(sizeof(USAGE_SUBELEMENT) - 2 \
+						 - sizeof(pLciUsage->RetExpires));
+	LciRpt.Length += (pLciUsage->Length + 2);
+	MakeOutgoingFrame(pFrameBuf, &FrameLen,
+					  sizeof(MEASUREMENT_REPORT), &LciRpt,
+					  sizeof(MSMT_RPT_SUBELEMENT), pLciHdr,
+					  pLciHdr->Length, pLci,
+					  END_OF_ARGS);
+
+	if (bSetZRpt) {
+		MakeOutgoingFrame(pFrameBuf + FrameLen, &TmpLen,
+						  sizeof(Z_ELEMENT), pLciZ,
+						  END_OF_ARGS);
+		FrameLen += TmpLen;
+	}
+
+	MakeOutgoingFrame(pFrameBuf + FrameLen, &TmpLen,
+					  (pLciUsage->Length + 2), pLciUsage,
+					  END_OF_ARGS);
+	FrameLen += TmpLen;
+	*pFrameLen = *pFrameLen + FrameLen;
+	return;
+}
+VOID RRM_InsertNeighborMsmtRptLocationCIVICSubIE(
+	IN PRTMP_ADAPTER pAd,
+	OUT PUCHAR pFrameBuf,
+	OUT PULONG pFrameLen,
+	IN	PRRM_CONFIG pRrmCfg,
+	IN  PMSMT_RPT_SUBELEMENT pCivicHdr,
+	IN  PLOCATION_CIVIC pCivic,
+	IN	UINT8 *pCA_Value
+)
+{
+	MEASUREMENT_REPORT	CivicRpt;
+	UINT8				CivicLocationType;
+	ULONG				FrameLen = 0;
+	ULONG				TmpLen = 0;
+	PMEASURE_REPORT_MODE pRptMode = NULL;
+
+	NdisZeroMemory(&CivicRpt, sizeof(MEASUREMENT_REPORT));
+	CivicRpt.ID = IE_MEASUREMENT_REPORT;
+	CivicRpt.Length = sizeof(MEASUREMENT_REPORT) - 2;
+	CivicRpt.Token = pRrmCfg->PeerMeasurementToken;
+	pRptMode = (PMEASURE_REPORT_MODE)&CivicRpt.ReportMode;
+	pRptMode->field.Late = 0;
+	pRptMode->field.Incapable = 0;
+	pRptMode->field.Refused = 0;
+	CivicRpt.Type = MSMT_LOCATION_CIVIC_RPT;
+	/* Location Civic Report */
+	CivicLocationType = CIVIC_TYPE_IETF_RFC4776_2006;
+	CivicRpt.Length += sizeof(CivicLocationType);
+	CivicRpt.Length += (sizeof(MSMT_RPT_SUBELEMENT) + pCivicHdr->Length);
+	MakeOutgoingFrame(pFrameBuf, &FrameLen,
+					  sizeof(MEASUREMENT_REPORT), &CivicRpt,
+					  sizeof(CivicLocationType), &CivicLocationType,
+					  sizeof(MSMT_RPT_SUBELEMENT), pCivicHdr,
+					  END_OF_ARGS);
+
+	if (pCivicHdr->Length) {
+		MakeOutgoingFrame(pFrameBuf + FrameLen, &TmpLen,
+						  sizeof(LOCATION_CIVIC), pCivic,
+						  pCivic->CA_Length, pCA_Value,
+						  END_OF_ARGS);
+		FrameLen += TmpLen;
+	}
+
+	*pFrameLen = *pFrameLen + FrameLen;
+	return;
+}
+
+#endif/* FTM_SUPPORT */
+
 VOID RRM_InsertQuietIE(
 	IN PRTMP_ADAPTER pAd,
 	OUT PUCHAR pFrameBuf,
@@ -321,14 +312,13 @@ VOID RRM_InsertQuietIE(
 	QuietInfo.QuietOffset = cpu2le16(QuietOffset);
 	Len = 6;
 	MakeOutgoingFrame(pFrameBuf,		&TempLen,
-					  1,				&IEId,
-					  1,				&Len,
-					  Len,			&QuietInfo,
-					  END_OF_ARGS);
+						1,				&IEId,
+						1,				&Len,
+						Len,			&QuietInfo,
+						END_OF_ARGS);
 	*pFrameLen = *pFrameLen + TempLen;
 	return;
 }
-#endif
 
 VOID RRM_InsertBssACDelayIE(
 	IN PRTMP_ADAPTER pAd,
@@ -346,10 +336,10 @@ VOID RRM_InsertBssACDelayIE(
 	AcDelayInfo.VI_ACDelay = 255;
 	AcDelayInfo.VO_ACDelay = 255;
 	MakeOutgoingFrame(pFrameBuf,		&TempLen,
-					  1,				&IEId,
-					  1,				&Len,
-					  Len,			&AcDelayInfo,
-					  END_OF_ARGS);
+						1,				&IEId,
+						1,				&Len,
+						Len,			&AcDelayInfo,
+						END_OF_ARGS);
 	*pFrameLen = *pFrameLen + TempLen;
 	return;
 }
@@ -378,14 +368,14 @@ VOID RRM_InsertBssAvailableACIE(
 	}
 
 #ifdef RT_BIG_ENDIAN
-	pAcBitMap->word = cpu2le16(pAcBitMap->word);
+		pAcBitMap->word = cpu2le16(pAcBitMap->word);
 #endif
 
 	MakeOutgoingFrame(pFrameBuf,							&TempLen,
-					  1,									&IEId,
-					  1,									&Len,
-					  sizeof(RRM_BSS_AVAILABLE_AC_INFO),	&AvailableAcInfo,
-					  END_OF_ARGS);
+						1,									&IEId,
+						1,									&Len,
+						sizeof(RRM_BSS_AVAILABLE_AC_INFO),	&AvailableAcInfo,
+						END_OF_ARGS);
 	*pFrameLen += TempLen;
 	pFrameBuf += TempLen;
 	return;
@@ -395,8 +385,8 @@ VOID RRM_InsertRequestIE(
 	IN PRTMP_ADAPTER pAd,
 	OUT PUCHAR pFrameBuf,
 	OUT PULONG pFrameLen,
-	IN UINT8 ie_num,
-	IN PUINT8 ie_list)
+	IN  UINT8 ie_num,
+	IN  PUINT8 ie_list)
 {
 	ULONG TempLen;
 	UINT8 IEId = IE_802_11D_REQUEST;
@@ -404,10 +394,10 @@ VOID RRM_InsertRequestIE(
 
 	Len = ie_num;
 	MakeOutgoingFrame(pFrameBuf,		&TempLen,
-					  1,				&IEId,
-					  1,				&Len,
+						1,				&IEId,
+						1,				&Len,
 						Len,			ie_list,
-					  END_OF_ARGS);
+						END_OF_ARGS);
 	*pFrameLen = *pFrameLen + TempLen;
 	return;
 }
@@ -455,16 +445,16 @@ VOID RRM_InsertTxStreamReqTriggerReportSubIE(
 	UINT8 SubId = RRM_TX_STREAM_SUBID_TRIGGER_REPORT;
 
 	MakeOutgoingFrame(pFrameBuf,		&TempLen,
-					  1,				&SubId,
-					  1,				&Len,
-					  Len,			pBuf,
-					  END_OF_ARGS);
+						1,				&SubId,
+						1,				&Len,
+						Len,			pBuf,
+						END_OF_ARGS);
 	*pFrameLen = *pFrameLen + TempLen;
 }
 
 VOID RRM_EnqueueBcnReq(
 	IN PRTMP_ADAPTER pAd,
-	IN UINT16 wcid,
+	IN UINT8 Aid,
 	IN UINT8 IfIdx,
 	IN PRRM_MLME_BCN_REQ_INFO pMlmeBcnReq)
 {
@@ -478,18 +468,17 @@ VOID RRM_EnqueueBcnReq(
 	PUCHAR pOutBuffer = NULL;
 	NDIS_STATUS NStatus;
 	ULONG FrameLen;
-	PMEASURE_REQ_ENTRY pMeasureReqEntry = NULL;
 
 	NStatus = MlmeAllocateMemory(pAd, (PVOID)&pOutBuffer);  /*Get an unused nonpaged memory */
 
 	if (NStatus != NDIS_STATUS_SUCCESS) {
-		MTWF_DBG(pAd, DBG_CAT_PROTO, CATPROTO_RRM, DBG_LVL_INFO, "%s() allocate memory failed\n", __func__);
+		MTWF_LOG(DBG_CAT_PROTO, CATPROTO_RRM, DBG_LVL_TRACE, ("%s() allocate memory failed\n", __func__));
 		return;
 	}
 
 	/* build action frame header. */
-	if (wcid) {
-	MgtMacHeaderInit(pAd, &ActHdr, SUBTYPE_ACTION, 0, pAd->MacTab.Content[wcid].Addr,
+	if (Aid) {
+	MgtMacHeaderInit(pAd, &ActHdr, SUBTYPE_ACTION, 0, pAd->MacTab.Content[Aid].Addr,
 					 pAd->ApCfg.MBSSID[IfIdx].wdev.if_addr,
 					 pAd->ApCfg.MBSSID[IfIdx].wdev.bssid);
 	} else {
@@ -517,27 +506,28 @@ VOID RRM_EnqueueBcnReq(
 	BcnReq.RegulatoryClass = pMlmeBcnReq->RegulatoryClass;
 	BcnReq.ChNumber = pMlmeBcnReq->MeasureCh;
 	BcnReq.RandomInterval = cpu2le16(pMlmeBcnReq->RandInt);
-
 	BcnReq.MeasureDuration = cpu2le16(pMlmeBcnReq->MeasureDuration);
 	BcnReq.MeasureMode = pMlmeBcnReq->MeasureMode;
 	COPY_MAC_ADDR(BcnReq.Bssid, pMlmeBcnReq->Bssid);
 	RRM_InsertBcnReqIE(pAd, (pOutBuffer + FrameLen),
 					   &FrameLen, (PUCHAR)&BcnReq);
 	TotalLen += sizeof(RRM_BEACON_REQ_INFO);
-	/* insert SSID sub field. */
-	if (pMlmeBcnReq->SsidLen != 0) {
+	/* inssert SSID sub field. */
+	/* Fix Voice Enterprise : Item V-E-4.3, case2 still need to include the SSID sub filed even SsidLen is 0 */
+	/* if (pMlmeBcnReq->SsidLen != 0) */
+	{
 		RRM_InsertBcnReqSsidSubIE(pAd, (pOutBuffer + FrameLen),
 								  &FrameLen, (PUCHAR)pMlmeBcnReq->pSsid, pMlmeBcnReq->SsidLen);
 		TotalLen += (pMlmeBcnReq->SsidLen + 2); /* SSID sub field. */
 	}
 
-	/* insert report condition sub field. */
+	/* inssert report condition sub field. */
 	if (pMlmeBcnReq->BcnReqCapFlag.field.ReportCondition == TRUE) {
 		RRM_InsertBcnReqRepCndSubIE(pAd, (pOutBuffer + FrameLen), &FrameLen, 0, 0);
 		TotalLen += (2 + 2); /* SSID sub field. */
 	}
 
-	/* insert channel report sub field. */
+	/* inssert channel report sub field. */
 	if (pMlmeBcnReq->BcnReqCapFlag.field.ChannelRep == TRUE) {
 		ULONG idx;
 
@@ -550,13 +540,13 @@ VOID RRM_EnqueueBcnReq(
 							   (RTMP_STRING *)pAd->CommonCfg.CountryCode,
 							   pMlmeBcnReq->ChRepRegulatoryClass[idx],
 							   &pMlmeBcnReq->ChRepList[0],
-							   pAd->ApCfg.MBSSID[IfIdx].wdev.PhyMode, IfIdx);
+							   pAd->ApCfg.MBSSID[IfIdx].wdev.PhyMode);
 			TotalLen += (FrameLen - FramelenTmp);
 			idx++;
 		}
 	}
 
-	/* insert report detail sub field. */
+	/* inssert report detail sub field. */
 	ReportDetail = pMlmeBcnReq->report_detail;
 	if (BcnReq.MeasureMode == RRM_BCN_REQ_MODE_BCNTAB)
 		ReportDetail = 0; /*force report detail to 0 when it is table mode*/
@@ -569,22 +559,17 @@ VOID RRM_EnqueueBcnReq(
 	if (ReportDetail == 1) {
 		/*if report detail is 1, insert request ie list*/
 		ULONG FramelenTmp = FrameLen;
-		RRM_InsertRequestIE (pAd,
-							(pOutBuffer + FrameLen),
-							&FrameLen,
-							pMlmeBcnReq->request_ie_num,
-							pMlmeBcnReq->request_ie);
+		RRM_InsertRequestIE(pAd, (pOutBuffer + FrameLen), &FrameLen, pMlmeBcnReq->request_ie_num, pMlmeBcnReq->request_ie);
 		TotalLen += (FrameLen - FramelenTmp);
 	}
 
-	if (pMlmeBcnReq->LastBcnRptInd) {
+	{
 		/* Adjust TotalLen of the Measurement Req while inserting
 		 * Bcn Report Indication*/
 		ULONG FramelenTmp = FrameLen;
 		InsertBcnReportIndicationReqIE(pAd, (pOutBuffer + FrameLen), &FrameLen, 1);
 		TotalLen += (FrameLen - FramelenTmp);
 	}
-
 	/* Insert Action header here. */
 	{
 		ULONG tmpLen = sizeof(HEADER_802_11);
@@ -600,26 +585,14 @@ VOID RRM_EnqueueBcnReq(
 								TotalLen, CATEGORY_RM, RRM_MEASURE_REQ, MeasureReqToken,
 								MeasureReqMode.word, MeasureReqType, 0);
 	}
-	pMeasureReqEntry = MeasureReqInsert(pAd, MeasureReqToken, BCN_MEASURE_REQ);
+	MeasureReqInsert(pAd, MeasureReqToken);
 	MiniportMMRequest(pAd, (MGMT_USE_QUEUE_FLAG | QID_AC_BE), pOutBuffer, FrameLen);
-	if (!pMeasureReqEntry) {
-		MlmeFreeMemory(pOutBuffer);
-		return;
-	}
-	pMeasureReqEntry->BcnCurrentState = WAIT_BCN_REP;
-	pMeasureReqEntry->skip_time_check = TRUE;
-	pMeasureReqEntry->Priv = pAd;
-	pMeasureReqEntry->ControlIndex = IfIdx;
-	//COPY_MAC_ADDR(pMeasureReqEntry->StaMac, pBcnReq->peer_address);
-	RTMPInitTimer(pAd, &pMeasureReqEntry->WaitBCNRepTimer,
-		GET_TIMER_FUNCTION(WaitPeerBCNRepTimeout), pMeasureReqEntry, FALSE);
-	RTMPSetTimer(&pMeasureReqEntry->WaitBCNRepTimer, 2000);
+
 	if (pOutBuffer)
 		MlmeFreeMemory(pOutBuffer);
 
 	return;
 }
-
 
 void RRM_measurement_report_to_host(RTMP_ADAPTER *pAd, MLME_QUEUE_ELEM *Elem);
 
@@ -628,6 +601,7 @@ int RRM_EnqueueBcnReqAction(
 	IN UINT8 IfIdx,
 	IN p_bcn_req_data_t p_bcn_req_data)
 {
+
 	HEADER_802_11 ActHdr;
 	PUCHAR pOutBuffer = NULL;
 	NDIS_STATUS NStatus;
@@ -637,12 +611,10 @@ int RRM_EnqueueBcnReqAction(
 	UINT8 mode;
 
 	mode = p_bcn_req_data->bcn_req[RRM_BCNREQ_MODE_OFFSET];
-
 	if (mode > 0x2) {
-		MTWF_DBG(pAd, DBG_CAT_PROTO, CATPROTO_RRM, DBG_LVL_ERROR, "Incorrect mode\n");
+		MTWF_LOG(DBG_CAT_PROTO, CATPROTO_RRM, DBG_LVL_OFF, ("Incorrect mode\n"));
 		return NDIS_STATUS_FAILURE;
 	}
-
 	while (count < MAC_ADDR_LEN) {
 		if (p_bcn_req_data->peer_address[count++] != 0xff) {
 			unicast_peer = 1;
@@ -652,39 +624,42 @@ int RRM_EnqueueBcnReqAction(
 
 	if (unicast_peer) {
 		pEntry = MacTableLookup(pAd, p_bcn_req_data->peer_address);
-
 		if (!pEntry || (pEntry->Sst != SST_ASSOC)) {
-			MTWF_DBG(pAd, DBG_CAT_PROTO, CATPROTO_RRM, DBG_LVL_ERROR, "Peer Not connected\n");
+			MTWF_LOG(DBG_CAT_PROTO, CATPROTO_RRM, DBG_LVL_OFF, ("Peer Not connected\n"));
 			return NDIS_STATUS_FAILURE;
 		}
 
 		if ((pEntry->func_tb_idx == IfIdx)
 			&& IS_RRM_ENABLE(pEntry->wdev)
 			&& ((pEntry->RrmEnCap.word >> 0x4) & (1 << mode))) {
+
 		} else {
-			MTWF_DBG(pAd, DBG_CAT_PROTO, CATPROTO_RRM, DBG_LVL_ERROR, "Peer does not support this request\n");
+			MTWF_LOG(DBG_CAT_PROTO, CATPROTO_RRM, DBG_LVL_OFF, ("Peer does not support this request\n"));
 			return NDIS_STATUS_FAILURE;
 		}
+
 	}
 
 	NStatus = MlmeAllocateMemory(pAd, (PVOID)&pOutBuffer);  /*Get an unused nonpaged memory */
-
 	if (NStatus != NDIS_STATUS_SUCCESS) {
-		MTWF_DBG(pAd, DBG_CAT_PROTO, CATPROTO_RRM, DBG_LVL_INFO, "%s() allocate memory failed\n", __func__);
+		MTWF_LOG(DBG_CAT_PROTO, CATPROTO_RRM, DBG_LVL_TRACE, ("%s() allocate memory failed\n", __func__));
 		return NDIS_STATUS_FAILURE;
 	}
 
 	/* build action frame header. */
 	MgtMacHeaderInit(pAd, &ActHdr, SUBTYPE_ACTION, 0, p_bcn_req_data->peer_address,
-					 pAd->ApCfg.MBSSID[IfIdx].wdev.if_addr,
-					 pAd->ApCfg.MBSSID[IfIdx].wdev.bssid);
+		pAd->ApCfg.MBSSID[IfIdx].wdev.if_addr,
+		pAd->ApCfg.MBSSID[IfIdx].wdev.bssid);
+
 	NdisMoveMemory(pOutBuffer, (PCHAR)&ActHdr, sizeof(HEADER_802_11));
 	FrameLen = sizeof(HEADER_802_11);
+
 	InsertActField(pAd, (pOutBuffer + FrameLen), &FrameLen, MT2_PEER_RM_CATE, RRM_MEASURE_REQ);
+
 	/* fill Dialog Token*/
 	InsertDialogToken(pAd, (pOutBuffer + FrameLen), &FrameLen, p_bcn_req_data->dialog_token);
 	RTMP_INSERT_IE(pOutBuffer + FrameLen, &FrameLen, p_bcn_req_data->bcn_req_len, p_bcn_req_data->bcn_req);
-	NStatus = MiniportMMRequest(pAd, MGMT_USE_QUEUE_FLAG | QID_AC_BE, pOutBuffer, FrameLen);
+	NStatus = MiniportMMRequest(pAd, MGMT_USE_PS_FLAG | QID_AC_BE, pOutBuffer, FrameLen);
 
 	if (pOutBuffer)
 		MlmeFreeMemory(pOutBuffer);
@@ -692,6 +667,7 @@ int RRM_EnqueueBcnReqAction(
 	return NStatus;
 }
 
+#ifdef CONFIG_11KV_API_SUPPORT
 INT rrm_send_beacon_req_param(
 	IN PRTMP_ADAPTER pAd,
 	IN p_bcn_req_info pBcnReq,
@@ -706,21 +682,23 @@ INT rrm_send_beacon_req_param(
 	PUCHAR pBuf = NULL;
 	UINT8 IfIdx = pObj->ioctl_if;
 	UINT8 MeasureReqToken = 0;
-	static UINT8 k = 1;
+	static UINT8 k;
 
-	MTWF_DBG(pAd, DBG_CAT_PROTO, CATPROTO_RRM, DBG_LVL_INFO, "%s\n", __func__);
+	MTWF_LOG(DBG_CAT_PROTO, CATPROTO_RRM, DBG_LVL_TRACE,
+		("%s\n", __func__));
 
 	/* check the AP supports 11k or not */
 	pMbss = &pAd->ApCfg.MBSSID[IfIdx];
 	if (pMbss->wdev.RrmCfg.bDot11kRRMEnable == FALSE) {
-		MTWF_DBG(pAd, DBG_CAT_PROTO, CATPROTO_RRM, DBG_LVL_ERROR,
-			"rrm off\n");
+		MTWF_LOG(DBG_CAT_PROTO, CATPROTO_RRM, DBG_LVL_ERROR,
+			("%s() rrm off\n", __func__));
 		return NDIS_STATUS_FAILURE;
 	}
 
 	if (BcnReqLen != sizeof(*pBcnReq)) {
-		MTWF_DBG(pAd, DBG_CAT_PROTO, CATPROTO_RRM, DBG_LVL_ERROR,
-			"bcn req len check failed\n");
+		MTWF_LOG(DBG_CAT_PROTO, CATPROTO_RRM, DBG_LVL_ERROR,
+			("%s, bcn req len check failed len1=%d, len2=%ld\n",
+			__func__, BcnReqLen, sizeof(*pBcnReq)));
 		return NDIS_STATUS_FAILURE;
 	}
 
@@ -728,8 +706,8 @@ INT rrm_send_beacon_req_param(
 	Len = sizeof(*Event) + BcnReqLen;
 	os_alloc_mem(NULL, (UCHAR **)&pBuf, Len);
 	if (!pBuf) {
-		MTWF_DBG(pAd, DBG_CAT_PROTO, CATPROTO_RRM, DBG_LVL_ERROR,
-			"allocate event memory failed \n");
+		MTWF_LOG(DBG_CAT_PROTO, CATPROTO_RRM, DBG_LVL_ERROR,
+			("%s, allocate event memory failed\n", __func__));
 		return NDIS_STATUS_RESOURCES;
 	}
 	NdisZeroMemory(pBuf, Len);
@@ -739,15 +717,15 @@ INT rrm_send_beacon_req_param(
 	if (k == 0)
 		k = 1;
 	MeasureReqToken = k;
-	pEntry = MeasureReqInsert(pAd, MeasureReqToken, BCN_MEASURE_REQ);
+	pEntry = MeasureReqInsert(pAd, MeasureReqToken);
 	if (!pEntry) {
-		MTWF_DBG(pAd, DBG_CAT_PROTO, CATPROTO_RRM, DBG_LVL_ERROR,
-			"Fail to Insert MesureReq Token(%d)!\n", MeasureReqToken);
-		os_free_mem(pBuf);
+		MTWF_LOG(DBG_CAT_PROTO, CATPROTO_RRM, DBG_LVL_ERROR,
+			("%s, Fail to Insert MesureReq Token(%d)!\n",
+			__func__, MeasureReqToken));
 		return NDIS_STATUS_FAILURE;
 	}
 	pEntry->skip_time_check = TRUE;
-	pEntry->BcnCurrentState = WAIT_BCN_REQ;
+	pEntry->CurrentState = WAIT_BCN_REQ;
 	pEntry->Priv = pAd;
 	pEntry->ControlIndex = IfIdx;
 	COPY_MAC_ADDR(pEntry->StaMac, pBcnReq->peer_address);
@@ -755,56 +733,21 @@ INT rrm_send_beacon_req_param(
 	Event = (PBCN_EVENT_DATA)pBuf;
 	Event->ControlIndex = IfIdx;
 	Event->MeasureReqToken = MeasureReqToken;
-	Event->measuretype = BCN_MEASURE_REQ;
 	RTMPMoveMemory(Event->stamac, pBcnReq->peer_address, MAC_ADDR_LEN);
 	Event->DataLen = BcnReqLen;
 	NdisMoveMemory(Event->Data, pBcnReq, BcnReqLen);
 
 	if (MlmeEnqueue(pAd, BCN_STATE_MACHINE, BCN_REQ, Len, pBuf, 0) == FALSE) {
 		NStatus = NDIS_STATUS_FAILURE;
-		MeasureReqDelete(pAd, MeasureReqToken, BCN_MEASURE_REQ);
+		MeasureReqDelete(pAd, MeasureReqToken);
 	}
 
 	/*free memory*/
 	os_free_mem(pBuf);
 	return NStatus;
 }
+#endif /* CONFIG_11KV_API_SUPPORT */
 
-
-#ifdef CONFIG_STA_SUPPORT
-VOID RRM_EnqueueNeighborReq(
-	IN PRTMP_ADAPTER pAd,
-	IN PUINT8 pDA,
-	IN PUINT8 pSsid,
-	IN UINT8 SsidLen)
-{
-	HEADER_802_11 ActHdr;
-	PUCHAR pOutBuffer = NULL;
-	NDIS_STATUS NStatus;
-	ULONG FrameLen;
-	UINT8 DialogToken = RandomByte(pAd);
-
-	NStatus = MlmeAllocateMemory(pAd, (PVOID)&pOutBuffer);  /*Get an unused nonpaged memory */
-
-	if (NStatus != NDIS_STATUS_SUCCESS) {
-		MTWF_DBG(pAd, DBG_CAT_PROTO, CATPROTO_RRM, DBG_LVL_INFO, "%s() allocate memory failed\n", __func__);
-		return;
-	}
-
-	/* build action frame header. */
-	MgtMacHeaderInit(pAd, &ActHdr, SUBTYPE_ACTION, 0, pDA, pAd->StaCfg[0].wdev.if_addr, pAd->StaCfg[0].MlmeAux.Bssid);
-	NdisMoveMemory(pOutBuffer, (PCHAR)&ActHdr, sizeof(HEADER_802_11));
-	FrameLen = sizeof(HEADER_802_11);
-	/* fill Dialog Token */
-	InsertDialogToken(pAd, (pOutBuffer + FrameLen), &FrameLen, DialogToken);
-	MiniportMMRequest(pAd, (MGMT_USE_QUEUE_FLAG | QID_AC_BE), pOutBuffer, FrameLen);
-
-	if (pOutBuffer)
-		MlmeFreeMemory(pOutBuffer);
-
-	return;
-}
-#endif /* CONFIG_STA_SUPPORT */
 
 /*
 	reference 2012 spec.
@@ -817,7 +760,7 @@ VOID RRM_EnqueueNeighborReq(
 BOOLEAN RRM_CheckBssAndStaSecurityMatch(
 	IN PRTMP_ADAPTER pAd,
 	IN PMAC_TABLE_ENTRY pEntry,
-	IN BSS_ENTRY *pBssEntry
+	IN BSS_ENTRY * pBssEntry
 )
 {
 	BOOLEAN ret = FALSE;
@@ -828,14 +771,14 @@ BOOLEAN RRM_CheckBssAndStaSecurityMatch(
 	else
 		ret = FALSE;
 
-	MTWF_DBG(pAd, DBG_CAT_PROTO, CATPROTO_RRM, DBG_LVL_INFO,
-		"%s: pBssEntry %s/%s & pSTA %s/%s = (%d/%d)  ret %d\n", __func__,
+	MTWF_LOG(DBG_CAT_PROTO, CATPROTO_RRM, DBG_LVL_TRACE,
+		("%s: pBssEntry %s/%s & pSTA %s/%s = (%d/%d)  ret %d\n", __func__,
 		GetAuthModeStr(pBssEntry->AKMMap), GetEncryModeStr(pBssEntry->PairwiseCipher),
 		GetAuthModeStr(pEntry->SecConfig.AKMMap), GetEncryModeStr(pEntry->SecConfig.PairwiseCipher),
 		(pBssEntry->AKMMap & pEntry->SecConfig.AKMMap),
 		(pBssEntry->PairwiseCipher & pEntry->SecConfig.PairwiseCipher),
 		ret
-		);
+		));
 
 	return ret;
 }
@@ -848,7 +791,7 @@ VOID RRM_EnqueueNeighborRep(
 	IN UINT8 SsidLen)
 {
 #define MIN(_x, _y) ((_x) > (_y) ? (_x) : (_y))
-	UINT loop;
+	INT loop;
 	HEADER_802_11 ActHdr;
 	PUCHAR pOutBuffer = NULL;
 	NDIS_STATUS NStatus;
@@ -856,25 +799,23 @@ VOID RRM_EnqueueNeighborRep(
 	ULONG PktLen;
 	PRRM_CONFIG pRrmCfg;
 	RRM_NEIGHBOR_REP_INFO NeighborRepInfo;
-	struct wifi_dev *wdev = NULL;
-	BSS_TABLE *ScanTab = NULL;
+#ifdef FTM_SUPPORT
+	UINT		idx = 0;
+	PFTM_CTRL	pFtm = pAd->pFtmCtrl;
+	BSS_STRUCT *pMbss = &pAd->ApCfg.MBSSID[pEntry->func_tb_idx];
+	RRM_BSSID_INFO BssidInfo;
+	UINT8 CondensedPhyType = (pMbss->wdev.channel > 14) ? 9 : 7; /* 7:2g, 9:5g  //v0.3.0a Page 91 table 37 */
+#endif /* FTM_SUPPORT */
 
-	if (pEntry == NULL) {
-		MTWF_DBG(pAd, DBG_CAT_PROTO, CATPROTO_RRM, DBG_LVL_ERROR, "Invalid STA.\n");
-		return;
-	}
-
-	wdev = pEntry->wdev;
-
-	if ((wdev == NULL) || (pEntry->func_tb_idx >= pAd->ApCfg.BssidNum)) {
-		MTWF_DBG(pAd, DBG_CAT_PROTO, CATPROTO_RRM, DBG_LVL_ERROR, "Invalid STA.\n");
+	if ((pEntry == NULL) || (pEntry->func_tb_idx >= pAd->ApCfg.BssidNum)) {
+		MTWF_LOG(DBG_CAT_PROTO, CATPROTO_RRM, DBG_LVL_ERROR, ("%s: Invalid STA.\n", __func__));
 		return;
 	}
 
 	NStatus = MlmeAllocateMemory(pAd, (PVOID)&pOutBuffer);  /*Get an unused nonpaged memory */
 
 	if (NStatus != NDIS_STATUS_SUCCESS) {
-		MTWF_DBG(pAd, DBG_CAT_PROTO, CATPROTO_RRM, DBG_LVL_INFO, "%s() allocate memory failed\n", __func__);
+		MTWF_LOG(DBG_CAT_PROTO, CATPROTO_RRM, DBG_LVL_TRACE, ("%s() allocate memory failed\n", __func__));
 		return;
 	}
 
@@ -889,13 +830,86 @@ VOID RRM_EnqueueNeighborRep(
 	/* fill Dialog Token */
 	InsertDialogToken(pAd, (pOutBuffer + FrameLen), &FrameLen, DialogToken);
 	pRrmCfg = &pAd->ApCfg.MBSSID[pEntry->func_tb_idx].wdev.RrmCfg;
+#ifdef FTM_SUPPORT
+	/* our own info */
+	BssidInfo.word = 0;
+	BssidInfo.field.APReachAble = 3;
+	BssidInfo.field.Security = 1; /* security is match in our own info case */
+	BssidInfo.field.KeyScope = 0; /* "report AP has same authenticator as the AP. */
+	BssidInfo.field.SepctrumMng = (pMbss->CapabilityInfo & (1 << 8)) ? 1 : 0;
+	BssidInfo.field.Qos = (pMbss->CapabilityInfo & (1 << 9)) ? 1 : 0;
+	BssidInfo.field.APSD = (pMbss->CapabilityInfo & (1 << 11)) ? 1 : 0;
+	BssidInfo.field.RRM = (pMbss->CapabilityInfo & RRM_CAP_BIT) ? 1 : 0;
+	BssidInfo.field.DelayBlockAck = (pMbss->CapabilityInfo & (1 << 14)) ? 1 : 0;
+	BssidInfo.field.ImmediateBA = (pMbss->CapabilityInfo & (1 << 15)) ? 1 : 0;
+	BssidInfo.field.FTM = 1;
+	COPY_MAC_ADDR(NeighborRepInfo.Bssid, pMbss->wdev.bssid);
+	NeighborRepInfo.BssidInfo = BssidInfo.word;
+	NeighborRepInfo.RegulatoryClass = get_regulatory_class(pAd, pMbss->wdev.channel, pMbss->wdev.PhyMode, &pMbss->wdev);
+	NeighborRepInfo.ChNum = pMbss->wdev.channel;
+	NeighborRepInfo.PhyType = CondensedPhyType;
+	RRM_InsertNeighborRepIE(pAd, (pOutBuffer + FrameLen), &FrameLen,
+							sizeof(RRM_NEIGHBOR_REP_INFO), &NeighborRepInfo);
+
+	if (pRrmCfg->bPeerReqLCI) {
+		RRM_InsertNeighborMsmtRptLocationLCISubIE(pAd, (pOutBuffer + FrameLen),
+				&FrameLen, pRrmCfg, &pFtm->LciHdr, &pFtm->LciUsage, &pFtm->LciZ,
+				&pFtm->LciField, pFtm->bSetZRpt);
+	}
+
+	if (pRrmCfg->bPeerReqCIVIC) {
+		RRM_InsertNeighborMsmtRptLocationCIVICSubIE(pAd, (pOutBuffer + FrameLen),
+				&FrameLen, pRrmCfg, &pFtm->CivicHdr, &pFtm->Civic, pFtm->CA_Value);
+	}
+
+	/* neighbor info */
+	for (idx = 0; idx < MAX_FTM_TBL_SIZE; idx++) {
+		PFTM_NEIGHBORS pFtmNeighbor = &pAd->pFtmCtrl->FtmNeighbor[idx];
+
+		if (pFtmNeighbor->NeighborValid) {
+			MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_TRACE,
+					 ("%s() pFtmNeighbor Idx %d (%02x:%02x:%02x:%02x:%02x:%02x) is valid\n"
+					  , __func__, idx, PRINT_MAC(pFtmNeighbor->NeighborBSSID)));
+			BssidInfo.word = 0;
+			BssidInfo.field.APReachAble = 3;
+			BssidInfo.field.Security = 0; /* rrm to do. */
+			BssidInfo.field.KeyScope = 0; /* "report AP has same authenticator as the AP. */
+			BssidInfo.field.SepctrumMng = (pMbss->CapabilityInfo & (1 << 8)) ? 1 : 0;
+			BssidInfo.field.Qos = (pMbss->CapabilityInfo & (1 << 9)) ? 1 : 0;
+			BssidInfo.field.APSD = (pMbss->CapabilityInfo & (1 << 11)) ? 1 : 0;
+			BssidInfo.field.RRM = (pMbss->CapabilityInfo & RRM_CAP_BIT) ? 1 : 0;
+			BssidInfo.field.DelayBlockAck = (pMbss->CapabilityInfo & (1 << 14)) ? 1 : 0;
+			BssidInfo.field.ImmediateBA = (pMbss->CapabilityInfo & (1 << 15)) ? 1 : 0;
+			BssidInfo.field.FTM = pFtmNeighbor->NeighborFTMCap;
+			COPY_MAC_ADDR(NeighborRepInfo.Bssid, pFtmNeighbor->NeighborBSSID);
+			NeighborRepInfo.BssidInfo = BssidInfo.word;
+			NeighborRepInfo.RegulatoryClass = pFtmNeighbor->NeighborOpClass;
+			NeighborRepInfo.ChNum = pFtmNeighbor->NeighborChannel;
+			NeighborRepInfo.PhyType = pFtmNeighbor->NeighborPhyType;
+			RRM_InsertNeighborRepIE(pAd, (pOutBuffer + FrameLen), &FrameLen,
+									sizeof(RRM_NEIGHBOR_REP_INFO), &NeighborRepInfo);
+
+			if (pRrmCfg->bPeerReqLCI) {
+				RRM_InsertNeighborMsmtRptLocationLCISubIE(pAd, (pOutBuffer + FrameLen),
+						&FrameLen, pRrmCfg, &pFtmNeighbor->LciHdr, &pFtmNeighbor->LciUsage
+						, &pFtmNeighbor->LciZ, &pFtmNeighbor->LciField, pFtmNeighbor->bSetNeighbotZRpt);
+			}
+
+			if (pRrmCfg->bPeerReqCIVIC) {
+				RRM_InsertNeighborMsmtRptLocationCIVICSubIE(pAd, (pOutBuffer + FrameLen),
+						&FrameLen, pRrmCfg, &pFtmNeighbor->CivicHdr, &pFtmNeighbor->Civic
+						, pFtmNeighbor->CA_Value);
+			}
+		}
+	}
+
+#endif /* FTM_SUPPORT */
 #ifdef AP_SCAN_SUPPORT
-	ScanTab = get_scan_tab_by_wdev(pAd, wdev);
 
 	/* insert NeighborRep IE. */
-	for (loop = 0; loop < ScanTab->BssNr; loop++) {
+	for (loop = 0; loop < pAd->ScanTab.BssNr; loop++) {
 		UINT8 BssMatch = FALSE;
-		BSS_ENTRY *pBssEntry = &ScanTab->BssEntry[loop];
+		BSS_ENTRY *pBssEntry = &pAd->ScanTab.BssEntry[loop];
 		/* Discards all remain Bss if the packet length exceed packet buffer size. */
 		PktLen = FrameLen + sizeof(RRM_NEIGHBOR_REP_INFO)
 				 + (pAd->ApCfg.MBSSID[pEntry->func_tb_idx].wdev.RrmCfg.bDot11kRRMNeighborRepTSFEnable == TRUE ? 6 : 0);
@@ -924,20 +938,17 @@ VOID RRM_EnqueueNeighborRep(
 				The Key Scope bit, when set, indicates the AP indicated by this BSSID has the same authenticator as the AP
 				sending the report. If this bit is 0, it indicates a distinct authenticator or the information is not available.
 			*/
-			BssidInfo.field.SpectrumMng = (pBssEntry->CapabilityInfo & (1 << 8)) ? 1 : 0;
+			BssidInfo.field.SepctrumMng = (pBssEntry->CapabilityInfo & (1 << 8)) ? 1 : 0;
 			BssidInfo.field.Qos = (pBssEntry->CapabilityInfo & (1 << 9)) ? 1 : 0;
 			BssidInfo.field.APSD = (pBssEntry->CapabilityInfo & (1 << 11)) ? 1 : 0;
 			BssidInfo.field.RRM = (pBssEntry->CapabilityInfo & RRM_CAP_BIT) ? 1 : 0;
 			BssidInfo.field.DelayBlockAck = (pBssEntry->CapabilityInfo & (1 << 14)) ? 1 : 0;
 			BssidInfo.field.ImmediateBA = (pBssEntry->CapabilityInfo & (1 << 15)) ? 1 : 0;
 			BssidInfo.field.MobilityDomain = (pBssEntry->bHasMDIE) ? 1 : 0;
-			BssidInfo.field.HT = HAS_HT_CAPS_EXIST(pBssEntry->ie_exists) ? 1 : 0;
+			BssidInfo.field.HT = (pBssEntry->HtCapabilityLen != 0) ? 1 : 0;
 #ifdef DOT11_VHT_AC
-			BssidInfo.field.VHT = HAS_VHT_CAPS_EXIST(pBssEntry->ie_exists) ? 1 : 0;
+			BssidInfo.field.VHT = (pBssEntry->vht_cap_len != 0) ? 1 : 0;
 #endif /* DOT11_VHT_AC */
-#ifdef DOT11_HE_AX
-			BssidInfo.field.HE = HAS_HE_CAPS_EXIST(pBssEntry->ie_exists) ? 1 : 0;
-#endif /*DOT11_HE_AX*/
 
 			/*
 			reference spec:
@@ -956,14 +967,9 @@ VOID RRM_EnqueueNeighborRep(
 			*/
 
 			if (pBssEntry->Channel > 14) { /* 5G case */
-				if (HAS_HT_CAPS_EXIST(pBssEntry->ie_exists)) { /* HT or Higher case */
-#ifdef DOT11_HE_AX
-					if (HAS_HE_CAPS_EXIST(pBssEntry->ie_exists))
-						pBssEntry->CondensedPhyType = 14;
-					else
-#endif /*DOT11_HE_AX*/
+				if (pBssEntry->HtCapabilityLen != 0) { /* HT or Higher case */
 #ifdef DOT11_VHT_AC
-					if (HAS_VHT_CAPS_EXIST(pBssEntry->ie_exists))
+					if (pBssEntry->vht_cap_len != 0)
 						pBssEntry->CondensedPhyType = 9;
 					else
 #endif /* DOT11_VHT_AC */
@@ -971,12 +977,7 @@ VOID RRM_EnqueueNeighborRep(
 				} else /* OFDM case */
 					pBssEntry->CondensedPhyType = 4;
 			} else { /* 2.4G case */
-#ifdef DOT11_HE_AX
-				if (HAS_HE_CAPS_EXIST(pBssEntry->ie_exists))
-					pBssEntry->CondensedPhyType = 14;
-				else
-#endif /*DOT11_HE_AX*/
-				if (HAS_HT_CAPS_EXIST(pBssEntry->ie_exists)) /* HT case */
+				if (pBssEntry->HtCapabilityLen != 0) /* HT case */
 					pBssEntry->CondensedPhyType = 7;
 				else if (ERP_IS_NON_ERP_PRESENT(pBssEntry->Erp)) /* ERP case */
 					pBssEntry->CondensedPhyType = 6;
@@ -1010,13 +1011,13 @@ VOID RRM_EnqueueNeighborRep(
 						  + (UINT32)(pBssEntry->PTSF[1] << 8)
 						  + (UINT32)(pBssEntry->PTSF[0]);
 			RRM_InsertNeighborTSFOffsetSubIE(pAd, (pOutBuffer + FrameLen),
-				&FrameLen, cpu2le16((UINT16)ABS(Ttfs, Ptfs)),
-				cpu2le16(pBssEntry->BeaconPeriod));
+									&FrameLen, cpu2le16((UINT16)ABS(Ttfs, Ptfs)),
+									cpu2le16(pBssEntry->BeaconPeriod));
 		}
 	}
 
 #endif /* AP_SCAN_SUPPORT */
-	MTWF_DBG(pAd, DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_INFO, "send Neighbor RSP\n");
+	MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_ERROR, ("%s() : send Neighbor RSP\n", __func__));
 	MiniportMMRequest(pAd, (MGMT_USE_QUEUE_FLAG | QID_AC_BE), pOutBuffer, FrameLen);
 
 	if (pOutBuffer)
@@ -1027,7 +1028,7 @@ VOID RRM_EnqueueNeighborRep(
 
 VOID RRM_EnqueueLinkMeasureReq(
 	IN PRTMP_ADAPTER pAd,
-	IN UINT16 Aid,
+	IN UINT8 Aid,
 	IN UINT8 apidx)
 {
 	UINT8 DialogToken = RandomByte(pAd);
@@ -1040,15 +1041,15 @@ VOID RRM_EnqueueLinkMeasureReq(
 
 	if ((apidx >= pAd->ApCfg.BssidNum)
 		|| (!(VALID_UCAST_ENTRY_WCID(pAd, Aid)))) {
-		MTWF_DBG(pAd, DBG_CAT_PROTO, CATPROTO_RRM, DBG_LVL_ERROR, "Invalid STA. apidx=%d Aid=%d\n",
-				 apidx, Aid);
+		MTWF_LOG(DBG_CAT_PROTO, CATPROTO_RRM, DBG_LVL_ERROR, ("%s: Invalid STA. apidx=%d Aid=%d\n",
+				 __func__, apidx, Aid));
 		return;
 	}
 
 	NStatus = MlmeAllocateMemory(pAd, (PVOID)&pOutBuffer);  /* Get an unused nonpaged memory */
 
 	if (NStatus != NDIS_STATUS_SUCCESS) {
-		MTWF_DBG(pAd, DBG_CAT_PROTO, CATPROTO_RRM, DBG_LVL_INFO, "%s() allocate memory failed\n", __func__);
+		MTWF_LOG(DBG_CAT_PROTO, CATPROTO_RRM, DBG_LVL_TRACE, ("%s() allocate memory failed\n", __func__));
 		return;
 	}
 
@@ -1085,7 +1086,7 @@ VOID RRM_EnqueueLinkMeasureReq(
 						  END_OF_ARGS);
 		FrameLen += TempLen;
 	}
-	/* MeasureReqInsert(pAd, DialogToken); */
+	MeasureReqInsert(pAd, DialogToken);
 	MiniportMMRequest(pAd, (MGMT_USE_QUEUE_FLAG | QID_AC_BE), pOutBuffer, FrameLen);
 
 	if (pOutBuffer)
@@ -1096,7 +1097,7 @@ VOID RRM_EnqueueLinkMeasureReq(
 
 VOID RRM_EnqueueTxStreamMeasureReq(
 	IN PRTMP_ADAPTER pAd,
-	IN UINT16 Aid,
+	IN UINT8 Aid,
 	IN UINT8 apidx,
 	IN PRRM_MLME_TRANSMIT_REQ_INFO pMlmeTxMeasureReq)
 {
@@ -1114,7 +1115,7 @@ VOID RRM_EnqueueTxStreamMeasureReq(
 	NStatus = MlmeAllocateMemory(pAd, (PVOID)&pOutBuffer);  /*Get an unused nonpaged memory */
 
 	if (NStatus != NDIS_STATUS_SUCCESS) {
-		MTWF_DBG(pAd, DBG_CAT_PROTO, CATPROTO_RRM, DBG_LVL_INFO, "%s() allocate memory failed\n", __func__);
+		MTWF_LOG(DBG_CAT_PROTO, CATPROTO_RRM, DBG_LVL_TRACE, ("%s() allocate memory failed\n", __func__));
 		return;
 	}
 
@@ -1150,7 +1151,7 @@ VOID RRM_EnqueueTxStreamMeasureReq(
 							&FrameLen, (PUCHAR)&TxMeasureReq);
 	TotalLen += sizeof(RRM_TRANSMIT_MEASURE_INFO);
 
-	/* insert Trigger report sub field. */
+	/* inssert Trigger report sub field. */
 	if (pMlmeTxMeasureReq->bTriggerReport == 1) {
 		PRRM_TRANSMIT_MEASURE_TRIGGER_CONDITION pTiggerCon
 			= (PRRM_TRANSMIT_MEASURE_TRIGGER_CONDITION)&TriggerReport.TriggerCondition;
@@ -1187,223 +1188,13 @@ VOID RRM_EnqueueTxStreamMeasureReq(
 								TotalLen, CATEGORY_RM, RRM_MEASURE_REQ, MeasureReqToken,
 								MeasureReqMode.word, MeasureReqType, 0xffff);
 	}
-	/* MeasureReqInsert(pAd, MeasureReqToken); */
+	MeasureReqInsert(pAd, MeasureReqToken);
 	MiniportMMRequest(pAd, (MGMT_USE_QUEUE_FLAG | QID_AC_BE), pOutBuffer, FrameLen);
 
 	if (pOutBuffer)
 		MlmeFreeMemory(pOutBuffer);
 
 	return;
-}
-
-/**
- * rssi_to_rcpi - Convert RSSI to RCPI
- * @rssi: RSSI to convert
- * Returns: RCPI corresponding to the given RSSI value, or 255 if not available.
- *
- * It's possible to estimate RCPI based on RSSI in dBm. This calculation will
- * not reflect the correct value for high rates, but it's good enough for Action
- * frames which are transmitted with up to 24 Mbps rates.
- */
-UINT8 rssi_to_rcpi(CHAR rssi)
-{
-	if (!rssi)
-		return 255; /* not available */
-	if (rssi < -110)
-		return 0;
-	if (rssi > 0)
-		return 220;
-	return (rssi + 110) * 2;
-}
-
-int EnqueueBeaconRepFrame(RTMP_ADAPTER *pAd,
-		UCHAR *pOutBuffer,
-		UINT FrameLen, UINT8 DialogToken,
-		UCHAR *bssid)
-{
-	POS_COOKIE pObj = (POS_COOKIE) pAd->OS_Cookie;
-	PUCHAR pBuf = NULL;
-	PBCN_EVENT_DATA Event;
-	PMEASURE_REQ_ENTRY pEntry = NULL;
-	UINT32 EventLen = 0;
-	NDIS_STATUS NStatus = NDIS_STATUS_SUCCESS;
-	UCHAR ifIndex = pObj->ioctl_if;
-	static UINT8 Token = 0;
-
-	MTWF_DBG(pAd, DBG_CAT_PROTO, CATPROTO_RRM, DBG_LVL_INFO, "%s\n", __func__);
-
-	/*send bcn rep msg into mlme*/
-	EventLen = sizeof(*Event) + FrameLen;
-	os_alloc_mem(NULL, (UCHAR **)&pBuf, EventLen);
-	if (!pBuf) {
-		MTWF_DBG(pAd, DBG_CAT_PROTO, CATPROTO_RRM, DBG_LVL_ERROR,
-				"allocate event memory failed \n");
-		return NDIS_STATUS_RESOURCES;
-	}
-	NdisZeroMemory(pBuf, EventLen);
-
-	/*insert bcn req token into measure table*/
-	if (DialogToken == 0) {
-		MTWF_DBG(pAd, DBG_CAT_PROTO, CATPROTO_RRM, DBG_LVL_ERROR,
-				"invalid MesureReq Token(0)!\n");
-		os_free_mem(pBuf);
-		return NDIS_STATUS_FAILURE;
-	}
-	if (Token != DialogToken) {
-		pEntry = MeasureReqInsert(pAd, DialogToken, BCN_MEASURE_REP);
-		Token = DialogToken;
-		if (!pEntry) {
-			MTWF_DBG(pAd, DBG_CAT_PROTO, CATPROTO_RRM, DBG_LVL_ERROR,
-					"Fail to Insert MesureReq Token(%d)!\n",
-					 DialogToken);
-			os_free_mem(pBuf);
-			return NDIS_STATUS_FAILURE;
-		}
-	}
-
-	if (pEntry) {
-		pEntry->skip_time_check = TRUE;
-		pEntry->BcnCurrentState = WAIT_BCN_REP;
-		pEntry->Priv = pAd;
-		pEntry->ControlIndex = ifIndex;
-	}
-
-	Event = (BCN_EVENT_DATA *)pBuf;
-	Event->ControlIndex = ifIndex;
-	Event->MeasureReqToken = DialogToken;
-	Event->measuretype = BCN_MEASURE_REP;
-	RTMPMoveMemory(Event->stamac, bssid, MAC_ADDR_LEN);
-	Event->DataLen = FrameLen;
-
-	NdisMoveMemory(Event->Data, pOutBuffer, FrameLen);
-	bcn_rep_cnt++;
-	if (!MlmeEnqueue(pAd, BCN_STATE_MACHINE, BCN_REP, EventLen, pBuf, 0)) {
-		NStatus = NDIS_STATUS_FAILURE;
-		MeasureReqDelete(pAd, DialogToken, BCN_MEASURE_REP);
-		bcn_rep_cnt--;
-	}
-
-	/*free memory*/
-	os_free_mem(pBuf);
-	return NStatus;
-}
-
-VOID RRM_EnqueuePeerBeaconRep(
-		IN RTMP_ADAPTER *pAd,
-		IN PUCHAR pDA,
-		IN PUCHAR pSA,
-		IN UINT8 DialogToken,
-		MEASURE_REQ_INFO MeasureReqInfo,
-		IN RRM_BEACON_REQ_INFO BeaconReq,
-		BSS_ENTRY *pBssEntry)
-{
-	PUCHAR pOutBuffer = NULL;
-	NDIS_STATUS NStatus;
-	ULONG FrameLen = 0;
-	HEADER_802_11 ActHdr;
-	RRM_MEASURE_REP_INFO MeasureRepIE;
-	RRM_BEACON_REP_INFO BcnRep;
-	UINT8 TotalLen = 0;
-	UINT32 ptsf = 0;
-
-	MTWF_DBG(pAd, DBG_CAT_PROTO, CATPROTO_RRM, DBG_LVL_INFO, "%s::\n", __func__);
-	/* build action frame header.*/
-	MgtMacHeaderInitExt(pAd, &ActHdr, SUBTYPE_ACTION, 0, pDA,
-			pSA, pDA);
-
-	NStatus = MlmeAllocateMemory(pAd, (PVOID)&pOutBuffer);  /*Get an unused nonpaged memory*/
-
-	if (NStatus != NDIS_STATUS_SUCCESS) {
-		MTWF_DBG(pAd, DBG_CAT_HW, DBG_SUBCAT_ALL, DBG_LVL_ERROR, "allocate memory failed\n");
-		return;
-	}
-
-	NdisMoveMemory(pOutBuffer, (PCHAR)&ActHdr, sizeof(HEADER_802_11));
-	FrameLen = sizeof(HEADER_802_11);
-	/*
-	   Action header has a field to indicate total length of packet
-	   but the total length is unknow until whole packet completd.
-	   So skip the action here and fill it late.
-	   1. skip Catgore (1 octect), Action(1 octect).
-	   2. skip dailog token (1 octect).
-	   3. skip MeasureRepIE (2 + sizeof(RRM_MEASURE_REP_INFO)).
-	 */
-	FrameLen += (5 + sizeof(RRM_MEASURE_REP_INFO));
-	TotalLen = sizeof(RRM_MEASURE_REP_INFO);
-
-	if (pBssEntry != NULL) {
-		if (pBssEntry->Channel > 14) { /* 5G case */
-			if (HAS_HT_CAPS_EXIST(pBssEntry->ie_exists)) { /* HT or Higher case */
-#ifdef DOT11_VHT_AC
-				if (HAS_VHT_CAPS_EXIST(pBssEntry->ie_exists))
-					pBssEntry->CondensedPhyType = 9;
-				else
-#endif /* DOT11_VHT_AC */
-					pBssEntry->CondensedPhyType = 7;
-			} else /* OFDM case */
-				pBssEntry->CondensedPhyType = 4;
-		} else { /* 2.4G case */
-			if (HAS_HT_CAPS_EXIST(pBssEntry->ie_exists)) /* HT case */
-				pBssEntry->CondensedPhyType = 7;
-			else if (ERP_IS_NON_ERP_PRESENT(pBssEntry->Erp)) /* ERP case */
-				pBssEntry->CondensedPhyType = 6;
-			else if (pBssEntry->SupRateLen > 4)/* OFDM case (1,2,5.5,11 for CCK 4 Rates) */
-				pBssEntry->CondensedPhyType = 4;
-
-			/* no CCK's definition in spec. */
-		}
-
-		NdisZeroMemory(&BcnRep, sizeof(RRM_BEACON_REP_INFO));
-		if (!pBssEntry->RegulatoryClass)
-			BcnRep.RegulatoryClass = BeaconReq.RegulatoryClass;
-		else
-			BcnRep.RegulatoryClass = pBssEntry->RegulatoryClass;
-		BcnRep.ChNumber =  pBssEntry->Channel;
-		BcnRep.ActualMeasureStartTime = cpu2le64(0);
-		BcnRep.MeasureDuration = cpu2le16(BeaconReq.MeasureDuration);
-		BcnRep.RepFrameInfo = pBssEntry->CondensedPhyType;
-		BcnRep.RCPI = rssi_to_rcpi(pBssEntry->Rssi);
-		BcnRep.RSNI = pBssEntry->RSNI; /* 255 indicates that RSNI is not available */
-		COPY_MAC_ADDR(BcnRep.Bssid, pBssEntry->Bssid);
-		MTWF_DBG(pAd, DBG_CAT_PROTO, CATPROTO_RRM, DBG_LVL_INFO, "%s::RegulatoryClass=%d,ChNumber=%d,RCPI=%d,Rssi=%d\n",
-			__func__, BcnRep.RegulatoryClass, BcnRep.ChNumber, BcnRep.RCPI, pBssEntry->Rssi);
-
-		BcnRep.AnntaId = 0; /* unknown */
-		ptsf = (UINT32)(pBssEntry->PTSF[3] << 24)
-			+ (UINT32)(pBssEntry->PTSF[2] << 16)
-			+ (UINT32)(pBssEntry->PTSF[1] << 8)
-			+ (UINT32)(pBssEntry->PTSF[0]);
-		BcnRep.ParentTSF = cpu2le32(ptsf);
-		RRM_InsertBcnRepIE(pAd, (pOutBuffer + FrameLen), &FrameLen, (PUCHAR)&BcnRep);
-		TotalLen += sizeof(RRM_BEACON_REP_INFO);
-	}
-
-	/* Insert Action header here. */
-	{
-		ULONG tmpLen = sizeof(HEADER_802_11);
-
-		/* prepare Measurement IE.*/
-		NdisZeroMemory(&MeasureRepIE, sizeof(RRM_MEASURE_REP_INFO));
-		MeasureRepIE.Token = MeasureReqInfo.Token;
-		MeasureRepIE.ReportMode.word = MeasureReqInfo.ReqMode.word;
-		MeasureRepIE.ReportMode.field.Late = 0;
-		MeasureRepIE.ReportMode.field.Incapable = 0;
-		MeasureRepIE.ReportMode.field.Refused = 0;
-		MeasureRepIE.ReportMode.field.Rev = 0;
-		MeasureRepIE.ReportType = MeasureReqInfo.ReqType;
-
-		MakeBeaconRepFrame(pAd, pOutBuffer, &tmpLen, TotalLen, CATEGORY_RM, RRM_MEASURE_REP, &MeasureRepIE, DialogToken);
-
-	}
-	NStatus = EnqueueBeaconRepFrame(pAd, pOutBuffer, FrameLen, DialogToken, pDA);
-	if (NStatus != NDIS_STATUS_SUCCESS)
-		MTWF_DBG(pAd, DBG_CAT_PROTO, CATPROTO_RRM, DBG_LVL_ERROR,
-		"%s:: Beacon Request frame Enqueue failed\n", __func__);
-
-	if (pOutBuffer)
-		MlmeFreeMemory(pOutBuffer);
-	return;
-
 }
 
 #endif /* DOT11K_RRM_SUPPORT */

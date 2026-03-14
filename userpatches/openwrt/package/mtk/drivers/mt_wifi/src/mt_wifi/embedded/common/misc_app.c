@@ -1,17 +1,13 @@
 /*
- * Copyright (c) [2020], MediaTek Inc. All rights reserved.
- *
- * This software/firmware and related documentation ("MediaTek Software") are
- * protected under relevant copyright laws.
- * The information contained herein is confidential and proprietary to
- * MediaTek Inc. and/or its licensors.
- * Except as otherwise provided in the applicable licensing terms with
- * MediaTek Inc. and/or its licensors, any reproduction, modification, use or
- * disclosure of MediaTek Software, and information contained herein, in whole
- * or in part, shall be strictly prohibited.
-*/
-/*
  ***************************************************************************
+ * MediaTek Inc.
+ *
+ * All rights reserved. source code is an unpublished work and the
+ * use of a copyright notice does not imply otherwise. This source code
+ * contains confidential trade secret material of MediaTek. Any attemp
+ * or participation in deciphering, decoding, reverse engineering or in any
+ * way altering the source code is stricitly prohibited, unless the prior
+ * written consent of MediaTek, Inc. is obtained.
  ***************************************************************************
 
 	Module Name:
@@ -63,15 +59,15 @@ static enum wifi_cap_operation_status wifi_chip_cap_list_register(struct _RTMP_A
 	if (chip_cap->phy_caps & fPHY_CAP_TXBF)
 		local_cap |= BIT(WIFI_CAP_BF_SUP_BITS);
 
-	if (chip_cap->phy_caps & fPHY_CAP_DL_MUMIMO)
+	if (chip_cap->phy_caps & fPHY_CAP_MUMIMO)
 		local_cap |= BIT(WIFI_CAP_MU_MIMO_SUP_BITS);
 
 #ifdef CONFIG_AP_SUPPORT
 	local_cap |= (ad->ApCfg.BssidNum << WIFI_CAP_MBSS_NUM_BITS);
 #endif
 
-	local_cap |= (chip_cap->mcs_nss.max_nss[0] << WIFI_CAP_TX_STR_NUM_BITS);
-	local_cap |= (chip_cap->mcs_nss.max_nss[0] << WIFI_CAP_RX_STR_NUM_BITS);
+	local_cap |= (chip_cap->max_nss << WIFI_CAP_TX_STR_NUM_BITS);
+	local_cap |= (chip_cap->max_nss << WIFI_CAP_RX_STR_NUM_BITS);
 
 	os_move_mem(chip_cap_list, &local_cap, sizeof(UINT32));
 
@@ -148,8 +144,8 @@ static void print_wifi_chip_cap(struct _RTMP_ADAPTER *ad)
 	struct wifi_feature_support_list_query *wifi_cap = &ad->wifi_cap_list;
 	UINT32	*chip_cap_list = &wifi_cap->chip_cap_list;
 
-	MTWF_DBG(NULL, DBG_CAT_CFG, DBG_SUBCAT_ALL, DBG_LVL_DEBUG,
-		"%s, chip_cap:0x%08x\n", __func__, *chip_cap_list);
+	MTWF_LOG(DBG_CAT_CFG, DBG_SUBCAT_ALL, DBG_LVL_INFO,
+		("%s, chip_cap:0x%08x\n", __func__, *chip_cap_list));
 }
 
 static void print_wifi_sec_cap(struct _RTMP_ADAPTER *ad)
@@ -157,8 +153,8 @@ static void print_wifi_sec_cap(struct _RTMP_ADAPTER *ad)
 	struct wifi_feature_support_list_query *wifi_cap = &ad->wifi_cap_list;
 	UINT32	*sec_cap_list = &wifi_cap->sec_cap_list;
 
-	MTWF_DBG(NULL, DBG_CAT_CFG, DBG_SUBCAT_ALL, DBG_LVL_DEBUG,
-		"%s, sec_cap:0x%08x\n", __func__, *sec_cap_list);
+	MTWF_LOG(DBG_CAT_CFG, DBG_SUBCAT_ALL, DBG_LVL_INFO,
+		("%s, sec_cap:0x%08x\n", __func__, *sec_cap_list));
 }
 
 static void print_wifi_feature_cap(struct _RTMP_ADAPTER *ad)

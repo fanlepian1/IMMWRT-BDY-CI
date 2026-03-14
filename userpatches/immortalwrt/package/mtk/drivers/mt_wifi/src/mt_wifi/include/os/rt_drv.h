@@ -1,16 +1,16 @@
-/*
- * Copyright (c) [2020], MediaTek Inc. All rights reserved.
- *
- * This software/firmware and related documentation ("MediaTek Software") are
- * protected under relevant copyright laws.
- * The information contained herein is confidential and proprietary to
- * MediaTek Inc. and/or its licensors.
- * Except as otherwise provided in the applicable licensing terms with
- * MediaTek Inc. and/or its licensors, any reproduction, modification, use or
- * disclosure of MediaTek Software, and information contained herein, in whole
- * or in part, shall be strictly prohibited.
-*/
 /****************************************************************************
+ * Ralink Tech Inc.
+ * 4F, No. 2 Technology 5th Rd.
+ * Science-based Industrial Park
+ * Hsin-chu, Taiwan, R.O.C.
+ * (c) Copyright 2002, Ralink Technology, Inc.
+ *
+ * All rights reserved. Ralink's source code is an unpublished work and the
+ * use of a copyright notice does not imply otherwise. This source code
+ * contains confidential trade secret material of Ralink Tech. Any attemp
+ * or participation in deciphering, decoding, reverse engineering or in any
+ * way altering the source code is stricitly prohibited, unless the prior
+ * written consent of Ralink Technology, Inc. is obtained.
  ****************************************************************************
 
     Module Name:
@@ -31,6 +31,7 @@
 /* same as rt_linux.h to warn users the two files can not be used simultaneously */
 #ifndef __RT_LINUX_H__
 #define __RT_LINUX_H__
+
 #include "os/rt_linux_cmm.h"
 #include <linux/string.h>
 #include <linux/ctype.h>
@@ -45,11 +46,6 @@
 #endif /* WSC_AP_SUPPORT */
 #endif /* CONFIG_AP_SUPPORT */
 
-#ifdef CONFIG_STA_SUPPORT
-#ifdef WSC_STA_SUPPORT
-#define STA_WSC_INCLUDED
-#endif /* WSC_STA_SUPPORT */
-#endif /* CONFIG_STA_SUPPORT */
 
 #if defined(WSC_AP_SUPPORT) || defined(WSC_STA_SUPPORT)
 #define WSC_INCLUDED
@@ -62,8 +58,33 @@ typedef VOID	pregs;
 /*typedef struct usb_ctrlrequest devctrlrequest; */
 /*#endif */
 
+/***********************************************************************************
+ *	Profile related sections
+ ***********************************************************************************/
+#ifdef CONFIG_AP_SUPPORT
+#ifdef RTMP_MAC_PCI
+#define AP_PROFILE_PATH			"/etc/Wireless/RT2860AP/RT2860AP.dat"
+#define AP_RTMP_FIRMWARE_FILE_NAME "/etc/Wireless/RT2860AP/RT2860AP.bin"
+#define AP_DRIVER_VERSION			"3.0.0.0"
+#ifdef MULTIPLE_CARD_SUPPORT
+#define CARD_INFO_PATH			"/etc/Wireless/RT2860AP/RT2860APCard.dat"
+#endif /* MULTIPLE_CARD_SUPPORT */
+#endif /* RTMP_MAC_PCI */
+
+
+#ifdef RTMP_RBUS_SUPPORT
+/* This used for rbus-based chip, maybe we can integrate it together. */
+#define RTMP_FIRMWARE_FILE_NAME		"/etc_ro/Wireless/RT2860AP/RT2860AP.bin"
+#define PROFILE_PATH			"/etc/Wireless/RT2860i.dat"
+#define AP_PROFILE_PATH_RBUS		"/etc/Wireless/RT2860/RT2860.dat"
+#define RT2880_AP_DRIVER_VERSION	"1.0.0.0"
+#endif /* RTMP_RBUS_SUPPORT */
+#endif /* CONFIG_AP_SUPPORT */
+
+
+
 #ifdef SINGLE_SKU_V2
-#define SINGLE_SKU_TABLE_FILE_NAME	"/etc/wireless/mediatek/mt7615e-sku.dat"
+#define SINGLE_SKU_TABLE_FILE_NAME	"/etc/Wireless/RT2870STA/SingleSKU.dat"
 #endif /* SINGLE_SKU_V2 */
 
 
@@ -99,14 +120,6 @@ typedef char				*PNDIS_BUFFER;
 
 #define MAC_ADDR_LEN	6
 
-enum {
-	ERROR_NO_RING = 1,
-	ERROR_NO_RING_ALL,
-	ERROR_NO_TOKEN,
-	ERROR_NO_TX_RESOURCE,
-	ERROR_CHECK_NEXT_TX_RESOURCE,
-};
-
 #define NDIS_STATUS_SUCCESS                     0x00
 #define NDIS_STATUS_FAILURE                     0x01
 #define NDIS_STATUS_INVALID_DATA		0x02
@@ -133,13 +146,6 @@ enum {
 /***********************************************************************************
  *	Ralink Specific network related constant definitions
  ***********************************************************************************/
-#ifdef CONFIG_STA_SUPPORT
-#define NDIS_PACKET_TYPE_DIRECTED		0
-#define NDIS_PACKET_TYPE_MULTICAST		1
-#define NDIS_PACKET_TYPE_BROADCAST		2
-#define NDIS_PACKET_TYPE_ALL_MULTICAST	3
-#define NDIS_PACKET_TYPE_PROMISCUOUS	4
-#endif /* CONFIG_STA_SUPPORT */
 
 #ifdef DOT11_VHT_AC
 #define MAX_PACKETS_IN_QUEUE				1024 /*(512)*/
@@ -180,7 +186,7 @@ typedef VOID *			RTMP_OS_FD;
  *	OS semaphore related data structure and definitions
  ***********************************************************************************/
 #define RTCMDUp				RtmpOsCmdUp
-
+#define RTCMDRunning			RtmpOsIsCmdThreadRunning
 
 /***********************************************************************************
  *	OS Memory Access related data structure and definitions
@@ -235,9 +241,6 @@ typedef INT(*RTMP_OS_TASK_CALLBACK)(ULONG);
 #define ENOMEM		(-RTMP_IO_ENOMEM)
 #define EAGAIN		(-RTMP_IO_EAGAIN)
 #define ENOTCONN	(-RTMP_IO_ENOTCONN)
-#ifdef CUSTOMER_VENDOR_IE_SUPPORT
-#define	EBUSY		16
-#endif /* CUSTOMER_VENDOR_IE_SUPPORT */
 
 
 /***********************************************************************************
@@ -282,6 +285,9 @@ struct os_cookie {
 	RTMP_NET_TASK_STRUCT	ac1_dma_done_task;
 	RTMP_NET_TASK_STRUCT	ac2_dma_done_task;
 	RTMP_NET_TASK_STRUCT	ac3_dma_done_task;
+#if defined(MT7622) || defined(P18) || defined(MT7663)
+	RTMP_NET_TASK_STRUCT	ac15_dma_done_task;
+#endif
 	RTMP_NET_TASK_STRUCT	hcca_dma_done_task;
 	RTMP_NET_TASK_STRUCT	wmm1_ac0_dma_done_task;
 	RTMP_NET_TASK_STRUCT	tbtt_task;
@@ -436,6 +442,132 @@ void linux_pci_unmap_single(void *handle, ra_dma_addr_t dma_addr, size_t size, i
 #define writew		RTMP_PCI_Writew
 #define writeb		RTMP_PCI_Writeb
 
+/* TODO: We can merge two readl to a function to speed up or one real/writel */
+
+#ifdef RTMP_MAC_PCI
+#if defined(INF_TWINPASS) || defined(INF_DANUBE) || defined(INF_AR9) || defined(IKANOS_VX_1X0)
+#define RTMP_IO_FORCE_READ32(_A, _R, _pV)									\
+	do {																	\
+		(*_pV = readl((void *)((_A)->PciHif.CSRBaseAddress + (_R))));			\
+		(*_pV = SWAP32(*((UINT32 *)(_pV))));                           \
+	} while (0)
+
+#define RTMP_IO_READ32(_A, _R, _pV)									\
+	do {																	\
+		if ((_A)->bPCIclkOff == FALSE) {                                      \
+			(*_pV = readl((void *)((_A)->PciHif.CSRBaseAddress + (_R))));			\
+			(*_pV = SWAP32(*((UINT32 *)(_pV))));                           \
+		}                                                                   \
+	} while (0)
+
+#define RTMP_IO_READ8(_A, _R, _pV)									\
+	(*_pV = readb((void *)((_A)->PciHif.CSRBaseAddress + (_R))))
+
+#define RTMP_IO_WRITE32(_A, _R, _V) \
+	do { \
+		if ((_A)->bPCIclkOff == FALSE) { \
+			UINT32 _Val = SWAP32(_V);\
+			writel(_Val, (void *)((_A)->PciHif.CSRBaseAddress + (_R)));\
+		} \
+	} while (0)
+
+#ifdef INF_VR9
+#define RTMP_IO_WRITE8(_A, _R, _V)            \
+	{                    \
+		ULONG Val;                \
+		UCHAR _i;                \
+		UINT32 _Val;		\
+		_i = ((_R) & 0x3);             \
+		Val = readl((void *)((_A)->PciHif.CSRBaseAddress + ((_R) - _i)));   \
+		Val = SWAP32(Val);				\
+		Val = Val & (~(0x000000ff << ((_i)*8)));         \
+		Val = Val | ((ULONG)(_V) << ((_i)*8));         \
+		Val = SWAP32(Val);				\
+		writel((Val), (void *)((_A)->PciHif.CSRBaseAddress + ((_R) - _i)));    \
+	}
+#else
+#define RTMP_IO_WRITE8(_A, _R, _V)									\
+	writeb((_V), (PUCHAR)((_A)->PciHif.CSRBaseAddress + (_R)))
+#endif
+
+#define RTMP_IO_WRITE16(_A, _R, _V)									\
+	writew(SWAP16((_V)), (PUSHORT)((_A)->PciHif.CSRBaseAddress + (_R)))
+#else
+#define RTMP_IO_FORCE_READ32(_A, _R, _pV)								\
+	(*_pV = readl((void *)((_A)->PciHif.CSRBaseAddress + (_R))))
+
+#define RTMP_IO_READ32(_A, _R, _pV)								\
+	do {																\
+		if ((_A)->bPCIclkOff == FALSE)                                  \
+			(*_pV = readl((void *)((_A)->PciHif.CSRBaseAddress + (_R))));			\
+		else															\
+			*_pV = 0;													\
+	} while (0)
+
+#define RTMP_IO_FORCE_READ32(_A, _R, _pV)							\
+	(*_pV = readl((void *)((_A)->PciHif.CSRBaseAddress + (_R))))
+
+#define RTMP_IO_READ8(_A, _R, _pV)								\
+	(*_pV = readb((void *)((_A)->PciHif.CSRBaseAddress + (_R))))
+
+#define RTMP_IO_WRITE32(_A, _R, _V)												\
+	{																				\
+		if ((_A)->bPCIclkOff == FALSE)                                  \
+			writel((_V), (void *)((_A)->PciHif.CSRBaseAddress + (_R)));								\
+	}
+
+#define RTMP_IO_FORCE_WRITE32(_A, _R, _V)												\
+	writel(_V, (void *)((_A)->PciHif.CSRBaseAddress + (_R)))
+
+#ifdef RTMP_RBUS_SUPPORT
+/* This is actually system IO */
+#define RTMP_SYS_IO_READ32(_R, _pV)		\
+	(*_pV = readl((void *)(_R)))
+
+#define RTMP_SYS_IO_WRITE32(_R, _V)		\
+	writel(_V, (void *)(_R))
+#endif /* RTMP_RBUS_SUPPORT */
+
+
+#if defined(BRCM_6358) || defined(RALINK_2880) || defined(RALINK_3052) || defined(RALINK_2883) || defined(RTMP_RBUS_SUPPORT) || defined(MT76x2)
+#define RTMP_IO_WRITE8(_A, _R, _V)            \
+	{                    \
+		ULONG Val;                \
+		UCHAR _i;                \
+		_i = ((_R) & 0x3);             \
+		Val = readl((void *)((_A)->PciHif.CSRBaseAddress + ((_R) - _i)));   \
+		Val = Val & (~(0x000000ff << ((_i)*8)));         \
+		Val = Val | ((ULONG)(_V) << ((_i)*8));         \
+		writel((Val), (void *)((_A)->PciHif.CSRBaseAddress + ((_R) - _i)));    \
+	}
+#else
+#define RTMP_IO_WRITE8(_A, _R, _V)							\
+	{															\
+		writeb((_V), (PUCHAR)((_A)->PciHif.CSRBaseAddress + (_R)));		\
+	}
+#endif /* #if defined(BRCM_6358) || defined(RALINK_2880) */
+
+#define RTMP_IO_WRITE16(_A, _R, _V)							\
+	{															\
+		writew((_V), (PUSHORT)((_A)->PciHif.CSRBaseAddress + (_R)));	\
+	}
+#endif /* #if defined(INF_TWINPASS) || defined(INF_DANUBE) || defined(IKANOS_VX_1X0) */
+#endif /* RTMP_MAC_PCI */
+
+
+
+#define MAC_IO_READ32(_A, _R, _pV)			RTMP_IO_READ32(_A, _R, _pV)
+#define MAC_IO_WRITE32(_A, _R, _V)			RTMP_IO_WRITE32(_A, _R, _V)
+
+#define HIF_IO_READ32(_A, _R, _pV)			RTMP_IO_READ32(_A, _R, _pV)
+#define HIF_IO_WRITE32(_A, _R, _V)			RTMP_IO_WRITE32(_A, _R, _V)
+
+#define PHY_IO_READ32(_A, _R, _pV)			RTMP_IO_READ32(_A, _R, _pV)
+#define PHY_IO_WRITE32(_A, _R, _V)			RTMP_IO_WRITE32(_A, _R, _V)
+
+#define HW_IO_READ32(_A, _R, _pV)			RTMP_IO_READ32(_A, _R, _pV)
+#define HW_IO_WRITE32(_A, _R, _V)			RTMP_IO_WRITE32(_A, _R, _V)
+
 
 #define pci_read_config_word	RtmpOsPciConfigReadWord
 #define pci_write_config_word	RtmpOsPciConfigWriteWord
@@ -563,7 +695,7 @@ extern ULONG RtmpOsGetUnalignedlong(
 
 
 #define CB_OFF  10
-#define CB_LEN 37
+#define CB_LEN	36
 
 #define PACKET_CB_ASSIGN(_p, _offset)	\
 	(*((UINT8 *)_p + RTPktOffsetCB + _offset))
@@ -611,9 +743,6 @@ extern int (*ra_classifier_hook_rx) (struct sk_buff *skb, unsigned long cycle);
 #ifdef CONFIG_AP_SUPPORT
 #define EEPROM_BIN_FILE_NAME  "/etc/Wireless/RT2860AP/e2p.bin"
 #endif /* CONFIG_AP_SUPPORT */
-#ifdef CONFIG_STA_SUPPORT
-#define EEPROM_BIN_FILE_NAME  "/etc/Wireless/RT2860STA/e2p.bin"
-#endif /* CONFIG_STA_SUPPORT */
 #endif /* RTMP_MAC_PCI */
 
 

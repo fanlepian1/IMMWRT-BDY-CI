@@ -1,17 +1,18 @@
 /*
- * Copyright (c) [2020], MediaTek Inc. All rights reserved.
- *
- * This software/firmware and related documentation ("MediaTek Software") are
- * protected under relevant copyright laws.
- * The information contained herein is confidential and proprietary to
- * MediaTek Inc. and/or its licensors.
- * Except as otherwise provided in the applicable licensing terms with
- * MediaTek Inc. and/or its licensors, any reproduction, modification, use or
- * disclosure of MediaTek Software, and information contained herein, in whole
- * or in part, shall be strictly prohibited.
-*/
-/*
  ***************************************************************************
+ * Ralink Tech Inc.
+ * 4F, No. 2 Technology	5th Rd.
+ * Science-based Industrial Park
+ * Hsin-chu, Taiwan, R.O.C.
+ *
+ * (c) Copyright 2002-2004, Ralink Technology, Inc.
+ *
+ * All rights reserved.	Ralink's source	code is	an unpublished work and the
+ * use of a copyright notice does not imply otherwise. This source code
+ * contains confidential trade secret material of Ralink Tech. Any attemp
+ * or participation in deciphering, decoding, reverse engineering or in any
+ * way altering	the source code	is stricitly prohibited, unless	the prior
+ * written consent of Ralink Technology, Inc. is obtained.
  ***************************************************************************
 
 	Module Name:
@@ -28,7 +29,8 @@
 #ifndef __WF_PLE_H__
 #define __WF_PLE_H__
 
-#define PLE_BASE		0x82060000
+#define PLE_BASE		0x8000
+
 
 /* PLE Buffer Control Register */
 #define PLE_PBUF_CTRL				(PLE_BASE + 0x14)
@@ -53,8 +55,6 @@
 #define SET_BCN0_RLS_PID(p)  (((p) & BCNx_RLS_PID_MASK) << 22)
 #define SET_BCN1_RLS_QID(p)  (((p) & BCNx_RLS_QID_MASK) << 24)
 #define SET_BCN1_RLS_PID(p)  (((p) & BCNx_RLS_PID_MASK) << 30)
-
-#define PLE_INT_N9_ERR_STS (PLE_BASE + 0x28)
 
 /* HIF Report Control */
 #define PLE_HIF_REPORT				(PLE_BASE + 0x34)
@@ -81,9 +81,6 @@
 
 /* Queue Empty */
 #define PLE_QUEUE_EMPTY			(PLE_BASE + 0xb0)
-
-#define WF_PLE_TOP_TP_LMAC_EN	(PLE_BASE + 0x220)
-
 #define PLE_AC0_QUEUE_EMPTY_0		(PLE_BASE + 0x300)
 #define PLE_AC0_QUEUE_EMPTY_1		(PLE_BASE + 0x304)
 #define PLE_AC0_QUEUE_EMPTY_2		(PLE_BASE + 0x308)
@@ -103,38 +100,6 @@
 #define PLE_AC3_QUEUE_EMPTY_1		(PLE_BASE + 0x334)
 #define PLE_AC3_QUEUE_EMPTY_2		(PLE_BASE + 0x338)
 #define PLE_AC3_QUEUE_EMPTY_3		(PLE_BASE + 0x33c)
-#define PLE_WF_PLE_PEEK_CR_0 		(PLE_BASE + 0x3D0)
-#define PLE_WF_PLE_PEEK_CR_1 		(PLE_BASE + 0x3D4)
-#define PLE_WF_PLE_PEEK_CR_2 		(PLE_BASE + 0x3D8)
-#define PLE_WF_PLE_PEEK_CR_3 		(PLE_BASE + 0x3DC)
-#define PLE_WF_PLE_PEEK_CR_4 		(PLE_BASE + 0x3E0)
-#define PLE_WF_PLE_PEEK_CR_5 		(PLE_BASE + 0x3E4)
-#define PLE_WF_PLE_PEEK_CR_6 		(PLE_BASE + 0x3E8)
-#define PLE_WF_PLE_PEEK_CR_7 		(PLE_BASE + 0x3EC)
-#define PLE_WF_PLE_PEEK_CR_8 		(PLE_BASE + 0x3F0)
-#define PLE_WF_PLE_PEEK_CR_9 		(PLE_BASE + 0x3F4)
-#define PLE_WF_PLE_PEEK_CR_10 		(PLE_BASE + 0x3F8)
-#define PLE_WF_PLE_PEEK_CR_11 		(PLE_BASE + 0x3FC)
-
-#define PLE_AC0_QUEUE_EMPTY_4           (PLE_BASE + 0x600)
-#define PLE_AC0_QUEUE_EMPTY_5           (PLE_BASE + 0x604)
-#define PLE_AC0_QUEUE_EMPTY_6           (PLE_BASE + 0x608)
-#define PLE_AC0_QUEUE_EMPTY_7           (PLE_BASE + 0x60c)
-
-#define PLE_AC1_QUEUE_EMPTY_4           (PLE_BASE + 0x610)
-#define PLE_AC1_QUEUE_EMPTY_5           (PLE_BASE + 0x614)
-#define PLE_AC1_QUEUE_EMPTY_6           (PLE_BASE + 0x618)
-#define PLE_AC1_QUEUE_EMPTY_7           (PLE_BASE + 0x61c)
-
-#define PLE_AC2_QUEUE_EMPTY_4           (PLE_BASE + 0x620)
-#define PLE_AC2_QUEUE_EMPTY_5           (PLE_BASE + 0x624)
-#define PLE_AC2_QUEUE_EMPTY_6           (PLE_BASE + 0x628)
-#define PLE_AC2_QUEUE_EMPTY_7           (PLE_BASE + 0x62c)
-
-#define PLE_AC3_QUEUE_EMPTY_4           (PLE_BASE + 0x630)
-#define PLE_AC3_QUEUE_EMPTY_5           (PLE_BASE + 0x634)
-#define PLE_AC3_QUEUE_EMPTY_6           (PLE_BASE + 0x638)
-#define PLE_AC3_QUEUE_EMPTY_7           (PLE_BASE + 0x63c)
 
 #define PLE_STATION_PAUSE0		    (PLE_BASE + 0x360)
 #define PLE_STATION_PAUSE1		    (PLE_BASE + 0x364)
@@ -166,21 +131,11 @@
 #define DIS_STA_MAP2			(PLE_BASE + 0x268)
 #define DIS_STA_MAP3			(PLE_BASE + 0x26c)
 
-#define DIS_STA_MAP4                    (PLE_BASE + 0x270)
-#define DIS_STA_MAP5                    (PLE_BASE + 0x274)
-#define DIS_STA_MAP6                    (PLE_BASE + 0x278)
-#define DIS_STA_MAP7                    (PLE_BASE + 0x27c)
-
 /* Station Pause control register */
 #define STATION_PAUSE0			(PLE_BASE + 0x360)
 #define STATION_PAUSE1			(PLE_BASE + 0x364)
 #define STATION_PAUSE2			(PLE_BASE + 0x368)
 #define STATION_PAUSE3			(PLE_BASE + 0x36c)
-
-#define STATION_PAUSE4                  (PLE_BASE + 0x660)
-#define STATION_PAUSE5                  (PLE_BASE + 0x664)
-#define STATION_PAUSE6                  (PLE_BASE + 0x668)
-#define STATION_PAUSE7                  (PLE_BASE + 0x66c)
 
 /* VOW Ctrl */
 #define VOW_RESET_DISABLE       (1 << 26)
@@ -189,11 +144,6 @@
 #define VOW_CONTROL             (PLE_BASE + 0x370)
 #define AIRTIME_DRR_SIZE        (PLE_BASE + 0x374)
 
-#define PLE_TX_DELAY_CTRL		(PLE_BASE + 0x440)
-#define PLE_TX_DELAY_TIME_THRES_MASK    	(0xff)
-#define PLE_TX_DELAY_PAGE_THRES_MASK    	(0xfff)
-#define SET_PLE_TX_DELAY_TIME_THRES(p)  (((p) & PLE_TX_DELAY_TIME_THRES_MASK) << 16)
-#define SET_PLE_TX_DELAY_PAGE_THRES(p)  (((p) & PLE_TX_DELAY_PAGE_THRES_MASK))
 
 typedef enum _ENUM_UMAC_PORT_T {
 	ENUM_UMAC_HIF_PORT_0         = 0,

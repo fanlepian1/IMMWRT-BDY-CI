@@ -1,16 +1,15 @@
-/*
- * Copyright (c) [2020], MediaTek Inc. All rights reserved.
- *
- * This software/firmware and related documentation ("MediaTek Software") are
- * protected under relevant copyright laws.
- * The information contained herein is confidential and proprietary to
- * MediaTek Inc. and/or its licensors.
- * Except as otherwise provided in the applicable licensing terms with
- * MediaTek Inc. and/or its licensors, any reproduction, modification, use or
- * disclosure of MediaTek Software, and information contained herein, in whole
- * or in part, shall be strictly prohibited.
-*/
 /****************************************************************************
+ * Ralink Tech Inc.
+ * Taiwan, R.O.C.
+ *
+ * (c) Copyright 2013, Ralink Technology, Inc.
+ *
+ * All rights reserved. Ralink's source code is an unpublished work and the
+ * use of a copyright notice does not imply otherwise. This source code
+ * contains confidential trade secret material of Ralink Tech. Any attemp
+ * or participation in deciphering, decoding, reverse engineering or in any
+ * way altering the source code is stricitly prohibited, unless the prior
+ * written consent of Ralink Technology, Inc. is obtained.
  ***************************************************************************/
 
 /****************************************************************************
@@ -26,13 +25,10 @@
 #ifdef RT_CFG80211_SUPPORT
 
 #include "rt_config.h"
-
-UCHAR    OSEN_OUI[4] = {0x50, 0x6F, 0x9A, 0x01};
-
-
-#ifdef GREENAP_SUPPORT
-BOOLEAN greenap_get_allow_status(RTMP_ADAPTER *ad);
-#endif
+#include <net/cfg80211.h>
+#ifdef IAPP_SUPPORT
+extern BOOLEAN IAPP_L2_Update_Frame_Send(RTMP_ADAPTER *pAd, UINT8 *mac, INT wdev_idx);
+#endif /*IAPP_SUPPORT*/
 
 VOID CFG80211_SwitchTxChannel(RTMP_ADAPTER *pAd, ULONG Data)
 {
@@ -54,13 +50,13 @@ VOID CFG80211_SwitchTxChannel(RTMP_ADAPTER *pAd, ULONG Data)
 		return;
 
 	if (pAd->Mlme.bStartScc == TRUE) {
-		/* MTWF_DBG(pAd, DBG_CAT_TX, DBG_SUBCAT_ALL, DBG_LVL_INFO, "SCC Enabled, Do not switch channel for Tx  %d\n",lock_channel); */
+		/* MTWF_LOG(DBG_CAT_TX, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("SCC Enabled, Do not switch channel for Tx  %d\n",lock_channel)); */
 		return;
 	}
 
 	if (RTMP_CFG80211_VIF_P2P_GO_ON(pAd) && (wdev->channel == lock_channel) && (wlan_operate_get_ht_bw(wdev) == HT_BW_40)) {
-		MTWF_DBG(pAd, DBG_CAT_TX, DBG_SUBCAT_ALL, DBG_LVL_INFO, "40 BW Enabled || GO enable , wait for CLI connect, Do not switch channel for Tx\n");
-		MTWF_DBG(pAd, DBG_CAT_TX, DBG_SUBCAT_ALL, DBG_LVL_INFO, "GO wdev->channel  %d  lock_channel %d\n", wdev->channel, lock_channel);
+		MTWF_LOG(DBG_CAT_TX, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("40 BW Enabled || GO enable , wait for CLI connect, Do not switch channel for Tx\n"));
+		MTWF_LOG(DBG_CAT_TX, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("GO wdev->channel  %d  lock_channel %d\n", wdev->channel, lock_channel));
 		return;
 	}
 
@@ -83,10 +79,10 @@ VOID CFG80211_SwitchTxChannel(RTMP_ADAPTER *pAd, ULONG Data)
 		wlan_operate_set_prim_ch(wdev, lock_channel);
 #endif
 
-		MTWF_DBG(NULL, DBG_CAT_TX, DBG_SUBCAT_ALL, DBG_LVL_DEBUG, "Off-Channel Send Packet: From(%d)-To(%d)\n",
-				 pAd->LatchRfRegs.Channel, lock_channel);
+		MTWF_LOG(DBG_CAT_TX, DBG_SUBCAT_ALL, DBG_LVL_INFO, ("Off-Channel Send Packet: From(%d)-To(%d)\n",
+				 pAd->LatchRfRegs.Channel, lock_channel));
 	} else
-		MTWF_DBG(NULL, DBG_CAT_TX, DBG_SUBCAT_ALL, DBG_LVL_DEBUG, "Off-Channel Channel Equal: %d\n", pAd->LatchRfRegs.Channel);
+		MTWF_LOG(DBG_CAT_TX, DBG_SUBCAT_ALL, DBG_LVL_INFO, ("Off-Channel Channel Equal: %d\n", pAd->LatchRfRegs.Channel));
 }
 
 #ifdef CONFIG_AP_SUPPORT
@@ -100,9 +96,6 @@ VOID CFG80211_SwitchTxChannel(RTMP_ADAPTER *pAd, ULONG Data)
 		apidx
 	==========================================================================
  */
-extern INT build_country_power_ie(RTMP_ADAPTER *pAd, struct wifi_dev *wdev, UCHAR *buf);
-extern INT build_ch_switch_announcement_ie(RTMP_ADAPTER *pAd, struct wifi_dev *wdev, UCHAR *buf);
-
 VOID ProbeResponseHandler(
 	IN PRTMP_ADAPTER pAd,
 	IN PEER_PROBE_REQ_PARAM *ProbeReqParam,
@@ -113,127 +106,86 @@ VOID ProbeResponseHandler(
 	NDIS_STATUS NStatus;
 	PUCHAR pOutBuffer = NULL;
 	ULONG FrameLen = 0, TmpLen;
-	struct legacy_rate *rate;
-#if defined(TXBF_SUPPORT) && defined(VHT_TXBF_SUPPORT)
-	UCHAR ucETxBfCap;
-#endif /* TXBF_SUPPORT && VHT_TXBF_SUPPORT */
-#ifdef AP_QLOAD_SUPPORT
-	QLOAD_CTRL * pQloadCtrl = NULL;
-#endif /* AP_QLOAD_SUPPORT */
-	ADD_HT_INFO_IE *addht;
-	UCHAR cfg_ht_bw;
-	UCHAR op_ht_bw;
 	LARGE_INTEGER FakeTimestamp;
 	UCHAR DsLen = 1;
 	UCHAR ErpIeLen = 1;
 	UCHAR PhyMode, SupRateLen;
 	BSS_STRUCT *mbss;
 	struct wifi_dev *wdev;
-	CHAR rsne_idx = 0;
-	struct _build_ie_info ie_info = {0};
-#ifdef CUSTOMER_VENDOR_IE_SUPPORT
-	struct customer_vendor_ie *ap_vendor_ie;
-#endif /* CUSTOMER_VENDOR_IE_SUPPORT */
-#ifdef QOS_R2
-	UCHAR	tmpbuf[50] = {0}, ielen = 0;
+	struct dev_rate_info *rate;
+
+#if defined(TXBF_SUPPORT) && defined(VHT_TXBF_SUPPORT)
+	UCHAR ucETxBfCap;
+#endif /* TXBF_SUPPORT && VHT_TXBF_SUPPORT */
+#ifdef AP_QLOAD_SUPPORT
+	QLOAD_CTRL *pQloadCtrl = HcGetQloadCtrl(pAd);
 #endif
 
-	mbss = &pAd->ApCfg.MBSSID[apidx];
+	CHAR rsne_idx = 0;
+	struct _SECURITY_CONFIG *pSecConfig = NULL;
+	ADD_HT_INFO_IE *addht;
+	UCHAR cfg_ht_bw;
+	UCHAR op_ht_bw;
+	struct _build_ie_info ie_info;
+	UCHAR Environment = 0x20;
+#ifdef CONFIG_HOTSPOT_R2
+	extern UCHAR			OSEN_IE[];
+	extern UCHAR			OSEN_IELEN;
+	BSS_STRUCT *pMbss;
+#endif /* CONFIG_HOTSPOT_R2 */
+	struct DOT11_H *pDot11h = NULL;
 
-	wdev = &mbss->wdev;
-	rate = &wdev->rate.legacy_rate;
-	addht = wlan_operate_get_addht(wdev);
-	cfg_ht_bw = wlan_config_get_ht_bw(wdev);
-	op_ht_bw = wlan_config_get_ht_bw(wdev);
-	PhyMode = wdev->PhyMode;
-	ie_info.frame_subtype = SUBTYPE_PROBE_RSP;
-	ie_info.channel = wdev->channel;
-	ie_info.phy_mode = PhyMode;
-	ie_info.wdev = wdev;
+#ifdef WDS_SUPPORT
+	/* if in bridge mode, no need to reply probe req. */
+	if (pAd->WdsTab.Mode == WDS_BRIDGE_MODE)
+		return;
+#endif /* WDS_SUPPORT */
 
-	if (((((ProbeReqParam->SsidLen == 0) && (!mbss->bHideSsid)) ||
-		((ProbeReqParam->SsidLen == mbss->SsidLen) && NdisEqualMemory(ProbeReqParam->Ssid, mbss->Ssid, (ULONG) ProbeReqParam->SsidLen)))
+	{
+		mbss = &pAd->ApCfg.MBSSID[apidx];
+		wdev = &mbss->wdev;
+		rate = &wdev->rate;
+		addht = wlan_operate_get_addht(wdev);
+		pDot11h = wdev->pDot11_H;
+		if (pDot11h == NULL)
+			return;
+		cfg_ht_bw = wlan_config_get_ht_bw(wdev);
+		op_ht_bw = wlan_operate_get_ht_bw(wdev);
+
+		if ((wdev->if_dev == NULL) || ((wdev->if_dev != NULL) &&
+			!(RTMP_OS_NETDEV_STATE_RUNNING(wdev->if_dev)))) {
+			/* the interface is down, so we can not send probe response */
+						return;
+		}
+
+		PhyMode = wdev->PhyMode;
+		ie_info.frame_subtype = SUBTYPE_PROBE_RSP;
+		ie_info.channel = wdev->channel;
+		ie_info.phy_mode = PhyMode;
+		ie_info.wdev = wdev;
+
+					if (((((ProbeReqParam->SsidLen == 0) && (!mbss->bHideSsid)) ||
+			   ((ProbeReqParam->SsidLen == mbss->SsidLen) && NdisEqualMemory(ProbeReqParam->Ssid, mbss->Ssid, (ULONG) ProbeReqParam->SsidLen)))
 #ifdef CONFIG_HOTSPOT
 			   && ProbeReqforHSAP(pAd, apidx, ProbeReqParam)
 #endif
-	     )
+			 )
 		) {
 			;
 		} else {
 						return;
 		}
 
-#ifdef DOT11V_MBSSID_SUPPORT
-	if (wdev && IS_BSSID_11V_NON_TRANS(pAd, wdev->func_dev, HcGetBandByWdev(wdev))) {
-		if ((ProbeReqParam->SsidLen == mbss->SsidLen) &&
-			NdisEqualMemory(ProbeReqParam->Ssid, mbss->Ssid, (ULONG)ProbeReqParam->SsidLen)) {
-			UINT8 DbdcIdx = HcGetBandByWdev(wdev);
-
-			wdev = &pAd->ApCfg.MBSSID[pAd->ApCfg.dot11v_trans_bss_idx[DbdcIdx]].wdev;
-			rate = &wdev->rate.legacy_rate;
-			addht = wlan_operate_get_addht(wdev);
-			cfg_ht_bw = wlan_config_get_ht_bw(wdev);
-			op_ht_bw = wlan_config_get_ht_bw(wdev);
-			PhyMode = wdev->PhyMode;
-			ie_info.wdev = wdev;
-			ie_info.channel = wdev->channel;
-			mbss = (BSS_STRUCT *)wdev->func_dev;
-			if (!IS_MBSSID_IE_NEEDED(pAd, mbss, DbdcIdx))
-				return;
-
-			MTWF_DBG(NULL, DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_DEBUG,
-				"%s(): Transmitting probe response for Non Tx SSID with Trans bss idx %d\n",
-				__func__, wdev->wdev_idx);
-		} else
-			return;
-	}
-#endif /* DOT11V_MBSSID_SUPPORT */
-
-
-#ifdef CUSTOMER_VENDOR_IE_SUPPORT
-	if ((ProbeReqParam->report_param.vendor_ie.element_id == IE_VENDOR_SPECIFIC) &&
-		(ProbeReqParam->report_param.vendor_ie.len > 0)) {
-		struct probe_req_report pProbeReqReportTemp;
-
-		memset(&pProbeReqReportTemp, 0, sizeof(struct probe_req_report));
-		pProbeReqReportTemp.band = (WMODE_CAP_2G(wdev->PhyMode) && wdev->channel <= 14) ? 0 : 1;
-		COPY_MAC_ADDR(pProbeReqReportTemp.sta_mac, ProbeReqParam->Addr2);
-		pProbeReqReportTemp.vendor_ie.element_id = ProbeReqParam->report_param.vendor_ie.element_id;
-		pProbeReqReportTemp.vendor_ie.len = ProbeReqParam->report_param.vendor_ie.len;
-		NdisMoveMemory(pProbeReqReportTemp.vendor_ie.custom_ie,
-				ProbeReqParam->report_param.vendor_ie.custom_ie,
-				ProbeReqParam->report_param.vendor_ie.len);
-		RtmpOSWrielessEventSend(wdev->if_dev, RT_WLAN_EVENT_CUSTOM, RT_PROBE_REQ_REPORT_EVENT,
-					NULL, (PUCHAR)&pProbeReqReportTemp,
-					MAC_ADDR_LEN + 3 + ProbeReqParam->report_param.vendor_ie.len);
-	}
-#endif
-
 		/* allocate and send out ProbeRsp frame */
 		NStatus = MlmeAllocateMemory(pAd, &pOutBuffer);
-
 		if (NStatus != NDIS_STATUS_SUCCESS)
 			return;
 
-#ifdef RED_SUPPORT
-	if (MAC_ADDR_EQUAL(ProbeReqParam->Addr2, IXIA_PROBE_ADDR))
-		pAd->ixia_mode_ctl.fgProbeRspDetect = TRUE;
-#endif
-#ifdef OCE_SUPPORT
-	if (IS_OCE_ENABLE(wdev)
-		&& MAC_ADDR_EQUAL(ProbeReqParam->Addr1, BROADCAST_ADDR)
-		&& ProbeReqParam->IsOceCapability) /* broadcast probe request && is OCE STA*/
-		MgtMacHeaderInit(pAd, &ProbeRspHdr, SUBTYPE_PROBE_RSP, 0, BROADCAST_ADDR,
-						 wdev->if_addr, wdev->bssid); /* broadcast probe response */
-	else
-#endif /* OCE_SUPPORT */
 		MgtMacHeaderInit(pAd, &ProbeRspHdr, SUBTYPE_PROBE_RSP, 0, ProbeReqParam->Addr2,
 							wdev->if_addr, wdev->bssid);
 
-
 		{
-		SupRateLen = rate->sup_rate_len;
-
+		SupRateLen = rate->SupRateLen;
 		if (PhyMode == WMODE_B)
 			SupRateLen = 4;
 
@@ -247,32 +199,41 @@ VOID ProbeResponseHandler(
 						  mbss->SsidLen,	 mbss->Ssid,
 						  1,						  &SupRateIe,
 						  1,						  &SupRateLen,
-						  SupRateLen,				  rate->sup_rate,
+						  SupRateLen,				  rate->SupRate,
 						  1,						  &DsIe,
 						  1,						  &DsLen,
 						  1,						  &wdev->channel,
 						  END_OF_ARGS);
 		}
 
-	if ((rate->ext_rate_len) && (PhyMode != WMODE_B)) {
+		if ((rate->ExtRateLen) && (PhyMode != WMODE_B)) {
 			MakeOutgoingFrame(pOutBuffer+FrameLen,		&TmpLen,
 							  1,						&ErpIe,
 							  1,						&ErpIeLen,
 							  1,						&pAd->ApCfg.ErpIeContent,
+							  1,						&ExtRateIe,
+							  1,						&rate->ExtRateLen,
+							  rate->ExtRateLen, 		rate->ExtRate,
 							  END_OF_ARGS);
 			FrameLen += TmpLen;
-	}
+		}
 
+#ifdef DOT11_N_SUPPORT
+		if (WMODE_CAP_N(PhyMode) &&
+			(wdev->DesiredHtPhyInfo.bHtEnable)) {
+			ie_info.is_draft_n_type = FALSE;
+			ie_info.frame_buf = (UCHAR *)(pOutBuffer + FrameLen);
+			FrameLen += build_ht_ies(pAd, &ie_info);
+		}
+#endif /* DOT11_N_SUPPORT */
 
-	FrameLen += build_support_ext_rate_ie(wdev, rate->sup_rate_len,
-			rate->ext_rate, rate->ext_rate_len, pOutBuffer + FrameLen);
-
+		/* Append RSN_IE when  WPA OR WPAPSK, */
+		pSecConfig = &wdev->SecConfig;
 #ifdef CONFIG_HOTSPOT_R2
-	if ((mbss->HotSpotCtrl.HotSpotEnable == 0) && (mbss->HotSpotCtrl.bASANEnable == 1) && (IS_AKM_WPA2_Entry(wdev))) {
+		pMbss = &pAd->ApCfg.MBSSID[wdev->func_idx];
+		if ((pMbss->HotSpotCtrl.HotSpotEnable == 0) && (pMbss->HotSpotCtrl.bASANEnable == 1) && (IS_AKM_WPA2_Entry(wdev))) {
 			/* replace RSN IE with OSEN IE if it's OSEN wdev */
-		UCHAR RSNIe = IE_WPA;
-		extern UCHAR			OSEN_IE[];
-		extern UCHAR			OSEN_IELEN;
+			UCHAR RSNIe = IE_WPA;
 
 			MakeOutgoingFrame(pOutBuffer+FrameLen, &TmpLen,
 							  1, &RSNIe,
@@ -283,8 +244,8 @@ VOID ProbeResponseHandler(
 		} else
 #endif /* CONFIG_HOTSPOT_R2 */
 		{
+			for (rsne_idx = 0; rsne_idx < SEC_RSNIE_NUM; rsne_idx++) {
 #ifdef DISABLE_HOSTAPD_PROBE_RESP
-		for (rsne_idx = 0; rsne_idx < SEC_RSNIE_NUM; rsne_idx++) {
 				BSS_STRUCT *mbss = &pAd->ApCfg.MBSSID[wdev->func_idx];
 				if (mbss->RSNIE_Len[rsne_idx] != 0) {
 					MakeOutgoingFrame(pOutBuffer+FrameLen, &TmpLen,
@@ -294,25 +255,21 @@ VOID ProbeResponseHandler(
 						END_OF_ARGS);
 					FrameLen += TmpLen;
 				}
-		}
+
 #else
-			FrameLen += build_rsn_ie(pAd, wdev, (UCHAR *)(pOutBuffer + FrameLen));
+				if (pSecConfig->RSNE_Type[rsne_idx] == SEC_RSNIE_NONE)
+					continue;
+
+				MakeOutgoingFrame(pOutBuffer+FrameLen, &TmpLen,
+					1, &pSecConfig->RSNE_EID[rsne_idx][0],
+					1, &pSecConfig->RSNE_Len[rsne_idx],
+					pSecConfig->RSNE_Len[rsne_idx], &pSecConfig->RSNE_Content[rsne_idx][0],
+					END_OF_ARGS);
+
+				FrameLen += TmpLen;
 #endif  /*DISABLE_HOSTAPD_PROBE_RESP */
+			}
 		}
-#ifdef DOT11V_MBSSID_SUPPORT
-	make_multiple_bssid_ie(pAd, wdev, &FrameLen, pOutBuffer,
-				pAd->ApCfg.dot11v_mbssid_bitmap[HcGetBandByWdev(wdev)], TRUE);
-#endif /* DOT11V_MBSSID_SUPPORT */
-
-#ifdef DOT11_N_SUPPORT
-
-	if (WMODE_CAP_N(PhyMode) &&
-		(wdev->DesiredHtPhyInfo.bHtEnable)) {
-		ie_info.frame_buf = (UCHAR *)(pOutBuffer + FrameLen);
-		FrameLen += build_ht_ies(pAd, &ie_info);
-	}
-
-#endif /* DOT11_N_SUPPORT */
 #ifdef HOSTAPD_OWE_SUPPORT
 	if (mbss->TRANSIE_Len) {
 		ULONG TmpLen;
@@ -324,10 +281,47 @@ VOID ProbeResponseHandler(
 	}
 
 #endif
-#ifdef QOS_R2
-		if (mbss->bDSCPPolicyEnable) {
-			QoS_Build_WFACapaIE(tmpbuf, &ielen, mbss->bDSCPPolicyEnable);
-			MakeOutgoingFrame(pOutBuffer + FrameLen, &TmpLen, ielen, tmpbuf, END_OF_ARGS);
+#if defined(CONFIG_HOTSPOT) || defined(FTM_SUPPORT)
+		if (pAd->ApCfg.MBSSID[apidx].GASCtrl.b11U_enable) {
+			ULONG TmpLen;
+			/* Interworking element */
+			MakeOutgoingFrame(pOutBuffer + FrameLen, &TmpLen,
+							  pAd->ApCfg.MBSSID[apidx].GASCtrl.InterWorkingIELen,
+							  pAd->ApCfg.MBSSID[apidx].GASCtrl.InterWorkingIE, END_OF_ARGS);
+
+			FrameLen += TmpLen;
+
+			/* Advertisement Protocol element */
+			MakeOutgoingFrame(pOutBuffer + FrameLen, &TmpLen,
+							  pAd->ApCfg.MBSSID[apidx].GASCtrl.AdvertisementProtoIELen,
+							  pAd->ApCfg.MBSSID[apidx].GASCtrl.AdvertisementProtoIE, END_OF_ARGS);
+
+			FrameLen += TmpLen;
+		}
+#endif /* defined(CONFIG_HOTSPOT) || defined(FTM_SUPPORT) */
+
+#ifdef CONFIG_HOTSPOT
+		if (pAd->ApCfg.MBSSID[apidx].HotSpotCtrl.HotSpotEnable) {
+			ULONG TmpLen;
+			/* Hotspot 2.0 Indication */
+			MakeOutgoingFrame(pOutBuffer + FrameLen, &TmpLen,
+					pAd->ApCfg.MBSSID[apidx].HotSpotCtrl.HSIndicationIELen,
+					pAd->ApCfg.MBSSID[apidx].HotSpotCtrl.HSIndicationIE, END_OF_ARGS);
+
+			FrameLen += TmpLen;
+
+			/* Roaming Consortium element */
+			MakeOutgoingFrame(pOutBuffer + FrameLen, &TmpLen,
+							  pAd->ApCfg.MBSSID[apidx].HotSpotCtrl.RoamingConsortiumIELen,
+							  pAd->ApCfg.MBSSID[apidx].HotSpotCtrl.RoamingConsortiumIE, END_OF_ARGS);
+
+			FrameLen += TmpLen;
+
+			/* P2P element */
+			MakeOutgoingFrame(pOutBuffer + FrameLen, &TmpLen,
+							  pAd->ApCfg.MBSSID[apidx].HotSpotCtrl.P2PIELen,
+							  pAd->ApCfg.MBSSID[apidx].HotSpotCtrl.P2PIE, END_OF_ARGS);
+
 			FrameLen += TmpLen;
 		}
 #endif
@@ -336,114 +330,409 @@ VOID ProbeResponseHandler(
 		ie_info.frame_buf = (UCHAR *)(pOutBuffer + FrameLen);
 		FrameLen += build_extended_cap_ie(pAd, &ie_info);
 #ifdef AP_QLOAD_SUPPORT
+
 		if (pAd->CommonCfg.dbdc_mode == 0)
 			pQloadCtrl = HcGetQloadCtrl(pAd);
 		else
 			pQloadCtrl = (wdev->channel > 14) ? HcGetQloadCtrlByRf(pAd, RFIC_5GHZ) : HcGetQloadCtrlByRf(pAd, RFIC_24GHZ);
 
-		if (pQloadCtrl != NULL) {
-			if (pQloadCtrl->FlgQloadEnable != 0) {
+		if (pQloadCtrl->FlgQloadEnable != 0) {
 #ifdef CONFIG_HOTSPOT_R2
-
-			if (mbss->HotSpotCtrl.QLoadTestEnable == 1)
-				FrameLen += QBSS_LoadElementAppend_HSTEST(pAd, pOutBuffer + FrameLen, wdev->func_idx);
-			else if (mbss->HotSpotCtrl.QLoadTestEnable == 0)
-#endif /* CONFIG_HOTSPOT_R2 */
-				FrameLen += QBSS_LoadElementAppend(pAd, pOutBuffer+FrameLen, pQloadCtrl, wdev->func_idx);
-			}
+			if (pAd->ApCfg.MBSSID[apidx].HotSpotCtrl.QLoadTestEnable == 1)
+				FrameLen += QBSS_LoadElementAppend_HSTEST(pAd, pOutBuffer + FrameLen, apidx);
+			else if (pAd->ApCfg.MBSSID[apidx].HotSpotCtrl.QLoadTestEnable == 0)
+#endif
+				FrameLen += QBSS_LoadElementAppend(pAd, pOutBuffer + FrameLen, pQloadCtrl);
 		}
 #endif /* AP_QLOAD_SUPPORT */
-#if defined(CONFIG_HOTSPOT) || defined(FTM_SUPPORT)
-	if (mbss->HotSpotCtrl.HotSpotEnable)
-		MakeHotSpotIE(wdev, &FrameLen, pOutBuffer);
-
-#endif /* defined(CONFIG_HOTSPOT) || defined(FTM_SUPPORT) */
-#ifdef CONFIG_DOT11U_INTERWORKING
-	if (mbss->GASCtrl.b11U_enable) {
-		ULONG TmpLen;
-		RTMP_SEM_LOCK(&mbss->GASCtrl.IeLock);
-		/* Interworking element */
-		MakeOutgoingFrame(pOutBuffer + FrameLen, &TmpLen,
-						  mbss->GASCtrl.InterWorkingIELen,
-						  mbss->GASCtrl.InterWorkingIE, END_OF_ARGS);
-		FrameLen += TmpLen;
-		/* Advertisement Protocol element */
-		MakeOutgoingFrame(pOutBuffer + FrameLen, &TmpLen,
-						  mbss->GASCtrl.AdvertisementProtoIELen,
-						  mbss->GASCtrl.AdvertisementProtoIE, END_OF_ARGS);
-		FrameLen += TmpLen;
-		RTMP_SEM_UNLOCK(&mbss->GASCtrl.IeLock);
-	}
-#endif /* CONFIG_DOT11U_INTERWORKING */
 
 		/* add WMM IE here */
 		ie_info.frame_buf = (UCHAR *)(pOutBuffer + FrameLen);
 		FrameLen += build_wmm_cap_ie(pAd, &ie_info);
+#ifdef VENDOR_FEATURE7_SUPPORT
+		/* add country IE, power constraint IE */
+		if (pAd->CommonCfg.bCountryFlag ||
+			(wdev->channel > 14 && pAd->CommonCfg.bIEEE80211H == TRUE)
 #ifdef DOT11K_RRM_SUPPORT
-	if (IS_RRM_ENABLE(wdev)) {
-		RRM_InsertRRMEnCapIE(pAd, wdev, pOutBuffer + FrameLen, &FrameLen, wdev->func_idx);
-			InsertChannelRepIE(pAd, pOutBuffer+FrameLen, &FrameLen,
-				(RTMP_STRING *)pAd->CommonCfg.CountryCode,
-				get_regulatory_class(pAd, mbss->wdev.channel, mbss->wdev.PhyMode, &mbss->wdev),
-					   NULL, PhyMode, wdev->func_idx);
-#ifndef APPLE_11K_IOT
-			/* Insert BSS AC Access Delay IE. */
-			RRM_InsertBssACDelayIE(pAd, pOutBuffer+FrameLen, &FrameLen);
-			/* Insert BSS Available Access Capacity IE. */
-			RRM_InsertBssAvailableACIE(pAd, pOutBuffer+FrameLen, &FrameLen);
-#endif /* !APPLE_11K_IOT */
-	}
+			|| IS_RRM_ENABLE(wdev)
 #endif /* DOT11K_RRM_SUPPORT */
-#ifdef OCE_SUPPORT
-	if (IS_OCE_ENABLE(wdev)) { /* some OCE STA may only have files ie(without oce CAP) */
-		ie_info.frame_buf = (UCHAR *)(pOutBuffer + FrameLen);
-		FrameLen += oce_build_ies(pAd, &ie_info, TRUE);
-				}
-#endif /* OCE_SUPPORT */
-	FrameLen += build_country_power_ie(pAd, wdev, (UCHAR *)(pOutBuffer + FrameLen));
-		/* add Channel switch announcement IE */
-	FrameLen += build_ch_switch_announcement_ie(pAd, wdev, (UCHAR *)(pOutBuffer + FrameLen));
-#ifdef DOT11_N_SUPPORT
+			) {
+#ifndef EXT_BUILD_CHANNEL_LIST
+			ULONG TmpLen = 0;
+#endif /* !EXT_BUILD_CHANNEL_LIST */
+			ULONG TmpLen2 = 0;
+			UCHAR TmpFrame[256] = { 0 };
+#ifndef EXT_BUILD_CHANNEL_LIST
+			PCH_DESC pChDesc = NULL;
+			UINT i;
 
+			if (WMODE_CAP_2G(wdev->PhyMode)) {
+				if (pAd->CommonCfg.pChDesc2G != NULL)
+					pChDesc = (PCH_DESC) pAd->CommonCfg.pChDesc2G;
+				else
+					MTWF_LOG(DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
+					("%s: pChDesc2G is NULL !!!\n", __func__));
+			} else if (WMODE_CAP_5G(wdev->PhyMode)) {
+				if (pAd->CommonCfg.pChDesc5G != NULL)
+					pChDesc = (PCH_DESC) pAd->CommonCfg.pChDesc5G;
+				else
+					MTWF_LOG(DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
+					("%s: pChDesc5G is NULL !!!\n", __func__));
+			}
+#endif /* !EXT_BUILD_CHANNEL_LIST */
+
+			os_alloc_mem(NULL, (UCHAR **)&TmpFrame, 256);
+			if (TmpFrame != NULL) {
+				NdisZeroMemory(TmpFrame, 256);
+
+				/* prepare channel information */
+#ifdef EXT_BUILD_CHANNEL_LIST
+				BuildBeaconChList(pAd, wdev, TmpFrame, &TmpLen2);
+#else
+				{
+					UCHAR MaxTxPower = GetCuntryMaxTxPwr(pAd,
+						wdev->PhyMode, wdev->channel, op_ht_bw);
+
+					for (i = 0; pChDesc[i].FirstChannel != 0; i++) {
+						MakeOutgoingFrame(TmpFrame+TmpLen2,	&TmpLen,
+							1,	&pChDesc[i].FirstChannel,
+							1,	&pChDesc[i].NumOfCh,
+							1,	&MaxTxPower,
+							END_OF_ARGS);
+						 TmpLen2 += TmpLen;
+					}
+				}
+#endif /* EXT_BUILD_CHANNEL_LIST */
+
+#ifdef A_BAND_SUPPORT
+				/*
+				* Only 802.11a APs that comply with 802.11h are required to include
+				* a Power Constrint Element(IE=32) in beacons and probe response frames
+				*/
+				if ((wdev->channel > 14 && pAd->CommonCfg.bIEEE80211H == TRUE)
+#ifdef DOT11K_RRM_SUPPORT
+					|| IS_RRM_ENABLE(wdev)
+#endif /* DOT11K_RRM_SUPPORT */
+					) {
+
+					UINT8 PwrConstraintIE = IE_POWER_CONSTRAINT;
+					UINT8 PwrConstraintLen = 1;
+					UINT8 PwrConstraint = pAd->CommonCfg.PwrConstraint;
+					/* prepare power constraint IE */
+					MakeOutgoingFrame(pOutBuffer+FrameLen,
+								&TmpLen,
+								1,	&PwrConstraintIE,
+								1,	&PwrConstraintLen,
+								1,	&PwrConstraint,
+								END_OF_ARGS);
+					FrameLen += TmpLen;
+
+					/* prepare TPC Report IE */
+					InsertTpcReportIE(pAd,
+					pOutBuffer+FrameLen,
+					&FrameLen,
+					GetMaxTxPwr(pAd),
+					0);
+#ifdef DOT11_VHT_AC
+					if (WMODE_CAP_AC(PhyMode)) {
+						ULONG TmpLen;
+						UINT8 vht_txpwr_env_ie = IE_VHT_TXPWR_ENV;
+						UINT8 ie_len;
+						VHT_TXPWR_ENV_IE txpwr_env;
+
+						ie_len = build_vht_txpwr_envelope(pAd, wdev, (UCHAR *)&txpwr_env);
+						MakeOutgoingFrame(pOutBuffer + FrameLen,
+									&TmpLen,
+									1,	&vht_txpwr_env_ie,
+									1,	&ie_len,
+									ie_len,	&txpwr_env,
+									END_OF_ARGS);
+						FrameLen += TmpLen;
+					}
+#endif /* DOT11_VHT_AC */
+				}
+#endif /* A_BAND_SUPPORT */
+#ifdef DOT11K_RRM_SUPPORT
+				if (IS_RRM_ENABLE(wdev)) {
+					UCHAR reg_class = get_regulatory_class(pAd, mbss->wdev.channel,
+								mbss->wdev.PhyMode, &mbss->wdev);
+					TmpLen2 = 0;
+					NdisZeroMemory(TmpFrame, sizeof(TmpFrame));
+					RguClass_BuildBcnChList(pAd, TmpFrame, &TmpLen2, wdev->PhyMode, reg_class);
+				}
+#endif /* DOT11K_RRM_SUPPORT */
+
+					/* add COUNTRY_IE in probe resp frames */
+				{
+					UCHAR CountryIe = IE_COUNTRY;
+					/* need to do the padding bit check, and concatenate it */
+					/* TmpFrame holds Channel list */
+					if ((TmpLen2%2) == 0) {
+						UCHAR TmpLen3 = TmpLen2+4;
+						MakeOutgoingFrame(pOutBuffer+FrameLen, &TmpLen,
+									1,	&CountryIe,
+									1,	&TmpLen3,
+									3,	pAd->CommonCfg.CountryCode,
+									TmpLen2+1,	TmpFrame,
+									 END_OF_ARGS);
+					} else {
+						UCHAR TmpLen3 = TmpLen2+3;
+						MakeOutgoingFrame(pOutBuffer+FrameLen, &TmpLen,
+									1,	&CountryIe,
+									1,	&TmpLen3,
+									3,	pAd->CommonCfg.CountryCode,
+									TmpLen2, TmpFrame,
+									END_OF_ARGS);
+					}
+				}
+				FrameLen += TmpLen;
+				os_free_mem(TmpFrame);
+			} else
+				MTWF_LOG(DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
+					("%s: Allocate memory fail!!!\n", __func__));
+		}
+#endif
+
+#ifdef DOT11K_RRM_SUPPORT
+
+		if (IS_RRM_ENABLE(wdev))
+			RRM_InsertRRMEnCapIE(pAd, pOutBuffer + FrameLen, &FrameLen, apidx);
+
+		InsertChannelRepIE(pAd, pOutBuffer + FrameLen, &FrameLen,
+						   (RTMP_STRING *)pAd->CommonCfg.CountryCode,
+						   get_regulatory_class(pAd, mbss->wdev.channel, mbss->wdev.PhyMode, &mbss->wdev),
+						   NULL, PhyMode);
+#ifndef APPLE_11K_IOT
+		/* Insert BSS AC Access Delay IE. */
+		RRM_InsertBssACDelayIE(pAd, pOutBuffer+FrameLen, &FrameLen);
+
+		/* Insert BSS Available Access Capacity IE. */
+		RRM_InsertBssAvailableACIE(pAd, pOutBuffer+FrameLen, &FrameLen);
+#endif /* !APPLE_11K_IOT */
+
+#endif /* DOT11K_RRM_SUPPORT */
+
+#ifndef VENDOR_FEATURE7_SUPPORT
+		/* add Country IE and power-related IE */
+		if (pAd->CommonCfg.bCountryFlag ||
+			(wdev->channel > 14 && pAd->CommonCfg.bIEEE80211H == TRUE)
+#ifdef DOT11K_RRM_SUPPORT
+			|| IS_RRM_ENABLE(wdev)
+#endif /* DOT11K_RRM_SUPPORT */
+		   ) {
+			ULONG TmpLen2 = 0;
+			UCHAR TmpFrame[256] = { 0 };
+			UCHAR CountryIe = IE_COUNTRY;
+			PCH_DESC pChDesc = NULL;
+
+			if (WMODE_CAP_2G(wdev->PhyMode)) {
+				if (pAd->CommonCfg.pChDesc2G != NULL)
+					pChDesc = (PCH_DESC)pAd->CommonCfg.pChDesc2G;
+				else
+					MTWF_LOG(DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
+							 ("%s: pChDesc2G is NULL !!!\n", __func__));
+			} else if (WMODE_CAP_5G(wdev->PhyMode)) {
+				if (pAd->CommonCfg.pChDesc5G != NULL)
+					pChDesc = (PCH_DESC)pAd->CommonCfg.pChDesc5G;
+				else
+					MTWF_LOG(DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
+							 ("%s: pChDesc5G is NULL !!!\n", __func__));
+			}
+
+			/*
+				Only APs that comply with 802.11h or 802.11k are required to include
+				the Power Constraint element (IE=32) and
+				the TPC Report element (IE=35) and
+				the VHT Transmit Power Envelope element (IE=195)
+				in beacon frames and probe response frames
+			*/
+			if ((wdev->channel > 14 && pAd->CommonCfg.bIEEE80211H == TRUE)
+#ifdef DOT11K_RRM_SUPPORT
+				|| IS_RRM_ENABLE(wdev)
+#endif /* DOT11K_RRM_SUPPORT */
+			   ) {
+				/* prepare power constraint IE */
+				MakeOutgoingFrame(pOutBuffer + FrameLen, &TmpLen,
+						3, PowerConstraintIE, END_OF_ARGS);
+				FrameLen += TmpLen;
+				/* prepare TPC Report IE */
+				InsertTpcReportIE(pAd,
+								  pOutBuffer + FrameLen,
+								  &FrameLen,
+								  GetMaxTxPwr(pAd),
+								  0);
+#ifdef DOT11_VHT_AC
+				/* prepare VHT Transmit Power Envelope IE */
+				if (WMODE_CAP_AC(PhyMode)) {
+					ULONG TmpLen;
+					UINT8 vht_txpwr_env_ie = IE_VHT_TXPWR_ENV;
+					UINT8 ie_len;
+					VHT_TXPWR_ENV_IE txpwr_env;
+
+					ie_len = build_vht_txpwr_envelope(pAd, wdev, (UCHAR *)&txpwr_env);
+					MakeOutgoingFrame(pOutBuffer + FrameLen, &TmpLen,
+								1,							&vht_txpwr_env_ie,
+								1,							&ie_len,
+								ie_len, 					&txpwr_env,
+								END_OF_ARGS);
+					FrameLen += TmpLen;
+				}
+#endif /* DOT11_VHT_AC */
+			}
+
+			/* NdisZeroMemory(TmpFrame, sizeof(TmpFrame)); */
+#ifdef EXT_BUILD_CHANNEL_LIST
+			BuildBeaconChList(pAd, wdev, TmpFrame, &TmpLen2);
+#else
+			{
+				UINT i = 0;
+				UCHAR MaxTxPower = GetCuntryMaxTxPwr(pAd, wdev->PhyMode, wdev, op_ht_bw);
+
+				if (pChDesc != NULL) {
+				for (i = 0; pChDesc[i].FirstChannel != 0; i++) {
+					 MakeOutgoingFrame(TmpFrame+TmpLen2,
+						&TmpLen,
+						1,
+						&pChDesc[i].FirstChannel,
+						1,
+						&pChDesc[i].NumOfCh,
+						1,
+						&MaxTxPower,
+						END_OF_ARGS);
+					 TmpLen2 += TmpLen;
+				}
+			}
+			}
+#endif /* EXT_BUILD_CHANNEL_LIST */
+
+#ifdef DOT11K_RRM_SUPPORT
+
+			if (IS_RRM_ENABLE(wdev)) {
+				UCHAR reg_class = get_regulatory_class(pAd, mbss->wdev.channel, mbss->wdev.PhyMode, &mbss->wdev);
+
+				TmpLen2 = 0;
+				NdisZeroMemory(TmpFrame, sizeof(TmpFrame));
+				RguClass_BuildBcnChList(pAd, TmpFrame, &TmpLen2, wdev->PhyMode, reg_class);
+			}
+
+#endif /* DOT11K_RRM_SUPPORT */
+#ifdef MBO_SUPPORT
+			if (IS_MBO_ENABLE(wdev))
+				Environment = MBO_AP_USE_GLOBAL_OPERATING_CLASS;
+#endif /* MBO_SUPPORT */
+			/* need to do the padding bit check, and concatenate it */
+			if ((TmpLen2%2) == 0) {
+				UCHAR TmpLen3 = TmpLen2 + 4;
+
+		MakeOutgoingFrame(pOutBuffer+FrameLen, &TmpLen,
+					1, &CountryIe,
+					1, &TmpLen3,
+					1, &pAd->CommonCfg.CountryCode[0],
+					1, &pAd->CommonCfg.CountryCode[1],
+					1, &Environment,
+					TmpLen2+1, TmpFrame,
+								  END_OF_ARGS);
+			} else {
+				UCHAR TmpLen3 = TmpLen2 + 3;
+
+				MakeOutgoingFrame(pOutBuffer + FrameLen,
+								  &TmpLen,
+					1, &CountryIe,
+					1, &TmpLen3,
+					1, &pAd->CommonCfg.CountryCode[0],
+					1, &pAd->CommonCfg.CountryCode[1],
+					1, &Environment,
+					TmpLen2, TmpFrame,
+								  END_OF_ARGS);
+			}
+
+			FrameLen += TmpLen;
+		} /* Country IE - */
+#endif
+#ifdef A_BAND_SUPPORT
+
+		/* add Channel switch announcement IE */
+		if ((wdev->channel > 14)
+			&& (pAd->CommonCfg.bIEEE80211H == 1)
+			&& (pDot11h->RDMode == RD_SWITCHING_MODE)) {
+			UCHAR CSAIe = IE_CHANNEL_SWITCH_ANNOUNCEMENT;
+			UCHAR CSALen = 3;
+			UCHAR CSAMode = 1;
+
+			MakeOutgoingFrame(pOutBuffer+FrameLen,		&TmpLen,
+							  1,						&CSAIe,
+							  1,						&CSALen,
+							  1,						&CSAMode,
+							  1,						&wdev->channel,
+							  1,                        &pDot11h->CSCount,
+							  END_OF_ARGS);
+	FrameLen += TmpLen;
+#ifdef DOT11_N_SUPPORT
+			if (pAd->CommonCfg.bExtChannelSwitchAnnouncement) {
+				HT_EXT_CHANNEL_SWITCH_ANNOUNCEMENT_IE HtExtChannelSwitchIe;
+
+				build_ext_channel_switch_ie(pAd, &HtExtChannelSwitchIe, wdev->channel, wdev->PhyMode, wdev);
+				MakeOutgoingFrame(pOutBuffer + FrameLen, &TmpLen,
+								  sizeof(HT_EXT_CHANNEL_SWITCH_ANNOUNCEMENT_IE),	&HtExtChannelSwitchIe,
+								  END_OF_ARGS);
+				FrameLen += TmpLen;
+			}
+#endif /* DOT11_N_SUPPORT */
+		}
+#endif /* A_BAND_SUPPORT */
+
+#ifdef DOT11_N_SUPPORT
 		if (WMODE_CAP_N(PhyMode) &&
 			(wdev->DesiredHtPhyInfo.bHtEnable)) {
+#ifdef DOT11_VHT_AC
+			struct _build_ie_info vht_ie_info;
+#endif /*DOT11_VHT_AC*/
 		if (pAd->bBroadComHT == TRUE) {
+				struct _build_ie_info ie_info;
+
+				ie_info.frame_subtype = SUBTYPE_PROBE_RSP;
+				ie_info.channel = wdev->channel;
+				ie_info.phy_mode = wdev->PhyMode;
+				ie_info.wdev = wdev;
 				ie_info.is_draft_n_type = TRUE;
 				ie_info.frame_buf = (UCHAR *)(pOutBuffer + FrameLen);
 				FrameLen += build_ht_ies(pAd, &ie_info);
 			}
 #ifdef DOT11_VHT_AC
+			vht_ie_info.frame_buf = (UCHAR *)(pOutBuffer + FrameLen);
+			vht_ie_info.frame_subtype = SUBTYPE_PROBE_RSP;
+			vht_ie_info.channel = wdev->channel;
+			vht_ie_info.phy_mode = wdev->PhyMode;
+			vht_ie_info.wdev = wdev;
+
 #if defined(TXBF_SUPPORT) && defined(VHT_TXBF_SUPPORT)
 			ucETxBfCap = wlan_config_get_etxbf(wdev);
-
 			if (HcIsBfCapSupport(wdev) == FALSE)
 				wlan_config_set_etxbf(wdev, SUBF_OFF);
 
 #endif /* TXBF_SUPPORT && VHT_TXBF_SUPPORT */
-		ie_info.frame_buf = (UCHAR *)(pOutBuffer + FrameLen);
-		FrameLen += build_vht_ies(pAd, &ie_info);
+
+			FrameLen += build_vht_ies(pAd, &vht_ie_info);
+
 #if defined(TXBF_SUPPORT) && defined(VHT_TXBF_SUPPORT)
 			wlan_config_set_etxbf(wdev, ucETxBfCap);
 #endif /* TXBF_SUPPORT && VHT_TXBF_SUPPORT */
-#ifdef DOT11_HE_AX
-		if (WMODE_CAP_AX(wdev->PhyMode) && wdev->DesiredHtPhyInfo.bHtEnable)
-			FrameLen += add_probe_rsp_he_ies(wdev, (UINT8 *)pOutBuffer, FrameLen);
-#endif /*DOT11_HE_AX*/
 #endif /* DOT11_VHT_AC */
-	}
 
+		}
 #endif /* DOT11_N_SUPPORT */
+
 
 #ifdef WSC_AP_SUPPORT
 		/* for windows 7 logo test */
-		if ((wdev->WscControl.WscConfMode != WSC_DISABLE) &&
+		if ((mbss->WscControl.WscConfMode != WSC_DISABLE) &&
 #ifdef DOT1X_SUPPORT
 				(!IS_IEEE8021X_Entry(wdev)) &&
 #endif /* DOT1X_SUPPORT */
 				(IS_CIPHER_WEP(wdev->SecConfig.PairwiseCipher))) {
 			/*
 				Non-WPS Windows XP and Vista PCs are unable to determine if a WEP enalbed network is static key based
-				or 802.1X based. If the legacy station gets an EAP-Request/Identity from the AP, it assume the WEP
+				or 802.1X based. If the legacy station gets an EAP-Rquest/Identity from the AP, it assume the WEP
 				network is 802.1X enabled & will prompt the user for 802.1X credentials. If the legacy station doesn't
 				receive anything after sending an EAPOL-Start, it will assume the WEP network is static key based and
 				prompt user for the WEP key. <<from "WPS and Static Key WEP Networks">>
@@ -453,7 +742,6 @@ VOID ProbeResponseHandler(
 			*/
 			ULONG TempLen1 = 0;
 			UCHAR PROVISION_SERVICE_IE[7] = {0xDD, 0x05, 0x00, 0x50, 0xF2, 0x05, 0x00};
-
 			MakeOutgoingFrame(pOutBuffer+FrameLen,		  &TempLen1,
 								7,							  PROVISION_SERVICE_IE,
 								END_OF_ARGS);
@@ -462,62 +750,46 @@ VOID ProbeResponseHandler(
 
 		/* add Simple Config Information Element */
 #ifdef DISABLE_HOSTAPD_PROBE_RESP
-		if (wdev->WscIEProbeResp.ValueLen)
+		if (mbss->WscIEProbeResp.ValueLen)
 #else
-		if ((wdev->WscControl.WscConfMode > WSC_DISABLE) && (wdev->WscIEProbeResp.ValueLen))
+		if ((mbss->WscControl.WscConfMode > WSC_DISABLE) && (mbss->WscIEProbeResp.ValueLen))
 #endif
 		{
 			ULONG WscTmpLen = 0;
-
 			MakeOutgoingFrame(pOutBuffer+FrameLen,									&WscTmpLen,
-							  wdev->WscIEProbeResp.ValueLen,   wdev->WscIEProbeResp.Value,
+							  mbss->WscIEProbeResp.ValueLen,   mbss->WscIEProbeResp.Value,
 							  END_OF_ARGS);
 			FrameLen += WscTmpLen;
 		}
 #endif /* WSC_AP_SUPPORT */
-#ifdef DOT11R_FT_SUPPORT
 
-	/*
-	   The Mobility Domain information element (MDIE) is present in Probe-
-	 * Request frame when dot11FastBssTransitionEnable is set to true.
-	  */
-	if (wdev->FtCfg.FtCapFlag.Dot11rFtEnable) {
-		PFT_CFG pFtCfg = &wdev->FtCfg;
+
+#ifdef DOT11R_FT_SUPPORT
+		/* The Mobility Domain information element (MDIE) is present in Probe-
+		** Request frame when dot11FastBssTransitionEnable is set to true. */
+		if (pAd->ApCfg.MBSSID[apidx].wdev.FtCfg.FtCapFlag.Dot11rFtEnable) {
+			PFT_CFG pFtCfg = &pAd->ApCfg.MBSSID[apidx].wdev.FtCfg;
 			FT_CAP_AND_POLICY FtCap;
 
 			FtCap.field.FtOverDs = pFtCfg->FtCapFlag.FtOverDs;
 			FtCap.field.RsrReqCap = pFtCfg->FtCapFlag.RsrReqCap;
-			FT_InsertMdIE(pOutBuffer + FrameLen, &FrameLen,
+			FT_InsertMdIE(pAd, pOutBuffer + FrameLen, &FrameLen,
 							pFtCfg->FtMdId, FtCap);
 		}
-
 #endif /* DOT11R_FT_SUPPORT */
-#if defined(HOSTAPD_MAPR3_SUPPORT) && defined(DPP_R2_SUPPORT)
-	/* Add CCE IE in probe Response for DPP*/
-	if (wdev->DPPCfg.cce_ie_len) {
-		ULONG DPPIeTmpLen = 0;
-
-		MakeOutgoingFrame(pOutBuffer + FrameLen, &DPPIeTmpLen,
-						wdev->DPPCfg.cce_ie_len, wdev->DPPCfg.cce_ie_buf,
-						END_OF_ARGS);
-		FrameLen += DPPIeTmpLen;
-	}
-#endif
 
 
 	/*
-		add Ralink-specific IE here - Byte0.b0=1 for aggregation,
-		Byte0.b1=1 for piggy-back, Byte0.b3=1 for rssi-feedback
+		add Ralink-specific IE here - Byte0.b0=1 for aggregation, Byte0.b1=1 for piggy-back
+										 Byte0.b3=1 for rssi-feedback
 	*/
-	FrameLen += build_vendor_ie(pAd, wdev, (pOutBuffer + FrameLen), VIE_PROBE_RESP
+
+    FrameLen += build_vendor_ie(pAd, wdev, (pOutBuffer + FrameLen), VIE_PROBE_RESP
 								);
-#if defined(MBO_SUPPORT) || defined(OCE_SUPPORT)
-	if (IS_MBO_ENABLE(wdev) || IS_OCE_ENABLE(wdev))
-		MakeMboOceIE(pAd, wdev, NULL, pOutBuffer+FrameLen, &FrameLen, MBO_FRAME_TYPE_PROBE_RSP);
-#endif /* MBO_SUPPORT OCE_SUPPORT*/
 
 	{
 		/* Question to Rorscha: bit4 in old chip is used? but currently is using for 2.4G 256QAM */
+
 #ifdef RSSI_FEEDBACK
 		UCHAR RalinkSpecificIe[9] = {IE_VENDOR_SPECIFIC, 7, 0x00, 0x0c, 0x43, 0x00, 0x00, 0x00, 0x00};
 		ULONG TmpLen;
@@ -525,8 +797,9 @@ VOID ProbeResponseHandler(
 		if (ProbeReqParam->bRequestRssi == TRUE) {
 			MAC_TABLE_ENTRY *pEntry = NULL;
 
-			MTWF_DBG(pAd, DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_INFO, "SYNC - Send PROBE_RSP to "MACSTR"...\n",
-										MAC2STR(ProbeReqParam->Addr2));
+			MTWF_LOG(DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_ERROR, ("SYNC - Send PROBE_RSP to %02x:%02x:%02x:%02x:%02x:%02x...\n",
+										PRINT_MAC(ProbeReqParam->Addr2)));
+
 			RalinkSpecificIe[5] |= 0x8;
 			pEntry = MacTableLookup(pAd, ProbeReqParam->Addr2);
 
@@ -536,78 +809,31 @@ VOID ProbeResponseHandler(
 				RalinkSpecificIe[8] = (UCHAR)pEntry->RssiSample.AvgRssi[2];
 			}
 		}
-
 		MakeOutgoingFrame(pOutBuffer+FrameLen, &TmpLen,
 							9, RalinkSpecificIe,
 							END_OF_ARGS);
 		FrameLen += TmpLen;
 #endif /* RSSI_FEEDBACK */
+
 	}
-
-#ifdef OCE_FILS_SUPPORT
-	ie_info.frame_buf = (UCHAR *)(pOutBuffer + FrameLen);
-	FrameLen += oce_build_ies(pAd, &ie_info, TRUE);
-#endif /*OCE_FILS_SUPPORT */
-
-#ifdef HOSTAPD_WPA3R3_SUPPORT
-	FrameLen +=  build_rsnxe_ie(wdev, &wdev->SecConfig, (UCHAR *)pOutBuffer + FrameLen);
-#endif
-
-#ifdef CUSTOMER_VENDOR_IE_SUPPORT
-	{
-		MAC_TABLE_ENTRY *pEntry = NULL;
-
-		pEntry = MacTableLookup(pAd, ProbeReqParam->Addr2);
-		if (pEntry != NULL) {
-			ap_vendor_ie = &pAd->ApCfg.MBSSID[pEntry->apidx].ap_vendor_ie;
-			RTMP_SPIN_LOCK(&ap_vendor_ie->vendor_ie_lock);
-			if (ap_vendor_ie->pointer != NULL) {
-				ULONG TmpLen;
-
-				MTWF_DBG(pAd, DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_INFO,
-					"SYNC - Send Probe response to "MACSTR"...and add vendor ie\n",
-					MAC2STR(ProbeReqParam->Addr2));
-				MakeOutgoingFrame(pOutBuffer + FrameLen,
-						&TmpLen,
-						ap_vendor_ie->length,
-						ap_vendor_ie->pointer,
-						END_OF_ARGS);
-				FrameLen += TmpLen;
-			}
-			RTMP_SPIN_UNLOCK(&ap_vendor_ie->vendor_ie_lock);
-	}
-	}
-#endif /* CUSTOMER_VENDOR_IE_SUPPORT */
 
 	/* 802.11n 11.1.3.2.2 active scanning. sending probe response with MCS rate is */
-	/* configure to better support Multi-Sta */
-	{
-		struct _RTMP_CHIP_CAP *cap = hc_get_chip_cap(pAd->hdev_ctrl);
-		UINT8 idx = 0;
-		UINT8 num = cap->ProbeRspTimes;
-
-		num = (pAd->ApCfg.BssidNum >= 8) ? 1 : num;
-		for (idx = 0; idx < num; idx++)
-			MiniportMMRequest(pAd, 0, pOutBuffer, FrameLen);
-	}
+	MiniportMMRequest(pAd, 0, pOutBuffer, FrameLen);
+	MiniportMMRequest(pAd, 0, pOutBuffer, FrameLen);
+	/*MiniportMMRequest(pAd, 0, pOutBuffer, FrameLen);*/
 	MlmeFreeMemory(pOutBuffer);
-	return;
+	}
 }
 
 VOID CFG80211_SyncPacketWpsIe(RTMP_ADAPTER *pAd, VOID *pData, ULONG dataLen, UINT8 apidx, UINT8 *da)
 {
 
-	const UCHAR *ssid_ie = NULL;
-#ifdef WSC_AP_SUPPORT
-	const UCHAR *wsc_ie  = NULL;
-	const UINT WFA_OUI = 0x0050F2;
+	const UCHAR *ssid_ie = NULL, *wsc_ie  = NULL;
 	BSS_STRUCT *pMbss = &pAd->ApCfg.MBSSID[apidx];
-#endif
 	EID_STRUCT *eid;
-
+	const UINT WFA_OUI = 0x0050F2;
 	PEER_PROBE_REQ_PARAM ProbeReqParam;
 
-	NdisZeroMemory(&ProbeReqParam, sizeof(PEER_PROBE_REQ_PARAM));
 	ssid_ie = cfg80211_find_ie(WLAN_EID_SSID, pData, dataLen);
 	if (ssid_ie != NULL) {
 		eid = (EID_STRUCT *)ssid_ie;
@@ -616,19 +842,17 @@ VOID CFG80211_SyncPacketWpsIe(RTMP_ADAPTER *pAd, VOID *pData, ULONG dataLen, UIN
 		NdisCopyMemory(ProbeReqParam.Addr2, da, MAC_ADDR_LEN);
 
 	}
-#ifdef WSC_AP_SUPPORT
 	wsc_ie = (UCHAR *)cfg80211_find_vendor_ie(WFA_OUI, 4, pData, dataLen);
 	if (wsc_ie != NULL) {
 
 		eid = (EID_STRUCT *)wsc_ie;
 
 		if (eid->Len + 2 <= 500) {
-			NdisCopyMemory(pMbss->wdev.WscIEProbeResp.Value, wsc_ie, eid->Len + 2);
-			pMbss->wdev.WscIEProbeResp.ValueLen = eid->Len + 2;
+			NdisCopyMemory(pMbss->WscIEProbeResp.Value, wsc_ie, eid->Len + 2);
+			pMbss->WscIEProbeResp.ValueLen = eid->Len + 2;
 		}
 
 	}
-#endif
 	ProbeResponseHandler(pAd, &ProbeReqParam, apidx);
 }
 
@@ -645,19 +869,13 @@ BOOLEAN CFG80211_SyncPacketWmmIe(RTMP_ADAPTER *pAd, VOID *pData, ULONG dataLen)
 	wmm_ie = (UCHAR *)cfg80211_find_vendor_ie(WFA_OUI, WMM_OUI_TYPE, pData, dataLen);
 
 	if (wmm_ie != NULL) {
-		UINT i = 0;
+		UINT i = QID_AC_BE;
 #ifdef UAPSD_SUPPORT
-#ifdef RT_CFG80211_P2P_SUPPORT
-		wdev = &pAd->ApCfg.MBSSID[CFG_GO_BSSID_IDX].wdev;
-		if (wdev->UapsdInfo.bAPSDCapable == TRUE) {
-			wmm_ie[8] |= 0x80;
-		}
-#endif /* RT_CFG80211_P2P_SUPPORT */
 #endif /* UAPSD_SUPPORT */
 
 		pBssEdca = wlan_config_get_ht_edca(wdev);
-		if (pBssEdca != NULL) {
-			/* WMM: sync from driver's EDCA parameter */
+		if (pBssEdca) {
+			/* WMM: sync from driver's EDCA paramter */
 			for (i = QID_AC_BK; i <= QID_AC_VO; i++) {
 				wmm_ie[10 + (i * 4)] = (i << 5) +                                  /* b5-6 is ACI */
 									   ((UCHAR)pBssEdca->bACM[i] << 4) +           /* b4 is ACM */
@@ -669,8 +887,9 @@ BOOLEAN CFG80211_SyncPacketWmmIe(RTMP_ADAPTER *pAd, VOID *pData, ULONG dataLen)
 			}
 		}
 		return TRUE;
-	} else
-		MTWF_DBG(NULL, DBG_CAT_TX, DBG_SUBCAT_ALL, DBG_LVL_DEBUG, "%s: can't find the wmm ie\n", __func__);
+	}
+	else
+		MTWF_LOG(DBG_CAT_TX, DBG_SUBCAT_ALL, DBG_LVL_INFO, ("%s: can't find the wmm ie\n", __func__));
 
 	return FALSE;
 }
@@ -680,7 +899,7 @@ BOOLEAN CFG80211_SyncPacketWmmIe(RTMP_ADAPTER *pAd, VOID *pData, ULONG dataLen)
 #if defined(HOSTAPD_11R_SUPPORT) || defined(HOSTAPD_SAE_SUPPORT)
 VOID CFG80211_AuthRespHandler(RTMP_ADAPTER *pAd, VOID *pData, ULONG Data)
 {
-	AUTH_FRAME_INFO *auth_info;	/* auth info from hostapd */
+	AUTH_FRAME_INFO auth_info;	/* auth info from hostapd */
 	MAC_TABLE_ENTRY *pEntry;
 	STA_TR_ENTRY *tr_entry;
 #ifdef DOT11R_FT_SUPPORT
@@ -694,11 +913,7 @@ VOID CFG80211_AuthRespHandler(RTMP_ADAPTER *pAd, VOID *pData, ULONG Data)
 
 	UINT8 apidx = get_apidx_by_addr(pAd, mgmt->sa);
 
-	MTWF_DBG(pAd, DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_DEBUG, "AUTH - %s\n", __func__);
-
-	os_alloc_mem(pAd, (UCHAR **)&auth_info, sizeof(AUTH_FRAME_INFO));
-	NdisZeroMemory(auth_info, sizeof(AUTH_FRAME_INFO));
-
+	MTWF_LOG(DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_OFF, ("AUTH - %s\n", __func__));
 
 
 	pMbss = &pAd->ApCfg.MBSSID[apidx];
@@ -721,7 +936,7 @@ VOID CFG80211_AuthRespHandler(RTMP_ADAPTER *pAd, VOID *pData, ULONG Data)
 		} else {
 #ifdef DOT11_N_SUPPORT
 			MTWF_LOG(DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_WARN, ("%s:ENTRY ALREADY EXIST, TERADOWN BLOCKACK SESSION\n", __func__));
-			ba_session_tear_down_all(pAd, pEntry->wcid, FALSE);
+			ba_session_tear_down_all(pAd, pEntry->wcid);
 #endif /* DOT11_N_SUPPORT */
 		}
 	}
@@ -730,7 +945,7 @@ VOID CFG80211_AuthRespHandler(RTMP_ADAPTER *pAd, VOID *pData, ULONG Data)
 SendAuth:
 #endif /* DOT11W_PMF_SUPPORT */
 
-#ifdef HOSTAPD_11R_SUPPORT
+#ifdef DOT11R_FT_SUPPORT
 	pFtCfg = &wdev->FtCfg;
 	if ((pFtCfg->FtCapFlag.Dot11rFtEnable)
 		&& (mgmt->u.auth.auth_alg == AUTH_MODE_FT)) {
@@ -741,117 +956,85 @@ SendAuth:
 
 		if (pEntry != NULL) {
 			/* fill auth info from upper layer response */
-			COPY_MAC_ADDR(auth_info->addr2, mgmt->da);
-			COPY_MAC_ADDR(auth_info->addr1, wdev->if_addr);
-			auth_info->auth_alg = mgmt->u.auth.auth_alg;
-			auth_info->auth_seq = mgmt->u.auth.auth_transaction;
-			auth_info->auth_status = mgmt->u.auth.status_code;
+			COPY_MAC_ADDR(auth_info.addr2, mgmt->da);
+			COPY_MAC_ADDR(auth_info.addr1, wdev->if_addr);
+			auth_info.auth_alg = mgmt->u.auth.auth_alg;
+			auth_info.auth_seq = mgmt->u.auth.auth_transaction;
+			auth_info.auth_status = mgmt->u.auth.status_code;
 
 			/* os_alloc_mem(pAd, (UCHAR **)&pFtInfoBuf, sizeof(FT_INFO)); */
 			pFtInfo = &(pEntry->auth_info_resp.FtInfo);
-			PEID_STRUCT eid_ptr;
-			UCHAR *Ptr;
-			UCHAR WPA2_OUI[3] = {0x00, 0x0F, 0xAC};
-			/* PFT_INFO pFtInfo = &auth_info->FtInfo; */
+			{
+				PEID_STRUCT eid_ptr;
+				UCHAR *Ptr;
+				UCHAR WPA2_OUI[3] = {0x00, 0x0F, 0xAC};
+				/* PFT_INFO pFtInfo = &auth_info->FtInfo; */
 
-			NdisZeroMemory(pFtInfo, sizeof(FT_INFO));
+				NdisZeroMemory(pFtInfo, sizeof(FT_INFO));
 
-			/* Ptr = &Fr->Octet[6]; */
-			Ptr = mgmt->u.auth.variable;
-			eid_ptr = (PEID_STRUCT) Ptr;
+				/* Ptr = &Fr->Octet[6]; */
+				Ptr = mgmt->u.auth.variable;
+				eid_ptr = (PEID_STRUCT) Ptr;
 
-			/* get variable fields from payload and advance the pointer */
-			while (((UCHAR *)eid_ptr + eid_ptr->Len + 1) < ((UCHAR *)mgmt + Data)) {
-				switch (eid_ptr->Eid) {
-				case IE_FT_MDIE:
-					if (FT_FillMdIeInfo(eid_ptr, &pFtInfo->MdIeInfo) == FALSE) {
-						MTWF_DBG(pAd, DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_INFO,
-								"%s() - wrong IE_FT_MDIE\n", __func__);
-						if (auth_info)
-							os_free_mem(auth_info);
-						return FALSE;
-					}
-					break;
+			    /* get variable fields from payload and advance the pointer */
+				while (((UCHAR *)eid_ptr + eid_ptr->Len + 1) < ((UCHAR *)mgmt + Data)) {
+					switch (eid_ptr->Eid) {
+					case IE_FT_MDIE:
+						FT_FillMdIeInfo(eid_ptr, &pFtInfo->MdIeInfo);
+						break;
 
-				case IE_FT_FTIE:
-					if (FT_FillFtIeInfo(eid_ptr, &pFtInfo->FtIeInfo) == FALSE) {
-						MTWF_DBG(pAd, DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_INFO,
-								"%s() - wrong IE_FT_FTIE\n", __func__);
-						if (auth_info)
-							os_free_mem(auth_info);
-						return FALSE;
-					}
-					break;
+					case IE_FT_FTIE:
+						FT_FillFtIeInfo(eid_ptr, &pFtInfo->FtIeInfo);
+						break;
 
-				case IE_FT_RIC_DATA:
-					/* record the pointer of first RDIE. */
-					if (pFtInfo->RicInfo.pRicInfo == NULL) {
-						pFtInfo->RicInfo.pRicInfo = &eid_ptr->Eid;
-						pFtInfo->RicInfo.Len = ((UCHAR *)mgmt + Data)
-							- (UCHAR *)eid_ptr + 1;
-					}
+					case IE_FT_RIC_DATA:
+						/* record the pointer of first RDIE. */
+						if (pFtInfo->RicInfo.pRicInfo == NULL) {
+							pFtInfo->RicInfo.pRicInfo = &eid_ptr->Eid;
+							pFtInfo->RicInfo.Len = ((UCHAR *)mgmt + Data)
+													- (UCHAR *)eid_ptr + 1;
+						}
 
-					if ((pFtInfo->RicInfo.RicIEsLen + eid_ptr->Len + 2) < MAX_RICIES_LEN) {
-						NdisMoveMemory(&pFtInfo->RicInfo.RicIEs[pFtInfo->RicInfo.RicIEsLen],
-								&eid_ptr->Eid, eid_ptr->Len + 2);
-						pFtInfo->RicInfo.RicIEsLen += eid_ptr->Len + 2;
-					} else {
-						MTWF_DBG(pAd, DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_INFO,
-								"%s() - wrong IE_FT_RIC_DATA\n", __func__);
-						if (auth_info)
-							os_free_mem(auth_info);
-						return FALSE;
-					}
-					break;
+						if ((pFtInfo->RicInfo.RicIEsLen + eid_ptr->Len + 2) < MAX_RICIES_LEN) {
+							NdisMoveMemory(&pFtInfo->RicInfo.RicIEs[pFtInfo->RicInfo.RicIEsLen],
+											&eid_ptr->Eid, eid_ptr->Len + 2);
+							pFtInfo->RicInfo.RicIEsLen += eid_ptr->Len + 2;
+						}
+						break;
 
 
-				case IE_FT_RIC_DESCRIPTOR:
-					if ((pFtInfo->RicInfo.RicIEsLen + eid_ptr->Len + 2) < MAX_RICIES_LEN) {
-						NdisMoveMemory(&pFtInfo->RicInfo.RicIEs[pFtInfo->RicInfo.RicIEsLen],
-								&eid_ptr->Eid, eid_ptr->Len + 2);
-						pFtInfo->RicInfo.RicIEsLen += eid_ptr->Len + 2;
-					} else {
-						MTWF_DBG(pAd, DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_INFO,
-								"%s() - wrong IE_FT_RIC_DESCRIPTOR\n", __func__);
-						if (auth_info)
-							os_free_mem(auth_info);
-						return FALSE;
-					}
-					break;
+					case IE_FT_RIC_DESCRIPTOR:
+						if ((pFtInfo->RicInfo.RicIEsLen + eid_ptr->Len + 2) < MAX_RICIES_LEN) {
+							NdisMoveMemory(&pFtInfo->RicInfo.RicIEs[pFtInfo->RicInfo.RicIEsLen],
+											&eid_ptr->Eid, eid_ptr->Len + 2);
+							pFtInfo->RicInfo.RicIEsLen += eid_ptr->Len + 2;
+						}
+						break;
 
-				case IE_RSN:
-					if (parse_rsn_ie(eid_ptr) &&
-							(NdisEqualMemory(&eid_ptr->Octet[2],
-									 WPA2_OUI, sizeof(WPA2_OUI)))) {
-						NdisMoveMemory(pFtInfo->RSN_IE, eid_ptr, eid_ptr->Len + 2);
-						pFtInfo->RSNIE_Len = eid_ptr->Len + 2;
-					} else {
-						MTWF_DBG(pAd, DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_INFO,
-								"%s() - wrong IE_RSN\n", __func__);
-						if (auth_info)
-							os_free_mem(auth_info);
-						return FALSE;
-					}
-					break;
+					case IE_RSN:
+						if (NdisEqualMemory(&eid_ptr->Octet[2], WPA2_OUI, sizeof(WPA2_OUI))) {
+							NdisMoveMemory(pFtInfo->RSN_IE, eid_ptr, eid_ptr->Len + 2);
+							pFtInfo->RSNIE_Len = eid_ptr->Len + 2;
+						}
+						break;
 
 					default:
 						break;
-				}
+					}
 				eid_ptr = (PEID_STRUCT)((UCHAR *)eid_ptr + 2 + eid_ptr->Len);
+				}
 			}
 
 			if (mgmt->u.auth.status_code == MLME_SUCCESS) {
-				NdisMoveMemory(&pEntry->MdIeInfo, &auth_info->FtInfo.MdIeInfo, sizeof(FT_MDIE_INFO));
+				NdisMoveMemory(&pEntry->MdIeInfo, &auth_info.FtInfo.MdIeInfo, sizeof(FT_MDIE_INFO));
 
 				pEntry->AuthState = AS_AUTH_OPEN;
-				/*According to specific, if it already in SST_ASSOC, it can not go back */
-				if (pEntry->Sst != SST_ASSOC)
-					pEntry->Sst = SST_AUTH;
+				pEntry->Sst = SST_AUTH;
 #ifdef RADIUS_MAC_AUTH_SUPPORT
 				if (pEntry->wdev->radius_mac_auth_enable)
 					pEntry->bAllowTraffic = TRUE;
 #endif
-				MTWF_DBG(pAd, DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_DEBUG, "%s: AuthState:%d, Sst:%d\n", __func__, pEntry->AuthState, pEntry->Sst);
+				MTWF_LOG(DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_OFF, ("%s: AuthState:%d, Sst:%d\n", __func__, pEntry->AuthState, pEntry->Sst));
 			}
 #ifdef RADIUS_MAC_AUTH_SUPPORT
 			else {
@@ -862,14 +1045,13 @@ SendAuth:
 			}
 #endif
 		}
-		os_free_mem(auth_info);
 		return;
 	} else
 #endif /* DOT11R_FT_SUPPORT */
 #ifdef HOSTAPD_SAE_SUPPORT
 	if (mgmt->u.auth.auth_alg == AUTH_MODE_SAE) {
-		MTWF_DBG(pAd, DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_INFO, "SAE Auth Response Sequence %d \n",
-					mgmt->u.auth.auth_transaction);
+		MTWF_LOG(DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("SAE Auth Response Sequence %d \n",
+					mgmt->u.auth.auth_transaction));
 		if (!pEntry)
 			pEntry = MacTableInsertEntry(pAd, mgmt->da, wdev, ENTRY_CLIENT, OPMODE_AP, TRUE);
 
@@ -877,9 +1059,7 @@ SendAuth:
 		if (pEntry) {
 			if (mgmt->u.auth.status_code == MLME_SUCCESS) {
 				pEntry->AuthState = AS_AUTH_OPEN;
-				/*According to specific, if it already in SST_ASSOC, it can not go back */
-				if (pEntry->Sst != SST_ASSOC)
-					pEntry->Sst = SST_AUTH;
+				pEntry->Sst = SST_AUTH;
 #ifdef RADIUS_MAC_AUTH_SUPPORT
 				if (pEntry->wdev->radius_mac_auth_enable)
 					pEntry->bAllowTraffic = TRUE;
@@ -895,10 +1075,10 @@ SendAuth:
 		}
 	} else
 #endif
-	if ((auth_info->auth_alg == AUTH_MODE_OPEN) &&
+	if ((auth_info.auth_alg == AUTH_MODE_OPEN) &&
 		(!IS_AKM_SHARED(pMbss->wdev.SecConfig.AKMMap))) {
 		if (!pEntry)
-			pEntry = MacTableInsertEntry(pAd, auth_info->addr2, wdev, ENTRY_CLIENT, OPMODE_AP, TRUE);
+			pEntry = MacTableInsertEntry(pAd, auth_info.addr2, wdev, ENTRY_CLIENT, OPMODE_AP, TRUE);
 
 		if (pEntry) {
 			tr_entry = &pAd->MacTab.tr_entry[pEntry->wcid];
@@ -908,11 +1088,9 @@ SendAuth:
 #endif /* DOT11W_PMF_SUPPORT */
 			{
 				pEntry->AuthState = AS_AUTH_OPEN;
-				/*According to specific, if it already in SST_ASSOC, it can not go back */
-				if (pEntry->Sst != SST_ASSOC)
-					pEntry->Sst = SST_AUTH;
+				pEntry->Sst = SST_AUTH; /* what if it already in SST_ASSOC ??????? */
 			}
-			MTWF_DBG(pAd, DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_DEBUG, "%s: pEntry created: auth state:%d, Sst:%d", __func__, pEntry->AuthState, pEntry->Sst);
+			MTWF_LOG(DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_OFF, ("%s: pEntry created: auth state:%d, Sst:%d", __func__, pEntry->AuthState, pEntry->Sst));
 			/* APPeerAuthSimpleRspGenAndSend(pAd, pRcvHdr, auth_info.auth_alg, auth_info.auth_seq + 1, MLME_SUCCESS); */
 
 		} else
@@ -925,10 +1103,9 @@ SendAuth:
 		if (pEntry)
 			MacTableDeleteEntry(pAd, pEntry->wcid, pEntry->Addr);
 
-		MTWF_DBG(pAd, DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_INFO, "AUTH - Alg=%d, Seq=%d\n",
-				auth_info->auth_alg, auth_info->auth_seq);
+		MTWF_LOG(DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("AUTH - Alg=%d, Seq=%d\n",
+				auth_info.auth_alg, auth_info.auth_seq));
 	}
-	os_free_mem(auth_info);
 }
 
 VOID CFG80211_AssocRespHandler(RTMP_ADAPTER *pAd, VOID *pData, ULONG Data)
@@ -964,17 +1141,19 @@ VOID CFG80211_AssocRespHandler(RTMP_ADAPTER *pAd, VOID *pData, ULONG Data)
 #ifdef DOT11R_FT_SUPPORT
 	PFT_CFG pFtCfg = NULL;
 	PFT_INFO pFtInfoBuf = NULL; 	/*Wframe-larger-than=1024 warning  removal*/
-	PEID_STRUCT pFtIe = NULL;
 #endif /* DOT11R_FT_SUPPORT */
 #ifdef HOSTAPD_OWE_SUPPORT
-	PEID_STRUCT pEcdhIe = NULL;
-	PEID_STRUCT pRsnIe = NULL;
+		PEID_STRUCT pEcdhIe = NULL;
+		PEID_STRUCT pRsnIe = NULL;
 #endif
 #ifdef WSC_AP_SUPPORT
 	WSC_CTRL *wsc_ctrl;
 #endif /* WSC_AP_SUPPORT */
 	ADD_HT_INFO_IE *addht;
 	struct _build_ie_info ie_info;
+#ifdef GREENAP_SUPPORT
+	struct greenap_ctrl *greenap = &pAd->ApCfg.greenap;
+#endif /* GREENAP_SUPPORT */
 #ifdef WAPP_SUPPORT
 /*	UINT8 wapp_cnnct_stage = WAPP_ASSOC; */
 	UINT16 wapp_assoc_fail = NOT_FAILURE;
@@ -984,20 +1163,20 @@ VOID CFG80211_AssocRespHandler(RTMP_ADAPTER *pAd, VOID *pData, ULONG Data)
 
 	UINT8 apidx = get_apidx_by_addr(pAd, mgmt->sa);
 
-	MTWF_DBG(pAd, DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_INFO, "ASSOC - %s\n", __func__);
+	MTWF_LOG(DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_OFF, ("ASSOC - %s\n", __func__));
 
 	pMbss = &pAd->ApCfg.MBSSID[apidx];
 	wdev = &pMbss->wdev;
 	if (wdev == NULL) {
-		MTWF_DBG(pAd, DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-					"Wrong Addr1 - "MACSTR"\n",
-					MAC2STR(mgmt->sa));
+		MTWF_LOG(DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
+					("Wrong Addr1 - %02x:%02x:%02x:%02x:%02x:%02x\n",
+					PRINT_MAC(mgmt->sa)));
 		goto LabelOK;
 	}
 	ASSERT((wdev->func_idx == apidx));
 
 #ifdef WSC_AP_SUPPORT
-	wsc_ctrl = &pMbss->wdev.WscControl;
+	wsc_ctrl = &pMbss->WscControl;
 #endif /* WSC_AP_SUPPORT */
 
 	PhyMode = wdev->PhyMode;
@@ -1005,49 +1184,50 @@ VOID CFG80211_AssocRespHandler(RTMP_ADAPTER *pAd, VOID *pData, ULONG Data)
 	addht = wlan_operate_get_addht(wdev);
 	FlgIs11bSta = 1;
 
+#ifdef DOT11R_FT_SUPPORT
+	os_alloc_mem(NULL, (UCHAR **)&pFtInfoBuf, sizeof(FT_INFO));
+	if (pFtInfoBuf == NULL) {
+		MTWF_LOG(DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
+					("%s(): pFtInfoBuf mem alloc failed\n", __func__));
+		return;
+	}
+	NdisZeroMemory(pFtInfoBuf, sizeof(FT_INFO));
+#endif /* DOT11R_FT_SUPPORT */
+
 	pEntry = MacTableLookup(pAd, mgmt->da);
 
 	if (!pEntry) {
-		MTWF_DBG(pAd, DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-					"NoAuth MAC - "MACSTR"\n",
-					MAC2STR(mgmt->da));
+		MTWF_LOG(DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
+					("NoAuth MAC - %02x:%02x:%02x:%02x:%02x:%02x\n",
+					PRINT_MAC(mgmt->da)));
 		goto LabelOK;
 	}
 
 	ie_list = pEntry->ie_list;
 
-#ifdef DOT11R_FT_SUPPORT
-	os_alloc_mem(NULL, (UCHAR **)&pFtInfoBuf, sizeof(FT_INFO));
-	if (pFtInfoBuf == NULL) {
-		MTWF_DBG(pAd, DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-			"pFtInfoBuf mem alloc failed\n");
-		goto LabelOK;
-	}
-	NdisZeroMemory(pFtInfoBuf, sizeof(FT_INFO));
-#endif /* DOT11R_FT_SUPPORT */
 
-	for (i = 0; i < ie_list->rate.sup_rate_len; i++) {
-		if (((ie_list->rate.sup_rate[i] & 0x7F) != 2) &&
-			((ie_list->rate.sup_rate[i] & 0x7F) != 4) &&
-			((ie_list->rate.sup_rate[i] & 0x7F) != 11) &&
-			((ie_list->rate.sup_rate[i] & 0x7F) != 22)) {
+	for (i = 0; i < ie_list->SupportedRatesLen; i++) {
+		if (((ie_list->SupportedRates[i] & 0x7F) != 2) &&
+			((ie_list->SupportedRates[i] & 0x7F) != 4) &&
+			((ie_list->SupportedRates[i] & 0x7F) != 11) &&
+			((ie_list->SupportedRates[i] & 0x7F) != 22)) {
 			FlgIs11bSta = 0;
 			break;
 		}
 	}
 
 	if (!VALID_MBSS(pAd, pEntry->func_tb_idx)) {
-		MTWF_DBG(pAd, DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-					"pEntry bounding invalid wdev(apidx=%d)\n",
-					pEntry->func_tb_idx);
+		MTWF_LOG(DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
+					("%s():pEntry bounding invalid wdev(apidx=%d)\n",
+					__func__, pEntry->func_tb_idx));
 		goto LabelOK;
 	}
 
-	MTWF_DBG(pAd, DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_INFO,
-				"pEntry->func_tb_idx=%d\n",
-				pEntry->func_tb_idx);
+	MTWF_LOG(DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
+				("%s():pEntry->func_tb_idx=%d\n",
+				__func__, pEntry->func_tb_idx));
 
-	tr_entry = &pAd->tr_ctl.tr_entry[pEntry->tr_tb_idx];
+	tr_entry = &pAd->MacTab.tr_entry[pEntry->tr_tb_idx];
 
 	isReassoc = ieee80211_is_reassoc_resp(mgmt->frame_control);
 
@@ -1064,8 +1244,8 @@ VOID CFG80211_AssocRespHandler(RTMP_ADAPTER *pAd, VOID *pData, ULONG Data)
 	/*is status is success ,update STARec*/
 	if (StatusCode == MLME_SUCCESS && (pEntry->Sst == SST_ASSOC)) {
 		if (wdev_do_conn_act(pEntry->wdev, pEntry) != TRUE) {
-			MTWF_DBG(pAd, DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-					 "connect action fail!!\n");
+			MTWF_LOG(DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
+					 ("%s():connect action fail!!\n", __func__));
 		}
 	}
 	if (pEntry->func_tb_idx < pAd->ApCfg.BssidNum) {
@@ -1081,101 +1261,68 @@ VOID CFG80211_AssocRespHandler(RTMP_ADAPTER *pAd, VOID *pData, ULONG Data)
 			bExtractIe = TRUE;
 #endif
 		if (bExtractIe) {
-			PEID_STRUCT eid_ptr;
-			UCHAR *Ptr;
-			UCHAR WPA2_OUI[3] = {0x00, 0x0F, 0xAC};
-			/* PFT_INFO pFtInfo = &auth_info->FtInfo; */
+				PEID_STRUCT eid_ptr;
+				UCHAR *Ptr;
+				UCHAR WPA2_OUI[3] = {0x00, 0x0F, 0xAC};
+				/* PFT_INFO pFtInfo = &auth_info->FtInfo; */
 
-			NdisZeroMemory(pFtInfoBuf, sizeof(FT_INFO));
+				NdisZeroMemory(pFtInfoBuf, sizeof(FT_INFO));
 
-			/* Ptr = &Fr->Octet[6]; */
-			Ptr = mgmt->u.reassoc_resp.variable;
-			eid_ptr = (PEID_STRUCT) Ptr;
+				/* Ptr = &Fr->Octet[6]; */
+				Ptr = mgmt->u.reassoc_resp.variable;
+				eid_ptr = (PEID_STRUCT) Ptr;
 
-			/* get variable fields from payload and advance the pointer */
-			while (((UCHAR *)eid_ptr + eid_ptr->Len + 1) < ((UCHAR *)mgmt + Data)) {
-				switch (eid_ptr->Eid) {
+				/* get variable fields from payload and advance the pointer */
+				while (((UCHAR *)eid_ptr + eid_ptr->Len + 1) < ((UCHAR *)mgmt + Data)) {
+					switch (eid_ptr->Eid) {
 #ifdef DOT11R_FT_SUPPORT
-				case IE_FT_MDIE:
-					if (FT_FillMdIeInfo(eid_ptr, &pFtInfoBuf->MdIeInfo) == FALSE) {
-						MTWF_DBG(pAd, DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_INFO,
-								"%s() - wrong IE_FT_MDIE\n", __func__);
-						if (pFtInfoBuf)
-							os_free_mem(pFtInfoBuf);
-						return FALSE;
-					}
-					break;
+					case IE_FT_MDIE:
+						FT_FillMdIeInfo(eid_ptr, &pFtInfoBuf->MdIeInfo);
+						break;
 
-				case IE_FT_FTIE:
-					pFtIe = eid_ptr;
-					if (FT_FillFtIeInfo(eid_ptr, &pFtInfoBuf->FtIeInfo) == FALSE) {
-						MTWF_DBG(pAd, DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_INFO,
-								"%s() - wrong IE_FT_FTIE\n", __func__);
-						if (pFtInfoBuf)
-							os_free_mem(pFtInfoBuf);
-						return FALSE;
-					}
-					break;
+					case IE_FT_FTIE:
+						FT_FillFtIeInfo(eid_ptr, &pFtInfoBuf->FtIeInfo);
+						break;
 
-				case IE_FT_RIC_DATA:
-					/* record the pointer of first RDIE. */
-					if (pFtInfoBuf->RicInfo.pRicInfo == NULL) {
-						pFtInfoBuf->RicInfo.pRicInfo = &eid_ptr->Eid;
-						pFtInfoBuf->RicInfo.Len = ((UCHAR *)mgmt + Data)
-							- (UCHAR *)eid_ptr + 1;
-					}
+					case IE_FT_RIC_DATA:
+						/* record the pointer of first RDIE. */
+						if (pFtInfoBuf->RicInfo.pRicInfo == NULL) {
+							pFtInfoBuf->RicInfo.pRicInfo = &eid_ptr->Eid;
+							pFtInfoBuf->RicInfo.Len = ((UCHAR *)mgmt + Data)
+													- (UCHAR *)eid_ptr + 1;
+						}
 
-					if ((pFtInfoBuf->RicInfo.RicIEsLen + eid_ptr->Len + 2) < MAX_RICIES_LEN) {
-						NdisMoveMemory(&pFtInfoBuf->RicInfo.RicIEs[pFtInfoBuf->RicInfo.RicIEsLen],
-								&eid_ptr->Eid, eid_ptr->Len + 2);
-						pFtInfoBuf->RicInfo.RicIEsLen += eid_ptr->Len + 2;
-					} else {
-						MTWF_DBG(pAd, DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_INFO,
-								"%s() - wrong IE_FT_RIC_DATA\n", __func__);
-						if (pFtInfoBuf)
-							os_free_mem(pFtInfoBuf);
-						return FALSE;
-					}
-					break;
+						if ((pFtInfoBuf->RicInfo.RicIEsLen + eid_ptr->Len + 2) < MAX_RICIES_LEN) {
+							NdisMoveMemory(&pFtInfoBuf->RicInfo.RicIEs[pFtInfoBuf->RicInfo.RicIEsLen],
+											&eid_ptr->Eid, eid_ptr->Len + 2);
+							pFtInfoBuf->RicInfo.RicIEsLen += eid_ptr->Len + 2;
+						}
+						break;
 
-				case IE_FT_RIC_DESCRIPTOR:
-					if ((pFtInfoBuf->RicInfo.RicIEsLen + eid_ptr->Len + 2) < MAX_RICIES_LEN) {
-						NdisMoveMemory(&pFtInfoBuf->RicInfo.RicIEs[pFtInfoBuf->RicInfo.RicIEsLen],
-								&eid_ptr->Eid, eid_ptr->Len + 2);
-						pFtInfoBuf->RicInfo.RicIEsLen += eid_ptr->Len + 2;
-					} else {
-						MTWF_DBG(pAd, DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_INFO,
-								"%s() - wrong IE_FT_RIC_DESCRIPTOR\n", __func__);
-						if (pFtInfoBuf)
-							os_free_mem(pFtInfoBuf);
-						return FALSE;
-					}
-					break;
+					case IE_FT_RIC_DESCRIPTOR:
+						if ((pFtInfoBuf->RicInfo.RicIEsLen + eid_ptr->Len + 2) < MAX_RICIES_LEN) {
+							NdisMoveMemory(&pFtInfoBuf->RicInfo.RicIEs[pFtInfoBuf->RicInfo.RicIEsLen],
+											&eid_ptr->Eid, eid_ptr->Len + 2);
+							pFtInfoBuf->RicInfo.RicIEsLen += eid_ptr->Len + 2;
+						}
+						break;
 #endif
 #if defined(DOT11R_FT_SUPPORT) || defined(HOSTAPD_OWE_SUPPORT)
 
-				case IE_RSN:
-					if (parse_rsn_ie(eid_ptr) &&
-							(NdisEqualMemory(&eid_ptr->Octet[2],
-									 WPA2_OUI, sizeof(WPA2_OUI)))) {
+					case IE_RSN:
+						if (NdisEqualMemory(&eid_ptr->Octet[2], WPA2_OUI, sizeof(WPA2_OUI))) {
 #ifdef DOT11R_FT_SUPPORT
-						NdisMoveMemory(pFtInfoBuf->RSN_IE, eid_ptr, eid_ptr->Len + 2);
-						pFtInfoBuf->RSNIE_Len = eid_ptr->Len + 2;
+							NdisMoveMemory(pFtInfoBuf->RSN_IE, eid_ptr, eid_ptr->Len + 2);
+							pFtInfoBuf->RSNIE_Len = eid_ptr->Len + 2;
 #endif
 #ifdef HOSTAPD_OWE_SUPPORT
-						pRsnIe = eid_ptr;
+							pRsnIe = eid_ptr;
 #endif
-					} else {
-						MTWF_DBG(pAd, DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_INFO,
-								"%s() - wrong IE_RSN\n", __func__);
-						if (pFtInfoBuf)
-							os_free_mem(pFtInfoBuf);
-						return FALSE;
-					}
-					break;
+						}
+						break;
 #endif
 #ifdef HOSTAPD_OWE_SUPPORT
-				case IE_WLAN_EXTENSION:
+					case IE_WLAN_EXTENSION:
 					{
 						/*parse EXTENSION EID*/
 						UCHAR *extension_id = (UCHAR *)eid_ptr + 2;
@@ -1185,15 +1332,15 @@ VOID CFG80211_AssocRespHandler(RTMP_ADAPTER *pAd, VOID *pData, ULONG Data)
 							pEcdhIe = eid_ptr;
 						}
 					}
-					break;
+						break;
 #endif
 
-				default:
-					break;
+					default:
+						break;
+					}
+					eid_ptr = (PEID_STRUCT)((UCHAR *)eid_ptr + 2 + eid_ptr->Len);
 				}
-				eid_ptr = (PEID_STRUCT)((UCHAR *)eid_ptr + 2 + eid_ptr->Len);
 			}
-		}
 
 			if (mgmt->u.reassoc_resp.status_code == MLME_SUCCESS) {
 /*				NdisMoveMemory(&pEntry->MdIeInfo, &auth_info.FtInfo.MdIeInfo, sizeof(FT_MDIE_INFO));
@@ -1215,15 +1362,15 @@ VOID CFG80211_AssocRespHandler(RTMP_ADAPTER *pAd, VOID *pData, ULONG Data)
 #endif /* DOT11K_RRM_SUPPORT */
 
 #ifdef DOT11_VHT_AC
-	if (HAS_VHT_CAPS_EXIST(ie_list->cmm_ies.ie_exists)) {
+	if (ie_list->vht_cap_len) {
 		/* +++Add by shiang for debug */
 		if (WMODE_CAP_AC(wdev->PhyMode)) {
-			MTWF_DBG(NULL, DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_DEBUG,
-					 "%s():Peer is VHT capable device!\n", __func__);
+			MTWF_LOG(DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_INFO,
+					 ("%s():Peer is VHT capable device!\n", __func__));
 			NdisMoveMemory(&pEntry->ext_cap, &ie_list->ExtCapInfo, sizeof(ie_list->ExtCapInfo));
-			MTWF_DBG(NULL, DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_DEBUG,
-					 "\tOperatingModeNotification=%d\n",
-					  pEntry->ext_cap.operating_mode_notification);
+			MTWF_LOG(DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_INFO,
+					 ("\tOperatingModeNotification=%d\n",
+					  pEntry->ext_cap.operating_mode_notification));
 			/* dump_vht_cap(pAd, &ie_list->vht_cap); */
 		}
 
@@ -1234,16 +1381,6 @@ VOID CFG80211_AssocRespHandler(RTMP_ADAPTER *pAd, VOID *pData, ULONG Data)
 	if (StatusCode == MLME_ASSOC_REJ_DATA_RATE)
 		RTMPSendWirelessEvent(pAd, IW_STA_MODE_EVENT_FLAG, pEntry->Addr, wdev->wdev_idx, 0);
 
-#ifdef WH_EVENT_NOTIFIER
-	if (pEntry && tr_entry && (tr_entry->PortSecured == WPA_802_1X_PORT_SECURED)) {
-		EventHdlr pEventHdlrHook = NULL;
-
-		pEventHdlrHook = GetEventNotiferHook(WHC_DRVEVNT_STA_JOIN);
-
-		if (pEventHdlrHook && pEntry->wdev)
-			pEventHdlrHook(pAd, pEntry, Elem);
-	}
-#endif /* WH_EVENT_NOTIFIER */
 
 #ifdef DOT11W_PMF_SUPPORT
 	/* SendAssocResponse: */
@@ -1254,9 +1391,9 @@ VOID CFG80211_AssocRespHandler(RTMP_ADAPTER *pAd, VOID *pData, ULONG Data)
 	if (NStatus != NDIS_STATUS_SUCCESS)
 		goto LabelOK;
 
-	MTWF_DBG(pAd, DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_INFO,
-			 "Reassoc - Send reassoc response (Status=%d)...\n",
-			  StatusCode);
+	MTWF_LOG(DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_TRACE,
+			 ("Reassoc - Send reassoc response (Status=%d)...\n",
+			  StatusCode));
 	Aid |= 0xc000; /* 2 most significant bits should be ON */
 	SubType = isReassoc ? SUBTYPE_REASSOC_RSP : SUBTYPE_ASSOC_RSP;
 	CapabilityInfoForAssocResp = pMbss->CapabilityInfo; /*use AP's cability */
@@ -1276,7 +1413,7 @@ VOID CFG80211_AssocRespHandler(RTMP_ADAPTER *pAd, VOID *pData, ULONG Data)
 
 #endif /* WSC_AP_SUPPORT */
 		/* fail in ACL checking => send an Assoc-Fail resp. */
-	SupRateLen = rate->legacy_rate.sup_rate_len;
+	SupRateLen = rate->SupRateLen;
 
 	/* TODO: need to check rate in support rate element, not number */
 	if (FlgIs11bSta == 1)
@@ -1290,19 +1427,17 @@ VOID CFG80211_AssocRespHandler(RTMP_ADAPTER *pAd, VOID *pData, ULONG Data)
 					  2,						&Aid,
 					  1,						&SupRateIe,
 					  1,						&SupRateLen,
-					  SupRateLen,				rate->legacy_rate.sup_rate,
+					  SupRateLen,				rate->SupRate,
 					  END_OF_ARGS);
 
-	if ((rate->legacy_rate.ext_rate_len) && (PhyMode != WMODE_B) && (FlgIs11bSta == 0)) {
+	if ((rate->ExtRateLen) && (PhyMode != WMODE_B) && (FlgIs11bSta == 0)) {
 		ULONG TmpLen;
 
-		MakeOutgoingFrame(pOutBuffer + FrameLen,
-						&TmpLen,				1,
-						&ExtRateIe,				1,
-						&rate->legacy_rate.ext_rate_len,
-						rate->legacy_rate.ext_rate_len,
-						rate->legacy_rate.ext_rate,
-						END_OF_ARGS);
+		MakeOutgoingFrame(pOutBuffer + FrameLen,	  &TmpLen,
+						  1,						&ExtRateIe,
+						  1,						&rate->ExtRateLen,
+						  rate->ExtRateLen, rate->ExtRate,
+						  END_OF_ARGS);
 		FrameLen += TmpLen;
 	}
 
@@ -1316,20 +1451,9 @@ VOID CFG80211_AssocRespHandler(RTMP_ADAPTER *pAd, VOID *pData, ULONG Data)
 #ifdef DOT11K_RRM_SUPPORT
 
 	if (IS_RRM_ENABLE(wdev))
-		RRM_InsertRRMEnCapIE(pAd, wdev, pOutBuffer + FrameLen, &FrameLen, pEntry->func_tb_idx);
+		RRM_InsertRRMEnCapIE(pAd, pOutBuffer + FrameLen, &FrameLen, pEntry->func_tb_idx);
 
 #endif /* DOT11K_RRM_SUPPORT */
-
-	ie_info.frame_subtype = SUBTYPE_ASSOC_RSP;
-	ie_info.channel = wdev->channel;
-	ie_info.phy_mode = PhyMode;
-	ie_info.wdev = wdev_search_by_address(pAd, ie_list->Addr1);
-
-	if (ie_info.wdev == NULL) {
-		MTWF_DBG(pAd, DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-					"wdev is NULL\n");
-		goto LabelOK;
-	}
 
 	/* add WMM IE here */
 	/* printk("%s()=>bWmmCapable=%d,CLINE=%d\n",__FUNCTION__,wdev->bWmmCapable,CLIENT_STATUS_TEST_FLAG(pEntry, fCLIENT_STATUS_WMM_CAPABLE)); */
@@ -1363,7 +1487,7 @@ VOID CFG80211_AssocRespHandler(RTMP_ADAPTER *pAd, VOID *pData, ULONG Data)
 #ifdef DOT11_N_SUPPORT
 
 		/* HT capability in AssocRsp frame. */
-	if (HAS_HT_CAPS_EXIST(ie_list->cmm_ies.ie_exists) && WMODE_CAP_N(wdev->PhyMode) &&
+	if ((ie_list->ht_cap_len > 0) && WMODE_CAP_N(wdev->PhyMode) &&
 		(wdev->DesiredHtPhyInfo.bHtEnable)) {
 #ifdef DOT11_VHT_AC
 		struct _build_ie_info vht_ie_info;
@@ -1373,7 +1497,7 @@ VOID CFG80211_AssocRespHandler(RTMP_ADAPTER *pAd, VOID *pData, ULONG Data)
 		ie_info.frame_buf = (UCHAR *)(pOutBuffer + FrameLen);
 		FrameLen += build_ht_ies(pAd, &ie_info);
 
-		if ((ie_list->cmm_ies.vendor_ie.ra_cap) == 0 || (pAd->bBroadComHT == TRUE)) {
+		if ((ie_list->vendor_ie.ra_cap) == 0 || (pAd->bBroadComHT == TRUE)) {
 			ie_info.is_draft_n_type = TRUE;
 			ie_info.frame_buf = (UCHAR *)(pOutBuffer + FrameLen);
 			FrameLen += build_ht_ies(pAd, &ie_info);
@@ -1402,8 +1526,8 @@ VOID CFG80211_AssocRespHandler(RTMP_ADAPTER *pAd, VOID *pData, ULONG Data)
 #endif /* DOT11_N_SUPPORT */
 #ifdef CONFIG_HOTSPOT_R2
 	/* qosmap IE */
-	MTWF_DBG(pAd, DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_DEBUG, "entry wcid %d QosMapSupport=%d\n",
-			 pEntry->wcid, pEntry->QosMapSupport);
+	MTWF_LOG(DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_OFF, ("entry wcid %d QosMapSupport=%d\n",
+			 pEntry->wcid, pEntry->QosMapSupport));
 
 	if (pEntry->QosMapSupport) {
 		ULONG	TmpLen;
@@ -1432,6 +1556,28 @@ VOID CFG80211_AssocRespHandler(RTMP_ADAPTER *pAd, VOID *pData, ULONG Data)
 	}
 
 #endif /* CONFIG_HOTSPOT_R2 */
+
+	if (IS_AKM_OWE_Entry(pEntry)) {
+		CHAR rsne_idx;
+		ULONG	TmpLen;
+		struct _SECURITY_CONFIG *pSecConfig = &pEntry->SecConfig;
+		/*struct _SECURITY_CONFIG *pSecConfig = &wdev->SecConfig;*/
+
+		WPAMakeRSNIE(wdev->wdev_type, pSecConfig, pEntry);
+
+		for (rsne_idx = 0; rsne_idx < SEC_RSNIE_NUM; rsne_idx++) {
+			if (pSecConfig->RSNE_Type[rsne_idx] == SEC_RSNIE_NONE)
+				continue;
+
+			MakeOutgoingFrame(pOutBuffer + FrameLen, &TmpLen,
+								1, &pSecConfig->RSNE_EID[rsne_idx][0],
+								1, &pSecConfig->RSNE_Len[rsne_idx],
+								pSecConfig->RSNE_Len[rsne_idx],
+								&pSecConfig->RSNE_Content[rsne_idx][0],
+								END_OF_ARGS);
+			FrameLen += TmpLen;
+		}
+	}
 
 		/* 7.3.2.27 Extended Capabilities IE */
 	{
@@ -1474,23 +1620,6 @@ VOID CFG80211_AssocRespHandler(RTMP_ADAPTER *pAd, VOID *pData, ULONG Data)
 		extCapInfo.interworking = 1;
 #endif /* CONFIG_DOT11U_INTERWORKING */
 
-#ifdef DOT11V_WNM_SUPPORT
-
-		if (IS_BSS_TRANSIT_MANMT_SUPPORT(pAd, pEntry->func_tb_idx)) {
-			if (ie_list->ExtCapInfo.BssTransitionManmt == 1) {
-				extCapInfo.BssTransitionManmt = 1;
-				pEntry->bBSSMantSTASupport = TRUE;
-			}
-		}
-
-		if (IS_WNMDMS_SUPPORT(pAd, pEntry->func_tb_idx)) {
-			if (ie_list->ExtCapInfo.DMSSupport == 1) {
-				extCapInfo.DMSSupport = 1;
-				pEntry->bDMSSTASupport = TRUE;
-			}
-		}
-
-#endif /* DOT11V_WNM_SUPPORT */
 #ifdef DOT11_VHT_AC
 
 		if (WMODE_CAP_AC(wdev->PhyMode) &&
@@ -1498,6 +1627,24 @@ VOID CFG80211_AssocRespHandler(RTMP_ADAPTER *pAd, VOID *pData, ULONG Data)
 			extCapInfo.operating_mode_notification = 1;
 
 #endif /* DOT11_VHT_AC */
+#ifdef FTM_SUPPORT
+
+		/* add IE_EXT_CAPABILITY IE here */
+		if (pAd->pFtmCtrl->bSetCivicRpt)
+			extCapInfo.civic_location = 1;
+
+		if (pAd->pFtmCtrl->bSetLciRpt)
+			extCapInfo.geospatial_location = 1;
+
+		/* 802.11mc D3.0: 10.24.6.2 (p.1717):
+			"A STA in which dot11FineTimingMsmtRespActivated is true shall set the Fine Timing Measurement
+			Responder field of the Extended Capabilities element to 1."
+		*/
+		/* 8.4.2.26 Extended Capabilities element (p.817):
+			Capabilities field= 70: Fine Timing Measurement Responder (p.823)
+		*/
+		extCapInfo.ftm_resp = 1;
+#endif /* FTM_SUPPORT */
 #ifdef RT_BIG_ENDIAN
 		pextCapInfo = (UCHAR *)&extCapInfo;
 		*((UINT32 *)pextCapInfo) = cpu2le32(*((UINT32 *)pextCapInfo));
@@ -1539,7 +1686,7 @@ VOID CFG80211_AssocRespHandler(RTMP_ADAPTER *pAd, VOID *pData, ULONG Data)
 
 #ifdef MBO_SUPPORT
 	if (IS_MBO_ENABLE(wdev))
-		MakeMboOceIE(pAd, wdev, pEntry, pOutBuffer+FrameLen, &FrameLen, MBO_FRAME_TYPE_ASSOC_RSP);
+		MakeMboOceIE(pAd, wdev, pOutBuffer+FrameLen, &FrameLen, MBO_FRAME_TYPE_ASSOC_RSP);
 #endif /* MBO_SUPPORT */
 #ifdef WSC_AP_SUPPORT
 
@@ -1561,62 +1708,6 @@ VOID CFG80211_AssocRespHandler(RTMP_ADAPTER *pAd, VOID *pData, ULONG Data)
 	}
 
 #endif /* WSC_AP_SUPPORT */
-#ifdef P2P_SUPPORT
-
-	if (ie_list->P2PSubelementLen > 0) {
-		ULONG	TmpLen;
-		UCHAR	P2pIdx = P2P_NOT_FOUND;
-		UCHAR	GroupCap = 0xff, DeviceCap = 0xff, DevAddr[6] = {0}, DeviceType[8], DeviceName[32], DeviceNameLen = 0;
-		PUCHAR	pData;
-		USHORT	Dpid, ConfigMethod;
-
-		pEntry->bP2pClient = TRUE;
-		pEntry->P2pInfo.P2pClientState = P2PSTATE_CLIENT_ASSOC;
-		P2pParseSubElmt(pAd, (PVOID)ie_list->P2pSubelement, ie_list->P2PSubelementLen, FALSE, &Dpid, &GroupCap,
-						&DeviceCap, DeviceName, &DeviceNameLen, DevAddr, NULL, NULL, NULL, NULL, &ConfigMethod,
-						&ConfigMethod, DeviceType, NULL, NULL, NULL, NULL, &StatusCode, NULL,
-#ifdef WFD_SUPPORT
-						NULL, NULL,
-#endif /* WFD_SUPPORT */
-						NULL);
-		P2pIdx = P2pGroupTabSearch(pAd, DevAddr);
-
-		if (P2pIdx == P2P_NOT_FOUND)
-			P2pIdx = P2pGroupTabInsert(pAd, DevAddr, P2PSTATE_DISCOVERY_CLIENT, NULL, 0, 0, 0);
-
-		if (P2pIdx != P2P_NOT_FOUND) {
-			pEntry->P2pInfo.p2pIndex = P2pIdx;
-			MTWF_DBG(pAd, DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_INFO,
-					 "ASSOC RSP - Insert P2P IE to "MACSTR"\n",
-					  MAC2STR(pEntry->Addr));
-			MTWF_DBG(pAd, DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_INFO,
-					 " %d. DevAddr = "MACSTR"\n",
-					  P2pIdx, MAC2STR(DevAddr));
-			MTWF_DBG(pAd, DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_INFO,
-					 "DeviceNameLen = %d, DeviceName = %c %c %c %c %c %c %c %c\n",
-					  DeviceNameLen,
-					  DeviceName[0], DeviceName[1], DeviceName[2], DeviceName[3],
-					  DeviceName[4], DeviceName[5], DeviceName[6], DeviceName[7]);
-			/* update P2P Interface Address */
-			RTMPMoveMemory(pAd->P2pTable.Client[P2pIdx].InterfaceAddr, pEntry->Addr, MAC_ADDR_LEN);
-			pData = pOutBuffer + FrameLen;
-			P2pMakeP2pIE(pAd, SUBTYPE_ASSOC_RSP, pData, &TmpLen);
-			FrameLen += TmpLen;
-		}
-	} else
-		pEntry->bP2pClient = FALSE;
-
-#ifdef WFD_SUPPORT
-{
-	PUCHAR	pData;
-	ULONG	WfdIeLen = 0;
-
-	pData = pOutBuffer + FrameLen;
-	WfdMakeWfdIE(pAd, SUBTYPE_ASSOC_RSP, pData, &WfdIeLen);
-	FrameLen += WfdIeLen;
-}
-#endif /* WFD_SUPPORT */
-#endif /* P2P_SUPPORT */
 #ifdef RT_CFG80211_SUPPORT
 
 		/* Append extra IEs provided by wpa_supplicant */
@@ -1626,8 +1717,8 @@ VOID CFG80211_AssocRespHandler(RTMP_ADAPTER *pAd, VOID *pData, ULONG Data)
 		UCHAR *Ies = pAd->ApCfg.MBSSID[pEntry->apidx].AssocRespExtraIe;
 
 		if (RTMPIsValidIEs(Ies, IesLen)) {
-			MTWF_DBG(pAd, DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_INFO,
-					 "AssocRespExtraIE Added (Len=%d)\n", IesLen);
+			MTWF_LOG(DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_TRACE,
+					 ("AssocRespExtraIE Added (Len=%d)\n", IesLen));
 			MakeOutgoingFrame(pOutBuffer + FrameLen,
 							  &TmpLen,
 							  IesLen,
@@ -1635,8 +1726,8 @@ VOID CFG80211_AssocRespHandler(RTMP_ADAPTER *pAd, VOID *pData, ULONG Data)
 							  END_OF_ARGS);
 			FrameLen += TmpLen;
 		} else
-			MTWF_DBG(pAd, DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-					 "AssocRespExtraIE len incorrect!\n");
+			MTWF_LOG(DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
+					 ("AssocRespExtraIE len incorrect!\n"));
 	}
 
 #endif /* RT_CFG80211_SUPPORT */
@@ -1664,31 +1755,19 @@ VOID CFG80211_AssocRespHandler(RTMP_ADAPTER *pAd, VOID *pData, ULONG Data)
 			}
 		}
 #endif
-#ifdef DOT11_HE_AX
-		if (HAS_HE_CAPS_EXIST(ie_list->cmm_ies.ie_exists)
-			&& IS_HE_STA(pEntry->cap.modes) && WMODE_CAP_AX(wdev->PhyMode)
-				&& wdev->DesiredHtPhyInfo.bHtEnable) {
-			ULONG TmpLen = 0;
-			TmpLen = add_assoc_rsp_he_ies(wdev, (UINT8 *)pOutBuffer, FrameLen);
-			MTWF_DBG(pAd, DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_INFO,
-					"add he assoc_rsp, len=%d\n", TmpLen);
-			FrameLen += TmpLen;
-		}
-#endif /*DOT11_HE_AX*/
 #ifdef DOT11R_FT_SUPPORT
 	if ((pFtCfg != NULL) && (pFtCfg->FtCapFlag.Dot11rFtEnable)) {
 		PUINT8	mdie_ptr;
 		UINT8	mdie_len;
-		/*PUINT8	ftie_ptr = NULL;*/
-		/*UINT8	ftie_len = 0;*/
-		/*PUINT8  ricie_ptr = NULL;*/
-		/*UINT8   ricie_len = 0;*/
+		PUINT8	ftie_ptr = NULL;
+		UINT8	ftie_len = 0;
+		PUINT8  ricie_ptr = NULL;
+		UINT8   ricie_len = 0;
 		/* struct _SECURITY_CONFIG *pSecConfig = &pEntry->SecConfig; */
 
 		/* Insert RSNIE if necessary */
 		if (pFtInfoBuf->RSNIE_Len != 0) {
 			ULONG TmpLen;
-
 			MakeOutgoingFrame(pOutBuffer+FrameLen, &TmpLen,
 				pFtInfoBuf->RSNIE_Len, pFtInfoBuf->RSN_IE,
 				END_OF_ARGS);
@@ -1698,30 +1777,92 @@ VOID CFG80211_AssocRespHandler(RTMP_ADAPTER *pAd, VOID *pData, ULONG Data)
 		/* Insert MDIE. */
 		mdie_ptr = pOutBuffer+FrameLen;
 		mdie_len = 5;
-		FT_InsertMdIE(pOutBuffer+FrameLen,
+		FT_InsertMdIE(pAd, pOutBuffer+FrameLen,
 				&FrameLen,
 			pFtInfoBuf->MdIeInfo.MdId,
 			pFtInfoBuf->MdIeInfo.FtCapPlc);
 
-
 		/* Insert FTIE. */
-		if (pFtIe) {
-			ULONG TmpLen = 0;
+		if (pFtInfoBuf->FtIeInfo.Len != 0) {
+			ftie_ptr = pOutBuffer+FrameLen;
+			ftie_len = (2 + pFtInfoBuf->FtIeInfo.Len);
+			FT_InsertFTIE(pAd, pOutBuffer+FrameLen, &FrameLen,
+				pFtInfoBuf->FtIeInfo.Len,
+				pFtInfoBuf->FtIeInfo.MICCtr,
+				pFtInfoBuf->FtIeInfo.MIC,
+				pFtInfoBuf->FtIeInfo.ANonce,
+				pFtInfoBuf->FtIeInfo.SNonce);
+		}
+		/* Insert R1KH IE into FTIE. */
+		if (pFtInfoBuf->FtIeInfo.R1khIdLen != 0)
+			FT_FTIE_InsertKhIdSubIE(pAd, pOutBuffer+FrameLen,
+					&FrameLen,
+					FT_R1KH_ID,
+					pFtInfoBuf->FtIeInfo.R1khId,
+					pFtInfoBuf->FtIeInfo.R1khIdLen);
 
-			MakeOutgoingFrame(pOutBuffer+FrameLen,
-							  &TmpLen,
-							  pFtIe->Len + 2,
-							  pFtIe,
-							  END_OF_ARGS);
-			FrameLen += TmpLen;
+		/* Insert GTK Key info into FTIE. */
+		if (pFtInfoBuf->FtIeInfo.GtkLen != 0)
+			FT_FTIE_InsertGTKSubIE(pAd, pOutBuffer+FrameLen,
+					&FrameLen,
+					pFtInfoBuf->FtIeInfo.GtkSubIE,
+					pFtInfoBuf->FtIeInfo.GtkLen);
+
+		/* Insert R0KH IE into FTIE. */
+		if (pFtInfoBuf->FtIeInfo.R0khIdLen != 0)
+			FT_FTIE_InsertKhIdSubIE(pAd, pOutBuffer+FrameLen,
+					&FrameLen,
+					FT_R0KH_ID,
+					pFtInfoBuf->FtIeInfo.R0khId,
+					pFtInfoBuf->FtIeInfo.R0khIdLen);
+
+		/* Insert RIC. */
+		if (ie_list->FtInfo.RicInfo.Len) {
+			ULONG TempLen;
+
+			FT_RIC_ResourceRequestHandle(pAd, pEntry,
+						(PUCHAR)ie_list->FtInfo.RicInfo.pRicInfo,
+						ie_list->FtInfo.RicInfo.Len,
+						(PUCHAR)pOutBuffer+FrameLen,
+						(PUINT32)&TempLen);
+			ricie_ptr = (PUCHAR)(pOutBuffer+FrameLen);
+			ricie_len = TempLen;
+			FrameLen += TempLen;
 		}
 
 	}
 #endif /* DOT11R_FT_SUPPORT */
+#ifdef CONFIG_OWE_SUPPORT
+	if (IS_AKM_OWE_Entry(pEntry) && (StatusCode == MLME_SUCCESS)) {
+		BOOLEAN need_ecdh_ie = FALSE;
+		INT CacheIdx;/* Key cache */
+
+		pPmkid = WPA_ExtractSuiteFromRSNIE(ie_list->RSN_IE, ie_list->RSNIE_Len, PMKID_LIST, &pmkid_count);
+		if (pPmkid != NULL) {
+			CacheIdx = RTMPSearchPMKIDCache(&pAd->ApCfg.PMKIDCache, pEntry->func_tb_idx, pEntry->Addr);
+			if ((CacheIdx == -1) ||
+				((RTMPEqualMemory(pPmkid,
+						  &pAd->ApCfg.PMKIDCache.BSSIDInfo[CacheIdx].PMKID,
+						  LEN_PMKID)) == 0)) {
+				MTWF_LOG(DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
+						("%s: AKM_OWE_Entry PMKID not found, do normal ECDH procedure\n",
+						__func__));
+				need_ecdh_ie = TRUE;
+			}
+		} else
+			need_ecdh_ie = TRUE;
+
+		if (need_ecdh_ie == TRUE) {
+			FrameLen +=  build_owe_dh_ie(pAd,
+							 pEntry,
+							 (UCHAR *)pOutBuffer + FrameLen,
+							 pEntry->SecConfig.owe.last_try_group);
+		}
+	}
+#endif /*CONFIG_OWE_SUPPORT*/
 
 	MiniportMMRequest(pAd, 0, pOutBuffer, FrameLen);
 	MlmeFreeMemory((PVOID) pOutBuffer);
-	pOutBuffer = NULL;
 
 		/* set up BA session */
 	if (StatusCode == MLME_SUCCESS) {
@@ -1733,13 +1874,11 @@ VOID CFG80211_AssocRespHandler(RTMP_ADAPTER *pAd, VOID *pData, ULONG Data)
 	/*PFRAME_802_11 Fr = (PFRAME_802_11)Elem->Msg; */
 	/*		POS_COOKIE pObj = (POS_COOKIE) pAd->OS_Cookie; */
 	{
-#ifndef RT_CFG80211_SUPPORT
 	/* send association ok message to IAPPD */
 		IAPP_L2_Update_Frame_Send(pAd, pEntry->Addr, pEntry->wdev->wdev_idx);
-		MTWF_DBG(pAd, DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_INFO,
-				 "####### Send L2 Frame Mac="MACSTR"\n",
-				  MAC2STR(pEntry->Addr));
-#endif
+		MTWF_LOG(DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_TRACE,
+				 ("####### Send L2 Frame Mac=%02x:%02x:%02x:%02x:%02x:%02x\n",
+				  PRINT_MAC(pEntry->Addr)));
 	}
 
 	/*		SendSingalToDaemon(SIGUSR2, pObj->IappPid); */
@@ -1762,62 +1901,43 @@ VOID CFG80211_AssocRespHandler(RTMP_ADAPTER *pAd, VOID *pData, ULONG Data)
 
 	if ((wdev->channel <= 14) &&
 		addht->AddHtInfo.ExtChanOffset &&
-		(ie_list->cmm_ies.ht_cap.HtCapInfo.ChannelWidth == BW_40))
+		(ie_list->HTCapability.HtCapInfo.ChannelWidth == BW_40))
 		SendBeaconRequest(pAd, pEntry->wcid);
 
-		ba_ori_session_setup(pAd, pEntry->wcid, 5, 0);
+		ba_ori_session_setup(pAd, pEntry, 5, 0, 10, FALSE);
 	}
 
 #ifdef RT_CFG80211_SUPPORT
 	if (TRUE) { /*CFG_TODO*/
 		/* need to update pEntry to  inform later flow to keep ConnectionState in connected */
 		pEntry->bWscCapable = ie_list->bWscCapable;
-#ifdef RT_CFG80211_P2P_CONCURRENT_DEVICE
-		PNET_DEV pNetDev = NULL;
-
-		pNetDev = RTMP_CFG80211_FindVifEntry_ByType(pAd, RT_CMD_80211_IFTYPE_P2P_GO);
-
-		if ((pAd->cfg80211_ctrl.Cfg80211VifDevSet.vifDevList.size > 0) &&
-			(pNetDev != NULL)) {
-			MTWF_DBG(pAd, DBG_CAT_AP,
-				 DBG_SUBCAT_ALL,
-				 DBG_LVL_INFO,
-				 "CONCURRENT CFG: NOITFY ASSOCIATED, pEntry->bWscCapable:%d\n",
-				   pEntry->bWscCapable);
-			CFG80211OS_NewSta(pNetDev, ie_list->Addr2, (PUCHAR)Elem->Msg, Elem->MsgLen);
-		} else
-#endif /* RT_CFG80211_P2P_CONCURRENT_DEVICE */
 		{
-			MTWF_DBG(pAd, DBG_CAT_AP,
+			MTWF_LOG(DBG_CAT_AP,
 				 DBG_SUBCAT_ALL,
-				 DBG_LVL_INFO,
-				 "SINGLE CFG: NOITFY ASSOCIATED, pEntry->bWscCapable:%d\n",
-				  pEntry->bWscCapable);
+				 DBG_LVL_TRACE,
+				 ("SINGLE CFG: NOITFY ASSOCIATED, pEntry->bWscCapable:%d\n",
+				  pEntry->bWscCapable));
 #ifdef RT_CFG80211_SUPPORT
 		/*	CFG80211OS_NewSta(pEntry->wdev->if_dev, ie_list->Addr2,
 				(PUCHAR)Elem->Msg, Elem->MsgLen, isReassoc); */
 #endif
 
 			if (IS_CIPHER_WEP(pEntry->SecConfig.PairwiseCipher)) {
-				struct _ASIC_SEC_INFO *info = NULL;
-				os_alloc_mem(NULL, (UCHAR **)&info, sizeof(ASIC_SEC_INFO));
+				ASIC_SEC_INFO Info = {0};
 				/* Set key material to Asic */
-				if (info) {
-					os_zero_mem(info, sizeof(ASIC_SEC_INFO));
-					info->Operation = SEC_ASIC_ADD_PAIRWISE_KEY;
-					info->Direction = SEC_ASIC_KEY_BOTH;
-					info->Wcid = pEntry->wcid;
-					info->BssIndex = pEntry->func_tb_idx;
-					info->KeyIdx = pEntry->SecConfig.PairwiseKeyId;
-					info->Cipher = pEntry->SecConfig.PairwiseCipher;
-					info->KeyIdx = pEntry->SecConfig.PairwiseKeyId;
-					os_move_mem(&info->Key,
+				os_zero_mem(&Info, sizeof(ASIC_SEC_INFO));
+				Info.Operation = SEC_ASIC_ADD_PAIRWISE_KEY;
+				Info.Direction = SEC_ASIC_KEY_BOTH;
+				Info.Wcid = pEntry->wcid;
+				Info.BssIndex = pEntry->func_tb_idx;
+				Info.KeyIdx = pEntry->SecConfig.PairwiseKeyId;
+				Info.Cipher = pEntry->SecConfig.PairwiseCipher;
+				Info.KeyIdx = pEntry->SecConfig.PairwiseKeyId;
+				os_move_mem(&Info.Key,
 						&pEntry->SecConfig.WepKey[pEntry->SecConfig.PairwiseKeyId],
 						sizeof(SEC_KEY_INFO));
-					os_move_mem(&info->PeerAddr[0], pEntry->Addr, MAC_ADDR_LEN);
-					HW_ADDREMOVE_KEYTABLE(pAd, info);
-					os_free_mem(info);
-				}
+				os_move_mem(&Info.PeerAddr[0], pEntry->Addr, MAC_ADDR_LEN);
+				HW_ADDREMOVE_KEYTABLE(pAd, &Info);
 			}
 		}
 
@@ -1841,16 +1961,16 @@ VOID CFG80211_AssocRespHandler(RTMP_ADAPTER *pAd, VOID *pData, ULONG Data)
 
 			store_pmkid_cache_in_sec_config(pAd, pEntry, CacheIdx);
 
-			MTWF_DBG(pAd, DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_INFO,
-				 "ASSOC - CacheIdx = %d\n",
-				  CacheIdx);
+			MTWF_LOG(DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_TRACE,
+				 ("ASSOC - CacheIdx = %d\n",
+				  CacheIdx));
 
 			if (IS_AKM_WPA3PSK(pEntry->SecConfig.AKMMap) &&
 			   !is_pmkid_cache_in_sec_config(&pEntry->SecConfig)) {
-				MTWF_DBG(pAd, DBG_CAT_SEC,
+				MTWF_LOG(DBG_CAT_SEC,
 					 CATSEC_SAE,
 					 DBG_LVL_ERROR,
-					 "ASSOC - SAE - verify pmkid fail\n");
+					 ("ASSOC - SAE - verify pmkid fail\n"));
 				MlmeDeAuthAction(pAd, pEntry, REASON_NO_LONGER_VALID, FALSE);
 				goto LabelOK;
 			}
@@ -1864,9 +1984,9 @@ VOID CFG80211_AssocRespHandler(RTMP_ADAPTER *pAd, VOID *pData, ULONG Data)
 		 * Marvell WPS test bed(v2.1.1.5) will send AssocReq with WPS IE and RSN/SSN IE.
 		 */
 		if (pEntry->bWscCapable || (ie_list->RSNIE_Len == 0)) {
-			MTWF_DBG(pAd, DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_INFO,
-					 "ASSOC - IF(ra%d) This is a WPS Client.\n\n",
-					  pEntry->func_tb_idx);
+			MTWF_LOG(DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_TRACE,
+					 ("ASSOC - IF(ra%d) This is a WPS Client.\n\n",
+					  pEntry->func_tb_idx));
 			goto LabelOK;
 		} else {
 			pEntry->bWscCapable = FALSE;
@@ -1879,6 +1999,9 @@ VOID CFG80211_AssocRespHandler(RTMP_ADAPTER *pAd, VOID *pData, ULONG Data)
 #endif /* WSC_AP_SUPPORT */
 		/* Enqueue a EAPOL-start message with the pEntry for WPAPSK State Machine */
 		if (1
+#ifdef HOSTAPD_SUPPORT
+			&& wdev->Hostapd == Hostapd_Disable
+#endif/*HOSTAPD_SUPPORT*/
 #ifdef WSC_AP_SUPPORT
 			&& !pEntry->bWscCapable
 #endif /* WSC_AP_SUPPORT */
@@ -1922,6 +2045,9 @@ VOID CFG80211_AssocRespHandler(RTMP_ADAPTER *pAd, VOID *pData, ULONG Data)
 		   )) {
 		/* Enqueue a EAPOL-start message to trigger EAP SM */
 		if (pEntry->EnqueueEapolStartTimerRunning == EAPOL_START_DISABLE
+#ifdef HOSTAPD_SUPPORT
+			&& wdev->Hostapd == Hostapd_Disable
+#endif/*HOSTAPD_SUPPORT*/
 		) {
 			pEntry->EnqueueEapolStartTimerRunning = EAPOL_START_1X;
 			RTMPSetTimer(&pEntry->SecConfig.StartFor4WayTimer, ENQUEUE_EAPOL_START_TIMER);
@@ -1932,9 +2058,6 @@ VOID CFG80211_AssocRespHandler(RTMP_ADAPTER *pAd, VOID *pData, ULONG Data)
 
 #if defined(MWDS) || defined(CONFIG_MAP_SUPPORT) || defined(WAPP_SUPPORT)
 	if (tr_entry && (tr_entry->PortSecured == WPA_802_1X_PORT_SECURED)) {
-#ifdef MWDS
-	MWDSAPPeerEnable(pAd, pEntry);
-#endif
 #if defined(CONFIG_MAP_SUPPORT) && defined(A4_CONN)
 	map_a4_peer_enable(pAd, pEntry, TRUE);
 #endif /* CONFIG_MAP_SUPPORT */
@@ -1952,9 +2075,9 @@ VOID CFG80211_AssocRespHandler(RTMP_ADAPTER *pAd, VOID *pData, ULONG Data)
 	if (RTMP_SA_WORK_ON(pAd)) {
 		/* sa_add_train_entry(pAd, &pEntry->Addr[0], FALSE); */
 		pAd->pSAParam->bStaChange = TRUE;
-		MTWF_DBG(pAd, DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_INFO,
-				 "sta("MACSTR") add!\n",
-				  MAC2STR(pEntry->Addr));
+		MTWF_LOG(DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_TRACE,
+				 ("%s():sta(%02x:%02x:%02x:%02x:%02x:%02x) add!\n",
+				  __func__, PRINT_MAC(pEntry->Addr)));
 	}
 
 	RTMP_IRQ_UNLOCK(&pAd->smartAntLock, irqflags);
@@ -1962,9 +2085,9 @@ VOID CFG80211_AssocRespHandler(RTMP_ADAPTER *pAd, VOID *pData, ULONG Data)
 #endif /* SMART_ANTENNA // */
 #ifdef GREENAP_SUPPORT
 
-	if (greenap_get_capability(pAd) && greenap_get_allow_status(pAd)) {
+	if (greenap_get_capability(greenap) && greenap_get_allow_status(greenap)) {
 	if (StatusCode == MLME_SUCCESS && (pEntry->Sst == SST_ASSOC))
-		greenap_check_peer_connection_at_link_up_down(pAd, wdev);
+		greenap_check_peer_connection_at_link_up_down(pAd, wdev, greenap);
 	}
 
 #endif /* GREENAP_SUPPORT */
@@ -1978,7 +2101,7 @@ VOID CFG80211_AssocRespHandler(RTMP_ADAPTER *pAd, VOID *pData, ULONG Data)
 		if (!pHSCtrl->QosMapAddToPool) {
 			pHSCtrl->QosMapAddToPool = TRUE;
 			pHSCtrl->QosMapPoolID = hotspot_qosmap_add_pool(pAd, pEntry);
-			MTWF_DBG(pAd, DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_INFO, "add current MBSS qosmap to CR4\n");
+			MTWF_LOG(DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_ERROR, ("add current MBSS qosmap to CR4\n"));
 		}
 
 		hotspot_qosmap_update_sta_mapping_to_cr4(pAd, pEntry, pHSCtrl->QosMapPoolID);
@@ -1990,7 +2113,7 @@ VOID CFG80211_AssocRespHandler(RTMP_ADAPTER *pAd, VOID *pData, ULONG Data)
 	if (CLIENT_STATUS_TEST_FLAG(pEntry, fCLIENT_STATUS_WMM_CAPABLE)) {
 	if (pMbss->DscpQosMapEnable) {
 		pEntry->PoolId = pMbss->DscpQosPoolId;
-		MTWF_DBG(pAd, DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_INFO,
+		MTWF_LOG(DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_OFF,
 					("[DSCP-QOS-MAP] update sta mapping to CR4 for Pool %d wcid %d",
 						pEntry->PoolId, pEntry->wcid));
 		dscp_qosmap_update_sta_mapping_to_cr4(pAd, pEntry, pEntry->PoolId);
@@ -2038,12 +2161,12 @@ VOID CFG80211_AssocRespHandler(RTMP_ADAPTER *pAd, VOID *pData, ULONG Data)
 		NdisZeroMemory(assoc_event_msg, sizeof(assoc_event_msg));
 		if (WMODE_CAP_5G(PhyMode))
 			count = snprintf(assoc_event_msg, sizeof(assoc_event_msg),
-					""MACSTR" BSS(%d)",
-					MAC2STR(pEntry->Addr), (pEntry->func_tb_idx) + WIFI_50_RADIO);
+					"%02x:%02x:%02x:%02x:%02x:%02x BSS(%d)",
+					PRINT_MAC(pEntry->Addr), (pEntry->func_tb_idx) + WIFI_50_RADIO);
 		else
 			count = snprintf(assoc_event_msg, sizeof(assoc_event_msg),
-					""MACSTR" BSS(%d)",
-					MAC2STR(pEntry->Addr), (pEntry->func_tb_idx) + WIFI_24_RADIO);
+					"%02x:%02x:%02x:%02x:%02x:%02x BSS(%d)",
+					PRINT_MAC(pEntry->Addr), (pEntry->func_tb_idx) + WIFI_24_RADIO);
 
 		ARRISMOD_CALL(arris_event_send_hook, ATOM_HOST, WLAN_EVENT, STA_ASSOC,
 			assoc_event_msg, count);
@@ -2055,8 +2178,8 @@ VOID CFG80211_AssocRespHandler(RTMP_ADAPTER *pAd, VOID *pData, ULONG Data)
 			NdisZeroMemory(assoc_sta_info, 1300);
 			count = 0;
 			count += snprintf((assoc_sta_info+count), (1300-count),
-			"Association: ("MACSTR") --> %s%d (%s)\n",
-			MAC2STR(pEntry->Addr), INF_MAIN_DEV_NAME, pEntry->func_tb_idx,
+			"Association: (%02x:%02x:%02x:%02x:%02x:%02x) --> %s%d (%s)\n",
+			PRINT_MAC(pEntry->Addr), INF_MAIN_DEV_NAME, pEntry->func_tb_idx,
 			pEntry->pMbss->Ssid);
 			if (pHTCap && pHTCapParm && ie_list->ht_cap_len && WMODE_CAP_N(wdev->PhyMode)) {
 				count += snprintf((assoc_sta_info+count), (1300-count), "  Station Info:\n");
@@ -2086,40 +2209,27 @@ VOID CFG80211_AssocRespHandler(RTMP_ADAPTER *pAd, VOID *pData, ULONG Data)
 #endif
 
 LabelOK:
-#ifdef CUSTOMER_VENDOR_IE_SUPPORT
-	/* fix memory leak when trigger scan continuously*/
-	if (ie_list && ie_list->CustomerVendorIE.pointer)
-		os_free_mem(ie_list->CustomerVendorIE.pointer);
-#endif /* CUSTOMER_VENDOR_IE_SUPPORT */
-
-	if (ie_list != NULL) {
-		os_free_mem(ie_list);
-		if (pEntry)
-			pEntry->ie_list = NULL;
-	}
 #ifdef RT_CFG80211_SUPPORT
 
 	if (StatusCode != MLME_SUCCESS)
 		CFG80211_ApStaDelSendEvent(pAd, pEntry->Addr, pEntry->wdev->if_dev);
 
 #endif /* RT_CFG80211_SUPPORT */
+	if (ie_list != NULL)
+		os_free_mem(ie_list);
 
 #ifdef DOT11R_FT_SUPPORT
 	if (pFtInfoBuf != NULL)
 		os_free_mem(pFtInfoBuf);
 #endif /* DOT11R_FT_SUPPORT */
 
-	if (pOutBuffer != NULL)
-		MlmeFreeMemory((PVOID) pOutBuffer);
-
 	return;
 }
 #endif /* HOSTAPD_11R_SUPPORT */
 
-
 INT CFG80211_SendMgmtFrame(RTMP_ADAPTER *pAd, VOID *pData, ULONG Data)
 {
-    UCHAR	*pBuf = NULL;
+	UCHAR	*pBuf = NULL;
 #ifdef RT_CFG80211_P2P_MULTI_CHAN_SUPPORT
 
 #endif /* RT_CFG80211_P2P_MULTI_CHAN_SUPPORT */
@@ -2128,42 +2238,17 @@ INT CFG80211_SendMgmtFrame(RTMP_ADAPTER *pAd, VOID *pData, ULONG Data)
 #ifdef CONFIG_AP_SUPPORT
 		struct ieee80211_mgmt *mgmt;
 #endif /* CONFIG_AP_SUPPORT */
-#if defined(HOSTAPD_11R_SUPPORT) || defined(HOSTAPD_SAE_SUPPORT)
+#ifdef HOSTAPD_11R_SUPPORT
 		UINT8 apidx;
-#endif
-
+#endif /* HOSTAPD_11R_SUPPORT */
 		{
-#ifdef RT_CFG80211_SUPPORT
 	os_alloc_mem(NULL, (UCHAR **)&pBuf, Data);
 	if (pBuf != NULL)
 		NdisCopyMemory(pBuf, pData, Data);
 	else {
-		MTWF_DBG(pAd, DBG_CAT_TX, DBG_SUBCAT_ALL, DBG_LVL_ERROR, "CFG_TX_STATUS: MEM ALLOC ERROR\n");
+		MTWF_LOG(DBG_CAT_TX, DBG_SUBCAT_ALL, DBG_LVL_ERROR, ("CFG_TX_STATUS: MEM ALLOC ERROR\n"));
 		return NDIS_STATUS_FAILURE;
 	}
-#else
-			PCFG80211_CTRL pCfg80211_ctrl = &pAd->cfg80211_ctrl;
-
-			pCfg80211_ctrl->TxStatusInUsed = TRUE;
-			pCfg80211_ctrl->TxStatusSeq = pAd->Sequence;
-
-			if (pCfg80211_ctrl->pTxStatusBuf != NULL) {
-				os_free_mem(pCfg80211_ctrl->pTxStatusBuf);
-				pCfg80211_ctrl->pTxStatusBuf = NULL;
-			}
-
-			os_alloc_mem(NULL, (UCHAR **)&pCfg80211_ctrl->pTxStatusBuf, Data);
-
-			if (pCfg80211_ctrl->pTxStatusBuf != NULL) {
-				NdisCopyMemory(pCfg80211_ctrl->pTxStatusBuf, pData, Data);
-				pCfg80211_ctrl->TxStatusBufLen = Data;
-			} else {
-				pCfg80211_ctrl->TxStatusBufLen = 0;
-				MTWF_DBG(pAd, DBG_CAT_TX, DBG_SUBCAT_ALL, DBG_LVL_ERROR, "CFG_TX_STATUS: MEM ALLOC ERROR\n");
-				return NDIS_STATUS_FAILURE;
-			}
-
-#endif
 			CFG80211_CheckActionFrameType(pAd, "TX", pData, Data);
 #ifdef CONFIG_AP_SUPPORT
 			mgmt = (struct ieee80211_mgmt *)pData;
@@ -2178,44 +2263,48 @@ INT CFG80211_SendMgmtFrame(RTMP_ADAPTER *pAd, VOID *pData, ULONG Data)
 #endif
 			CFG80211_SyncPacketWpsIe(pAd, pData + offset, Data - offset, apidx, mgmt->da);
 			goto LabelOK;
-#else
-			CFG80211_SyncPacketWmmIe(pAd, pData + offset, Data - offset);
 #endif
-			}
 
+			CFG80211_SyncPacketWmmIe(pAd, pData + offset, Data - offset);
+			}
 			if ((ieee80211_is_auth(mgmt->frame_control)) && (mgmt->u.auth.auth_alg != AUTH_MODE_FT) &&
 				(mgmt->u.auth.auth_alg != AUTH_MODE_SAE)) {
 #ifdef RADIUS_MAC_AUTH_SUPPORT
 				MAC_TABLE_ENTRY *pEntry = MacTableLookup(pAd, mgmt->da);
-
 				if (pEntry != NULL && pEntry->wdev->radius_mac_auth_enable) {
 					if (mgmt->u.auth.status_code == MLME_SUCCESS) {
-						pEntry->bAllowTraffic = TRUE;
-					} else {
-					pEntry->bAllowTraffic = FALSE;
-					MlmeDeAuthAction(pAd, pEntry, REASON_NO_LONGER_VALID, FALSE);
+							pEntry->bAllowTraffic = TRUE;
+						} else {
+							pEntry->bAllowTraffic = FALSE;
+							MlmeDeAuthAction(pAd, pEntry, REASON_NO_LONGER_VALID, FALSE);
+						}
 				}
-			}
 #endif
-			goto LabelOK;
-		}
+				goto LabelOK;
+			}
+
 #if defined(HOSTAPD_11R_SUPPORT) || defined(HOSTAPD_SAE_SUPPORT)
 			if (ieee80211_is_auth(mgmt->frame_control) &&
 				((mgmt->u.auth.auth_alg == AUTH_MODE_FT) || (mgmt->u.auth.auth_alg == AUTH_MODE_SAE))) {
 				CFG80211_AuthRespHandler(pAd, pData, Data);
+
 				MiniportMMRequest(pAd, 0, pData, Data);
+
 				if (pBuf) {
 					CFG80211OS_TxStatus(pAd->ApCfg.MBSSID[apidx].wdev.if_dev, 5678,
-								pBuf, Data, 1);
+										pBuf, Data,
+										1);
 				}
 				goto LabelOK;
 			}
-			if (ieee80211_is_reassoc_resp(mgmt->frame_control)
-				|| ieee80211_is_assoc_resp(mgmt->frame_control)) {
+				if (ieee80211_is_reassoc_resp(mgmt->frame_control)
+				   || ieee80211_is_assoc_resp(mgmt->frame_control)) {
 				CFG80211_AssocRespHandler(pAd, pData, Data);
+
 				if (pBuf) {
 					CFG80211OS_TxStatus(pAd->ApCfg.MBSSID[apidx].wdev.if_dev, 5678,
-						pBuf, Data, 1);
+										pBuf, Data,
+										1);
 				}
 				goto LabelOK;
 			}
@@ -2234,11 +2323,12 @@ LabelOK:
 
 VOID CFG80211_SendMgmtFrameDone(RTMP_ADAPTER *pAd, USHORT Sequence, BOOLEAN ack)
 {
+	/* RTMP_USB_SUPPORT/RTMP_PCI_SUPPORT */
 	PCFG80211_CTRL pCfg80211_ctrl = &pAd->cfg80211_ctrl;
 
 	if (pCfg80211_ctrl->TxStatusInUsed && pCfg80211_ctrl->pTxStatusBuf
 		/*&& (pAd->TxStatusSeq == pHeader->Sequence)*/) {
-		MTWF_DBG(NULL, DBG_CAT_TX, DBG_SUBCAT_ALL, DBG_LVL_DEBUG, "CFG_TX_STATUS: REAL send %d\n", Sequence);
+		MTWF_LOG(DBG_CAT_TX, DBG_SUBCAT_ALL, DBG_LVL_INFO, ("CFG_TX_STATUS: REAL send %d\n", Sequence));
 		CFG80211OS_TxStatus(CFG80211_GetEventDevice(pAd), 5678,
 							pCfg80211_ctrl->pTxStatusBuf, pCfg80211_ctrl->TxStatusBufLen,
 							ack);
@@ -2261,6 +2351,7 @@ VOID CFG80211_ParseBeaconIE(RTMP_ADAPTER *pAd, BSS_STRUCT *pMbss, struct wifi_de
 	BOOLEAN bWPA2 = FALSE;
 	BOOLEAN bMix = FALSE;
 
+
 #ifdef DISABLE_HOSTAPD_BEACON
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 8, 0))
     const UCHAR CFG_WPA_EID = WLAN_EID_VENDOR_SPECIFIC;
@@ -2279,14 +2370,10 @@ VOID CFG80211_ParseBeaconIE(RTMP_ADAPTER *pAd, BSS_STRUCT *pMbss, struct wifi_de
 	wdev->SecConfig.PmfCfg.MFPC = 0;
 	wdev->SecConfig.PmfCfg.MFPR = 0;
 	wdev->SecConfig.PmfCfg.igtk_cipher = 0;
-	/* Clear Previous values of flags */
-	wdev->SecConfig.PmfCfg.Desired_MFPC = 0;
-	wdev->SecConfig.PmfCfg.Desired_MFPR = 0;
-	wdev->SecConfig.PmfCfg.Desired_PMFSHA256 = 0;
 #endif
 
 	if ((wpa_ie == NULL) && (rsn_ie == NULL)) { /* open case */
-		MTWF_DBG(pAd, DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_ERROR, "%s:: Open/None case\n", __func__);
+		MTWF_LOG(DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_OFF, ("%s:: Open/None case\n", __func__));
 		/* wdev->AuthMode = Ndis802_11AuthModeOpen; */
 		/* wdev->WepStatus = Ndis802_11WEPDisabled; */
 		/* wdev->WpaMixPairCipher = MIX_CIPHER_NOTUSE; */
@@ -2302,31 +2389,31 @@ VOID CFG80211_ParseBeaconIE(RTMP_ADAPTER *pAd, BSS_STRUCT *pMbss, struct wifi_de
 		if (os_equal_mem(pEid->Octet, WPA_OUI, 4)) {
 			/* wdev->AuthMode = Ndis802_11AuthModeOpen; */
 			/* SET_AKM_OPEN(wdev->SecConfig.AKMMap); */
-			MTWF_DBG(pAd, DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_ERROR, "%s:: WPA case\n", __func__);
+			MTWF_LOG(DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_OFF, ("%s:: WPA case\n", __func__));
 			bWPA = TRUE;
 			pTmp   += 11;
 
 			switch (*pTmp) {
 			case 1:
-				MTWF_DBG(pAd, DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_INFO, "Group Ndis802_11GroupWEP40Enabled\n");
+				MTWF_LOG(DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_OFF, ("Group Ndis802_11GroupWEP40Enabled\n"));
 				/* wdev->GroupKeyWepStatus  = Ndis802_11GroupWEP40Enabled; */
 				SET_CIPHER_WEP40(wdev->SecConfig.GroupCipher);
 				break;
 
 			case 5:
-				MTWF_DBG(pAd, DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_INFO, "Group Ndis802_11GroupWEP104Enabled\n");
+				MTWF_LOG(DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_OFF, ("Group Ndis802_11GroupWEP104Enabled\n"));
 				/* wdev->GroupKeyWepStatus  = Ndis802_11GroupWEP104Enabled; */
 				SET_CIPHER_WEP104(wdev->SecConfig.GroupCipher);
 				break;
 
 			case 2:
-				MTWF_DBG(pAd, DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_INFO, "Group Ndis802_11TKIPEnable\n");
+				MTWF_LOG(DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_OFF, ("Group Ndis802_11TKIPEnable\n"));
 				/* wdev->GroupKeyWepStatus  = Ndis802_11TKIPEnable; */
 				SET_CIPHER_TKIP(wdev->SecConfig.GroupCipher);
 				break;
 
 			case 4:
-				MTWF_DBG(pAd, DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_INFO, "Group Ndis802_11AESEnable\n");
+				MTWF_LOG(DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_OFF, (" Group Ndis802_11AESEnable\n"));
 				/* wdev->GroupKeyWepStatus  = Ndis802_11AESEnable; */
 				SET_CIPHER_CCMP128(wdev->SecConfig.GroupCipher);
 				break;
@@ -2379,7 +2466,7 @@ VOID CFG80211_ParseBeaconIE(RTMP_ADAPTER *pAd, BSS_STRUCT *pMbss, struct wifi_de
 
 			Count = (pTmp[1] << 8) + pTmp[0];
 			pTmp   += sizeof(USHORT);
-			MTWF_DBG(pAd, DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_INFO, "Auth Count in WPA = %d ,we only parse the first for AKM\n", Count);
+			MTWF_LOG(DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("Auth Count in WPA = %d ,we only parse the first for AKM\n", Count));
 			pTmp   += 3; /* parse first AuthOUI for AKM */
 
 			switch (*pTmp) {
@@ -2396,11 +2483,11 @@ VOID CFG80211_ParseBeaconIE(RTMP_ADAPTER *pAd, BSS_STRUCT *pMbss, struct wifi_de
 				break;
 
 			default:
-				MTWF_DBG(pAd, DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_INFO, "UNKNOWN AKM 0x%x IN WPA,please check!\n", *pTmp);
+				MTWF_LOG(DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_OFF, ("UNKNOWN AKM 0x%x IN WPA,please check!\n", *pTmp));
 				break;
 			}
 
-			MTWF_DBG(pAd, DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_DEBUG, "AuthMode = 0x%x\n", wdev->SecConfig.AKMMap);
+			MTWF_LOG(DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_OFF, ("AuthMode = 0x%x\n", wdev->SecConfig.AKMMap));
 
 			/* if (wdev->GroupKeyWepStatus == PairCipher) */
 			if ((PairCipher == Ndis802_11WEPDisabled && IS_CIPHER_NONE(wdev->SecConfig.GroupCipher)) ||
@@ -2412,7 +2499,7 @@ VOID CFG80211_ParseBeaconIE(RTMP_ADAPTER *pAd, BSS_STRUCT *pMbss, struct wifi_de
 				/* pMbss->wdev.WepStatus=wdev->GroupKeyWepStatus; */
 				wdev->SecConfig.PairwiseCipher = wdev->SecConfig.GroupCipher;
 			} else {
-				MTWF_DBG(pAd, DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_INFO, "WPA Mix TKIPAES\n");
+				MTWF_LOG(DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_OFF, ("WPA Mix TKIPAES\n"));
 				bMix = TRUE;
 			}
 
@@ -2422,7 +2509,7 @@ VOID CFG80211_ParseBeaconIE(RTMP_ADAPTER *pAd, BSS_STRUCT *pMbss, struct wifi_de
 			pMbss->RSNIE_ID[0] = CFG_WPA_EID;
 #endif
 		} else {
-			MTWF_DBG(pAd, DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_DEBUG, "%s:: wpa open/none case\n", __func__);
+			MTWF_LOG(DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_OFF, ("%s:: wpa open/none case\n", __func__));
 			/* wdev->AuthMode = Ndis802_11AuthModeOpen; */
 			/* wait until wpa/wpa2 all not exist , then set open/none */
 		}
@@ -2431,8 +2518,7 @@ VOID CFG80211_ParseBeaconIE(RTMP_ADAPTER *pAd, BSS_STRUCT *pMbss, struct wifi_de
 	if (rsn_ie != NULL) {
 		PRSN_IE_HEADER_STRUCT			pRsnHeader;
 		PCIPHER_SUITE_STRUCT			pCipher;
-
-		UCHAR                           Len;
+		UCHAR							Len;
 
 		pEid = (PEID_STRUCT)rsn_ie;
 		Len	= pEid->Len + 2;
@@ -2448,47 +2534,47 @@ VOID CFG80211_ParseBeaconIE(RTMP_ADAPTER *pAd, BSS_STRUCT *pMbss, struct wifi_de
 			pCipher = (PCIPHER_SUITE_STRUCT) pTmp;
 
 			if (os_equal_mem(pTmp, RSN_OUI, 3)) {
-				MTWF_DBG(pAd, DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_ERROR, "%s:: WPA2 case\n", __func__);
+				MTWF_LOG(DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_OFF, ("%s:: WPA2 case\n", __func__));
 				bWPA2 = TRUE;
 
 				/* wdev->AuthMode = Ndis802_11AuthModeOpen; */
 				/* SET_AKM_OPEN(wdev->SecConfig.AKMMap); */
 				switch (pCipher->Type) {
 				case 1:
-					MTWF_DBG(pAd, DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_INFO, "Group Ndis802_11GroupWEP40Enabled\n");
+					MTWF_LOG(DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_OFF, ("Group Ndis802_11GroupWEP40Enabled\n"));
 					/* wdev->GroupKeyWepStatus  = Ndis802_11GroupWEP40Enabled; */
 					SET_CIPHER_WEP40(wdev->SecConfig.GroupCipher);
 					break;
 
 				case 5:
-					MTWF_DBG(pAd, DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_INFO, "Group Ndis802_11GroupWEP104Enabled\n");
+					MTWF_LOG(DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_OFF, ("Group Ndis802_11GroupWEP104Enabled\n"));
 					/* wdev->GroupKeyWepStatus  = Ndis802_11GroupWEP104Enabled; */
 					SET_CIPHER_WEP104(wdev->SecConfig.GroupCipher);
 					break;
 
 				case 2:
-					MTWF_DBG(pAd, DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_INFO, "Group Ndis802_11TKIPEnable\n");
+					MTWF_LOG(DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_OFF, ("Group Ndis802_11TKIPEnable\n"));
 					/* wdev->GroupKeyWepStatus  = Ndis802_11TKIPEnable; */
 					SET_CIPHER_TKIP(wdev->SecConfig.GroupCipher);
 					break;
 
 				case 4:
-					MTWF_DBG(pAd, DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_INFO, "Group Ndis802_11AESEnable\n");
+					MTWF_LOG(DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_OFF, (" Group Ndis802_11AESEnable\n"));
 					/* wdev->GroupKeyWepStatus  = Ndis802_11AESEnable; */
 					SET_CIPHER_CCMP128(wdev->SecConfig.GroupCipher);
 					break;
 				case 8:
-					MTWF_DBG(pAd, DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_INFO,
+					MTWF_LOG(DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_OFF,
 						(" Group Ndis802_11GCMP128Enable\n"));
 					SET_CIPHER_GCMP128(wdev->SecConfig.GroupCipher);
 					break;
 				case 9:
-					MTWF_DBG(pAd, DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_INFO,
+					MTWF_LOG(DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_OFF,
 						(" Group Ndis802_11GCMP256Enable\n"));
 					SET_CIPHER_GCMP256(wdev->SecConfig.GroupCipher);
 					break;
 				case 10:
-					MTWF_DBG(pAd, DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_INFO,
+					MTWF_LOG(DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_OFF,
 						(" Group Ndis802_11CCMP256Enable\n"));
 					SET_CIPHER_CCMP256(wdev->SecConfig.GroupCipher);
 					break;
@@ -2564,23 +2650,9 @@ VOID CFG80211_ParseBeaconIE(RTMP_ADAPTER *pAd, BSS_STRUCT *pMbss, struct wifi_de
 				while (Count > 0) {
 					pAKM = (PAKM_SUITE_STRUCT) pTmp;
 
-
-#ifdef HOSTAPD_HS_R3_SUPPORT
-					if (RTMPEqualMemory(pTmp, OSEN_OUI, 4)) {
-						SET_AKM_OSEN(wdev->SecConfig.AKMMap);
-						pTmp   += sizeof(AKM_SUITE_STRUCT);
-						Len    -= sizeof(AKM_SUITE_STRUCT);
-						Count--;
-						continue;
-					}
-#endif
-					if (!RTMPEqualMemory(pTmp, RSN_OUI, 3)
-#if defined(HOSTAPD_MAPR3_SUPPORT) && defined(DPP_SUPPORT)
-						&& !RTMPEqualMemory(pTmp, DPP_OUI, 3)
-#endif
-					)
-
+					if (!RTMPEqualMemory(pTmp, RSN_OUI, 3))
 						break;
+
 					switch (pAKM->Type) {
 					case 0:
 						/* wdev->AuthMode = Ndis802_11AuthModeWPANone; */
@@ -2594,18 +2666,9 @@ VOID CFG80211_ParseBeaconIE(RTMP_ADAPTER *pAd, BSS_STRUCT *pMbss, struct wifi_de
 						break;
 
 					case 2:
-						/* Set AP support WPA-PSK or DPP mode*/
+						/* Set AP support WPA-PSK mode*/
 						/* wdev->AuthMode = Ndis802_11AuthModeWPA2PSK; */
-#if defined(HOSTAPD_MAPR3_SUPPORT) && defined(DPP_SUPPORT)
-						if (RTMPEqualMemory(pTmp, RSN_OUI, 3))
-							SET_AKM_WPA2PSK(wdev->SecConfig.AKMMap);
-						if (RTMPEqualMemory(pTmp, DPP_OUI, 3)) {
-							SET_AKM_DPP(wdev->SecConfig.AKMMap);
-							MTWF_DBG(pAd, DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_INFO, "DPP AKM is set\n");
-						}
-#else
 						SET_AKM_WPA2PSK(wdev->SecConfig.AKMMap);
-#endif /* DPP_SUPPORT */
 						break;
 #ifdef HOSTAPD_11R_SUPPORT
 					case 3:
@@ -2642,9 +2705,6 @@ VOID CFG80211_ParseBeaconIE(RTMP_ADAPTER *pAd, BSS_STRUCT *pMbss, struct wifi_de
 							case 8:
 								/*Set AP Support SAE SHA256 */
 								SET_AKM_SAE_SHA256(wdev->SecConfig.AKMMap);
-								break;
-							case 9:
-								SET_AKM_FT_SAE_SHA256(wdev->SecConfig.AKMMap);
 								break;
 #endif
 #ifdef HOSTAPD_SUITEB_SUPPORT
@@ -2686,52 +2746,53 @@ VOID CFG80211_ParseBeaconIE(RTMP_ADAPTER *pAd, BSS_STRUCT *pMbss, struct wifi_de
 						RsnCap.word = cpu2le16(RsnCap.word);
 						if (RsnCap.field.MFPC == 1)
 							wdev->SecConfig.PmfCfg.Desired_MFPC = 1;
-						if (RsnCap.field.MFPR == 1) {
-							wdev->SecConfig.PmfCfg.Desired_MFPR = 1;
-							wdev->SecConfig.PmfCfg.Desired_PMFSHA256 = 1;
+							if (RsnCap.field.MFPR == 1) {
+								wdev->SecConfig.PmfCfg.Desired_MFPR = 1;
+								wdev->SecConfig.PmfCfg.Desired_PMFSHA256 = 1;
 						}
 					}
 #endif	 /*DOT11W_PMF_SUPPORT*/
-	MTWF_DBG(pAd, DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_INFO, "Copied Rsn cap %02x %02x \n", wdev->SecConfig.RsnCap[0], wdev->SecConfig.RsnCap[1]);
+	MTWF_LOG(DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("Copied Rsn cap %02x %02x \n", wdev->SecConfig.RsnCap[0], wdev->SecConfig.RsnCap[1]));
 				}
-				pTmp += sizeof(RSN_CAPABILITIES);
-				Len  -= sizeof(RSN_CAPABILITIES);
-				/*Extract PMKID list */
-				if (Len >= sizeof(UINT16)) {
-					INT offset = sizeof(UINT16);
+					pTmp += sizeof(RSN_CAPABILITIES);
+					Len  -= sizeof(RSN_CAPABILITIES);
+					/*Extract PMKID list */
+					if (Len >= sizeof(UINT16)) {
+						INT offset = sizeof(UINT16);
 
-					Count = (pTmp[1] << 8) + pTmp[0];
-					if (Count > 0) {
-						offset += Count*LEN_PMKID;
+						Count = (pTmp[1] << 8) + pTmp[0];
+						if (Count > 0) {
+							offset += Count*LEN_PMKID;
+						}
+						pTmp += offset;
+						Len -= offset;
 					}
-					pTmp += offset;
-					Len -= offset;
-				}
 #ifdef DOT11W_PMF_SUPPORT
-				if (Len >= LEN_OUI_SUITE) {
-					UCHAR OUI_PMF_BIP_CMAC_128_CIPHER[4] = {0x00, 0x0F, 0xAC, 0x06};
-					UCHAR OUI_PMF_BIP_CMAC_256_CIPHER[4] = {0x00, 0x0F, 0xAC, 0x0d};
-					UCHAR OUI_PMF_BIP_GMAC_128_CIPHER[4] = {0x00, 0x0F, 0xAC, 0x0b};
-					UCHAR OUI_PMF_BIP_GMAC_256_CIPHER[4] = {0x00, 0x0F, 0xAC, 0x0c};
+					if (Len >= LEN_OUI_SUITE) {
+						UCHAR OUI_PMF_BIP_CMAC_128_CIPHER[4] = {0x00, 0x0F, 0xAC, 0x06};
+						UCHAR OUI_PMF_BIP_CMAC_256_CIPHER[4] = {0x00, 0x0F, 0xAC, 0x0d};
+						UCHAR OUI_PMF_BIP_GMAC_128_CIPHER[4] = {0x00, 0x0F, 0xAC, 0x0b};
+						UCHAR OUI_PMF_BIP_GMAC_256_CIPHER[4] = {0x00, 0x0F, 0xAC, 0x0c};
 
-					if (RTMPEqualMemory(pTmp, OUI_PMF_BIP_CMAC_128_CIPHER, LEN_OUI_SUITE))
-						SET_CIPHER_BIP_CMAC128(wdev->SecConfig.PmfCfg.igtk_cipher);
-					else if (RTMPEqualMemory(pTmp,
-						OUI_PMF_BIP_CMAC_256_CIPHER, LEN_OUI_SUITE))
-						SET_CIPHER_BIP_CMAC256(wdev->SecConfig.PmfCfg.igtk_cipher);
-					else if (RTMPEqualMemory(pTmp,
-						OUI_PMF_BIP_GMAC_128_CIPHER, LEN_OUI_SUITE))
-						SET_CIPHER_BIP_GMAC128(wdev->SecConfig.PmfCfg.igtk_cipher);
-					else if (RTMPEqualMemory(pTmp,
-						OUI_PMF_BIP_GMAC_256_CIPHER, LEN_OUI_SUITE))
-						SET_CIPHER_BIP_GMAC256(wdev->SecConfig.PmfCfg.igtk_cipher);
-					else
-						MTWF_DBG(pAd, DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_INFO,
-						"Group Mgmt Cipher Not Supported \n");
-				}
+						if (RTMPEqualMemory(pTmp, OUI_PMF_BIP_CMAC_128_CIPHER, LEN_OUI_SUITE))
+							SET_CIPHER_BIP_CMAC128(wdev->SecConfig.PmfCfg.igtk_cipher);
+						else if (RTMPEqualMemory(pTmp,
+								OUI_PMF_BIP_CMAC_256_CIPHER, LEN_OUI_SUITE))
+							SET_CIPHER_BIP_CMAC256(wdev->SecConfig.PmfCfg.igtk_cipher);
+						else if (RTMPEqualMemory(pTmp,
+								OUI_PMF_BIP_GMAC_128_CIPHER, LEN_OUI_SUITE))
+							SET_CIPHER_BIP_GMAC128(wdev->SecConfig.PmfCfg.igtk_cipher);
+						else if (RTMPEqualMemory(pTmp,
+								OUI_PMF_BIP_GMAC_256_CIPHER, LEN_OUI_SUITE))
+							SET_CIPHER_BIP_GMAC256(wdev->SecConfig.PmfCfg.igtk_cipher);
+						else
+							MTWF_LOG(DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_TRACE,
+								("Group Mgmt Cipher Not Supported \n"));
+					}
 #endif
+
 #endif
-				MTWF_DBG(pAd, DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_DEBUG, "AuthMode = 0x%x\n", wdev->SecConfig.AKMMap);
+				MTWF_LOG(DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_OFF, ("AuthMode = 0x%x\n", wdev->SecConfig.AKMMap));
 
 				if ((PairCipher == Ndis802_11WEPDisabled && IS_CIPHER_NONE(wdev->SecConfig.GroupCipher)) ||
 					(PairCipher == Ndis802_11WEPEnabled && IS_CIPHER_WEP(wdev->SecConfig.GroupCipher)) ||
@@ -2740,10 +2801,10 @@ VOID CFG80211_ParseBeaconIE(RTMP_ADAPTER *pAd, BSS_STRUCT *pMbss, struct wifi_de
 					(PairCipher == Ndis802_11GCMP128Enable && IS_CIPHER_GCMP128(wdev->SecConfig.GroupCipher)) ||
 					(PairCipher == Ndis802_11GCMP256Enable && IS_CIPHER_GCMP256(wdev->SecConfig.GroupCipher)) ||
 					(PairCipher == Ndis802_11CCMP256Enable && IS_CIPHER_CCMP256(wdev->SecConfig.GroupCipher))
-				) {
+					) {
 					wdev->SecConfig.PairwiseCipher = wdev->SecConfig.GroupCipher;
 				} else {
-					MTWF_DBG(pAd, DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_INFO, "WPA2 Mix TKIPAES\n");
+					MTWF_LOG(DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_OFF, ("WPA2 Mix TKIPAES\n"));
 					bMix = TRUE;
 				}
 
@@ -2761,7 +2822,7 @@ VOID CFG80211_ParseBeaconIE(RTMP_ADAPTER *pAd, BSS_STRUCT *pMbss, struct wifi_de
 #endif
 				}
 			} else {
-				MTWF_DBG(pAd, DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_DEBUG, "%s:: wpa2 Open/None case\n", __func__);
+				MTWF_LOG(DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_OFF, ("%s:: wpa2 Open/None case\n", __func__));
 				/* wdev->AuthMode = Ndis802_11AuthModeOpen; */
 				/* wait until wpa/wpa2 all not exist , then set open/none */
 			}
@@ -2804,10 +2865,10 @@ VOID CFG80211_ParseBeaconIE(RTMP_ADAPTER *pAd, BSS_STRUCT *pMbss, struct wifi_de
 	if (IS_AKM_WPA1(wdev->SecConfig.AKMMap) || IS_AKM_WPA2(wdev->SecConfig.AKMMap))
 		wdev->SecConfig.IEEE8021X = TRUE;
 
-	MTWF_DBG(pAd, DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-			 "\nCFG80211 BEACON => bwpa2 %d, bwpa %d, bmix %d,AuthMode = %s ,wdev->PairwiseCipher = %s wdev->SecConfig.GroupCipher = %s\n"
+	MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_OFF,
+			 ("\nCFG80211 BEACON => bwpa2 %d, bwpa %d, bmix %d,AuthMode = %s ,wdev->PairwiseCipher = %s wdev->SecConfig.GroupCipher = %s\n"
 			  , bWPA2, bWPA, bMix
-			  , GetAuthModeStr(wdev->SecConfig.AKMMap), GetEncryModeStr(wdev->SecConfig.PairwiseCipher), GetEncryModeStr(wdev->SecConfig.GroupCipher));
+			  , GetAuthModeStr(wdev->SecConfig.AKMMap), GetEncryModeStr(wdev->SecConfig.PairwiseCipher), GetEncryModeStr(wdev->SecConfig.GroupCipher)));
 }
 #endif /* CONFIG_AP_SUPPORT */
 #endif /* RT_CFG80211_SUPPORT */

@@ -1,17 +1,13 @@
 /*
- * Copyright (c) [2020], MediaTek Inc. All rights reserved.
- *
- * This software/firmware and related documentation ("MediaTek Software") are
- * protected under relevant copyright laws.
- * The information contained herein is confidential and proprietary to
- * MediaTek Inc. and/or its licensors.
- * Except as otherwise provided in the applicable licensing terms with
- * MediaTek Inc. and/or its licensors, any reproduction, modification, use or
- * disclosure of MediaTek Software, and information contained herein, in whole
- * or in part, shall be strictly prohibited.
-*/
-/*
  ***************************************************************************
+ * MediaTek Inc.
+ *
+ * All rights reserved. source code is an unpublished work and the
+ * use of a copyright notice does not imply otherwise. This source code
+ * contains confidential trade secret material of MediaTek. Any attemp
+ * or participation in deciphering, decoding, reverse engineering or in any
+ * way altering the source code is stricitly prohibited, unless the prior
+ * written consent of MediaTek, Inc. is obtained.
  ***************************************************************************
 
 	Module Name: wifi_offload
@@ -53,7 +49,6 @@
 #define  WED_GLO_CFG (WED_REG_BASE + 0x00000208)
 #define  WED_RST_IDX (WED_REG_BASE + 0x0000020C)
 #define  WED_DLY_INT_CFG (WED_REG_BASE + 0x00000210)
-#define  WED_SPR (WED_REG_BASE + 0x0000021C)
 #define  WED_TX0_MIB (WED_REG_BASE + 0x000002A0)
 #define  WED_TX1_MIB (WED_REG_BASE + 0x000002A4)
 #define  WED_RX0_MIB (WED_REG_BASE + 0x000002E0)
@@ -90,8 +85,7 @@
 #define  WED_WPDMA_TX1_MIB (WED_REG_BASE + 0x000005A4)
 #define  WED_WPDMA_TX0_COHERENT_MIB (WED_REG_BASE + 0x000005D0)
 #define  WED_WPDMA_TX1_COHERENT_MIB (WED_REG_BASE + 0x000005D4)
-#define  WED_WPDMA_RX1_COHERENT_MIB (WED_REG_BASE + 0x000005F0)
-#define  WED_WPDMA_RX_EXTC_FREE_TKID_MIB (WED_REG_BASE + 0x000005F8)
+#define  WED_WPDMA_RX1_COHERENT_MIB (WED_REG_BASE + 0x000005F4)
 #define  WED_WPDMA_RX0_MIB (WED_REG_BASE + 0x000005E0)
 #define  WED_WPDMA_RX1_MIB (WED_REG_BASE + 0x000005E4)
 #define  WED_WPDMA_TX0_CTRL0 (WED_REG_BASE + 0x00000600)

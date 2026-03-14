@@ -6,17 +6,9 @@
 #include "spectrum_def.h"
 
 
-typedef enum _ENUM_MEASURE_REQ_TYPE {
-	BCN_MEASURE_REQ,
-	BCN_MEASURE_REP,
-	NB_MEASURE_REQ,
-	SET_MEASURE_REQ
-} ENUM_MEASURE_REQ_TYPE;
-
 UINT8 GetRegulatoryMaxTxPwr(
 	IN PRTMP_ADAPTER pAd,
-	IN UINT8 channel,
-	IN struct wifi_dev *wdev);
+	IN UINT8 channel);
 
 CHAR RTMP_GetTxPwr(
 	IN PRTMP_ADAPTER pAd,
@@ -85,13 +77,10 @@ VOID EnqueueMeasurementRep(
 	Return	: None.
 	==========================================================================
  */
-#ifdef TPC_SUPPORT
-	UCHAR EnqueueTPCReq(
-		IN PRTMP_ADAPTER pAd,
-		IN PUCHAR pDA,
-		IN PUCHAR pSA,
-		IN PUCHAR pBssid,
-		IN UCHAR DialogToken);
+VOID EnqueueTPCReq(
+	IN PRTMP_ADAPTER pAd,
+	IN PUCHAR pDA,
+	IN UCHAR DialogToken);
 
 /*
 	==========================================================================
@@ -105,15 +94,12 @@ VOID EnqueueMeasurementRep(
 	Return	: None.
 	==========================================================================
  */
-	VOID EnqueueTPCRep(
-		IN PRTMP_ADAPTER pAd,
-		IN PUCHAR pDA,
-		IN PUCHAR pSA,
-		IN PUCHAR pBssid,
-		IN UINT8 DialogToken,
-		IN UINT8 TxPwr,
-		IN UINT8 LinkMargin);
-#endif
+VOID EnqueueTPCRep(
+	IN PRTMP_ADAPTER pAd,
+	IN PUCHAR pDA,
+	IN UINT8 DialogToken,
+	IN UINT8 TxPwr,
+	IN UINT8 LinkMargin);
 
 #ifdef WDS_SUPPORT
 /*
@@ -164,11 +150,12 @@ VOID PeerSpectrumAction(
  */
 INT Set_MeasureReq_Proc(RTMP_ADAPTER *pAd, RTMP_STRING *arg);
 
+INT Set_TpcReq_Proc(RTMP_ADAPTER *pAd, RTMP_STRING *arg);
+INT Set_TpcReqByAddr_Proc(RTMP_ADAPTER *pAd, RTMP_STRING *arg);
+
 INT Set_PwrConstraint(RTMP_ADAPTER *pAd, RTMP_STRING *arg);
 
 #ifdef TPC_SUPPORT
-INT Set_TpcReq_Proc(RTMP_ADAPTER *pAd, RTMP_STRING *arg);
-INT Set_TpcReqByAddr_Proc(RTMP_ADAPTER *pAd, RTMP_STRING *arg);
 INT Set_TpcCtrl_Proc(RTMP_ADAPTER *pAd, RTMP_STRING *arg);
 INT Set_TpcEnable_Proc(RTMP_ADAPTER *pAd, RTMP_STRING *arg);
 #endif /* TPC_SUPPORT */
@@ -185,18 +172,15 @@ VOID MeasureReqTabExit(
 
 PMEASURE_REQ_ENTRY MeasureReqLookUp(
 	IN PRTMP_ADAPTER	pAd,
-	IN UINT8			DialogToken,
-	IN UINT8			measuretype);
+	IN UINT8			DialogToken);
 
 PMEASURE_REQ_ENTRY MeasureReqInsert(
 	IN PRTMP_ADAPTER	pAd,
-	IN UINT8			DialogToken,
-	IN UINT8			measuretype);
+	IN UINT8			DialogToken);
 
 VOID MeasureReqDelete(
 	IN PRTMP_ADAPTER	pAd,
-	IN UINT8			DialogToken,
-	IN UINT8			measuretype);
+	IN UINT8			DialogToken);
 
 VOID InsertChannelRepIE(
 	IN PRTMP_ADAPTER pAd,
@@ -205,8 +189,7 @@ VOID InsertChannelRepIE(
 	IN RTMP_STRING *pCountry,
 	IN UINT8 RegulatoryClass,
 	IN UINT8 *ChReptList,
-	IN USHORT PhyMode,
-	IN UINT8 IfIdx
+	IN UCHAR PhyMode
 );
 
 VOID InsertBcnReportIndicationReqIE(
@@ -228,13 +211,13 @@ VOID InsertDialogToken(
 	OUT PUCHAR pFrameBuf,
 	OUT PULONG pFrameLen,
 	IN UINT8 DialogToken);
-#ifdef TPC_SUPPORT
+
 NDIS_STATUS	TpcReqTabInit(
 	IN PRTMP_ADAPTER pAd);
 
 VOID TpcReqTabExit(
 	IN PRTMP_ADAPTER pAd);
-#endif
+
 VOID NotifyChSwAnnToPeerAPs(
 	IN PRTMP_ADAPTER pAd,
 	IN PUCHAR pRA,
@@ -246,52 +229,43 @@ VOID RguClass_BuildBcnChList(
 	IN PRTMP_ADAPTER pAd,
 	OUT PUCHAR pBuf,
 	OUT	PULONG pBufLen,
-	IN struct wifi_dev *wdev,
+	IN UCHAR PhyMode,
 	IN UCHAR RegClass);
+#ifdef CUSTOMER_DCC_FEATURE
+INT NotifyChSwAnnToConnectedSTAs(
+	IN PRTMP_ADAPTER pAd,
+	IN UINT8 		ChSwMode,
+	IN UINT8 		Channel,
+	struct wifi_dev *wdev);
 
-void ap_chnl_switch_xmit(IN PRTMP_ADAPTER pAd,
-	IN struct wifi_dev *wdev,
-	IN UINT8 target_ch,
-	IN UINT8 target_bw);
+VOID EnqueueChSwAnnNew(
+	IN PRTMP_ADAPTER pAd,
+	IN PUCHAR pDA,
+	IN UINT8 ChSwMode,
+	IN UINT8 NewCh,
+	IN PUCHAR pSA,
+	struct wifi_dev *wdev);
+#endif
 
 #ifdef CONFIG_RCSA_SUPPORT
-INT notify_channel_switch_to_backhaulAP(
+INT NotifyChSwAnnToBackhaulAP(
 	IN PRTMP_ADAPTER pAd,
 	struct wifi_dev *wdev,
 	IN UINT8 Channel,
 	IN UINT8 ChSwMode);
 
-INT apcli_peer_csa_sanity(
+INT ApCliPeerCsaSanity(
 	IN MLME_QUEUE_ELEM * Elem,
 	OUT CSA_IE_INFO *CsaInfo);
 
-VOID channel_switch_action_1(
+VOID ChannelSwitchAction_1(
 	IN RTMP_ADAPTER * pAd,
 	IN CSA_IE_INFO *CsaInfo);
 
-VOID rcsa_recovery(
+VOID RcsaRecovery(
 	IN PRTMP_ADAPTER pAd,
 	struct wifi_dev *wdev);
 
 #endif
-#ifdef ZERO_LOSS_CSA_SUPPORT
-VOID NotifyBroadcastChSwAnn(
-	IN PRTMP_ADAPTER pAd,
-	IN struct wifi_dev *wdev,
-	IN UINT8 ChSwMode,
-	IN UINT8 NewCh);
-
-VOID NotifyBroadcastExtChSwAnn(
-	IN PRTMP_ADAPTER pAd,
-	IN struct wifi_dev *wdev,
-	IN UINT8 ChSwMode,
-	IN UINT8 NewCh);
-
-VOID EnqueueChSwAnnNew(
-	IN PRTMP_ADAPTER pAd,
-	IN MAC_TABLE_ENTRY *pEntry,
-	IN UINT8 ChSwMode,
-	IN UINT8 NewCh);
-#endif /*ZERO_LOSS_CSA_SUPPORT*/
 #endif /* __SPECTRUM_H__ */
 

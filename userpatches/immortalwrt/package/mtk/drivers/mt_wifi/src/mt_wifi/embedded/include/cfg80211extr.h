@@ -1,16 +1,15 @@
-/*
- * Copyright (c) [2020], MediaTek Inc. All rights reserved.
- *
- * This software/firmware and related documentation ("MediaTek Software") are
- * protected under relevant copyright laws.
- * The information contained herein is confidential and proprietary to
- * MediaTek Inc. and/or its licensors.
- * Except as otherwise provided in the applicable licensing terms with
- * MediaTek Inc. and/or its licensors, any reproduction, modification, use or
- * disclosure of MediaTek Software, and information contained herein, in whole
- * or in part, shall be strictly prohibited.
-*/
 /****************************************************************************
+ * Ralink Tech Inc.
+ * Taiwan, R.O.C.
+ *
+ * (c) Copyright 2013, Ralink Technology, Inc.
+ *
+ * All rights reserved. Ralink's source code is an unpublished work and the
+ * use of a copyright notice does not imply otherwise. This source code
+ * contains confidential trade secret material of Ralink Tech. Any attemp
+ * or participation in deciphering, decoding, reverse engineering or in any
+ * way altering the source code is stricitly prohibited, unless the prior
+ * written consent of Ralink Technology, Inc. is obtained.
  ***************************************************************************/
 
 /****************************************************************************
@@ -68,13 +67,9 @@ CFG80211_Scaning((VOID *)__pAd, __BssIdx, __ChanId, __pFrame,			\
 #define RT_CFG80211_SCAN_END(__pAd, __FlgIsAborted)							\
 	CFG80211_ScanEnd((VOID *)__pAd, __FlgIsAborted);
 #if defined(CONFIG_STA_SUPPORT) || defined(APCLI_CFG80211_SUPPORT)
-#define RT_CFG80211_LOST_AP_INFORM(__pAd, __wdev)									\
-	CFG80211_LostApInform((VOID *)__pAd, __wdev);
-#endif /*CONFIG_STA_SUPPORT*/
-#ifdef RT_CFG80211_P2P_CONCURRENT_DEVICE
-#define RT_CFG80211_LOST_GO_INFORM(__pAd)									\
-	CFG80211_LostP2pGoInform((VOID *)__pAd);
-#endif /*RT_CFG80211_P2P_CONCURRENT_DEVICE*/
+#define RT_CFG80211_LOST_AP_INFORM(__pAd)									\
+	CFG80211_LostApInform((VOID *)__pAd);
+#endif /*CONFIG_STA_SUPPORT || APCLI_CFG80211_SUPPORT */
 #define RT_CFG80211_REINIT(__pAd, __wdev)											\
 	CFG80211_SupBandReInit((VOID *)__pAd, (VOID *)__wdev);
 
@@ -82,23 +77,16 @@ CFG80211_Scaning((VOID *)__pAd, __BssIdx, __ChanId, __pFrame,			\
 	CFG80211_RFKillStatusUpdate(_pAd, _active);
 
 #ifdef APCLI_CFG80211_SUPPORT
-#define RT_CFG80211_P2P_CLI_CONN_RESULT_INFORM(__pAd, __pBSSID, __ifIndex, __pReqIe,   \
+#define RT_CFG80211_P2P_CLI_CONN_RESULT_INFORM(__pAd, __pBSSID, __pReqIe,   \
 					__ReqIeLen, __pRspIe, __RspIeLen, __FlgIsSuccess)	\
-		CFG80211_ApClientConnectResultInform(__pAd, __pBSSID, __ifIndex,				    \
+		CFG80211_ApClientConnectResultInform(__pAd, __pBSSID,				    \
 			__pReqIe, __ReqIeLen, __pRspIe, __RspIeLen, __FlgIsSuccess);
 #else
 #define RT_CFG80211_P2P_CLI_CONN_RESULT_INFORM(__pAd, __pBSSID, __pReqIe,   \
-		__ReqIeLen,	__pRspIe, __RspIeLen, __FlgIsSuccess)				\
-CFG80211_P2pClientConnectResultInform(__pAd, __pBSSID,				    \
-									  __pReqIe, __ReqIeLen, __pRspIe, __RspIeLen, __FlgIsSuccess);
+			__ReqIeLen,	__pRspIe, __RspIeLen, __FlgIsSuccess)				\
+	CFG80211_P2pClientConnectResultInform(__pAd, __pBSSID,				    \
+			__pReqIe, __ReqIeLen, __pRspIe, __RspIeLen, __FlgIsSuccess);
 #endif /* APCLI_CFG80211_SUPPORT */
-
-#ifdef SUPP_SAE_SUPPORT
-int mtk_cfg80211_event_connect_params(void *pAd, UCHAR *pmk, int pmk_len);
-int mtk_cfg80211_event_pmksa(void *pAd, UCHAR *pmk, int pmk_len, UCHAR *pmkid,
-				UINT32 akmp, UINT8 *aa);
-#endif
-
 #define RT_CFG80211_P2P_CLI_SEND_NULL_FRAME(_pAd, _PwrMgmt)					\
 	CFG80211_P2pClientSendNullFrame(_pAd, _PwrMgmt);
 
@@ -106,59 +94,38 @@ int mtk_cfg80211_event_pmksa(void *pAd, UCHAR *pmk, int pmk_len, UCHAR *pmkid,
 	CFG80211_JoinIBSS(_pAd, _pBssid);
 
 
-#ifdef SINGLE_SKU
 #define CFG80211_BANDINFO_FILL(__pAd, __wdev, __pBandInfo)\
 	{\
 		do {\
 			(__pBandInfo)->RFICType = HcGetRadioRfIC(__pAd);\
 			(__pBandInfo)->MpduDensity = __pAd->CommonCfg.BACapability.field.MpduDensity;\
-			(__pBandInfo)->TxStream = ((__wdev == NULL) || (__wdev->wpf_op == NULL)) ? hc_get_chip_cap(__pAd->hdev_ctrl)->mcs_nss.max_nss : wlan_operate_get_tx_stream(__wdev);			\
-			(__pBandInfo)->RxStream = ((__wdev == NULL) || (__wdev->wpf_op == NULL)) ? hc_get_chip_cap(__pAd->hdev_ctrl)->mcs_nss.max_nss : wlan_operate_get_rx_stream(__wdev);			\
-			(__pBandInfo)->MaxTxPwr = __pAd->CommonCfg.DefineMaxTxPwr;\
-			if (WMODE_EQUAL(HcGetRadioPhyMode(__pAd), WMODE_B))\
-				(__pBandInfo)->FlgIsBMode = TRUE;\
-			else\
-				(__pBandInfo)->FlgIsBMode = FALSE;\
-			(__pBandInfo)->MaxBssTable = MAX_LEN_OF_BSS_TABLE;\
-			(__pBandInfo)->RtsThreshold = ((__wdev == NULL) || (__wdev->wpf_op == NULL)) ? DEFAULT_RTS_LEN_THLD : wlan_operate_get_rts_len_thld(__wdev);\
-			(__pBandInfo)->FragmentThreshold = ((__wdev == NULL) || (__wdev->wpf_op == NULL)) ? DEFAULT_FRAG_THLD : wlan_operate_get_frag_thld(__wdev);\
-			(__pBandInfo)->RetryMaxCnt = 0;	\
-		} while (0);\
-	}
-#else
-#define CFG80211_BANDINFO_FILL(__pAd, __wdev, __pBandInfo)\
-	{\
-		do {\
-			(__pBandInfo)->RFICType = HcGetRadioRfIC(__pAd);\
-			(__pBandInfo)->MpduDensity = __pAd->CommonCfg.BACapability.field.MpduDensity;\
-			(__pBandInfo)->TxStream = ((__wdev == NULL) || (__wdev->wpf_op == NULL)) ? hc_get_chip_cap(__pAd->hdev_ctrl)->mcs_nss.max_nss[0] : wlan_operate_get_tx_stream(__wdev);			\
-			(__pBandInfo)->RxStream = ((__wdev == NULL) || (__wdev->wpf_op == NULL)) ? hc_get_chip_cap(__pAd->hdev_ctrl)->mcs_nss.max_nss[0] : wlan_operate_get_rx_stream(__wdev);			\
+			(__pBandInfo)->TxStream = ((__wdev == NULL) || (__wdev->wpf_op == NULL)) ? 1 : wlan_operate_get_tx_stream(__wdev);			\
+			(__pBandInfo)->RxStream = ((__wdev == NULL) || (__wdev->wpf_op == NULL)) ? 1 : wlan_operate_get_rx_stream(__wdev);			\
 			(__pBandInfo)->MaxTxPwr = 0;\
 			if (WMODE_EQUAL(HcGetRadioPhyMode(__pAd), WMODE_B))\
 				(__pBandInfo)->FlgIsBMode = TRUE;\
 			else\
 				(__pBandInfo)->FlgIsBMode = FALSE;\
 			(__pBandInfo)->MaxBssTable = MAX_LEN_OF_BSS_TABLE;\
-			(__pBandInfo)->RtsThreshold = ((__wdev == NULL) || (__wdev->wpf_op == NULL)) ? DEFAULT_RTS_LEN_THLD : wlan_operate_get_rts_len_thld(__wdev);\
-			(__pBandInfo)->FragmentThreshold = ((__wdev == NULL) || (__wdev->wpf_op == NULL)) ? DEFAULT_FRAG_THLD : wlan_operate_get_frag_thld(__wdev);\
+			(__pBandInfo)->RtsThreshold = (__wdev == NULL) ? DEFAULT_RTS_LEN_THLD : wlan_operate_get_rts_len_thld(__wdev);\
+			(__pBandInfo)->FragmentThreshold = (__wdev == NULL) ? DEFAULT_FRAG_THLD : wlan_operate_get_frag_thld(__wdev);\
 			(__pBandInfo)->RetryMaxCnt = 0; \
 		} while (0); \
 	}
-#endif /* SINGLE_SKU */
 
 /* NoA Command Parm */
 #define P2P_NOA_DISABLED 0x00
 #define P2P_NOA_TX_ON    0x01
 #define P2P_NOA_RX_ON    0x02
 
-#define WLAN_AKM_SUITE_OWE			0x000FAC12
+#define WLAN_AKM_SUITE_8021X		0x000FAC01
 #define WDEV_NOT_FOUND				-1
 
 
 /* Scan Releated */
 #if defined(CONFIG_STA_SUPPORT) || defined(APCLI_CFG80211_SUPPORT)
 BOOLEAN CFG80211DRV_OpsScanRunning(VOID *pAdOrg);
-#endif /*CONFIG_STA_SUPPORT*/
+#endif /*CONFIG_STA_SUPPORT || APCLI_CFG80211_SUPPORT*/
 
 BOOLEAN CFG80211DRV_OpsScanSetSpecifyChannel(
 	VOID *pAdOrg, VOID *pData, UINT8 dataLen);
@@ -173,7 +140,7 @@ VOID CFG80211DRV_OpsScanInLinkDownAction(VOID *pAdOrg);
 #ifdef APCLI_CFG80211_SUPPORT
 VOID CFG80211DRV_ApcliSiteSurvey(VOID *pAdOrg, VOID *pData);
 
-VOID CFG80211DRV_SetApCliAssocIe(VOID *pAdOrg, PNET_DEV pNetDev, VOID *pData, UINT ie_len);
+VOID CFG80211DRV_SetApCliAssocIe(VOID *pAdOrg, VOID *pData, UINT ie_len);
 
 VOID CFG80211DRV_ApClientKeyAdd(VOID *pAdOrg, VOID *pData);
 
@@ -209,7 +176,6 @@ VOID CFG80211_P2pClientConnectResultInform(
 VOID CFG80211_ApClientConnectResultInform(
 	IN VOID						*pAdCB,
 	IN UCHAR					*pBSSID,
-	IN UCHAR					ifIndex,
 	IN UCHAR					*pReqIe,
 	IN UINT32					ReqIeLen,
 	IN UCHAR					*pRspIe,
@@ -221,10 +187,7 @@ VOID CFG80211_ConnectResultInform(
 	VOID *pAdCB, UCHAR *pBSSID,	UCHAR *pReqIe, UINT32 ReqIeLen,
 	UCHAR *pRspIe, UINT32 RspIeLen,	UCHAR FlgIsSuccess);
 VOID CFG80211DRV_PmkidConfig(VOID *pAdOrg, VOID *pData);
-#ifdef RT_CFG80211_P2P_CONCURRENT_DEVICE
-VOID CFG80211_LostP2pGoInform(VOID *pAdCB);
-#endif /* RT_CFG80211_P2P_CONCURRENT_DEVICE */
-VOID CFG80211_LostApInform(VOID *pAdCB, struct wifi_dev	*wdev);
+VOID CFG80211_LostApInform(VOID *pAdCB);
 
 INT CFG80211_StaPortSecured(
 	VOID                         *pAdCB,
@@ -237,10 +200,6 @@ INT CFG80211_ApStaDel(VOID *pAdCB, VOID *pData, UINT reason);
 #else
 INT CFG80211_ApStaDel(VOID *pAdCB, UCHAR *pMac, UINT reason);
 #endif /* HOSTAPD_MAP_SUPPORT */
-
-#ifdef HOSTAPD_PMKID_IN_DRIVER_SUPPORT
-INT CFG80211_ApUpdateStaPmkid(VOID *pAdCB, VOID *pData);
-#endif /*HOSTAPD_PMKID_IN_DRIVER_SUPPORT*/
 
 VOID CFG80211_UpdateBeacon(
 	VOID                           *pAdOrg,
@@ -255,28 +214,12 @@ VOID CFG80211_UpdateBeacon(
 INT CFG80211_ApStaDelSendEvent(PRTMP_ADAPTER pAd, const PUCHAR mac_addr, IN PNET_DEV pNetDevIn);
 INT CFG80211_FindMbssApIdxByNetDevice(RTMP_ADAPTER *pAd, PNET_DEV pNetDev);
 
-#ifdef APCLI_CFG80211_SUPPORT
-INT CFG80211_FindStaIdxByNetDevice(RTMP_ADAPTER *pAd, PNET_DEV pNetDev);
-#endif
+
 
 /* Information Releated */
 BOOLEAN CFG80211DRV_StaGet(
 	VOID						*pAdOrg,
 	VOID						*pData);
-
-#ifdef WIFI_IAP_STA_DUMP_FEATURE
-/* Information Releated */
-BOOLEAN CFG80211DRV_Ap_StaGet(
-	VOID *pAdOrg,
-	VOID *pData);
-#endif/*WIFI_IAP_STA_DUMP_FEATURE*/
-
-#ifdef WIFI_IAP_POWER_SAVE_FEATURE
-INT CFG80211DRV_AP_SetPowerMgmt (
-	VOID * pAdOrg,
-	VOID * infwdev,
-	UINT enable);
-#endif/*WIFI_IAP_POWER_SAVE_FEATURE*/
 
 VOID CFG80211DRV_SurveyGet(
 	VOID						*pAdOrg,
@@ -305,12 +248,6 @@ VOID CFG80211DRV_FragThresholdAdd(
 	struct wifi_dev	*wdev,
 	UINT                                            threshold);
 
-#ifdef ACK_CTS_TIMEOUT_SUPPORT
-BOOLEAN CFG80211DRV_AckThresholdAdd(
-	VOID * pAdOrg,
-	struct wifi_dev	*wdev,
-	UINT threshold);
-#endif/*ACK_CTS_TIMEOUT_SUPPORT*/
 BOOLEAN CFG80211DRV_ApKeyDel(
 	VOID						*pAdOrg,
 	VOID						*pData);
@@ -322,36 +259,22 @@ INT CFG80211_setApDefaultKey(
 
 #ifdef DOT11W_PMF_SUPPORT
 INT CFG80211_setApDefaultMgmtKey(
-		IN VOID				*pAdCB,
+		IN VOID 				   *pAdCB,
 		IN struct net_device		*pNetdev,
-		IN UINT 			Data);
+		IN UINT 					Data);
 #endif /*DOT11W_PMF_SUPPORT*/
 
-
-#ifdef CONFIG_STA_SUPPORT
-INT CFG80211_setStaDefaultKey(PVOID pAdCB, struct net_device *pNetdev, UINT Data);
-#else
-INT CFG80211_setStaDefaultKey(PVOID pAdCB, UINT	Data);
-#endif /*CONFIG_STA_SUPPORT*/
 
 INT CFG80211_setPowerMgmt(
 	VOID                     *pAdCB,
 	UINT			Enable);
 
 /* General Releated */
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(4, 0, 0))
-#ifdef WIFI_IAP_IW_SET_CHANNEL_FEATURE
-BOOLEAN CFG80211DRV_AP_OpsSetChannel(RTMP_ADAPTER *pAd, VOID *pData);
-#endif/*WIFI_IAP_IW_SET_CHANNEL_FEATURE*/
-#endif/*KERNEL_VERSION(4, 4, 0)*/
-
 BOOLEAN CFG80211DRV_OpsSetChannel(RTMP_ADAPTER *pAd, VOID *pData);
 
 BOOLEAN CFG80211DRV_OpsChgVirtualInf(RTMP_ADAPTER *pAd, VOID *pData);
 
 VOID CFG80211DRV_OpsChangeBssParm(VOID *pAdOrg, VOID *pData);
-
-VOID CFG80211DRV_OpsBitRateParm(VOID *pAdOrg, VOID *pData, INT apidx);
 
 VOID CFG80211_UnRegister(VOID *pAdOrg,	VOID *pNetDev);
 
@@ -452,30 +375,6 @@ BOOLEAN CFG80211_SyncPacketWmmIe(RTMP_ADAPTER *pAd, VOID *pData, ULONG dataLen);
 BOOLEAN CFG80211_HandleP2pMgmtFrame(RTMP_ADAPTER *pAd, RX_BLK *pRxBlk, UCHAR OpMode);
 INT CFG80211_SendMgmtFrame(RTMP_ADAPTER *pAd, VOID *pData, ULONG Data);
 
-#ifdef RT_CFG80211_P2P_SUPPORT /* yiwei 7.1.3 */
-VOID CFG80211_PeerP2pBeacon(
-	IN PRTMP_ADAPTER pAd,
-	IN PUCHAR	pAddr2,
-	IN MLME_QUEUE_ELEM * Elem,
-	IN LARGE_INTEGER   TimeStamp);
-
-
-VOID CFG80211_P2pStopNoA(
-	IN PRTMP_ADAPTER pAd,
-	IN PMAC_TABLE_ENTRY	pMacClient);
-
-
-BOOLEAN CFG80211_P2pResetNoATimer(
-	IN PRTMP_ADAPTER pAd,
-	IN	ULONG	DiffTimeInus);
-
-
-BOOLEAN CFG80211_P2pHandleNoAAttri(
-	IN PRTMP_ADAPTER pAd,
-	IN PMAC_TABLE_ENTRY	pMacClient,
-	IN PUCHAR pData);
-
-#endif /* RT_CFG80211_P2P_SUPPORT */
 
 
 /* -------------------------------- */
@@ -495,12 +394,10 @@ BOOLEAN CFG80211DRV_OpsBeaconAdd(
 	VOID                                            *pAdOrg,
 	VOID                                            *pData);
 
-#ifdef HOSTAPD_HS_R2_SUPPORT
-BOOLEAN CFG80211DRV_SetQosParam(
-		VOID 					*pAdOrg,
-		VOID 					*pData,
-		INT 					apindex);
-#endif
+
+INT CFG80211_setStaDefaultKey(
+	IN VOID                                         *pAdCB,
+	IN UINT                                         Data);
 
 VOID CFG80211DRV_DisableApInterface(PRTMP_ADAPTER pAd);
 
@@ -553,22 +450,5 @@ VOID CFG80211_JoinIBSS(
 VOID CFG80211_InitTxSCallBack(RTMP_ADAPTER *pAd);
 #endif /* MT_MAC */
 
-#ifdef CONFIG_VLAN_GTK_SUPPORT
-struct vlan_gtk_info {
-	PNET_DEV vlan_dev;           /* struct net_dev for vlan device */
-	UINT16 vlan_id;              /* parse from interface name */
-	UINT16 vlan_bmc_idx;         /* should be identical to vlan_tr_tb_idx */
-	UINT16 vlan_tr_tb_idx;       /* should be identical to vlan_bmc_idx */
-	UCHAR vlan_gtk[LEN_MAX_GTK]; /* only for debug print */
-	UINT8 gtk_len;
-	struct list_head list;
-};
-
-struct wifi_dev *CFG80211_GetWdevByVlandev(PRTMP_ADAPTER pAd, PNET_DEV net_dev);
-BOOLEAN CFG80211_MatchVlandev(struct wifi_dev *wdev, PNET_DEV net_dev);
-struct vlan_gtk_info *CFG80211_GetVlanInfoByVlandev(struct wifi_dev *wdev, PNET_DEV net_dev);
-struct vlan_gtk_info *CFG80211_GetVlanInfoByVlanid(struct wifi_dev *wdev, UINT16 vlan_id);
-INT16 CFG80211_IsVlanPkt(PNDIS_PACKET pkt);
-#endif
 #endif /* __CFG80211EXTR_H__ */
 

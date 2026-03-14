@@ -1,17 +1,18 @@
 /*
- * Copyright (c) [2020], MediaTek Inc. All rights reserved.
- *
- * This software/firmware and related documentation ("MediaTek Software") are
- * protected under relevant copyright laws.
- * The information contained herein is confidential and proprietary to
- * MediaTek Inc. and/or its licensors.
- * Except as otherwise provided in the applicable licensing terms with
- * MediaTek Inc. and/or its licensors, any reproduction, modification, use or
- * disclosure of MediaTek Software, and information contained herein, in whole
- * or in part, shall be strictly prohibited.
-*/
-/*
  ***************************************************************************
+ * Ralink Tech Inc.
+ * 4F, No. 2 Technology 5th Rd.
+ * Science-based Industrial Park
+ * Hsin-chu, Taiwan, R.O.C.
+ *
+ * (c) Copyright 2002-2004, Ralink Technology, Inc.
+ *
+ * All rights reserved. Ralink's source code is an unpublished work and the
+ * use of a copyright notice does not imply otherwise. This source code
+ * contains confidential trade secret material of Ralink Tech. Any attemp
+ * or participation in deciphering, decoding, reverse engineering or in any
+ * way altering the source code is stricitly prohibited, unless the prior
+ * written consent of Ralink Technology, Inc. is obtained.
  ***************************************************************************
 
 	Module Name:
@@ -371,8 +372,8 @@ VOID	RTMPInitMICEngine(
 	IN  UCHAR           UserPriority,
 	IN	PUCHAR			pMICKey)
 {
-	/* Priority + 3 bytes of 0*/
-	UCHAR Priority[4] = {UserPriority};
+	UCHAR Priority[4] = {0};
+	Priority[0] = UserPriority;
 	/* Init MIC value calculation*/
 	RTMPTkipSetMICKey(&pAd->PrivateInfo.Tx, pMICKey);
 	/* DA*/
@@ -380,7 +381,7 @@ VOID	RTMPInitMICEngine(
 	/* SA*/
 	RTMPTkipAppend(&pAd->PrivateInfo.Tx, pSA, MAC_ADDR_LEN);
 	/* Priority + 3 bytes of 0*/
-	RTMPTkipAppend(&pAd->PrivateInfo.Tx, Priority, 4);
+	RTMPTkipAppend(&pAd->PrivateInfo.Tx, (PUCHAR)&Priority, 4);
 }
 
 /*
@@ -438,7 +439,7 @@ BOOLEAN	RTMPTkipCompareMICValue(
 	/* Move MIC value from MSDU, this steps should move to data path.*/
 	/* Since the MIC value might cross MPDUs.*/
 	if (!NdisEqualMemory(pAd->PrivateInfo.Rx.MIC, OldMic, 8)) {
-		MTWF_DBG(pAd, DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_ERROR, "RTMPTkipCompareMICValue(): TKIP MIC Error !\n");  /*MIC error.*/
+		MTWF_LOG(DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_ERROR, ("RTMPTkipCompareMICValue(): TKIP MIC Error !\n"));  /*MIC error.*/
 		return FALSE;
 	}
 
@@ -475,15 +476,16 @@ VOID	RTMPCalculateMICValue(
 	IN	PUCHAR			pMIC,
 	IN	UCHAR			apidx)
 {
+	PACKET_INFO		PacketInfo;
+	PUCHAR			pSrcBufVA;
 	UINT			SrcBufLen;
 	PUCHAR			pSrc;
 	UCHAR           UserPriority;
 	UCHAR			vlan_offset = 0;
 
-	pSrc = RTMP_GET_PKT_SRC_VA(pPacket);
-	SrcBufLen = RTMP_GET_PKT_LEN(pPacket);
-
+	RTMP_QueryPacketInfo(pPacket, &PacketInfo, &pSrcBufVA, &SrcBufLen);
 	UserPriority = RTMP_GET_PACKET_UP(pPacket);
+	pSrc = pSrcBufVA;
 
 	/* determine if this is a vlan packet */
 	if (((*(pSrc + 12) << 8) + *(pSrc + 13)) == 0x8100)
@@ -499,14 +501,14 @@ VOID	RTMPCalculateMICValue(
 			pAd,
 			pKey,
 			pSrc,
-			pAd->StaCfg[apidx - MIN_NET_DEVICE_FOR_APCLI].wdev.if_addr,
+			pAd->ApCfg.ApCliTab[apidx - MIN_NET_DEVICE_FOR_APCLI].wdev.if_addr,
 			UserPriority,
 			pMIC);
 	} else
 #endif /* APCLI_SUPPORT */
 #ifdef IGMP_SNOOP_SUPPORT
 		if ((RTMP_GET_PACKET_WCID(pPacket) != MCAST_WCID_TO_REMOVE) && (*pSrc & 0x01) && (pAd->OpMode == OPMODE_AP)) {
-			UINT16 wcid = RTMP_GET_PACKET_WCID(pPacket);
+			UCHAR wcid = RTMP_GET_PACKET_WCID(pPacket);
 
 			RTMPInitMICEngine(
 				pAd,
@@ -518,22 +520,6 @@ VOID	RTMPCalculateMICValue(
 		} else
 #endif /* IGMP_SNOOP_SUPPORT */
 #endif /* CONFIG_AP_SUPPORT */
-#ifdef CONFIG_STA_SUPPORT
-#ifdef ETH_CONVERT_SUPPORT
-
-			/* If the packet is need to do MATConvert in station mode, the "apidx" used for indicate "pkt->bDonglePkt"; */
-			if ((apidx > 0) && (pAd->OpMode == OPMODE_STA)) {
-				/* For packets which need to do MATConvert, we need to use the pAd->CurrentAddress to calculate the MIC.*/
-				RTMPInitMICEngine(
-					pAd,
-					pKey,
-					pSrc,
-					pAd->CurrentAddress,
-					UserPriority,
-					pMIC);
-			} else
-#endif /* ETH_CONVERT_SUPPORT */
-#endif /* CONFIG_STA_SUPPORT */
 			{
 				RTMPInitMICEngine(
 					pAd,
@@ -661,7 +647,8 @@ VOID RTMPTkipMixKey(
 	ppk5 = ppk5 + rotr1(ppk4);
 	/* Phase 2, Step 3 */
 	/* Phase 2, Step 3 */
-
+	tsc0 = (unsigned int)((pnh >> 16) % 65536); /* msb */
+	tsc1 = (unsigned int)(pnh % 65536);
 	tsc2 = (unsigned int)(pnl % 65536); /* lsb */
 	rc4key[0] = (tsc2 >> 8) % 256;
 	rc4key[1] = (((tsc2 >> 8) % 256) | 0x20) & 0x7f;
@@ -691,9 +678,6 @@ BOOLEAN RTMPSoftDecryptTKIP(
 	IN		PUCHAR			pHdr,
 	IN		UCHAR		UserPriority,
 	IN		PCIPHER_KEY		pKey,
-#ifdef CONFIG_STA_SUPPORT
-	IN		UCHAR			wdev_idx,
-#endif
 	INOUT	PUCHAR			pData,
 	IN		UINT16 * DataByteCnt)
 {
@@ -704,11 +688,11 @@ BOOLEAN RTMPSoftDecryptTKIP(
 	UINT8			to_ds;
 	UINT8			a4_exists;
 	UINT8			qc_exists;
-	UCHAR			TA[MAC_ADDR_LEN] = {0};
-	UCHAR			DA[MAC_ADDR_LEN] = {0};
-	UCHAR			SA[MAC_ADDR_LEN] = {0};
-	UCHAR			RC4Key[16] = {0};
-	UINT			p1k[5] = {0}; /*for mix_key;*/
+	UCHAR			TA[MAC_ADDR_LEN];
+	UCHAR			DA[MAC_ADDR_LEN];
+	UCHAR			SA[MAC_ADDR_LEN];
+	UCHAR			RC4Key[16];
+	UINT			p1k[5]; /*for mix_key;*/
 	UINT32			pnl;/* Least significant 16 bits of PN */
 	UINT32			pnh;/* Most significant 32 bits of PN */
 	ARC4_CTX_STRUC	ARC4_CTX;
@@ -718,23 +702,14 @@ BOOLEAN RTMPSoftDecryptTKIP(
 	UINT32			ciphertext_len;
 	UINT			crc32 = 0;
 	UINT			trailfcs = 0;
-	UCHAR			MIC[8] = {0};
-	UCHAR			TrailMIC[8] = {0};
-#ifdef CONFIG_STA_SUPPORT
-	struct wifi_dev *wdev;
-	PSTA_ADMIN_CONFIG pStaCfg = NULL;
-#endif
+	UCHAR			MIC[8];
+	UCHAR			TrailMIC[8];
 #ifdef RT_BIG_ENDIAN
 	RTMPFrameEndianChange(pAd, pHdr, DIR_READ, FALSE);
 #endif
-#ifdef CONFIG_STA_SUPPORT
-	wdev = pAd->wdev_list[wdev_idx];
-	pStaCfg =  GetStaCfgByWdev(pAd, wdev);
-	ASSERT(pStaCfg);
-#endif
 
 	if (pKey->KeyLen == 0) {
-		MTWF_DBG(pAd, DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_ERROR, "the key is empty)\n");
+		MTWF_LOG(DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_ERROR, ("%s : the key is empty)\n", __func__));
 		return FALSE;
 	}
 
@@ -793,10 +768,7 @@ BOOLEAN RTMPSoftDecryptTKIP(
 	ARC4_Compute(&ARC4_CTX, ciphertext_ptr, ciphertext_len, pData);
 	/* Point to the decrypted data frame and its length shall exclude ICV length */
 	plaintext_ptr = pData;
-	if (ciphertext_len >= LEN_ICV)
-		plaintext_len = ciphertext_len - LEN_ICV;
-	else
-		return FALSE;
+	plaintext_len = ciphertext_len - LEN_ICV;
 	/* Extract peer's ICV */
 	NdisMoveMemory(&trailfcs, plaintext_ptr + plaintext_len, LEN_ICV);
 	/* Re-computes the ICV and
@@ -805,15 +777,12 @@ BOOLEAN RTMPSoftDecryptTKIP(
 	crc32 ^= 0xffffffff;             /* complement */
 
 	if (crc32 != cpu2le32(trailfcs)) {
-		MTWF_DBG(pAd, DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_ERROR, "! WEP Data CRC Error !\n");	 /*CRC error.*/
+		MTWF_LOG(DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_ERROR, ("! WEP Data CRC Error !\n"));	 /*CRC error.*/
 		return FALSE;
 	}
 
 	/* Extract peer's MIC and subtract MIC length from total data length */
-	if (plaintext_len >= LEN_TKIP_MIC)
-		plaintext_len -= LEN_TKIP_MIC;
-	else
-		return FALSE;
+	plaintext_len -= LEN_TKIP_MIC;
 	NdisMoveMemory(TrailMIC, plaintext_ptr + plaintext_len, LEN_TKIP_MIC);
 	RTMPInitMICEngine(pAd, pKey->Key, DA, SA, UserPriority, pKey->RxMic);
 	RTMPTkipAppend(&pAd->PrivateInfo.Tx, plaintext_ptr, plaintext_len);
@@ -821,21 +790,7 @@ BOOLEAN RTMPSoftDecryptTKIP(
 	NdisMoveMemory(MIC, pAd->PrivateInfo.Tx.MIC, LEN_TKIP_MIC);
 
 	if (!NdisEqualMemory(MIC, TrailMIC, LEN_TKIP_MIC)) {
-		MTWF_DBG(pAd, DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_ERROR, "! TKIP MIC Error !\n");	 /*MIC error.*/
-#ifdef CONFIG_STA_SUPPORT
-		/*RTMPReportMicError(pAd, &pWpaKey[KeyID]);	 marked by AlbertY @ 20060630 */
-#ifdef WPA_SUPPLICANT_SUPPORT
-
-		if (pStaCfg->wpa_supplicant_info.WpaSupplicantUP) {
-			WpaSendMicFailureToWpaSupplicant(pAd->net_dev, pFrame->Addr2,
-											 (pKey->Type == PAIRWISEKEY) ? TRUE : FALSE,
-											 0 /*key id need be retrived by IV, actually supplicant didn't need it!*/,
-											 NULL);
-		} else
-#endif /* WPA_SUPPLICANT_SUPPORT */
-			RTMPReportMicError(pAd, pStaCfg, pKey);
-
-#endif /* CONFIG_STA_SUPPORT */
+		MTWF_LOG(DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_ERROR, ("! TKIP MIC Error !\n"));	 /*MIC error.*/
 		return FALSE;
 	}
 
@@ -877,7 +832,7 @@ VOID TKIP_GTK_KEY_WRAP(
 	os_alloc_mem(NULL, (UCHAR **)&pARC4_CTX, sizeof(ARC4_CTX_STRUC));
 
 	if (pARC4_CTX == NULL) {
-		MTWF_DBG(NULL, DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_ERROR, "Allocate memory fail!!!\n");
+		MTWF_LOG(DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_ERROR, ("%s: Allocate memory fail!!!\n", __func__));
 		return;
 	}
 

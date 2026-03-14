@@ -3991,7 +3991,6 @@ int BN_sub(BIGNUM *r, const BIGNUM *a, const BIGNUM *b)
 {
 	int max;
 	int add = 0, neg = 0;
-
 	bn_check_top(a);
 	bn_check_top(b);
 
@@ -4556,8 +4555,8 @@ int BN_div(BIGNUM *dv, BIGNUM *rm, const BIGNUM *num, const BIGNUM *divisor,
 		 * will overwrite it.
 		 */
 		int neg = num->neg;
-		if (BN_rshift(rm, snum, norm_shift) == 0)/*ALPS05329896*/
-			BNerr(BN_F_BN_RSHIFT, BN_R_INVALID_SHIFT);
+		BN_rshift(rm, snum, norm_shift);
+
 		if (!BN_is_zero(rm))
 			rm->neg = neg;
 
@@ -4770,10 +4769,11 @@ int BN_mod_exp_recp(BIGNUM *r, const BIGNUM *a, const BIGNUM *p,
 	BN_CTX_start(ctx);
 	aa = BN_CTX_get(ctx);
 	val[0] = BN_CTX_get(ctx);
-	BN_RECP_CTX_init(&recp);
 
 	if (!aa || !val[0])
 		goto err;
+
+	BN_RECP_CTX_init(&recp);
 
 	if (m->neg) {
 		/* ignore sign of 'm' */
@@ -4840,7 +4840,7 @@ int BN_mod_exp_recp(BIGNUM *r, const BIGNUM *a, const BIGNUM *p,
 		 * a window to do.  To do this we need to scan forward until the last
 		 * set bit before the end of the window
 		 */
-
+		j = wstart;
 		wvalue = 1;
 		wend = 0;
 
@@ -5025,7 +5025,7 @@ int BN_mod_exp_mont(BIGNUM *rr, const BIGNUM *a, const BIGNUM *p,
 		 * a window to do.  To do this we need to scan forward until the last
 		 * set bit before the end of the window
 		 */
-
+		j = wstart;
 		wvalue = 1;
 		wend = 0;
 
@@ -6000,7 +6000,7 @@ int BN_mod_exp_simple(BIGNUM *r, const BIGNUM *a, const BIGNUM *p,
 		 * a window to do.  To do this we need to scan forward until the last
 		 * set bit before the end of the window
 		 */
-
+		j = wstart;
 		wvalue = 1;
 		wend = 0;
 
@@ -6399,7 +6399,7 @@ static int bnrand(int pseudorand, BIGNUM *rnd, int bits, int top, int bottom)
 {
 	unsigned char *buf = NULL;
 	int ret = 0, bit, bytes, mask;
-	ktime_t tim;
+	time_t tim;
 	UINT32 i;
 
 	if (bits == 0) {
@@ -6956,8 +6956,8 @@ char *BN_bn2hex(const BIGNUM *a)
 	os_alloc_mem(NULL, (UCHAR **) &buf, a->top * BN_BYTES * 2 + 2);
 
 	if (buf == NULL)
-		goto err;
-
+		goto err
+;
 	p = buf;
 	if (a->neg)
 		*(p++) = '-';

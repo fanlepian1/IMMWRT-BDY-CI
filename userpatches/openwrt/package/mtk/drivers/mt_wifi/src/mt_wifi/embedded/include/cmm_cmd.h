@@ -1,17 +1,18 @@
 /*
- * Copyright (c) [2020], MediaTek Inc. All rights reserved.
- *
- * This software/firmware and related documentation ("MediaTek Software") are
- * protected under relevant copyright laws.
- * The information contained herein is confidential and proprietary to
- * MediaTek Inc. and/or its licensors.
- * Except as otherwise provided in the applicable licensing terms with
- * MediaTek Inc. and/or its licensors, any reproduction, modification, use or
- * disclosure of MediaTek Software, and information contained herein, in whole
- * or in part, shall be strictly prohibited.
-*/
-/*
  ***************************************************************************
+ * Ralink Tech Inc.
+ * 4F, No. 2 Technology	5th	Rd.
+ * Science-based Industrial	Park
+ * Hsin-chu, Taiwan, R.O.C.
+ *
+ * (c) Copyright 2002-2009, Ralink Technology, Inc.
+ *
+ * All rights reserved.	Ralink's source	code is	an unpublished work	and	the
+ * use of a	copyright notice does not imply	otherwise. This	source code
+ * contains	confidential trade secret material of Ralink Tech. Any attemp
+ * or participation	in deciphering,	decoding, reverse engineering or in	any
+ * way altering	the	source code	is stricitly prohibited, unless	the	prior
+ * written consent of Ralink Technology, Inc. is obtained.
  ***************************************************************************
 
 	Module Name:
@@ -31,8 +32,6 @@
 #include "rtmp_type.h"
 #include "security/wpa_cmm.h"
 
-#define MAX_LEN_OF_CMD_QUEUE            256
-#define CMD_QUEUE_SCH			16
 
 typedef struct _CmdQElmt {
 	UINT command;
@@ -82,8 +81,6 @@ enum {
 	CMDTHREAD_AP_RESTART,
 	CMDTHREAD_APCLI_PBC_TIMEOUT,
 	CMDTHREAD_APCLI_IF_DOWN,
-	CMDTHREAD_APCLI_PBC_AP_FOUND,
-	CMDTHREAD_MLME_RESET_STATE_MACHINE,
 	CMDTHREAD_WSC_APCLI_LINK_DOWN,
 	/*CFG 802.11*/
 	CMDTHREAD_REG_HINT,
@@ -102,10 +99,6 @@ enum {
 	CMDTHREAD_RESPONSE_EVENT_CALLBACK,
 	/*BT Coexistence related*/
 	RT_CMD_COEXISTENCE_DETECTION,
-#ifdef PHY_ICS_SUPPORT
-	/* PHY ICS */
-	CMDTHRED_PHY_ICS_DUMP_RAW_DATA,
-#endif /* PHY_ICS_SUPPORT */
 #ifdef WIFI_SPECTRUM_SUPPORT
 	/* WIFI-SPECTRUM */
 	CMDTHRED_WIFISPECTRUM_DUMP_RAW_DATA,
@@ -128,26 +121,9 @@ enum {
 #ifdef MT_DFS_SUPPORT
 	CMDTHRED_DFS_CAC_TIMEOUT,
 	CMDTHRED_DFS_AP_RESTART,
-	CMDTHRED_DFS_RADAR_DETECTED_SW_CH,
 #endif
 	CMDTHRED_STA_DEAUTH_ACT,
-	CMDTHRED_STA_DEASSOC_ACT,
 	CMDTHRED_RXV_WRITE_IN_FILE,
-	CMDTHRED_FW_LOG_TO_FILE,
-#ifdef MBO_SUPPORT
-	CMDTHREAD_BSS_TERM,
-#endif
-#if defined(RACTRL_LIMIT_MAX_PHY_RATE) || defined(CONFIG_RA_PHY_RATE_SUPPORT)
-	CMDTHREAD_UPDATE_MAXRA,
-#endif /* RACTRL_LIMIT_MAX_PHY_RATE */
-#ifdef WIFI_MD_COEX_SUPPORT
-	CMDTHREAD_LTE_SAFE_CHN_CHG,
-#endif
-	CMDTHREAD_DROP_RADAR_EVENT,
-#ifdef ZERO_LOSS_CSA_SUPPORT
-	CMDTHREAD_LAST_BCN_TX_SWITCH_CHANNEL,
-	CMDTHREAD_DISABLE_ZERO_LOSS_STA_TRAFFIC,
-#endif /*ZERO_LOSS_CSA_SUPPORT*/
 	CMDTHREAD_END_CMD_ID,
 };
 
@@ -162,6 +138,7 @@ typedef struct _CMDHandler_TLV {
 
 
 /*Tempral define before hwctrl ready*/
+#if defined(RTMP_PCI_SUPPORT) || defined(RTMP_RBUS_SUPPORT)
 
 /* ----------------- MLME Related MACRO ----------------- */
 /* #define RTMP_MLME_PRE_SANITY_CHECK(pAd) */
@@ -172,27 +149,30 @@ typedef struct _CMDHandler_TLV {
 #define RTMP_HANDLE_COUNTER_MEASURE(_pAd, _pEntry)\
 	HandleCounterMeasure(_pAd, _pEntry)
 
-#ifdef CONFIG_STA_SUPPORT
-/* Set Port Secured */
-#define RTMP_SET_PORT_SECURED(_pAd)										\
-	STA_PORT_SECURED(_pAd);
+/* ----------------- Power Save Related MACRO ----------------- */
+#define RTMP_PS_POLL_ENQUEUE(pAd, pStaCfg)	EnqueuePsPoll(pAd, pStaCfg)
 
-#define RTMP_SET_PSM_BIT(_pAd, _pStaCfg, _val) \
+
+#else
+
+
+
+#define RTMP_MLME_RESET_STATE_MACHINE(pAd, _wdev)	\
 	do {	\
-		MTWF_DBG(_pAd, DBG_CAT_MLME, DBG_SUBCAT_ALL, DBG_LVL_INFO, "(line=%d): -->\n", __LINE__); \
-		MlmeSetPsmBit((_pAd), (_pStaCfg), (_val));	\
+		MlmeEnqueueWithWdev(pAd, MLME_CNTL_STATE_MACHINE, MT2_RESET_CONF, 0, NULL, 0, _wdev);	\
+		RTMP_MLME_HANDLER(pAd);	\
 	} while (0)
 
-#endif /* CONFIG_STA_SUPPORT */
+#define RTMP_HANDLE_COUNTER_MEASURE(_pAd, _pEntry)		\
+	{	\
+		RTEnqueueInternalCmd(_pAd, CMDTHREAD_802_11_COUNTER_MEASURE, _pEntry, sizeof(MAC_TABLE_ENTRY));	\
+		RTMP_MLME_HANDLER(_pAd);									\
+	}
+
+#endif
+
 
 /*HIF related*/
-#ifdef CONFIG_STA_SUPPORT
-
-#define RTMP_PS_POLL_ENQUEUE(pAd, pStaCfg) hif_ps_poll_enq(pAd, pStaCfg)
-#define ASIC_STA_WAKEUP(pAd, bFromTx, pStaCfg) hif_sta_wakeup(pAd, bFromTx, pStaCfg)
-#define ASIC_STA_SLEEP_AUTO_WAKEUP(pAd, pStaCfg) hif_sta_sleep_auto_wakeup(pAd, pStaCfg)
-
-#endif /*STA*/
 
 
 #endif

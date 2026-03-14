@@ -1,17 +1,13 @@
 /*
- * Copyright (c) [2020], MediaTek Inc. All rights reserved.
- *
- * This software/firmware and related documentation ("MediaTek Software") are
- * protected under relevant copyright laws.
- * The information contained herein is confidential and proprietary to
- * MediaTek Inc. and/or its licensors.
- * Except as otherwise provided in the applicable licensing terms with
- * MediaTek Inc. and/or its licensors, any reproduction, modification, use or
- * disclosure of MediaTek Software, and information contained herein, in whole
- * or in part, shall be strictly prohibited.
-*/
-/*
  ***************************************************************************
+ * MediaTek Inc.
+ *
+ * All rights reserved. source code is an unpublished work and the
+ * use of a copyright notice does not imply otherwise. This source code
+ * contains confidential trade secret material of MediaTek. Any attemp
+ * or participation in deciphering, decoding, reverse engineering or in any
+ * way altering the source code is stricitly prohibited, unless the prior
+ * written consent of MediaTek, Inc. is obtained.
  ***************************************************************************
 
 	Module Name:
@@ -26,18 +22,19 @@
 #endif
 
 
+
 static INT EthGetParamAndShiftBuff(BOOLEAN convert, UINT size, UCHAR **buf,
 								   IN UCHAR *out)
 {
 	if (!(*buf)) {
-		MTWF_DBG(NULL, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-				 "*buf NULL pointer with size:%u\n", size);
+		MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
+				 ("*buf NULL pointer with size:%u\n", size));
 		return -1;
 	}
 
 	if (!out) {
-		MTWF_DBG(NULL, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-				 "out NULL pointer with size:%u\n", size);
+		MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
+				 ("out NULL pointer with size:%u\n", size));
 		return -1;
 	}
 
@@ -45,24 +42,24 @@ static INT EthGetParamAndShiftBuff(BOOLEAN convert, UINT size, UCHAR **buf,
 	*buf = *buf + size;
 
 	if (!convert) {
-		MTWF_DBG(NULL, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_DEBUG,
-				 "size %u, ", size);
+		MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO,
+				 ("%s::size %u, ", __func__, size));
 		return 0;
 	}
 
 	if (size == sizeof(UINT32)) {
 		UINT32 *tmp = (UINT32 *)out;
 		*tmp = PKTL_TRAN_TO_HOST(*tmp);
-		MTWF_DBG(NULL, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_DEBUG,
-				 "size %u, val: %u\n", size, *tmp);
+		MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO,
+				 ("%s::size %u, val: %u\n", __func__, size, *tmp));
 	} else if (size == sizeof(UINT16)) {
 		UINT16 *tmp = (UINT16 *)out;
 		*tmp = PKTS_TRAN_TO_HOST(*tmp);
-		MTWF_DBG(NULL, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_DEBUG,
-				 "size %u, val: %u\n", size, *tmp);
+		MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO,
+				 ("%s::size %u, val: %u\n", __func__, size, *tmp));
 	} else {
-		MTWF_DBG(NULL, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_WARN,
-				 "size %u not supported\n", size);
+		MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_WARN,
+				 ("%s::size %u not supported\n", __func__, size));
 		return -1;
 	}
 
@@ -104,7 +101,6 @@ UINT32 mt_dft_mac_cr_range[] = {
 
 	0x0, 0x0, 0x0,
 };
-
 BOOLEAN mt_mac_cr_range_mapping(RTMP_ADAPTER *pAd, UINT32 *mac_addr)
 {
 	UINT32 mac_addr_hif = *mac_addr;
@@ -116,8 +112,8 @@ BOOLEAN mt_mac_cr_range_mapping(RTMP_ADAPTER *pAd, UINT32 *mac_addr)
 		mac_cr_range = &mt_dft_mac_cr_range[0];
 
 	if (!mac_cr_range) {
-		MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-				 "NotSupported Chip for this function!\n");
+		MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_OFF,
+				 ("%s: NotSupported Chip for this function!\n", __func__));
 		return IsFound;
 	}
 
@@ -167,8 +163,8 @@ UINT32 mt_physical_addr_map(UINT32 addr)
 		} while (mt_mac_cr_range[idx] != 0);
 
 		if (mt_mac_cr_range[idx] == 0) {
-			MTWF_DBG(NULL, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO,
-					 "Unknow addr range = %x !!!\n", addr);
+			MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_TRACE,
+					 ("%s: Unknow addr range = %x !!!\n", __func__, addr));
 		}
 	} else
 		global_addr = addr;
@@ -192,13 +188,14 @@ static INT32 ResponseToQA(
 	if (*WRQ->BytesRet > WRQ->OutBufLen)
 		*WRQ->BytesRet = WRQ->OutBufLen;
 
-	MTWF_DBG(NULL, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO,
-			 "OutBufLen = 0x%x\n", WRQ->OutBufLen);
-	MTWF_DBG(NULL, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO,
-			 "BytesRet = 0x%x\n", *WRQ->BytesRet);
+	MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_TRACE,
+			 ("%s: OutBufLen = 0x%x\n", __func__, WRQ->OutBufLen));
+	MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_TRACE,
+			 ("%s: BytesRet = 0x%x\n", __func__, *WRQ->BytesRet));
 	RTMPMoveMemory(WRQ->OutBuf, WRQ->InBuf, *WRQ->BytesRet);
 	return Status;
 }
+
 
 #else /* defined(COMPOS_TESTMODE_WIN) */
 static INT ResponseToQA(
@@ -213,19 +210,15 @@ static INT ResponseToQA(
 	WRQ->u.data.length = sizeof((HqaCmdFrame)->MagicNo) + sizeof((HqaCmdFrame)->Type)
 						 + sizeof((HqaCmdFrame)->Id) + sizeof((HqaCmdFrame)->Length)
 						 + sizeof((HqaCmdFrame)->Sequence) + PKTS_TRAN_TO_HOST((HqaCmdFrame)->Length);
-	MTWF_DBG(NULL, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO,
-			 "WRQ->u.data.length = %d, usr_addr:%p, hqa_addr:%p\n",
-			  WRQ->u.data.length, WRQ->u.data.pointer, HqaCmdFrame);
-	/* check the range for coverity */
-	if (WRQ->u.data.length <= 65535) {
-		if (copy_to_user(WRQ->u.data.pointer, (UCHAR *)(HqaCmdFrame), WRQ->u.data.length)) {
-			MTWF_DBG(NULL, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-					 "copy_to_user() fail\n");
-			return -EFAULT;
-		}
-	} else
-		return -EFAULT;
+	MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_TRACE,
+			 ("WRQ->u.data.length = %d, usr_addr:%p, hqa_addr:%p\n",
+			  WRQ->u.data.length, WRQ->u.data.pointer, HqaCmdFrame));
 
+	if (copy_to_user(WRQ->u.data.pointer, (UCHAR *)(HqaCmdFrame), WRQ->u.data.length)) {
+		MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
+				 ("copy_to_user() fail in %s\n", __func__));
+		return -EFAULT;
+	}
 
 	return 0;
 }
@@ -241,7 +234,7 @@ static INT32 HQA_OpenAdapter(
 	struct _ATE_CTRL *ATECtrl = &(pAd->ATECtrl);
 	struct _ATE_OPERATION *ATEOp = ATECtrl->ATEOp;
 
-	MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO, "\n");
+	MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("%s\n", __func__));
 	ATECtrl->bQAEnabled = TRUE;
 	/* Prepare feedback as soon as we can to avoid QA timeout. */
 	ResponseToQA(HqaCmdFrame, WRQ, 2, Ret);
@@ -263,7 +256,7 @@ static INT32 HQA_CloseAdapter(
 	struct _ATE_CTRL *ATECtrl = &(pAd->ATECtrl);
 	struct _ATE_OPERATION *ATEOp = ATECtrl->ATEOp;
 
-	MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO, "\n");
+	MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("%s\n", __func__));
 	ATECtrl->bQAEnabled = FALSE;
 	/* Prepare feedback as soon as we can to avoid QA timeout. */
 	ResponseToQA(HqaCmdFrame, WRQ, 2, Ret);
@@ -287,17 +280,14 @@ static INT32 HQA_StartTx(
 	struct _ATE_CTRL *ATECtrl = &(pAd->ATECtrl);
 	struct _ATE_OPERATION *ATEOp = ATECtrl->ATEOp;
 
-	MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO, "\n");
+	MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("%s\n", __func__));
 	memcpy(&TxCount, HqaCmdFrame->Data, 4);
 	memcpy(&TxLength, HqaCmdFrame->Data + 4, 2);
 	TxCount = PKTL_TRAN_TO_HOST(TxCount);
 	TxLength = PKTS_TRAN_TO_HOST(TxLength);
-	TESTMODE_SET_PARAM(pAd, TESTMODE_BAND0, ATE_TX_CNT, TxCount);
-	TESTMODE_SET_PARAM(pAd, TESTMODE_BAND0, tx_len, TxLength);
+	TESTMODE_SET_PARAM(ATECtrl, TESTMODE_BAND0, TxCount, TxCount);
+	TESTMODE_SET_PARAM(ATECtrl, TESTMODE_BAND0, TxLength, TxLength);
 	ATECtrl->bQATxStart = TRUE;
-
-	if (ATEOp->tx_commit)
-		ATEOp->tx_commit(pAd);
 
 	if (ATEOp->StartTx)
 		Ret = ATEOp->StartTx(pAd);
@@ -319,7 +309,7 @@ static INT32 HQA_StartTxExt(
 {
 	INT32 Ret = 0;
 
-	MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO, "\n");
+	MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("%s\n", __func__));
 	return Ret;
 }
 
@@ -331,7 +321,7 @@ static INT32 HQA_StartTxContiTx(
 {
 	INT32 Ret = 0;
 
-	MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO, "\n");
+	MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("%s\n", __func__));
 	ResponseToQA(HqaCmdFrame, WRQ, 2, Ret);
 	return Ret;
 }
@@ -344,7 +334,7 @@ static INT32 HQA_StartTxCarrier(
 {
 	INT32 Ret = 0;
 
-	MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO, "\n");
+	MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("%s\n", __func__));
 	ResponseToQA(HqaCmdFrame, WRQ, 2, Ret);
 	return Ret;
 }
@@ -359,7 +349,7 @@ static INT32 HQA_StartRx(
 	struct _ATE_CTRL *ATECtrl = &(pAd->ATECtrl);
 	struct _ATE_OPERATION *ATEOp = ATECtrl->ATEOp;
 
-	MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO, "\n");
+	MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("%s\n", __func__));
 	ATECtrl->bQARxStart = TRUE;
 
 	if (ATEOp->StartRx)
@@ -382,17 +372,16 @@ static INT32 HQA_StopTx(
 	struct _ATE_OPERATION *ATEOp = ATECtrl->ATEOp;
 	UINT32 Mode;
 
-	MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO, "\n");
-	Mode = TESTMODE_GET_PARAM(pAd, TESTMODE_BAND0, op_mode);
+	MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("%s\n", __func__));
+	Mode = TESTMODE_GET_PARAM(ATECtrl, TESTMODE_BAND0, Mode);
 	Mode &= ATE_TXSTOP;
-	TESTMODE_SET_PARAM(pAd, TESTMODE_BAND0, op_mode, Mode);
+	TESTMODE_SET_PARAM(ATECtrl, TESTMODE_BAND0, Mode, Mode);
 	ATECtrl->bQATxStart = FALSE;
 
 	if (ATEOp->StopTx)
-		ATEOp->StopTx(pAd);
-
-	if (ATEOp->tx_revert)
-		ATEOp->tx_revert(pAd);
+		Ret = ATEOp->StopTx(pAd);
+	else
+		Ret = TM_STATUS_NOTSUPPORT;
 
 	ATECtrl->TxStatus = 0;
 
@@ -412,7 +401,7 @@ static INT32 HQA_StopContiTx(
 	/* TODO Get Correct TxfdMode*/
 	UINT32 TxfdMode = 1;
 
-	MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO, "\n");
+	MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("%s\n", __func__));
 	{
 		if (ATEOp->StopContinousTx)
 			ATEOp->StopContinousTx(pAd, TxfdMode);
@@ -432,7 +421,7 @@ static INT32 HQA_StopTxCarrier(
 {
 	INT32 Ret = 0;
 
-	MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO, "\n");
+	MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("%s\n", __func__));
 	ResponseToQA(HqaCmdFrame, WRQ, 2, Ret);
 	return Ret;
 }
@@ -448,10 +437,10 @@ static INT32 HQA_StopRx(
 	struct _ATE_OPERATION *ATEOp = ATECtrl->ATEOp;
 	UINT32 Mode;
 
-	MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO, "\n");
-	Mode = TESTMODE_GET_PARAM(pAd, TESTMODE_BAND0, op_mode);
+	MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("%s\n", __func__));
+	Mode = TESTMODE_GET_PARAM(ATECtrl, TESTMODE_BAND0, Mode);
 	Mode &= ATE_RXSTOP;
-	TESTMODE_SET_PARAM(pAd, TESTMODE_BAND0, op_mode, Mode);
+	TESTMODE_SET_PARAM(ATECtrl, TESTMODE_BAND0, Mode, Mode);
 	ATECtrl->bQARxStart = FALSE;
 
 	if (ATEOp->StopRx)
@@ -475,7 +464,7 @@ static INT32 HQA_SetTxPath(
 	struct _ATE_CTRL *ATECtrl = &(pAd->ATECtrl);
 	struct _ATE_OPERATION *ATEOp = ATECtrl->ATEOp;
 
-	MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO, "\n");
+	MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("%s\n", __func__));
 	memcpy((PUCHAR)&Value, HqaCmdFrame->Data, 2);
 	ant_sel = PKTS_TRAN_TO_HOST(Value);
 
@@ -504,7 +493,7 @@ static INT32 HQA_SetRxPath(
 	struct _ATE_CTRL *ATECtrl = &(pAd->ATECtrl);
 	struct _ATE_OPERATION *ATEOp = ATECtrl->ATEOp;
 
-	MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO, "\n");
+	MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("%s\n", __func__));
 	memcpy((PUCHAR)&Value, HqaCmdFrame->Data, 2);
 	Value = PKTS_TRAN_TO_HOST(Value);
 
@@ -530,8 +519,8 @@ static INT32 HQA_SetTxIPG(
 
 	memcpy((PUCHAR)&Value, HqaCmdFrame->Data, 4);
 	Value = PKTL_TRAN_TO_HOST(Value);
-	MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO,
-			 "val:%d,0x%04x\n", Value, Value);
+	MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_TRACE,
+			 ("%s(): val:%d,0x%04x\n", __func__, Value, Value));
 
 	if (ATEOp->SetAIFS)
 		ATEOp->SetAIFS(pAd, (UINT32)Value);
@@ -555,7 +544,7 @@ static INT32 HQA_SetTxPower0(
 	ATE_TXPOWER TxPower;
 	UINT8 band_idx = TESTMODE_BAND0;
 
-	MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO, "\n");
+	MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("%s\n", __func__));
 	memcpy((PUCHAR)&Value, HqaCmdFrame->Data, 2);
 	Value = PKTS_TRAN_TO_HOST(Value);
 	os_zero_mem(&TxPower, sizeof(TxPower));
@@ -584,7 +573,7 @@ static INT32 HAQ_SetTxPower1(
 	ATE_TXPOWER TxPower;
 	UINT8 band_idx = TESTMODE_BAND0;
 
-	MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO, "\n");
+	MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("%s\n", __func__));
 	memcpy((PUCHAR)&Value, HqaCmdFrame->Data, 2);
 	Value = PKTS_TRAN_TO_HOST(Value);
 	os_zero_mem(&TxPower, sizeof(TxPower));
@@ -617,7 +606,7 @@ static INT32 HQA_SetTxPowerExt(
 	UINT32 band_idx = 0;
 	UINT32 ant_idx = 0;
 
-	MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO, "\n");
+	MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("%s\n", __func__));
 	EthGetParamAndShiftBuff(TRUE, sizeof(UINT32), &data, (UCHAR *)&power);
 	EthGetParamAndShiftBuff(TRUE, sizeof(UINT32), &data, (UCHAR *)&dbdc_idx);
 	EthGetParamAndShiftBuff(TRUE, sizeof(UINT32), &data, (UCHAR *)&Channel);
@@ -641,6 +630,56 @@ static INT32 HQA_SetTxPowerExt(
 	return Ret;
 }
 
+
+#ifdef TXPWRMANUAL
+static INT32 HQA_SetTxPwrManual(
+	PRTMP_ADAPTER pAd,
+	RTMP_IOCTL_INPUT_STRUCT *WRQ,
+	struct _HQA_CMD_FRAME *HqaCmdFrame)
+{
+
+	INT16 Ret = 0;
+	struct _HQA_PWR_MANUAL manual_pwr;
+	struct _ATE_CTRL *ATECtrl = &(pAd->ATECtrl);
+	struct _ATE_OPERATION *ATEOp = ATECtrl->ATEOp;
+	UCHAR *data = HqaCmdFrame->Data;
+
+	/* Setting parameters */
+	BOOLEAN	    fgPwrManCtrl = FALSE;
+	UINT8	    u1TxPwrModeManual = 0;
+	UINT8	    u1TxPwrBwManual = 0;
+	UINT8	    u1TxPwrRateManual = 0;
+	INT8	    i1TxPwrValueManual = 0;
+	UCHAR	    Band = 0;
+
+	MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_ERROR, ("%s\n", __func__));
+
+	EthGetParamAndShiftBuff(TRUE, sizeof(UINT32), &data, (UCHAR *)&manual_pwr.u4PwrManCtrl);
+	EthGetParamAndShiftBuff(TRUE, sizeof(UINT32), &data, (UCHAR *)&manual_pwr.u4Band);
+	EthGetParamAndShiftBuff(TRUE, sizeof(UINT32), &data, (UCHAR *)&manual_pwr.i4TxPwrValueManual);
+	EthGetParamAndShiftBuff(TRUE, sizeof(UINT32), &data, (UCHAR *)&manual_pwr.u4TxPwrModeManual);
+	EthGetParamAndShiftBuff(TRUE, sizeof(UINT32), &data, (UCHAR *)&manual_pwr.u4TxPwrRateManual);
+	EthGetParamAndShiftBuff(TRUE, sizeof(UINT32), &data, (UCHAR *)&manual_pwr.u4TxPwrBwManual);
+
+	fgPwrManCtrl = manual_pwr.u4PwrManCtrl;
+	u1TxPwrModeManual = manual_pwr.u4TxPwrModeManual;
+	u1TxPwrBwManual = manual_pwr.u4TxPwrBwManual;
+	u1TxPwrRateManual = manual_pwr.u4TxPwrRateManual;
+	i1TxPwrValueManual = manual_pwr.i4TxPwrValueManual;
+	Band = manual_pwr.u4Band;
+
+
+	if (ATEOp->SetTxPwrManual)
+		ATEOp->SetTxPwrManual(pAd, fgPwrManCtrl, u1TxPwrModeManual, u1TxPwrBwManual, u1TxPwrRateManual, i1TxPwrValueManual, Band);
+	else
+		Ret = TM_STATUS_NOTSUPPORT;
+
+	ResponseToQA(HqaCmdFrame, WRQ, 2, Ret);
+	return Ret;
+}
+#endif
+
+
 static INT32 HQA_AntennaSel(
 	PRTMP_ADAPTER pAd,
 	RTMP_IOCTL_INPUT_STRUCT *WRQ,
@@ -661,7 +700,7 @@ static INT32 HQA_SetOnOFF(
 {
 	INT32 Ret = 0;
 
-	/* MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO, "\n"); */
+	/* MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("%s\n", __FUNCTION__)); */
 	return Ret;
 }
 
@@ -677,7 +716,7 @@ static INT32 HQA_FWPacketCMD_ClockSwitchDisable(
 	struct _ATE_OPERATION *ATEOp = ATECtrl->ATEOp;
 	UCHAR *data = HqaCmdFrame->Data;
 
-	MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO, "\n");
+	MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("%s\n", __func__));
 	EthGetParamAndShiftBuff(TRUE, sizeof(isDisable), &data, (UCHAR *)&isDisable);
 	ATEOp->ClockSwitchDisable(pAd, isDisable);
 	ResponseToQA(HqaCmdFrame, WRQ, 2, Ret);
@@ -692,7 +731,7 @@ static INT32 HQA_SetTxPowerEval(
 {
 	INT32 Ret = 0;
 
-	/* MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO, "\n"); */
+	/* MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("%s\n", __FUNCTION__)); */
 	return Ret;
 }
 
@@ -726,9 +765,9 @@ static INT32 HQA_AntennaSelExt(PRTMP_ADAPTER pAd, RTMP_IOCTL_INPUT_STRUCT *WRQ, 
 	ATECtrl->control_band_idx = (UCHAR)BandIdx;
 
 	Ret = ATEOp->SetAntennaPort(pAd, RfModeMask, RfPortMask, AntPortMask);
-	MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO,
-			 "BandIdx:%x, RfModeMask:%x, RfPortMask:%x, AntPortMask:%x\n",
-			  BandIdx, RfModeMask, RfPortMask, AntPortMask);
+	MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_OFF,
+			 ("%s: BandIdx:%x, RfModeMask:%x, RfPortMask:%x, AntPortMask:%x\n",
+			  __func__, BandIdx, RfModeMask, RfPortMask, AntPortMask));
 	ResponseToQA(HqaCmdFrame, WRQ, 2, Ret);
 	return Ret;
 }
@@ -760,7 +799,9 @@ static HQA_CMD_HANDLER HQA_CMD_SET0[] = {
 	HQA_AntennaSelExt,	/* 0x1015 */
 	NULL,/* 0x1016 */
 	NULL,/* 0x1017 */
-	NULL, /* 0x1018 */
+#ifdef TXPWRMANUAL
+	HQA_SetTxPwrManual, /* 0x1018 */
+#endif
 };
 
 
@@ -776,9 +817,10 @@ static INT32 HQA_SetChannel(
 
 	memcpy((UINT8 *)&Value, HqaCmdFrame->Data, 4);
 	Value = PKTL_TRAN_TO_HOST(Value);
-	MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO,
-			 "Channel = %d, BW = %d\n", ATECtrl->channel, ATECtrl->bw);
-	ATECtrl->channel = (UINT8)Value;
+	MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_TRACE,
+			 ("%s: Channel = %d, BW = %d\n",
+			  __func__, ATECtrl->Channel, ATECtrl->BW));
+	ATECtrl->Channel = (UINT8)Value;
 
 	if (ATEOp->SetChannel)
 		Ret = ATEOp->SetChannel(pAd, (UINT16)Value, 0, 0, 0);
@@ -799,7 +841,7 @@ static INT32 HQA_SetPreamble(
 	INT32 Value = 0;
 	struct _ATE_CTRL *ATECtrl = &(pAd->ATECtrl);
 
-	MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO, "\n");
+	MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("%s\n", __func__));
 	memcpy((PUCHAR)&Value, HqaCmdFrame->Data, 4);
 	Value = PKTL_TRAN_TO_HOST(Value);
 	/* 000: Legacy CCK
@@ -808,7 +850,7 @@ static INT32 HQA_SetPreamble(
 	 * 011: HT Green field mode
 	 * 100: VHT mode
 	 */
-	TESTMODE_SET_PARAM(pAd, ATECtrl->control_band_idx, tx_mode, (UCHAR)Value);
+	ATECtrl->PhyMode = (UCHAR)Value;
 	ResponseToQA(HqaCmdFrame, WRQ, 2, Ret);
 	return Ret;
 }
@@ -823,10 +865,10 @@ static INT32 HQA_SetRate(
 	INT32 Value = 0;
 	struct _ATE_CTRL *ATECtrl = &(pAd->ATECtrl);
 
-	MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO, "\n");
+	MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("%s\n", __func__));
 	memcpy((PUCHAR)&Value, HqaCmdFrame->Data, 4);
 	Value = PKTL_TRAN_TO_HOST(Value);
-	ATECtrl->mcs = (UCHAR)Value;
+	ATECtrl->Mcs = (UCHAR)Value;
 	ResponseToQA(HqaCmdFrame, WRQ, 2, Ret);
 	return Ret;
 }
@@ -839,7 +881,7 @@ static INT32 HQA_SetNss(
 {
 	INT32 Ret = 0;
 
-	MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO, "\n");
+	MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("%s\n", __func__));
 	ResponseToQA(HqaCmdFrame, WRQ, 2, Ret);
 	return Ret;
 }
@@ -857,10 +899,10 @@ static INT32 HQA_SetSystemBW(
 	memcpy((PUCHAR)&Value, HqaCmdFrame->Data, 4);
 	Value = PKTL_TRAN_TO_HOST(Value);
 	/* 0: BW_20, 1:BW_40, 2:BW_80, 3:BW_160*/
-	MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO,
-			 "BW = %d\n", Value);
+	MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_TRACE,
+			 ("%s: BW = %d\n", __func__, Value));
 
-	ATECtrl->bw = Value;
+	ATECtrl->BW = Value;
 	ResponseToQA(HqaCmdFrame, WRQ, 2, Ret);
 	return Ret;
 }
@@ -877,13 +919,13 @@ static INT32 HQA_SetPerPktBW(
 
 	memcpy((PUCHAR)&Value, HqaCmdFrame->Data, 4);
 	Value = PKTL_TRAN_TO_HOST(Value);
-	MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO,
-			 "%u\n", Value);
+	MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_TRACE,
+			 ("%s: %u\n", __func__, Value));
 
-	if (Value > ATECtrl->bw)
-		Value = ATECtrl->bw;
+	if (Value > ATECtrl->BW)
+		Value = ATECtrl->BW;
 
-	ATECtrl->per_pkt_bw = Value;
+	ATECtrl->PerPktBW = Value;
 	ResponseToQA(HqaCmdFrame, WRQ, 2, Ret);
 	return Ret;
 }
@@ -896,7 +938,7 @@ static INT32 HQA_SetPrimaryBW(
 {
 	INT32 Ret = 0;
 
-	MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO, "\n");
+	MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("%s\n", __func__));
 	ResponseToQA(HqaCmdFrame, WRQ, 2, Ret);
 	return Ret;
 }
@@ -912,7 +954,7 @@ static INT32 HQA_SetFreqOffset(
 	struct _ATE_CTRL *ATECtrl = &(pAd->ATECtrl);
 	struct _ATE_OPERATION *ATEOp = ATECtrl->ATEOp;
 
-	MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO, "\n");
+	MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("%s\n", __func__));
 	memcpy((PUCHAR)&Value, HqaCmdFrame->Data, 4);
 	Value = PKTL_TRAN_TO_HOST(Value);
 
@@ -933,7 +975,7 @@ static INT32 HQA_SetAutoResponder(
 {
 	INT32 Ret = 0;
 
-	MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO, "\n");
+	MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("%s\n", __func__));
 	ResponseToQA(HqaCmdFrame, WRQ, 2, Ret);
 	return Ret;
 }
@@ -949,7 +991,7 @@ static INT32 HQA_SetTssiOnOff(
 	struct _ATE_CTRL *ATECtrl = &(pAd->ATECtrl);
 	struct _ATE_OPERATION *ATEOp = ATECtrl->ATEOp;
 
-	MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO, "\n");
+	MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("%s\n", __func__));
 	/* ON/OFF:4 WF Sel:4 */
 	memcpy((PUCHAR)&Value, HqaCmdFrame->Data, 4);
 	Value = PKTL_TRAN_TO_HOST(Value);
@@ -973,10 +1015,11 @@ static INT32 HQA_SetRxHighLowTemperatureCompensation(
 {
 	INT32 Ret = 0;
 
-	MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO, "\n");
+	MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("%s\n", __func__));
 	ResponseToQA(HqaCmdFrame, WRQ, 2, Ret);
 	return Ret;
 }
+
 
 static INT32 HQA_LowPower(
 	PRTMP_ADAPTER pAd,
@@ -990,7 +1033,7 @@ static INT32 HQA_LowPower(
 	UCHAR *data = HqaCmdFrame->Data;
 
 	EthGetParamAndShiftBuff(TRUE, sizeof(Control), &data, (UCHAR *)&Control);
-	MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO, "Control:%d\n", Control);
+	MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("%s Control:%d\n", __func__, Control));
 
 	if (ATEOp->LowPower)
 		ATEOp->LowPower(pAd, Control);
@@ -1001,25 +1044,6 @@ static INT32 HQA_LowPower(
 	return Ret;
 }
 
-static INT32 HQA_SetEepromToFw(
-	PRTMP_ADAPTER pAd,
-	RTMP_IOCTL_INPUT_STRUCT *WRQ,
-	struct _HQA_CMD_FRAME *HqaCmdFrame)
-{
-	INT32 Ret = 0;
-	struct _ATE_CTRL *ATECtrl = &(pAd->ATECtrl);
-	struct _ATE_OPERATION *ATEOp = ATECtrl->ATEOp;
-
-	MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO, "\n");
-
-	if (ATEOp->SetEepromToFw)
-		ATEOp->SetEepromToFw(pAd);
-	else
-		Ret = TM_STATUS_NOTSUPPORT;
-
-	ResponseToQA(HqaCmdFrame, WRQ, 2, Ret);
-	return Ret;
-}
 
 static HQA_CMD_HANDLER HQA_CMD_SET1[] = {
 	/* cmd id start from 0x1100 */
@@ -1035,7 +1059,6 @@ static HQA_CMD_HANDLER HQA_CMD_SET1[] = {
 	HQA_SetTssiOnOff,			/* 0x1109 */
 	HQA_SetRxHighLowTemperatureCompensation,/* 0x110A */
 	HQA_LowPower,				/* 0x110B */
-	HQA_SetEepromToFw			/* 0x110C */
 };
 
 
@@ -1045,13 +1068,11 @@ static INT32 HQA_ResetTxRxCounter(
 	struct _HQA_CMD_FRAME *HqaCmdFrame)
 {
 	INT32 Ret = 0;
-	UINT32 i = 0;
 	struct _ATE_CTRL *ATECtrl = &(pAd->ATECtrl);
-	RX_STATISTIC_RXV *rx_stat;
 
-	MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO, "\n");
-	AsicGetRxStat(pAd, HQA_RX_RESET_PHY_COUNT);
-	AsicGetRxStat(pAd, HQA_RX_RESET_MAC_COUNT);
+	MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("%s\n", __func__));
+	MtAsicGetRxStat(pAd, HQA_RX_RESET_PHY_COUNT);
+	MtAsicGetRxStat(pAd, HQA_RX_RESET_MAC_COUNT);
 #ifdef CONFIG_HW_HAL_OFFLOAD
 	MtCmdSetPhyCounter(pAd, 0, TESTMODE_BAND0);
 	MtCmdSetPhyCounter(pAd, 1, TESTMODE_BAND0);
@@ -1063,25 +1084,15 @@ static INT32 HQA_ResetTxRxCounter(
 
 #endif
 	MT_ATEUpdateRxStatistic(pAd, TESTMODE_RESET_CNT, NULL);
-	ATECtrl->tx_done_cnt = 0;
+	ATECtrl->TxDoneCount = 0;
 
 	if (IS_ATE_DBDC(pAd))
-		TESTMODE_SET_PARAM(pAd, TESTMODE_BAND1, ATE_TXDONE_CNT, 0);
-
-	/* reset rx stat fcs error count */
-	rx_stat = &pAd->rx_stat_rxv[DBDC_BAND0];
-	for (i = 0; i < MAX_USER_NUM; i++)
-		rx_stat->fcs_error_cnt[i] = 0;
-
-	if (IS_ATE_DBDC(pAd)) {
-		rx_stat = &pAd->rx_stat_rxv[DBDC_BAND1];
-		for (i = 0; i < MAX_USER_NUM; i++)
-			rx_stat->fcs_error_cnt[i] = 0;
-	}
+		TESTMODE_SET_PARAM(ATECtrl, TESTMODE_BAND1, TxDoneCount, 0);
 
 	ResponseToQA(HqaCmdFrame, WRQ, 2, Ret);
 	return Ret;
 }
+
 
 static INT32 HQA_GetChipID(
 	PRTMP_ADAPTER pAd,
@@ -1089,11 +1100,12 @@ static INT32 HQA_GetChipID(
 	struct _HQA_CMD_FRAME *HqaCmdFrame)
 {
 	INT32 Ret = 0;
-	UINT32 chip_id;
+	UINT32 ChipId;
 
-	MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO, "\n");
-	chip_id = OS_NTOHL(pAd->ChipID);
-	memcpy(HqaCmdFrame->Data + 2, &chip_id, 4);
+	MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("%s\n", __func__));
+	RTMP_IO_READ32(pAd, TOP_HCR, &ChipId);
+	ChipId = OS_NTOHL(ChipId);
+	memcpy(HqaCmdFrame->Data + 2, &ChipId, 4);
 	ResponseToQA(HqaCmdFrame, WRQ, 6, Ret);
 	return Ret;
 }
@@ -1107,14 +1119,14 @@ static INT32 HQA_GetFWVersion(
 	struct fw_info *fw_info = NULL;
 	UINT i = 0;
 
-	MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO, "\n");
+	MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("%s\n", __func__));
 
 	fw_info = &pAd->MCUCtrl.fwdl_ctrl.fw_profile[WM_CPU].fw_info;
 	if (fw_info != NULL) {
-		MTWF_PRINT("Built date: ");
+		MTWF_LOG(DBG_CAT_FW, DBG_SUBCAT_ALL, DBG_LVL_OFF, ("Built date: "));
 		for (i = 0; i < 12; i++)
-			MTWF_PRINT("%c", fw_info->ram_built_date[i]);
-		MTWF_PRINT("\n");
+			MTWF_LOG(DBG_CAT_FW, DBG_SUBCAT_ALL, DBG_LVL_OFF, ("%c", fw_info->ram_built_date[i]));
+		MTWF_LOG(DBG_CAT_FW, DBG_SUBCAT_ALL, DBG_LVL_OFF, ("\n"));
 
 		memcpy(HqaCmdFrame->Data + 2, &fw_info->ram_built_date[0], 12);
 	}
@@ -1130,7 +1142,7 @@ static INT32 HQA_GetStatistics(
 {
 	INT32 Ret = 0;
 
-	MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO, "\n");
+	MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("%s\n", __func__));
 	ResponseToQA(HqaCmdFrame, WRQ, 2, Ret);
 	return Ret;
 }
@@ -1142,7 +1154,7 @@ static INT32 HQA_GetRxOKData(
 {
 	INT32 Ret = 0;
 
-	MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO, "\n");
+	MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("%s\n", __func__));
 	ResponseToQA(HqaCmdFrame, WRQ, 2, Ret);
 	return Ret;
 }
@@ -1155,7 +1167,7 @@ static INT32 HQA_GetRxOKOther(
 {
 	INT32 Ret = 0;
 
-	MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO, "\n");
+	MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("%s\n", __func__));
 	ResponseToQA(HqaCmdFrame, WRQ, 2, Ret);
 	return Ret;
 }
@@ -1168,7 +1180,7 @@ static INT32 HQA_GetRxAllPktCount(
 {
 	INT32 Ret = 0;
 
-	MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO, "\n");
+	MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("%s\n", __func__));
 	ResponseToQA(HqaCmdFrame, WRQ, 2, Ret);
 	return Ret;
 }
@@ -1183,9 +1195,9 @@ static INT32 HQA_GetTxTransmitted(
 	INT32 Ret = 0;
 	struct _ATE_CTRL *ATECtrl = &(pAd->ATECtrl);
 
-	Value = ATECtrl->tx_done_cnt;
-	MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO,
-			 "TxDoneCount = %d\n", ATECtrl->tx_done_cnt);
+	Value = ATECtrl->TxDoneCount;
+	MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_TRACE,
+			 ("%s(): TxDoneCount = %d\n", __func__, ATECtrl->TxDoneCount));
 	Value = PKTL_TRAN_TO_NET(Value);
 	memcpy(HqaCmdFrame->Data + 2, &Value, 4);
 	ResponseToQA(HqaCmdFrame, WRQ, 6, Ret);
@@ -1200,7 +1212,7 @@ static INT32 HQA_GetHwCounter(
 {
 	INT32 Ret = 0;
 
-	MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO, "\n");
+	MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("%s\n", __func__));
 	ResponseToQA(HqaCmdFrame, WRQ, 2, Ret);
 	return Ret;
 }
@@ -1213,7 +1225,7 @@ static INT32 HQA_CalibrationOperation(
 {
 	INT32 Ret = 0;
 
-	MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO, "\n");
+	MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("%s\n", __func__));
 	ResponseToQA(HqaCmdFrame, WRQ, 2, Ret);
 	return Ret;
 }
@@ -1240,8 +1252,9 @@ static INT32 HQA_CalibrationBypassExt(
 	ATECtrl->control_band_idx = (UCHAR)band_idx;
 
 	MtCmdDoCalibration(pAd, CALIBRATION_BYPASS, item, band_idx);
-	MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO,
-			 "item:%x, band_idx:%x\n", item, band_idx);
+	MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_TRACE,
+			 ("%s: item:%x, band_idx:%x\n",
+			  __func__, item, band_idx));
 	ResponseToQA(HqaCmdFrame, WRQ, 2, Ret);
 	return Ret;
 }
@@ -1273,8 +1286,9 @@ static INT32 HQA_SetRXVectorIdx(
 #ifdef CONFIG_HW_HAL_OFFLOAD
 	MtCmdSetRxvIndex(pAd, Group_1, Group_2, band_idx);
 #endif
-	MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO,
-			 "band_idx:%d, G1:%d, G2:%d\n", band_idx, Group_1, Group_2);
+	MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_TRACE,
+			 ("%s: band_idx:%d, G1:%d, G2:%d\n",
+			  __func__, band_idx, Group_1, Group_2));
 	ResponseToQA(HqaCmdFrame, WRQ, 2, Ret);
 	return Ret;
 }
@@ -1293,18 +1307,20 @@ static INT32 HQA_SetFAGCRssiPath(
 
 	NdisMoveMemory((UCHAR *)&band_idx, data, sizeof(band_idx));
 	data += sizeof(band_idx);
+	band_idx = PKTL_TRAN_TO_HOST(band_idx);
 	NdisMoveMemory((UCHAR *)&FAGC_Path, data, sizeof(FAGC_Path));
 	data += sizeof(FAGC_Path);
 	FAGC_Path = PKTL_TRAN_TO_HOST(FAGC_Path);
-	TESTMODE_SET_PARAM(pAd, band_idx, fagc_path, FAGC_Path);
+	TESTMODE_SET_PARAM(ate_ctrl, band_idx, FAGC_Path, FAGC_Path);
 
 	ate_ctrl->control_band_idx = (UCHAR)band_idx;
 
 #ifdef CONFIG_HW_HAL_OFFLOAD
 	MtCmdSetFAGCPath(pAd, FAGC_Path, band_idx);
 #endif
-	MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO,
-			 "band_idx:%d, FAGC_Path%d\n", band_idx, FAGC_Path);
+	MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_TRACE,
+			 ("%s: band_idx:%d, FAGC_Path%d\n",
+			  __func__, band_idx, FAGC_Path));
 	ResponseToQA(HqaCmdFrame, WRQ, 2, Ret);
 	return Ret;
 }
@@ -1355,18 +1371,32 @@ static INT32 HQA_MacBbpRegRead(
 	struct _HQA_CMD_FRAME *HqaCmdFrame)
 {
 	INT32 Ret = 0;
-	UINT32 Offset, Value = 0;
+	UINT32 Offset, Value;
+	BOOLEAN IsFound;
 
 	memcpy(&Offset, HqaCmdFrame->Data, 4);
 	Offset = PKTL_TRAN_TO_HOST(Offset);
+	IsFound = mt_mac_cr_range_mapping(pAd, &Offset);
 #if defined(COMPOS_TESTMODE_WIN)
 	Offset = mt_physical_addr_map(Offset);
+	IsFound = TRUE;
 #endif
 
-	RTMP_IO_READ32(pAd->hdev_ctrl, Offset, &Value);
+	if (!IsFound) {
+		UINT32 RemapBase, RemapOffset;
+		UINT32 RestoreValue;
 
-	MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO,
-			 "Offset = %x, Value = %x\n", Offset, Value);
+		HW_IO_READ32(pAd, MCU_PCIE_REMAP_2, &RestoreValue);
+		RemapBase = GET_REMAP_2_BASE(Offset) << 19;
+		RemapOffset = GET_REMAP_2_OFFSET(Offset);
+		HW_IO_WRITE32(pAd, MCU_PCIE_REMAP_2, RemapBase);
+		HW_IO_READ32(pAd, 0x80000 + RemapOffset, &Value);
+		HW_IO_WRITE32(pAd, MCU_PCIE_REMAP_2, RestoreValue);
+	} else
+		HW_IO_READ32(pAd, Offset, &Value);
+
+	MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_TRACE,
+			 ("%s: Offset = %x, Value = %x\n", __func__, Offset, Value));
 	Value = PKTL_TRAN_TO_NET(Value);
 	memcpy(HqaCmdFrame->Data + 2, &Value, 4);
 	ResponseToQA(HqaCmdFrame, WRQ, 6, Ret);
@@ -1381,18 +1411,32 @@ static INT32 HQA_MacBbpRegWrite(
 {
 	INT32 Ret = 0;
 	UINT32 Offset, Value;
+	BOOLEAN IsFound;
 
 	memcpy(&Offset, HqaCmdFrame->Data, 4);
 	memcpy(&Value, HqaCmdFrame->Data + 4, 4);
 	Offset = PKTL_TRAN_TO_HOST(Offset);
 	Value = PKTL_TRAN_TO_HOST(Value);
-	MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO,
-			 "Offset = %x, Value = %x\n", Offset, Value);
+	MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_TRACE,
+			 ("%s: Offset = %x, Value = %x\n", __func__, Offset, Value));
+	IsFound = mt_mac_cr_range_mapping(pAd, &Offset);
 #if defined(COMPOS_TESTMODE_WIN)
 	Offset = mt_physical_addr_map(Offset);
+	IsFound = TRUE;
 #endif
 
-	RTMP_IO_WRITE32(pAd->hdev_ctrl, Offset, Value);
+	if (!IsFound) {
+		UINT32 RemapBase, RemapOffset;
+		UINT32 RestoreValue;
+
+		HW_IO_READ32(pAd, MCU_PCIE_REMAP_2, &RestoreValue);
+		RemapBase = GET_REMAP_2_BASE(Offset) << 19;
+		RemapOffset = GET_REMAP_2_OFFSET(Offset);
+		HW_IO_WRITE32(pAd, MCU_PCIE_REMAP_2, RemapBase);
+		HW_IO_WRITE32(pAd, 0x80000 + RemapOffset, Value);
+		HW_IO_WRITE32(pAd, MCU_PCIE_REMAP_2, RestoreValue);
+	} else
+		HW_IO_WRITE32(pAd, Offset, Value);
 
 	ResponseToQA(HqaCmdFrame, WRQ, 2, Ret);
 	return Ret;
@@ -1412,28 +1456,20 @@ VOID RTMP_IO_MCU_READ_BULK(PRTMP_ADAPTER pAd, UCHAR *Dst, UINT32 Offset, UINT32 
 	UINT32 i;
 	UCHAR OffsetByte = 0x4;
 	UINT32 Ret_idx = 0;
-#ifdef WIFI_UNIFIED_COMMAND
-	RTMP_CHIP_CAP *cap = hc_get_chip_cap(pAd->hdev_ctrl);
-#endif /* WIFI_UNIFIED_COMMAND */
-
 
 	for (Index = 0 ; Index < NumOfReg; Index++) {
 		RegPair[Reg_idx].Register = Offset + OffsetByte * Index;
 
 		/* Read CR per REG_SIZE or lastest CR */
 		if (Reg_idx == REG_SIZE - 1 || Index == NumOfReg - 1) {
-#ifdef WIFI_UNIFIED_COMMAND
-			if (cap->uni_cmd_support)
-				UniCmdMultipleMacRegAccessRead(pAd, RegPair, Reg_idx + 1);
-			else
-#endif /* WIFI_UNIFIED_COMMAND */
-				MtCmdMultipleMacRegAccessRead(pAd, RegPair, Reg_idx + 1);
+			MtCmdMultipleMacRegAccessRead(pAd, RegPair, Reg_idx + 1);
 
 			for (i = 0; i <= Reg_idx; i++) {
 				pDst = (Dst + ((Ret_idx) << 2));
 				Value = RegPair[i].Value;
-				MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_DEBUG,
-						 "Offset = %x, Value = %x\n", RegPair[i].Register, Value);
+				MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO,
+						 ("%s: Offset = %x, Value = %x\n",
+						  __func__, RegPair[i].Register, Value));
 				Value = PKTL_TRAN_TO_NET(Value);
 				memmove(pDst, &Value, 4);
 				Ret_idx++;
@@ -1456,11 +1492,11 @@ VOID RTMP_IO_READ_BULK(PRTMP_ADAPTER pAd, UCHAR *Dst, UINT32 Offset, UINT32 Len)
 	struct _ATE_CTRL *ATECtrl = &pAd->ATECtrl;
 	UINT32 OffsetTmp = Offset;
 
-	MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO, "\n\n");
+	MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_WARN, ("\n\n"));
 #if !defined(COMPOS_TESTMODE_WIN)
 	IsFound = mt_mac_cr_range_mapping(pAd, &Offset);
 
-	if (!IsFound && NumOfReg > 1 && Offset && !(ATECtrl->op_mode & fATE_IN_ICAPOVERLAP)) {
+	if (!IsFound && NumOfReg > 1 && Offset && !(ATECtrl->Mode & fATE_IN_ICAPOVERLAP)) {
 		RTMP_IO_MCU_READ_BULK(pAd, Dst, Offset, Len);
 		return;
 	}
@@ -1470,21 +1506,33 @@ VOID RTMP_IO_READ_BULK(PRTMP_ADAPTER pAd, UCHAR *Dst, UINT32 Offset, UINT32 Len)
 
 	for (Index = 0 ; Index < NumOfReg; Index++) {
 		pDst = (Dst + (Index << 2));
+		IsFound = mt_mac_cr_range_mapping(pAd, &Offset);
 #if defined(COMPOS_TESTMODE_WIN)
 		Offset = mt_physical_addr_map(Offset);
+		IsFound = TRUE;
 #endif
 
-		RTMP_IO_READ32(pAd->hdev_ctrl, Offset, &Value);
+		if (!IsFound) {
+			UINT32 RemapBase, RemapOffset;
+			UINT32 RestoreValue;
 
-		MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO,
-				 "Offset = %x, Value = %x\n", Offset, Value);
+			HW_IO_READ32(pAd, MCU_PCIE_REMAP_2, &RestoreValue);
+			RemapBase = GET_REMAP_2_BASE(Offset) << 19;
+			RemapOffset = GET_REMAP_2_OFFSET(Offset);
+			HW_IO_WRITE32(pAd, MCU_PCIE_REMAP_2, RemapBase);
+			HW_IO_READ32(pAd, 0x80000 + RemapOffset, &Value);
+			HW_IO_WRITE32(pAd, MCU_PCIE_REMAP_2, RestoreValue);
+		} else
+			HW_IO_READ32(pAd, Offset, &Value);
+
+		MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_TRACE,
+				 ("%s: Offset = %x, Value = %x\n", __func__, Offset, Value));
 		Value = PKTL_TRAN_TO_NET(Value);
 		memmove(pDst, &Value, 4);
-		OffsetTmp += 4;
-		Offset = OffsetTmp;
+		Offset += 4;
 	}
 
-	MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO, "\n\n");
+	MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_WARN, ("\n\n"));
 }
 
 
@@ -1499,17 +1547,17 @@ static INT32 HQA_MACBbpRegBulkRead(
 	INT debug_lvl = DebugLevel;
 
 	DebugLevel = DBG_LVL_OFF;
-	MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO, "\n");
+	MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("%s\n", __func__));
 	memcpy(&Offset, HqaCmdFrame->Data, 4);
 	Offset = PKTL_TRAN_TO_HOST(Offset);
 	memcpy(&Len, HqaCmdFrame->Data + 4, 2);
 	Len = PKTS_TRAN_TO_HOST(Len);
-	MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO,
-			 "Offset = %x, Len(unit: 4bytes) = %d\n", Offset, Len);
+	MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_TRACE,
+			 ("%s: Offset = %x, Len(unit: 4bytes) = %d\n", __func__, Offset, Len));
 
 	if (Len > 371) {
-		MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-				 "length requested is too large, make it smaller\n");
+		MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
+				 ("%s: length requested is too large, make it smaller\n", __func__));
 		HqaCmdFrame->Length = PKTS_TRAN_TO_NET(2);
 		Tmp = PKTS_TRAN_TO_NET(1);
 		memcpy(HqaCmdFrame->Data, &Tmp, 2);
@@ -1541,32 +1589,21 @@ static INT32 HQA_RfRegBulkRead(
 	Length = PKTL_TRAN_TO_HOST(Length);
 
 	if (ATEOp->RfRegRead) {
-		/* check the range for coverity */
-		if (Length <= 65535) {
-			for (Index = 0; Index < Length; Index++) {
-				Ret = ATEOp->RfRegRead(pAd, WfSel, Offset + Index * 4, &Value);
-				MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO,
-						 "Wfsel = %d, Offset = %x, Value = %x\n",
-						  WfSel, Offset + Index * 4, Value);
+		for (Index = 0; Index < Length; Index++) {
+			Ret = ATEOp->RfRegRead(pAd, WfSel, Offset + Index * 4, &Value);
+			MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_TRACE,
+					 ("%s: Wfsel = %d, Offset = %x, Value = %x\n",
+					  __func__, WfSel, Offset + Index * 4, Value));
 
-				if (Ret) {
-					MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-							 "Wfsel = %d, Offset = %x, Value = %x fail\n",
-							  WfSel, Offset + Index * 4, Value);
-					break;
-				}
-
-				Value = PKTL_TRAN_TO_NET(Value);
-				/* check the range for coverity */
-				if (Index < 511)
-					memcpy(HqaCmdFrame->Data + 2 + (Index * 4), &Value, 4);
-				else
-					Ret = TM_STATUS_NOTSUPPORT;
+			if (Ret) {
+				MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
+						 ("Wfsel = %d, Offset = %x, Value = %x fail\n",
+						  WfSel, Offset + Index * 4, Value));
+				break;
 			}
-		} else {
-			MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-							 "Length larger than 65535\n");
-			Ret = TM_STATUS_NOTSUPPORT;
+
+			Value = PKTL_TRAN_TO_NET(Value);
+			memcpy(HqaCmdFrame->Data + 2 + (Index * 4), &Value, 4);
 		}
 	} else
 		Ret = TM_STATUS_NOTSUPPORT;
@@ -1586,7 +1623,7 @@ static INT32 HQA_RfRegBulkWrite(
 	struct _ATE_CTRL *ATECtrl = &(pAd->ATECtrl);
 	struct _ATE_OPERATION *ATEOp = ATECtrl->ATEOp;
 
-	MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO, "\n");
+	MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("%s\n", __func__));
 	memcpy(&WfSel, HqaCmdFrame->Data, 4);
 	WfSel = PKTL_TRAN_TO_HOST(WfSel);
 	memcpy(&Offset, HqaCmdFrame->Data + 4, 4);
@@ -1595,27 +1632,20 @@ static INT32 HQA_RfRegBulkWrite(
 	Length = PKTL_TRAN_TO_HOST(Length);
 
 	if (ATEOp->RfRegWrite) {
-		/* check the range for coverity, 509=(2048-12)/4*/
-		if (Length < 509) {
-			for (Index = 0; Index < Length; Index++) {
-				memcpy(&Value, HqaCmdFrame->Data + 12 + (Index * 4), 4);
-				Value = PKTL_TRAN_TO_HOST(Value);
-				MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO,
-						 "Wfsel = %d, Offset = %x, Value = %x\n",
-						  WfSel, Offset + Index * 4, Value);
-				Ret = ATEOp->RfRegWrite(pAd, WfSel, Offset + Index * 4, Value);
+		for (Index = 0; Index < Length; Index++) {
+			memcpy(&Value, HqaCmdFrame->Data + 12 + (Index * 4), 4);
+			Value = PKTL_TRAN_TO_HOST(Value);
+			MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_TRACE,
+					 ("%s: Wfsel = %d, Offset = %x, Value = %x\n",
+					  __func__, WfSel, Offset + Index * 4, Value));
+			Ret = ATEOp->RfRegWrite(pAd, WfSel, Offset + Index * 4, Value);
 
-				if (Ret) {
-					MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-							 "Wfsel = %d, Offset = %x, Value = %x fail\n",
-							  WfSel, Offset + Index * 4, Value);
-					break;
-				}
+			if (Ret) {
+				MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
+						 ("Wfsel = %d, Offset = %x, Value = %x fail\n",
+						  WfSel, Offset + Index * 4, Value));
+				break;
 			}
-		} else {
-			MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-							 "Length larger than 509\n");
-			Ret = TM_STATUS_NOTSUPPORT;
 		}
 	} else
 		Ret = TM_STATUS_NOTSUPPORT;
@@ -1634,14 +1664,14 @@ static INT32 HQA_ReadEEPROM(
 #if !defined(COMPOS_TESTMODE_WIN)/* 1Todo	 RT28xx_EEPROM_READ16 */
 	UINT16 Offset = 0, Value = 0;
 
-	MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO, "\n");
+	MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("%s\n", __func__));
 	memcpy(&Offset, HqaCmdFrame->Data, 2);
 	Offset = PKTS_TRAN_TO_HOST(Offset);
 	RT28xx_EEPROM_READ16(pAd, Offset, Value);
-	MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO,
-			 "e2p r %02Xh = 0x%02X\n", (Offset & 0x00FF), (Value & 0x00FF));
-	MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO,
-			 "e2p r %02Xh = 0x%02X\n", (Offset & 0x00FF) + 1, (Value & 0xFF00) >> 8);
+	MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_WARN,
+			 ("e2p r %02Xh = 0x%02X\n", (Offset & 0x00FF), (Value & 0x00FF)));
+	MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_WARN,
+			 ("e2p r %02Xh = 0x%02X\n", (Offset & 0x00FF) + 1, (Value & 0xFF00) >> 8));
 	Value = PKTS_TRAN_TO_NET(Value);
 	memcpy(HqaCmdFrame->Data + 2, &Value, 2);
 #endif
@@ -1658,7 +1688,7 @@ static INT32 HQA_WriteEEPROM(
 	INT32 Ret = 0;
 	UINT16 Offset = 0, Value = 0;
 
-	MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO, "\n");
+	MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("%s\n", __func__));
 	memcpy(&Offset, HqaCmdFrame->Data, 2);
 	Offset = PKTS_TRAN_TO_HOST(Offset);
 	memcpy(&Value, HqaCmdFrame->Data + 2, 2);
@@ -1667,12 +1697,12 @@ static INT32 HQA_WriteEEPROM(
 	NdisMoveMemory(&(pAd->EEPROMImage[Offset]), &Value, 2);
 #else
 	RT28xx_EEPROM_WRITE16(pAd, Offset, Value);
-	MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO,
-			 "e2p w 0x%04X = 0x%04X\n", Offset, Value);
-	MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO,
-			 "e2p w %02Xh = 0x%02X\n", (Offset & 0x00FF), (Value & 0x00FF));
-	MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO,
-			 "e2p w %02Xh = 0x%02X\n", (Offset & 0x00FF) + 1, (Value & 0xFF00) >> 8);
+	MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_WARN,
+			 ("e2p w 0x%04X = 0x%04X\n", Offset, Value));
+	MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_WARN,
+			 ("e2p w %02Xh = 0x%02X\n", (Offset & 0x00FF), (Value & 0x00FF)));
+	MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_WARN,
+			 ("e2p w %02Xh = 0x%02X\n", (Offset & 0x00FF) + 1, (Value & 0xFF00) >> 8));
 #endif
 	ResponseToQA(HqaCmdFrame, WRQ, 2, Ret);
 	return Ret;
@@ -1687,7 +1717,7 @@ static INT32 HQA_ReadBulkEEPROM(
 	INT32 Ret = 0;
 	UINT16 Offset;
 	UINT16 Len;
-	UINT32 size = EEPROM_SIZE;
+	UINT16 size = EEPROM_SIZE;
 	UINT16 *Buffer = NULL;
 	struct _RTMP_CHIP_CAP *cap;
 
@@ -1696,8 +1726,8 @@ static INT32 HQA_ReadBulkEEPROM(
 	Offset = PKTS_TRAN_TO_HOST(Offset);
 	memcpy(&Len, HqaCmdFrame->Data + 2, 2);
 	Len = PKTS_TRAN_TO_HOST(Len);
-	MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO,
-			 "Offset = %x, Length = %x\n", Offset, Len);
+	MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_TRACE,
+			 ("%s: Offset = %x, Length = %x\n", __func__, Offset, Len));
 #if defined(RTMP_RBUS_SUPPORT) || defined(RTMP_FLASH_SUPPORT)
 	if (pAd->E2pAccessMode == E2P_FLASH_MODE)
 		size = get_dev_eeprom_size(pAd);
@@ -1708,8 +1738,8 @@ static INT32 HQA_ReadBulkEEPROM(
 	Ret = os_alloc_mem(pAd, (PUCHAR *)&Buffer, size);	/* TODO verify */
 
 	if (Ret == NDIS_STATUS_FAILURE) {
-		MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-				 "allocate memory for read EEPROM fail\n");
+		MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
+				 ("%s: allocate memory for read EEPROM fail\n", __func__));
 		Len = 0;
 		goto HQA_ReadBulkEEPROM_RET;
 	}
@@ -1719,8 +1749,8 @@ static INT32 HQA_ReadBulkEEPROM(
 	if (Offset + Len <= size)
 		memcpy_exs(pAd, HqaCmdFrame->Data + 2, (UCHAR *)Buffer + Offset, Len);
 	else {
-		MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-				 "exceed EEPROM size (offset:%d, size:%d)\n", Offset+Len, size);
+		MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
+				 ("%s: exceed EEPROM size\n", __func__));
 		Len = 0;
 		Ret = -1;
 	}
@@ -1732,7 +1762,7 @@ static INT32 HQA_ReadBulkEEPROM(
 	if (Offset + Len <= cap->EFUSE_BUFFER_CONTENT_SIZE)
 		os_move_mem(HqaCmdFrame->Data + 2, (UCHAR *)pAd->EEPROMImage + Offset, Len);
 	else {
-		MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_ERROR, "exceed EEPROM size\n");
+		MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_ERROR, ("%s: exceed EEPROM size\n", __func__));
 		Len = 0;
 		Ret = -1;
 	}
@@ -1771,18 +1801,17 @@ static INT32 HQA_WriteBulkEEPROM(
 	USHORT Offset;
 	USHORT Len;
 	UINT16 *Buffer = NULL;
-	struct _RTMP_CHIP_CAP *cap = hc_get_chip_cap(pAd->hdev_ctrl);
 
-	MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO, "\n");
+	MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_OFF, ("%s\n", __func__));
 	memcpy(&Offset, HqaCmdFrame->Data, 2);
 	Offset = PKTS_TRAN_TO_HOST(Offset);
 	memcpy(&Len, HqaCmdFrame->Data + 2, 2);
 	Len = PKTS_TRAN_TO_HOST(Len);
-	Ret = os_alloc_mem(pAd, (PUCHAR *)&Buffer, cap->EEPROM_DEFAULT_BIN_SIZE);	/* TODO verify */
+	Ret = os_alloc_mem(pAd, (PUCHAR *)&Buffer, EEPROM_SIZE);	/* TODO verify */
 
 	if (Ret == NDIS_STATUS_FAILURE) {
-		MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-				 "allocate memory for read EEPROM fail\n");
+		MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
+				 ("%s: allocate memory for read EEPROM fail\n", __func__));
 		goto HQA_WriteBulkEEPROM_RET;
 	}
 
@@ -1798,22 +1827,24 @@ static INT32 HQA_WriteBulkEEPROM(
 	if (Len != 16)
 #endif /* RTMP_FLASH_SUPPORT */
 	{
-		if ((Offset + Len) <= cap->EEPROM_DEFAULT_BIN_SIZE)
+		if ((Offset + Len) <= EEPROM_SIZE)
 			EEWriteBulk(pAd, (UINT16 *)(((UCHAR *)Buffer) + Offset), Offset, Len);
 		else {
-			MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-					 "exceed EEPROM size(%d)\n", EEPROM_SIZE);
-			MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-					 "Offset = %u\n", Offset);
-			MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-					 "Length = %u\n", Len);
-			MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-					 "Offset + Length=%u\n", (Offset + Len));
+			MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
+					 ("%s: exceed EEPROM size(%d)\n", __func__, EEPROM_SIZE));
+			MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
+					 ("Offset = %u\n", Offset));
+			MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
+					 ("Length = %u\n", Len));
+			MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
+					 ("Offset + Length=%u\n", (Offset + Len)));
 		}
 	}
+
 HQA_WriteBulkEEPROM_RET:
-	os_free_mem(Buffer);
 	ResponseToQA(HqaCmdFrame, WRQ, 2 + Len, Ret);
+	if (Buffer)
+		os_free_mem(Buffer);
 #endif
 	return Ret;
 }
@@ -1829,7 +1860,7 @@ static INT32 HQA_CheckEfuseMode(
 #if !defined(COMPOS_TESTMODE_WIN) /* 1Todo	eFuseGetFreeBlockCount */
 	UINT32 Value;
 
-	MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO, "\n");
+	MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("%s\n", __func__));
 
 	if (pAd->bUseEfuse)
 		Value = 1;
@@ -1850,62 +1881,29 @@ static INT32 HQA_GetFreeEfuseBlock(
 	struct _HQA_CMD_FRAME *HqaCmdFrame)
 {
 	INT32 Ret = 0;
-#if !defined(COMPOS_TESTMODE_WIN) && !defined(MT7663) /* 1Todo	eFuseGetFreeBlockCount */
+#if !defined(COMPOS_TESTMODE_WIN) /* 1Todo	eFuseGetFreeBlockCount */
 	/* remove this block when command RSP function ready */
 	UINT32 Value;
 
-	MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO, "\n");
+	MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("%s\n", __func__));
 	eFuseGetFreeBlockCount(pAd, &Value);
 	Value = PKTL_TRAN_TO_NET(Value);
 	memcpy(HqaCmdFrame->Data + 2, &Value, 4);
 	ResponseToQA(HqaCmdFrame, WRQ, 6, Ret);
 #else
 	INT32 GetFreeBlock = 0;
-	INT32 offset = 0;
-	UINT8 Version, DieIndex;/* 0: D die ; 1: A die */
 	UINT32 Result = 0;
-	struct _EXT_CMD_EFUSE_FREE_BLOCK_T CmdEfuseFreeBlock;
-	struct _EXT_EVENT_EFUSE_FREE_BLOCK_V1_T EventEfuseFreeBlock;
 	struct _ATE_CTRL *ATECtrl = &(pAd->ATECtrl);
 	struct _ATE_OPERATION *ATEOp = ATECtrl->ATEOp;
 
-	memcpy((PUCHAR)&Version, (PUCHAR)&HqaCmdFrame->Data, sizeof(Version));
-	offset += sizeof(Version);
-
-	memcpy((PUCHAR)&DieIndex, (PUCHAR)&HqaCmdFrame->Data + offset, sizeof(DieIndex));
-	offset += sizeof(DieIndex);
-
-	MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO,
-			 "Version:%d, DieIndex:%d\n", Version, DieIndex);
-
-    memset(&EventEfuseFreeBlock, 0, sizeof(EventEfuseFreeBlock));
-    CmdEfuseFreeBlock.ucVersion = Version;
-    CmdEfuseFreeBlock.ucDieIndex = DieIndex;
+	MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_TRACE,
+			 ("%s: GetFreeBlock:%d\n", __func__, GetFreeBlock));
 
 	if (ATEOp->EfuseGetFreeBlock) {
-		if (Version == 1) {
-			UINT32 ucGetFreeBlock, ucGetTotalBlock;
-
-			ATEOp->EfuseGetFreeBlock(pAd, (PVOID)&CmdEfuseFreeBlock, (PVOID)&EventEfuseFreeBlock);
-
-			MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO,
-					"ucGetFreeBlock:%d, ucGetTotalBlock:%d\n",
-					EventEfuseFreeBlock.ucFreeBlockNum, EventEfuseFreeBlock.ucTotalBlockNum);
-
-			ucGetFreeBlock = PKTL_TRAN_TO_HOST(EventEfuseFreeBlock.ucFreeBlockNum);
-			ucGetTotalBlock = PKTL_TRAN_TO_HOST(EventEfuseFreeBlock.ucTotalBlockNum);
-
-			memcpy(HqaCmdFrame->Data + 2, &ucGetFreeBlock, 4);
-			memcpy(HqaCmdFrame->Data + 6, &ucGetTotalBlock, 4);
-
-			ResponseToQA(HqaCmdFrame, WRQ, 10, Ret);
-
-		} else {
-			ATEOp->EfuseGetFreeBlock(pAd, (PVOID)&GetFreeBlock, (PVOID)&Result);
-			Result = PKTL_TRAN_TO_HOST(Result);
-			memcpy(HqaCmdFrame->Data + 2, &Result, 4);
-			ResponseToQA(HqaCmdFrame, WRQ, 6, Ret);
-		}
+		ATEOp->EfuseGetFreeBlock(pAd, GetFreeBlock, &Result);
+		Result = PKTL_TRAN_TO_HOST(Result);
+		memcpy(HqaCmdFrame->Data + 2, &Result, 4);
+		ResponseToQA(HqaCmdFrame, WRQ, 6, Ret);
 	} else {
 		Ret = TM_STATUS_NOTSUPPORT;
 		ResponseToQA(HqaCmdFrame, WRQ, 2, Ret);
@@ -1924,7 +1922,7 @@ static INT32 HQA_GetEfuseBlockNr(
 {
 	INT32 Ret = 0;
 
-	MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO, "\n");
+	MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("%s\n", __func__));
 	ResponseToQA(HqaCmdFrame, WRQ, 2, Ret);
 	return Ret;
 }
@@ -1937,11 +1935,12 @@ static INT32 HQA_WriteEFuseFromBuffer(
 {
 	INT32 Ret = 0;
 
-	MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO, "\n");
+	MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("%s\n", __func__));
 	ResponseToQA(HqaCmdFrame, WRQ, 2, Ret);
 	return Ret;
 }
 #endif /* RTMP_EFUSE_SUPPORT */
+
 
 static INT32 HQA_GetTxPower(
 	PRTMP_ADAPTER pAd,
@@ -1949,12 +1948,12 @@ static INT32 HQA_GetTxPower(
 	struct _HQA_CMD_FRAME *HqaCmdFrame)
 {
 	INT32 Ret = 0;
-	UINT32 Channel = 0, AntIdx = 0, Band = 0, Ch_Band = 0, Power = 0;
-	UINT32 offset = 0;
+	INT32 Channel = 0, Band = 0, Ch_Band = 0, EfuseAddr = 0, Power = 0;
+	INT32 offset = 0;
 	struct _ATE_CTRL *ATECtrl = &(pAd->ATECtrl);
 	struct _ATE_OPERATION *ATEOp = ATECtrl->ATEOp;
 
-	MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO, "\n");
+	MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("%s\n", __func__));
 	memcpy((PUCHAR)&Channel, (PUCHAR)&HqaCmdFrame->Data, sizeof(Channel));
 	Channel = PKTL_TRAN_TO_HOST(Channel);
 	offset += sizeof(Channel);
@@ -1964,22 +1963,26 @@ static INT32 HQA_GetTxPower(
 	memcpy((PUCHAR)&Ch_Band, (PUCHAR)&HqaCmdFrame->Data + offset, sizeof(Ch_Band));
 	Ch_Band = PKTL_TRAN_TO_HOST(Ch_Band);
 	offset += sizeof(Ch_Band);
-	memcpy((PUCHAR)&AntIdx, (PUCHAR)&HqaCmdFrame->Data + offset, sizeof(AntIdx));
-	AntIdx = PKTL_TRAN_TO_HOST(AntIdx);
-	offset += sizeof(AntIdx);
 
 	ATECtrl->control_band_idx = (UCHAR)Band;
 
 	if (ATEOp->GetTxPower) {
-		ATEOp->GetTxPower(pAd, Channel, Ch_Band, AntIdx, &Power);
+		ATEOp->GetTxPower(pAd, Channel, Ch_Band, &EfuseAddr, &Power);
+		os_msec_delay(30);
+#if defined(MT7615) || defined(MT7622)
+		EfuseAddr = PKTL_TRAN_TO_HOST(EfuseAddr);
 		Power = PKTL_TRAN_TO_HOST(Power);
+		memcpy(HqaCmdFrame->Data + 2, &EfuseAddr, 4);
 		memcpy(HqaCmdFrame->Data + 2 + 4, &Power, 4);
+#else
+#endif /* defined(MT7615) || defined(MT7622) */
 	} else
 		Ret = TM_STATUS_NOTSUPPORT;
 
 	ResponseToQA(HqaCmdFrame, WRQ, 10, Ret);
 	return Ret;
 }
+
 
 static INT32 HQA_SetCfgOnOff(
 	PRTMP_ADAPTER pAd,
@@ -1991,7 +1994,7 @@ static INT32 HQA_SetCfgOnOff(
 	struct _ATE_CTRL *ATECtrl = &(pAd->ATECtrl);
 	struct _ATE_OPERATION *ATEOp = ATECtrl->ATEOp;
 
-	MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO, "\n");
+	MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("%s\n", __func__));
 	memcpy((PUCHAR)&Type, HqaCmdFrame->Data, 4);
 	Type = PKTL_TRAN_TO_HOST(Type);
 	memcpy((PUCHAR)&Enable, HqaCmdFrame->Data + 4, 4);
@@ -2021,7 +2024,7 @@ static INT32 HQA_GetFreqOffset(
 	struct _ATE_CTRL *ATECtrl = &(pAd->ATECtrl);
 	struct _ATE_OPERATION *ATEOp = ATECtrl->ATEOp;
 
-	MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO, "\n");
+	MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("%s\n", __func__));
 
 	if (ATEOp->GetTxFreqOffset) {
 		ATEOp->GetTxFreqOffset(pAd, &FreqOffset);
@@ -2048,7 +2051,7 @@ static INT32 HQA_DBDCTXTone(
 	struct _ATE_CTRL *ATECtrl = &(pAd->ATECtrl);
 	struct _ATE_OPERATION *ATEOp = ATECtrl->ATEOp;
 
-	MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO, "\n");
+	MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("%s\n", __func__));
 	/* BandIdx:4 Control:4 AntIndex:4 ToneType:4 ToneFreq:4 DcOffset_I:4 DcOffset_Q:4 Band:4 */
 	memcpy((PUCHAR)&BandIdx, (PUCHAR)&HqaCmdFrame->Data, sizeof(BandIdx));
 	BandIdx = PKTL_TRAN_TO_HOST(BandIdx);
@@ -2083,13 +2086,13 @@ static INT32 HQA_DBDCTXTone(
 
 	ATECtrl->control_band_idx = (UCHAR)BandIdx;
 
-	if (ATEOp->DBDCTxTone)
-		ATEOp->DBDCTxTone(pAd, Control, AntIndex, ToneType, ToneFreq, DcOffset_I, DcOffset_Q, Band);
+	if (ATEOp->SetDBDCTxTonePower)
+		ATEOp->SetDBDCTxTonePower(pAd, RF_Power, Digital_Power, AntIndex);
 	else
 		Ret = TM_STATUS_NOTSUPPORT;
 
-	if (ATEOp->SetDBDCTxTonePower)
-		ATEOp->SetDBDCTxTonePower(pAd, RF_Power, Digital_Power, AntIndex);
+	if (ATEOp->DBDCTxTone)
+		ATEOp->DBDCTxTone(pAd, Control, AntIndex, ToneType, ToneFreq, DcOffset_I, DcOffset_Q, Band);
 	else
 		Ret = TM_STATUS_NOTSUPPORT;
 
@@ -2097,34 +2100,6 @@ static INT32 HQA_DBDCTXTone(
 	return Ret;
 }
 
-static INT32 HQA_GetDBDCTXTonePower(
-	PRTMP_ADAPTER pAd,
-	RTMP_IOCTL_INPUT_STRUCT *WRQ,
-	struct _HQA_CMD_FRAME *HqaCmdFrame)
-{
-	INT32 Ret = 0;
-	INT32 AntIndex = 0;
-	INT32 Power = 0;
-	struct _ATE_CTRL *ATECtrl = &(pAd->ATECtrl);
-	struct _ATE_OPERATION *ATEOp = ATECtrl->ATEOp;
-
-	MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO, "\n");
-
-	memcpy((PUCHAR)&AntIndex, (PUCHAR)&HqaCmdFrame->Data, sizeof(AntIndex));
-	AntIndex = PKTL_TRAN_TO_HOST(AntIndex);
-
-	if (ATEOp->GetDBDCTxTonePower) {
-		ATEOp->GetDBDCTxTonePower(pAd, &Power, AntIndex);
-		Power = PKTL_TRAN_TO_HOST(Power);
-		memcpy(HqaCmdFrame->Data + 2, &Power, 4);
-		ResponseToQA(HqaCmdFrame, WRQ, 6, Ret);
-	} else {
-		Ret = TM_STATUS_NOTSUPPORT;
-		ResponseToQA(HqaCmdFrame, WRQ, 2, Ret);
-	}
-
-	return Ret;
-}
 
 static INT32 HQA_DBDCContinuousTX(
 	PRTMP_ADAPTER pAd,
@@ -2132,15 +2107,14 @@ static INT32 HQA_DBDCContinuousTX(
 	struct _HQA_CMD_FRAME *HqaCmdFrame)
 {
 	INT32 Ret = 0;
-	INT32 Band = 0, Control = 0, AntMask = 0, tx_mode = 0, BW = 0;
+	INT32 Band = 0, Control = 0, AntMask = 0, Phymode = 0, BW = 0;
 	INT32 Pri_Ch = 0, Rate = 0, Central_Ch = 0, TxfdMode;
 	INT32 offset = 0;
-	UCHAR Band_idx = 0;
 	struct _ATE_CTRL *ATECtrl = &(pAd->ATECtrl);
 	struct _ATE_OPERATION *ATEOp = ATECtrl->ATEOp;
 
-	MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO, "\n");
-	/* Band:4 Control:4 AntIndex:4 TxMode:4 BW:4 Pri_Ch:4 Rate:4 */
+	MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("%s\n", __func__));
+	/* Band:4 Control:4 AntIndex:4 Modulation:4 BW:4 Pri_Ch:4 Rate:4 */
 	memcpy((PUCHAR)&Band, (PUCHAR)&HqaCmdFrame->Data, sizeof(Band));
 	Band = PKTL_TRAN_TO_HOST(Band);
 	offset += sizeof(Band);
@@ -2150,9 +2124,9 @@ static INT32 HQA_DBDCContinuousTX(
 	memcpy((PUCHAR)&AntMask, (PUCHAR)&HqaCmdFrame->Data + offset, sizeof(AntMask));
 	AntMask = PKTL_TRAN_TO_HOST(AntMask);
 	offset += sizeof(AntMask);
-	memcpy((PUCHAR)&tx_mode, (PUCHAR)&HqaCmdFrame->Data + offset, sizeof(tx_mode));
-	tx_mode = PKTL_TRAN_TO_HOST(tx_mode);
-	offset += sizeof(tx_mode);
+	memcpy((PUCHAR)&Phymode, (PUCHAR)&HqaCmdFrame->Data + offset, sizeof(Phymode));
+	Phymode = PKTL_TRAN_TO_HOST(Phymode);
+	offset += sizeof(Phymode);
 	memcpy((PUCHAR)&BW, (PUCHAR)&HqaCmdFrame->Data + offset, sizeof(BW));
 	BW = PKTL_TRAN_TO_HOST(BW);
 	offset += sizeof(BW);
@@ -2170,19 +2144,19 @@ static INT32 HQA_DBDCContinuousTX(
 	offset += sizeof(TxfdMode);
 
 	ATECtrl->control_band_idx = (UCHAR)Band;
-	Band_idx = (UCHAR)Band;
-	MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO,
-			 "Band = %d, Control = %d, AntIndex = %d, Phymode = %d, BW = %d, CH = %d, Rate = %d, Central_Ch = %d, TxfdMode = %d\n",
-			  Band, Control, AntMask, tx_mode, BW, Pri_Ch, Rate, Central_Ch, TxfdMode);
+
+	MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_TRACE,
+			 ("%s: Band = %d, Control = %d, AntIndex = %d, Phymode = %d, BW = %d, CH = %d, Rate = %d, Central_Ch = %d, TxfdMode = %d\n",
+			  __func__, Band, Control, AntMask, Phymode, BW, Pri_Ch, Rate, Central_Ch, TxfdMode));
 
 	if (Control) {
-		if (ATEOp->StartContinousTx && Band_idx < TEST_DBDC_BAND_NUM) {
-			TESTMODE_SET_PARAM(pAd, Band_idx, tx_mode, tx_mode);
-			TESTMODE_SET_PARAM(pAd, Band_idx, bw, BW);
-			TESTMODE_SET_PARAM(pAd, Band_idx, ctrl_ch, Pri_Ch);
-			TESTMODE_SET_PARAM(pAd, Band_idx, channel, Central_Ch);
-			TESTMODE_SET_PARAM(pAd, Band_idx, mcs, Rate);
-			TESTMODE_SET_PARAM(pAd, Band_idx, tx_ant, AntMask);
+		if (ATEOp->StartContinousTx) {
+			TESTMODE_SET_PARAM(ATECtrl, Band, PhyMode, Phymode);
+			TESTMODE_SET_PARAM(ATECtrl, Band, BW, BW);
+			TESTMODE_SET_PARAM(ATECtrl, Band, ControlChl, Pri_Ch);
+			TESTMODE_SET_PARAM(ATECtrl, Band, Channel, Central_Ch);
+			TESTMODE_SET_PARAM(ATECtrl, Band, Mcs, Rate);
+			TESTMODE_SET_PARAM(ATECtrl, Band, TxAntennaSel, AntMask);
 			ATEOp->StartContinousTx(pAd, AntMask, TxfdMode);
 		} else
 			Ret = TM_STATUS_NOTSUPPORT;
@@ -2208,7 +2182,7 @@ static INT32 HQA_SetRXFilterPktLen(
 	struct _ATE_CTRL *ATECtrl = &(pAd->ATECtrl);
 	struct _ATE_OPERATION *ATEOp = ATECtrl->ATEOp;
 
-	MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO, "\n");
+	MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("%s\n", __func__));
 	memcpy((PUCHAR)&Band, (PUCHAR)&HqaCmdFrame->Data, sizeof(Band));
 	Band = PKTL_TRAN_TO_HOST(Band);
 	offset += sizeof(Band);
@@ -2237,14 +2211,14 @@ static INT32 HQA_GetTXInfo(
 	struct _HQA_CMD_FRAME *HqaCmdFrame)
 {
 	INT32 Ret = 0;
+	struct _ATE_CTRL *ate_ctrl = &(pAd->ATECtrl);
 	UINT32 txed_band0 = 0;
 	UINT32 txed_band1 = 0;
 	UCHAR *data = HqaCmdFrame->Data + 2;
 
-	MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO, "\n");
-	txed_band0 = TESTMODE_GET_PARAM(pAd, 0, ATE_TXDONE_CNT);
-	if (IS_ATE_DBDC(pAd))
-		txed_band1 = TESTMODE_GET_PARAM(pAd, 1, ATE_TXDONE_CNT);
+	MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("%s\n", __func__));
+	txed_band0 = TESTMODE_GET_PARAM(ate_ctrl, 0, TxDoneCount);
+	txed_band1 = TESTMODE_GET_PARAM(ate_ctrl, 1, TxDoneCount);
 	txed_band0 = PKTL_TRAN_TO_NET(txed_band0);
 	txed_band1 = PKTL_TRAN_TO_NET(txed_band1);
 	NdisMoveMemory(data, (UCHAR *)&txed_band0, sizeof(txed_band0));
@@ -2276,18 +2250,14 @@ static INT32 HQA_GetCfgOnOff(
 
 	ATECtrl->control_band_idx = (UCHAR)Band;
 
-	MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO,
-			 "Type:%d Band:%d\n", Type, Band);
+	MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_TRACE,
+			 ("%s: Type:%d Band:%d\n", __func__, Type, Band));
 
 	if (ATEOp->GetCfgOnOff) {
-#if defined(MT7615) || defined(MT7622) || defined(P18) || defined(MT7663) || \
-	defined(AXE) || defined(MT7626) || defined(MT7915) || defined(MT7986) || \
-	defined(MT7916) || defined(MT7981)
+#if defined(MT7615) || defined(MT7622) || defined(P18) || defined(MT7663)
 
 		/*FW not support Get Rate power (Type=2)*/
-		if ((IS_MT7615(pAd) || IS_MT7622(pAd) || IS_P18(pAd) || IS_MT7663(pAd) ||
-			IS_AXE(pAd) || IS_MT7626(pAd) || IS_MT7915(pAd) || IS_MT7986(pAd) ||
-			IS_MT7916(pAd) || IS_MT7981(pAd)) && Type != 2)
+		if ((IS_MT7615(pAd) || IS_MT7622(pAd) || IS_P18(pAd) || IS_MT7663(pAd)) && Type != 2)
 #endif
 		{
 			ATEOp->GetCfgOnOff(pAd, Type, &Result);
@@ -2316,7 +2286,7 @@ static INT32 HQA_SetBufferBin(
 	UCHAR *data = HqaCmdFrame->Data;
 
 	EthGetParamAndShiftBuff(TRUE, sizeof(buffer_mode_merge), &data, (UCHAR *)&buffer_mode_merge);
-	MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO, "buffer_mode_merge = %d\n", buffer_mode_merge);
+	MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_OFF, ("buffer_mode_merge = %d\n", buffer_mode_merge));
 
 	if (buffer_mode_merge == 0)
 		pAd->CalFreeMerge = FALSE;
@@ -2324,8 +2294,8 @@ static INT32 HQA_SetBufferBin(
 		pAd->CalFreeMerge = TRUE;
 
 #else
-	MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO,
-		"not support this commmand, to disable cal-free merge use DisableCalFree in profile setting\n");
+	MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_OFF,
+		("%s not support this commmand, to disable cal-free merge use DisableCalFree in profile setting\n", __func__));
 #endif
 	ResponseToQA(HqaCmdFrame, WRQ, 2, Ret);
 	return Ret;
@@ -2347,8 +2317,9 @@ static INT32 HQA_CA53RegRead(
 	offset = (unsigned long)ioremap(offset, CA53_GPIO_REMAP_SIZE);
 	RTMP_SYS_IO_READ32(offset, &value);
 	iounmap((void *)offset);
-	MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO,
-		"offset = %lx, value = %x\n", offset, value);
+
+	MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_TRACE,
+		("%s: offset = %lx, value = %x\n", __func__, offset, value));
 
 	value = PKTL_TRAN_TO_NET(value);
 	NdisMoveMemory(HqaCmdFrame->Data + 2, (UCHAR *)&value, sizeof(value));
@@ -2374,8 +2345,8 @@ static INT32 HQA_CA53RegWrite(
 	offset = PKTL_TRAN_TO_HOST(offset);
 	value = PKTL_TRAN_TO_HOST(value);
 
-	MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO,
-		"offset = %lx, value = %x\n", offset, value);
+	MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_TRACE,
+		("%s: offset = %lx, value = %x\n", __func__, offset, value));
 
 	offset = (unsigned long)ioremap(offset, CA53_GPIO_REMAP_SIZE);
 	RTMP_SYS_IO_WRITE32(offset, value);
@@ -2402,11 +2373,6 @@ static HQA_CMD_HANDLER HQA_CMD_SET3[] = {
 	HQA_GetFreeEfuseBlock,		/* 0x130A */
 	HQA_GetEfuseBlockNr,		/* 0x130B */
 	HQA_WriteEFuseFromBuffer,	/* 0x130C */
-#else
-	NULL,					/* 0x1309 ~ 0x130c */
-	NULL,
-	NULL,
-	NULL,
 #endif /* RTMP_EFUSE_SUPPORT */
 	HQA_GetTxPower,			/* 0x130D */
 	HQA_SetCfgOnOff,		/* 0x130E */
@@ -2421,7 +2387,6 @@ static HQA_CMD_HANDLER HQA_CMD_SET3[] = {
 	HQA_GetFWVersion,		/* 0x1317 */
 	HQA_CA53RegRead,		/* 0x1318 */
 	HQA_CA53RegWrite,		/* 0x1319 */
-	HQA_GetDBDCTXTonePower,	/* 0x131A */
 };
 
 
@@ -2433,21 +2398,21 @@ static INT32 HQA_ReadTempReferenceValue(
 {
 	INT32 Ret = 0;
 
-	MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO, "\n");
+	MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("%s\n", __func__));
 	ResponseToQA(HqaCmdFrame, WRQ, 2, Ret);
 	return Ret;
 }
 
 VOID HQA_GetThermalValue_CB(struct cmd_msg *msg, char *Data, UINT16 Len)
 {
-	P_EXT_EVENT_THERMAL_SENSOR_INFO_T prEventExtCmdResult = (P_EXT_EVENT_THERMAL_SENSOR_INFO_T)Data;
+	struct _EXT_EVENT_GET_SENSOR_RESULT_T *EventExtCmdResult = (struct _EXT_EVENT_GET_SENSOR_RESULT_T *)Data;
 	RTMP_ADAPTER *pAd = (RTMP_ADAPTER *)msg->priv;
 	struct _ATE_CTRL *ATECtrl = &(pAd->ATECtrl);
 
-	prEventExtCmdResult->u4SensorResult = le2cpu32(prEventExtCmdResult->u4SensorResult);
-	ATECtrl->thermal_val = prEventExtCmdResult->u4SensorResult;
-	MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO,
-			 "value: 0x%x\n", prEventExtCmdResult->u4SensorResult);
+	EventExtCmdResult->u4SensorResult = le2cpu32(EventExtCmdResult->u4SensorResult);
+	ATECtrl->thermal_val = EventExtCmdResult->u4SensorResult;
+	MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_TRACE,
+			 ("%s(): value: 0x%x\n", __func__, EventExtCmdResult->u4SensorResult));
 #if !defined(COMPOS_TESTMODE_WIN)/* 1 todo windows no need RTMP_OS_COMPLETE */
 	RTMP_OS_COMPLETE(&ATECtrl->cmd_done);
 #endif
@@ -2461,12 +2426,10 @@ static INT32 HQA_GetThermalValue(
 	INT32 Ret = 0;
 	UINT32 Value = 0;
 	struct _ATE_CTRL *ATECtrl = &(pAd->ATECtrl);
-	UCHAR control_band_idx = ATECtrl->control_band_idx;
 
-	MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO, "\n");
-
-	MtCmdGetThermalSensorResult(pAd, 0, control_band_idx,  &ATECtrl->thermal_val); /* 0: get temperature; 1: get adc */
-
+	MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("%s\n", __func__));
+	/* CmdGetThemalSensorResult(pAd, 0); 0: get temperature; 1: get adc */
+	MtCmdGetThermalSensorResult(pAd, 0, &ATECtrl->thermal_val); /* 0: get temperature; 1: get adc */
 	Value = PKTL_TRAN_TO_HOST(ATECtrl->thermal_val);
 	memcpy(HqaCmdFrame->Data + 2, &Value, 4);
 	ResponseToQA(HqaCmdFrame, WRQ, 6, Ret);
@@ -2481,7 +2444,7 @@ static INT32 HQA_SetSideBandOption(
 {
 	INT32 Ret = 0;
 
-	MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO, "\n");
+	MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("%s\n", __func__));
 	ResponseToQA(HqaCmdFrame, WRQ, 2, Ret);
 	return Ret;
 }
@@ -2504,7 +2467,7 @@ static INT32 hqa_get_fw_info(
 	struct _ATE_CTRL *ATECtrl = &(pAd->ATECtrl);
 	struct _ATE_OPERATION *ATEOp = ATECtrl->ATEOp;
 
-	MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO, "\n");
+	MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("%s\n", __func__));
 
 	if (ATEOp->GetFWInfo)
 		Ret = ATEOp->GetFWInfo(pAd, HqaCmdFrame->Data + 2);
@@ -2528,20 +2491,20 @@ static INT32 HQA_StartContinousTx(
 	/* TODO Get Correct TxfdMode*/
 	UINT32 TxfdMode = 1;
 
-	MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO, "\n");
-	/* TxMode:4 BW:4 PRI_CH:4 RATE:4 WFSel:4 */
+	MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("%s\n", __func__));
+	/* Modulation:4 BW:4 PRI_CH:4 RATE:4 WFSel:4 */
 	memcpy((PUCHAR)&Value, (PUCHAR)&HqaCmdFrame->Data, 4);
 	Value = PKTL_TRAN_TO_HOST(Value);
-	ATECtrl->tx_mode = (UCHAR)Value;
+	ATECtrl->PhyMode = (UCHAR)Value;
 	memcpy((PUCHAR)&Value, (PUCHAR)&HqaCmdFrame->Data + 4, 4);
 	Value = PKTL_TRAN_TO_HOST(Value);
-	ATECtrl->bw = (UCHAR)Value;
+	ATECtrl->BW = (UCHAR)Value;
 	memcpy((PUCHAR)&Value, (PUCHAR)&HqaCmdFrame->Data + 8, 4);
 	Value = PKTL_TRAN_TO_HOST(Value);
-	ATECtrl->ctrl_ch = (UCHAR)Value;
+	ATECtrl->ControlChl = (UCHAR)Value;
 	memcpy((PUCHAR)&Value, (PUCHAR)&HqaCmdFrame->Data + 12, 4);
 	Value = PKTL_TRAN_TO_HOST(Value);
-	ATECtrl->mcs = (UCHAR)Value;
+	ATECtrl->Mcs = (UCHAR)Value;
 	memcpy((PUCHAR)&WFSel, (PUCHAR)&HqaCmdFrame->Data + 16, 4);
 	WFSel = PKTL_TRAN_TO_HOST(WFSel);
 
@@ -2563,13 +2526,11 @@ static INT32 HQA_SetSTBC(
 	INT32 Ret = 0;
 	INT32 Value = 0;
 	struct _ATE_CTRL *ATECtrl = &(pAd->ATECtrl);
-	UCHAR control_band_idx = ATECtrl->control_band_idx;
 
-	MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO, "band_idx:%d\n", control_band_idx);
+	MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("%s\n", __func__));
 	memcpy((UINT8 *)&Value, (UINT8 *)&HqaCmdFrame->Data, 4);
 	Value = PKTL_TRAN_TO_HOST(Value);
-	TESTMODE_SET_PARAM(pAd, control_band_idx, stbc, Value);
-
+	ATECtrl->Stbc = (UINT8)Value;
 	ResponseToQA(HqaCmdFrame, WRQ, 2, Ret);
 	return Ret;
 }
@@ -2583,13 +2544,11 @@ static INT32 HQA_SetShortGI(
 	INT32 Ret = 0;
 	INT32 Value = 0;
 	struct _ATE_CTRL *ATECtrl = &(pAd->ATECtrl);
-	UCHAR control_band_idx = ATECtrl->control_band_idx;
 
-	MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO, "band_idx:%d\n", control_band_idx);
+	MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("%s\n", __func__));
 	memcpy((PUCHAR)&Value, (PUCHAR)&HqaCmdFrame->Data, 4);
 	Value = PKTL_TRAN_TO_HOST(Value);
-	TESTMODE_SET_PARAM(pAd, control_band_idx, sgi, Value);
-
+	ATECtrl->Sgi = (UCHAR)Value;
 	ResponseToQA(HqaCmdFrame, WRQ, 2, Ret);
 	return Ret;
 }
@@ -2605,7 +2564,7 @@ static INT32 HQA_SetDPD(
 	struct _ATE_CTRL *ATECtrl = &(pAd->ATECtrl);
 	struct _ATE_OPERATION *ATEOp = ATECtrl->ATEOp;
 
-	MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO, "\n");
+	MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("%s\n", __func__));
 	/* ON/OFF:4 WF Sel:4 */
 	memcpy((PUCHAR)&Value, (PUCHAR)&HqaCmdFrame->Data, 4);
 	Value = PKTL_TRAN_TO_HOST(Value);
@@ -2623,6 +2582,276 @@ static INT32 HQA_SetDPD(
 }
 
 
+#if defined(MT7615) || defined(MT7622) || defined(P18) || defined(MT7663)
+static VOID HQA_ParseRxRssiCR(PRTMP_ADAPTER pAd, struct _HQA_RX_STAT *HqaRxStat, INT type, UINT32 value, UINT32 Ch_Band)
+{
+	UINT32 IBRssi0 = 0, IBRssi1 = 0, WBRssi0 = 0, WBRssi1 = 0;
+
+	MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_TRACE,
+			 ("%s: Value : %02x\n", __func__, value));
+	if (IS_MT7615(pAd)) {
+		IBRssi0 = (value & 0xFF000000) >> 24;
+		if (IBRssi0 >= 128)
+			IBRssi0 -= 256;
+		WBRssi0 = (value & 0x00FF0000) >> 16;
+		if (WBRssi0 >= 128)
+			WBRssi0 -= 256;
+		IBRssi1 = (value & 0x0000FF00) >> 8;
+		if (IBRssi1 >= 128)
+			IBRssi1 -= 256;
+		WBRssi1 = (value & 0x000000FF);
+		if (WBRssi1 >= 128)
+			WBRssi1 -= 256;
+	} else if (IS_MT7622(pAd)) {
+		IBRssi1 = (value & 0xFF000000) >> 24;
+		if (IBRssi1 >= 128)
+			IBRssi1 -= 256;
+		WBRssi1 = (value & 0x00FF0000) >> 16;
+		if (WBRssi1 >= 128)
+			WBRssi1 -= 256;
+		IBRssi0 = (value & 0x0000FF00) >> 8;
+		if (IBRssi0 >= 128)
+			IBRssi0 -= 256;
+		WBRssi0 = (value & 0x000000FF);
+		if (WBRssi0 >= 128)
+			WBRssi0 -= 256;
+	}
+
+	if (type == HQA_RX_STAT_RSSI) {
+		IBRssi0 = MtATERSSIOffset(pAd, IBRssi0, 0, Ch_Band);
+		IBRssi1 = MtATERSSIOffset(pAd, IBRssi1, 1, Ch_Band);
+		WBRssi0 = MtATERSSIOffset(pAd, WBRssi0, 0, Ch_Band);
+		WBRssi1 = MtATERSSIOffset(pAd, WBRssi1, 1, Ch_Band);
+		HqaRxStat->IB_RSSSI0 = PKTL_TRAN_TO_HOST(IBRssi0);
+		HqaRxStat->WB_RSSSI0 = PKTL_TRAN_TO_HOST(WBRssi0);
+		HqaRxStat->IB_RSSSI1 = PKTL_TRAN_TO_HOST(IBRssi1);
+		HqaRxStat->WB_RSSSI1 = PKTL_TRAN_TO_HOST(WBRssi1);
+		HqaRxStat->Inst_IB_RSSSI[0] = PKTL_TRAN_TO_HOST(IBRssi0);
+		HqaRxStat->Inst_WB_RSSSI[0] = PKTL_TRAN_TO_HOST(WBRssi0);
+		HqaRxStat->Inst_IB_RSSSI[1] = PKTL_TRAN_TO_HOST(IBRssi1);
+		HqaRxStat->Inst_WB_RSSSI[1] = PKTL_TRAN_TO_HOST(WBRssi1);
+	} else {
+		IBRssi0 = MtATERSSIOffset(pAd, IBRssi0, 2, Ch_Band);
+		IBRssi1 = MtATERSSIOffset(pAd, IBRssi1, 3, Ch_Band);
+		WBRssi0 = MtATERSSIOffset(pAd, WBRssi0, 2, Ch_Band);
+		WBRssi1 = MtATERSSIOffset(pAd, WBRssi1, 3, Ch_Band);
+		HqaRxStat->Inst_IB_RSSSI[2] = PKTL_TRAN_TO_HOST(IBRssi0);
+		HqaRxStat->Inst_WB_RSSSI[2] = PKTL_TRAN_TO_HOST(WBRssi0);
+		HqaRxStat->Inst_IB_RSSSI[3] = PKTL_TRAN_TO_HOST(IBRssi1);
+		HqaRxStat->Inst_WB_RSSSI[3] = PKTL_TRAN_TO_HOST(WBRssi1);
+	}
+}
+#else
+static VOID HQA_ParseRxRssiCR(PRTMP_ADAPTER pAd, struct _HQA_RX_STAT *HqaRxStat, INT type, UINT32 value, UINT32 Ch_Band)
+{
+	UINT32 IBRssi0, IBRssi1, WBRssi0, WBRssi1;
+
+	/*[31:24]IBRSSI0 [23:16]WBRSSI0 [15:8]IBRSSI1 [7:0]WBRSSI1*/
+	IBRssi0 = (value & 0xFF000000) >> 24;
+
+	if (IBRssi0 > 128)
+		IBRssi0 -= 256;
+
+	WBRssi0 = (value & 0x00FF0000) >> 16;
+
+	if (WBRssi0 > 128)
+		WBRssi0 -= 256;
+
+	IBRssi1 = (value & 0x0000FF00) >> 8;
+
+	if (IBRssi1 > 128)
+		IBRssi1 -= 256;
+
+	WBRssi1 = (value & 0x000000FF);
+
+	if (WBRssi1 > 128)
+		WBRssi1 -= 256;
+
+	HqaRxStat->IB_RSSSI0 = PKTL_TRAN_TO_HOST(IBRssi0);
+	HqaRxStat->WB_RSSSI0 = PKTL_TRAN_TO_HOST(WBRssi0);
+	HqaRxStat->IB_RSSSI1 = PKTL_TRAN_TO_HOST(IBRssi1);
+	HqaRxStat->WB_RSSSI1 = PKTL_TRAN_TO_HOST(WBRssi1);
+}
+#endif
+
+
+static INT32 HQA_GetRxStatisticsAll(
+	PRTMP_ADAPTER pAd,
+	RTMP_IOCTL_INPUT_STRUCT *WRQ,
+	struct _HQA_CMD_FRAME *HqaCmdFrame)
+{
+	INT32 Ret = 0;
+	UINT32 value = 0;
+	struct _ATE_CTRL *ATECtrl = &(pAd->ATECtrl);
+	struct _HQA_RX_STAT HqaRxStat;
+	UINT32 rx_driver_cnt = 0;
+	INT i = 0;
+	UINT32 Ch_Band_0 = TESTMODE_GET_PARAM(ATECtrl, TESTMODE_BAND0, Ch_Band);
+	UINT32 Ch_Band_1 = TESTMODE_GET_PARAM(ATECtrl, TESTMODE_BAND0, Ch_Band);
+	UCHAR FAGC_Path_0 = TESTMODE_GET_PARAM(ATECtrl, TESTMODE_BAND0, FAGC_Path);
+	UCHAR FAGC_Path_1 = TESTMODE_GET_PARAM(ATECtrl, TESTMODE_BAND0, FAGC_Path);
+
+	if (IS_ATE_DBDC(pAd)) {
+		Ch_Band_1 = TESTMODE_GET_PARAM(ATECtrl, TESTMODE_BAND1, Ch_Band);
+		FAGC_Path_1 = TESTMODE_GET_PARAM(ATECtrl, TESTMODE_BAND1, FAGC_Path);
+	}
+
+	memset(&HqaRxStat, 0, sizeof(struct _HQA_RX_STAT));
+
+	/* MAC COUNT */
+#if defined(MT7615) || defined(MT7637) || defined(MT7622) || defined(P18) || defined(MT7663)
+	value = MtAsicGetRxStat(pAd, HQA_RX_STAT_MACFCSERRCNT);
+	ATECtrl->rx_stat.RxMacFCSErrCount = value;
+	HqaRxStat.mac_rx_fcs_err_cnt = PKTL_TRAN_TO_HOST(ATECtrl->rx_stat.RxMacFCSErrCount);
+#else
+	/* Get latest FCSErr. sync iwpriv & HQA same FCSErr result */
+	NICUpdateRawCounters(pAd);
+	HqaRxStat.mac_rx_fcs_err_cnt = PKTL_TRAN_TO_HOST(ATECtrl->rx_stat.RxMacFCSErrCount);
+#endif
+	value = MtAsicGetRxStat(pAd, HQA_RX_FIFO_FULL_COUNT);
+	HqaRxStat.rx_fifo_full = PKTL_TRAN_TO_HOST(value);
+	value = MtAsicGetRxStat(pAd, HQA_RX_STAT_MAC_MDRDYCNT);
+	ATECtrl->rx_stat.RxMacMdrdyCount = value;
+	HqaRxStat.mac_rx_mdrdy_cnt = PKTL_TRAN_TO_HOST(ATECtrl->rx_stat.RxMacMdrdyCount);
+#if defined(MT7615) || defined(MT7622) || defined(P18) || defined(MT7663)
+	value = MtAsicGetRxStat(pAd, HQA_RX_STAT_MAC_RXLENMISMATCH);
+	HqaRxStat.mac_rx_len_mismatch = PKTL_TRAN_TO_HOST(value);
+
+	if (IS_ATE_DBDC(pAd)) {
+		value = MtAsicGetRxStat(pAd, HQA_RX_FIFO_FULL_COUNT_BAND1);
+		HqaRxStat.rx_fifo_full_band1 = PKTL_TRAN_TO_HOST(value);
+		value = MtAsicGetRxStat(pAd, HQA_RX_STAT_MACFCSERRCNT_BAND1);
+		ATECtrl->rx_stat.RxMacFCSErrCount_band1 = value;
+		value = MtAsicGetRxStat(pAd, HQA_RX_STAT_MAC_MDRDYCNT_BAND1);
+		ATECtrl->rx_stat.RxMacMdrdyCount_band1 = value;
+		value = MtAsicGetRxStat(pAd, HQA_RX_STAT_MAC_RXLENMISMATCH_BAND1);
+		HqaRxStat.mac_rx_len_mismatch_band1 = PKTL_TRAN_TO_HOST(value);
+		HqaRxStat.mac_rx_fcs_err_cnt_band1 = PKTL_TRAN_TO_HOST(ATECtrl->rx_stat.RxMacFCSErrCount_band1);
+		HqaRxStat.mac_rx_mdrdy_cnt_band1 = PKTL_TRAN_TO_HOST(ATECtrl->rx_stat.RxMacMdrdyCount_band1);
+	}
+#endif
+#ifdef MT7622
+	value = MtAsicGetRxStat(pAd, HQA_RX_STAT_MAC_FCS_OK_COUNT);
+	HqaRxStat.mac_rx_fcs_ok_cnt = PKTL_TRAN_TO_HOST(value);
+#endif /* MT7622 */
+
+	/* PHY COUNT */
+	value = MtAsicGetRxStat(pAd, HQA_RX_STAT_PHY_FCSERRCNT);
+	HqaRxStat.phy_rx_fcs_err_cnt_ofdm = PKTL_TRAN_TO_HOST(value >> 16);
+	HqaRxStat.phy_rx_fcs_err_cnt_cck = PKTL_TRAN_TO_HOST(value & 0xFFFF);
+	value = MtAsicGetRxStat(pAd, HQA_RX_STAT_PD);
+	HqaRxStat.phy_rx_pd_ofdm = PKTL_TRAN_TO_HOST(value >> 16);
+	HqaRxStat.phy_rx_pd_cck = PKTL_TRAN_TO_HOST(value & 0xFFFF);
+	value = MtAsicGetRxStat(pAd, HQA_RX_STAT_CCK_SIG_SFD);
+	HqaRxStat.phy_rx_sig_err_cck = PKTL_TRAN_TO_HOST(value >> 16);
+	HqaRxStat.phy_rx_sfd_err_cck = PKTL_TRAN_TO_HOST(value & 0xFFFF);
+	value = MtAsicGetRxStat(pAd, HQA_RX_STAT_OFDM_SIG_TAG);
+	HqaRxStat.phy_rx_sig_err_ofdm = PKTL_TRAN_TO_HOST(value >> 16);
+	HqaRxStat.phy_rx_tag_err_ofdm = PKTL_TRAN_TO_HOST(value & 0xFFFF);
+	value = MtAsicGetRxStat(pAd, HQA_RX_STAT_RSSI);
+	HQA_ParseRxRssiCR(pAd, &HqaRxStat, HQA_RX_STAT_RSSI, value, Ch_Band_0);
+#if defined(MT7615) || defined(MT7622) || defined(P18) || defined(MT7663)
+	value = MtAsicGetRxStat(pAd, HQA_RX_STAT_RSSI_RX23);
+	HQA_ParseRxRssiCR(pAd, &HqaRxStat, HQA_RX_STAT_RSSI_RX23, value, Ch_Band_1);
+	value = MtAsicGetRxStat(pAd, HQA_RX_STAT_ACI_HITL);
+	HqaRxStat.ACIHitLow = PKTL_TRAN_TO_HOST((value >> 18) & 0x1);
+	value = MtAsicGetRxStat(pAd, HQA_RX_STAT_ACI_HITH);
+	HqaRxStat.ACIHitHigh = PKTL_TRAN_TO_HOST((value >> 18) & 0x1);
+#endif
+	value = MtAsicGetRxStat(pAd, HQA_RX_STAT_PHY_MDRDYCNT);
+	HqaRxStat.phy_rx_mdrdy_cnt_ofdm = PKTL_TRAN_TO_HOST(value >> 16);
+	if (IS_MT7615(pAd))
+		HqaRxStat.phy_rx_mdrdy_cnt_cck = PKTL_TRAN_TO_HOST(value & 0xFFFF);
+	else if (IS_MT7622(pAd)) {
+		/* HW issue and SW workaround */
+		HqaRxStat.phy_rx_mdrdy_cnt_cck = PKTL_TRAN_TO_HOST((value & 0xFFFF)/2);
+	}
+	value = MtAsicGetRxStat(pAd, HQA_RX_STAT_PHY_MDRDYCNT_BAND1);
+	HqaRxStat.phy_rx_mdrdy_cnt_ofdm_band1 = PKTL_TRAN_TO_HOST(value >> 16);
+	HqaRxStat.phy_rx_mdrdy_cnt_cck_band1 = PKTL_TRAN_TO_HOST(value & 0xFFFF);
+	value = MtAsicGetRxStat(pAd, HQA_RX_STAT_PD_BAND1);
+	HqaRxStat.phy_rx_pd_ofdm_band1 = PKTL_TRAN_TO_HOST(value >> 16);
+	HqaRxStat.phy_rx_pd_cck_band1 = PKTL_TRAN_TO_HOST(value & 0xFFFF);
+	value = MtAsicGetRxStat(pAd, HQA_RX_STAT_CCK_SIG_SFD_BAND1);
+	HqaRxStat.phy_rx_sig_err_cck_band1 = PKTL_TRAN_TO_HOST(value >> 16);
+	HqaRxStat.phy_rx_sfd_err_cck_band1 = PKTL_TRAN_TO_HOST(value & 0xFFFF);
+	value = MtAsicGetRxStat(pAd, HQA_RX_STAT_OFDM_SIG_TAG_BAND1);
+	HqaRxStat.phy_rx_sig_err_ofdm_band1 = PKTL_TRAN_TO_HOST(value >> 16);
+	HqaRxStat.phy_rx_tag_err_ofdm_band1 = PKTL_TRAN_TO_HOST(value & 0xFFFF);
+
+	/* DRIVER COUNT */
+	rx_driver_cnt = ATECtrl->rx_stat.RxTotalCnt[0];
+	HqaRxStat.DriverRxCount = PKTL_TRAN_TO_HOST(rx_driver_cnt);
+#ifdef MT7615
+#ifdef CFG_SUPPORT_MU_MIMO
+	HqaRxStat.MuPktCount = PKTL_TRAN_TO_HOST(ATECtrl->rx_stat.RxMacMuPktCount);
+#endif
+#endif
+#ifdef MT7615
+	rx_driver_cnt = 0;
+
+	if (IS_ATE_DBDC(pAd))
+		rx_driver_cnt = ATECtrl->rx_stat.RxTotalCnt[1];
+
+	HqaRxStat.DriverRxCount1 = PKTL_TRAN_TO_HOST(rx_driver_cnt);
+#endif
+
+	/* RXV COUNT */
+	for (i = 0; i < 4; i++) {
+		if (i < 2)
+			ATECtrl->rx_stat.FAGC_RSSI_IB[i] = MtATERSSIOffset(pAd, ATECtrl->rx_stat.FAGC_RSSI_IB[i], FAGC_Path_0, Ch_Band_0);
+		else
+			ATECtrl->rx_stat.FAGC_RSSI_IB[i] = MtATERSSIOffset(pAd, ATECtrl->rx_stat.FAGC_RSSI_IB[i], FAGC_Path_1, Ch_Band_1);
+
+		HqaRxStat.FAGC_IB_RSSSI[i] = PKTL_TRAN_TO_HOST(ATECtrl->rx_stat.FAGC_RSSI_IB[i]);
+	}
+
+	for (i = 0; i < 4; i++) {
+		if (i < 2)
+			ATECtrl->rx_stat.FAGC_RSSI_WB[i] = MtATERSSIOffset(pAd, ATECtrl->rx_stat.FAGC_RSSI_WB[i], FAGC_Path_0, Ch_Band_0);
+		else
+			ATECtrl->rx_stat.FAGC_RSSI_WB[i] = MtATERSSIOffset(pAd, ATECtrl->rx_stat.FAGC_RSSI_WB[i], FAGC_Path_1, Ch_Band_1);
+
+		HqaRxStat.FAGC_WB_RSSSI[i] = PKTL_TRAN_TO_HOST(ATECtrl->rx_stat.FAGC_RSSI_WB[i]);
+	}
+
+	HqaRxStat.RCPI0 = PKTL_TRAN_TO_HOST(ATECtrl->rx_stat.RCPI[0]);
+	HqaRxStat.RCPI1 = PKTL_TRAN_TO_HOST(ATECtrl->rx_stat.RCPI[1]);
+	HqaRxStat.FreqOffsetFromRX = PKTL_TRAN_TO_HOST(ATECtrl->rx_stat.FreqOffsetFromRx);
+	HqaRxStat.RSSI0 = PKTL_TRAN_TO_HOST(ATECtrl->rx_stat.RSSI[0]);
+	HqaRxStat.RSSI1 = PKTL_TRAN_TO_HOST(ATECtrl->rx_stat.RSSI[1]);
+#if defined(MT7615) || defined(MT7622)
+	HqaRxStat.RCPI2 = PKTL_TRAN_TO_HOST(ATECtrl->rx_stat.RCPI[2]);
+	HqaRxStat.RCPI3 = PKTL_TRAN_TO_HOST(ATECtrl->rx_stat.RCPI[3]);
+	HqaRxStat.RSSI2 = PKTL_TRAN_TO_HOST(ATECtrl->rx_stat.RSSI[2]);
+	HqaRxStat.RSSI3 = PKTL_TRAN_TO_HOST(ATECtrl->rx_stat.RSSI[3]);
+	HqaRxStat.SNR0 = PKTL_TRAN_TO_HOST(ATECtrl->rx_stat.SNR[0]);
+	HqaRxStat.SIG_MCS = PKTL_TRAN_TO_HOST(ATECtrl->rx_stat.SIG_MCS);
+	HqaRxStat.SINR = PKTL_TRAN_TO_HOST(ATECtrl->rx_stat.SINR);
+	HqaRxStat.RXVRSSI = PKTL_TRAN_TO_HOST(ATECtrl->rx_stat.RXVRSSI);
+#endif /* defined(MT7615) || defined(MT7622) */
+	{
+		for (i = 0; i < 4; i++)
+			MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO,
+				("Report[0]: RCPI[%d]:%x\n",
+				i, ATECtrl->rx_stat.RCPI[i]));
+
+		for (i = 0; i < 4; i++)
+			MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO,
+				("Report[1]: FAGC_RSSI_IB[%d]:%x\n",
+				i, ATECtrl->rx_stat.FAGC_RSSI_IB[i]));
+
+		for (i = 0; i < 4; i++)
+			MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO,
+				("Report[2]: FAGC_RSSI_WB[%d]:%x\n",
+				i, ATECtrl->rx_stat.FAGC_RSSI_WB[i]));
+	}
+	memcpy(HqaCmdFrame->Data + 2, &(HqaRxStat), sizeof(struct _HQA_RX_STAT));
+	ResponseToQA(HqaCmdFrame, WRQ, (2 + sizeof(struct _HQA_RX_STAT)), Ret);
+	return Ret;
+}
+
+
 static INT32 HQA_StartContiTxTone(
 	PRTMP_ADAPTER pAd,
 	RTMP_IOCTL_INPUT_STRUCT *WRQ,
@@ -2633,7 +2862,7 @@ static INT32 HQA_StartContiTxTone(
 	struct _ATE_CTRL *ATECtrl = &(pAd->ATECtrl);
 	struct _ATE_OPERATION *ATEOp = ATECtrl->ATEOp;
 
-	MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO, "\n");
+	MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("%s\n", __func__));
 	memcpy((PUCHAR)&Value, (PUCHAR)&HqaCmdFrame->Data, 4);
 	Value = PKTL_TRAN_TO_HOST(Value);
 
@@ -2656,7 +2885,7 @@ static INT32 HQA_StopContiTxTone(
 	struct _ATE_CTRL *ATECtrl = &(pAd->ATECtrl);
 	struct _ATE_OPERATION *ATEOp = ATECtrl->ATEOp;
 
-	MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO, "\n");
+	MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("%s\n", __func__));
 
 	/* MtAsicSetTxToneTest(pAd, 0, 0); */
 	if (ATEOp->StopTxTone)
@@ -2680,33 +2909,33 @@ static INT32 HQA_CalibrationTestMode(
 	UINT8  Mode = 0;
 	INT32 ICaplen = 0;
 
-	MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO, "\n");
+	MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("%s\n", __func__));
 	NdisMoveMemory((PUCHAR)&Value, (PUCHAR)&HqaCmdFrame->Data, 4);
 	Value = PKTL_TRAN_TO_HOST(Value);
 	NdisMoveMemory((PUCHAR)&ICaplen, (PUCHAR)&HqaCmdFrame->Data + 4, 4);
 	ICaplen = PKTL_TRAN_TO_HOST(ICaplen);
-	MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO,
-			 "mode = %X ICapLen= %X\n", Value, ICaplen);
+	MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_TRACE,
+			 ("%s: mode = %X ICapLen= %X\n", __func__, Value, ICaplen));
 
 	if (Value == 0) {
-		if (ATECtrl->op_mode & ATE_FFT)
-			ATECtrl->op_mode &= ~ATE_FFT;
+		if (ATECtrl->Mode & ATE_FFT)
+			ATECtrl->Mode &= ~ATE_FFT;
 
-		ATECtrl->op_mode &= ~fATE_IN_RFTEST;
+		ATECtrl->Mode &= ~fATE_IN_RFTEST;
 		Mode = OPERATION_NORMAL_MODE;
 	} else if (Value == 1) {
-		ATECtrl->op_mode |= fATE_IN_RFTEST;
+		ATECtrl->Mode |= fATE_IN_RFTEST;
 		Mode = OPERATION_RFTEST_MODE;
 	} else if (Value == 2) {
-		ATECtrl->op_mode |= fATE_IN_RFTEST;
+		ATECtrl->Mode |= fATE_IN_RFTEST;
 		Mode = OPERATION_ICAP_MODE;
 	} else if (Value == 3) {
-		ATECtrl->op_mode |= fATE_IN_RFTEST;
-		ATECtrl->op_mode |= fATE_IN_ICAPOVERLAP;
+		ATECtrl->Mode |= fATE_IN_RFTEST;
+		ATECtrl->Mode |= fATE_IN_ICAPOVERLAP;
 		Mode = OPERATION_ICAP_OVERLAP;
 	} else
-		MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_WARN,
-				 "Mode = %d error!!!\n", Value);
+		MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_WARN,
+				 ("%s: Mode = %d error!!!\n", __func__, Value));
 
 	MtCmdRfTestSwitchMode(pAd, Mode, ICaplen, RF_TEST_DEFAULT_RESP_LEN);
 #if !defined(COMPOS_TESTMODE_WIN)
@@ -2745,8 +2974,9 @@ static INT32 HQA_DoCalibrationTestItem(
 	WriteFile("[RECAL DUMP START]\r\n", strlen("[RECAL DUMP START]\r\n"), pAd->hReCalibrationFile);
 #endif
 	MtCmdDoCalibration(pAd, RE_CALIBRATION, item, band_idx);
-	MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO,
-			 "item:%x, band_idx:%x\n", item, band_idx);
+	MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_TRACE,
+			 ("%s, item:%x, band_idx:%x\n"
+			  , __func__, item, band_idx));
 #if defined(COMPOS_TESTMODE_WIN)
 	os_msec_delay(1000);
 	WriteFile("[RECAL DUMP END]\r\n", strlen("[RECAL DUMP END]\r\n"), pAd->hReCalibrationFile);
@@ -2767,7 +2997,7 @@ static INT32 HQA_eFusePhysicalWrite(
 {
 	INT32 Ret = 0;
 
-	MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO, "\n");
+	MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("%s\n", __func__));
 	/* ToDo */
 	ResponseToQA(HqaCmdFrame, WRQ, 2, Ret);
 	return Ret;
@@ -2781,7 +3011,7 @@ static INT32 HQA_eFusePhysicalRead(
 {
 	INT32 Ret = 0;
 
-	MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO, "\n");
+	MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("%s\n", __func__));
 	/* ToDo */
 	ResponseToQA(HqaCmdFrame, WRQ, 2, Ret);
 	return Ret;
@@ -2795,7 +3025,7 @@ static INT32 HQA_eFuseLogicalRead(
 {
 	INT32 Ret = 0;
 
-	MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO, "\n");
+	MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("%s\n", __func__));
 	/* ToDo */
 	ResponseToQA(HqaCmdFrame, WRQ, 2, Ret);
 	return Ret;
@@ -2809,7 +3039,7 @@ static INT32 HQA_eFuseLogicalWrite(
 {
 	INT32 Ret = 0;
 
-	MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO, "\n");
+	MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("%s\n", __func__));
 	/* ToDo */
 	ResponseToQA(HqaCmdFrame, WRQ, 2, Ret);
 	return Ret;
@@ -2822,20 +3052,17 @@ static INT32 HQA_TMRSetting(
 	struct _HQA_CMD_FRAME *HqaCmdFrame)
 {
 	INT32 Ret = 0;
-	INT snprintf_ret;
 #if !defined(COMPOS_TESTMODE_WIN)
 	UCHAR *data = HqaCmdFrame->Data;
-	UINT32 value = 0, version = 0, throughold = 0, iter = 0;
+	UINT32 value = 0, version = 0;
 	CHAR TMR_Value[8];
 	CHAR TMR_HW_Version[8];
 
 	EthGetParamAndShiftBuff(TRUE, sizeof(value), &data, (UCHAR *)&value);
 	EthGetParamAndShiftBuff(TRUE, sizeof(version), &data, (UCHAR *)&version);
-	EthGetParamAndShiftBuff(TRUE, sizeof(throughold), &data, (UCHAR *)&throughold);
-	EthGetParamAndShiftBuff(TRUE, sizeof(iter), &data, (UCHAR *)&iter);
-	MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO,
-			 "TMR setting: %u, TMR version: %u TMR throughold: %d TMR iter:%d\n",
-			  value, version, throughold, iter);
+	MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_OFF,
+			 ("%s: TMR setting: %u, TMR version: %u\n",
+			  __func__, value, version));
 
 	if (version == TMR_HW_VER_100)
 		version = TMR_VER_1_0;
@@ -2844,26 +3071,13 @@ static INT32 HQA_TMRSetting(
 	else if (version == TMR_HW_VER_200)
 		version = TMR_VER_2_0;
 	else {
-		MTWF_DBG(pAd, DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-				 "Wrong version %d!!\n", version);
+		MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
+				 ("%s: Wrong version %d!!\n", __func__, version));
 		return FALSE;
 	}
 
-	snprintf_ret = snprintf(TMR_Value, sizeof(TMR_Value), "%d", value);
-	if (os_snprintf_error(sizeof(TMR_Value), snprintf_ret)) {
-		MTWF_DBG(pAd, DBG_CAT_CFG, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-			"TMR_Value snprintf error!\n");
-		return FALSE;
-	}
-
-	snprintf_ret = snprintf(TMR_HW_Version, sizeof(TMR_HW_Version), "%d", version);
-	if (os_snprintf_error(sizeof(TMR_HW_Version), snprintf_ret)) {
-		MTWF_DBG(pAd, DBG_CAT_CFG, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-			"TMR_HW_Version snprintf error!\n");
-		return FALSE;
-	}
-
-	TmrUpdateParameter(pAd, throughold, iter);
+	sprintf(TMR_Value, "%d", value);
+	sprintf(TMR_HW_Version, "%d", version);
 	setTmrVerProc(pAd, TMR_HW_Version);
 	setTmrEnableProc(pAd, TMR_Value);
 #endif
@@ -2881,7 +3095,7 @@ static INT32 HQA_GetRxSNR(
 	INT32 Value = 0;
 	struct _ATE_CTRL *ATECtrl = &(pAd->ATECtrl);
 
-	MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO, "\n");
+	MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("%s\n", __func__));
 	Value = PKTL_TRAN_TO_HOST(ATECtrl->rx_stat.SNR[0]);
 	memcpy(HqaCmdFrame->Data + 2, &Value, 4);
 	Value = PKTL_TRAN_TO_HOST(ATECtrl->rx_stat.SNR[1]);
@@ -2899,15 +3113,17 @@ static INT32 HQA_WriteBufferDone(
 	UINT32 Value = 0;
 	INT32 Ret = 0;
 
-	MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO, "\n");
+	MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("%s\n", __func__));
 	memcpy((PUCHAR)&Value, (PUCHAR)&HqaCmdFrame->Data, 4);
 	Value = PKTL_TRAN_TO_HOST(Value);
 #if !defined(COMPOS_TESTMODE_WIN) /* 1Todo	Set_EepromBufferWriteBack_Proc */
 
 	switch (Value) {
 	case E2P_EFUSE_MODE:
+#ifdef RF_LOCKDOWN
 		/* update status of Effuse write back */
 		pAd->fgQAEffuseWriteBack = TRUE;
+#endif /* RF_LOCKDOWN */
 		Set_EepromBufferWriteBack_Proc(pAd, "1");
 		break;
 
@@ -2924,13 +3140,15 @@ static INT32 HQA_WriteBufferDone(
 		break;
 
 	default:
-		MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO,
-				 "Unknow write back mode(%d)\n", Value);
+		MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_TRACE,
+				 ("%s: Unknow write back mode(%d)\n", __func__, Value));
 	}
 
 #endif
+#ifdef RF_LOCKDOWN
 	/* update status of Effuse write back */
 	pAd->fgQAEffuseWriteBack = FALSE;
+#endif /* RF_LOCKDOWN */
 	ResponseToQA(HqaCmdFrame, WRQ, 2, Ret);
 	return Ret;
 }
@@ -2948,7 +3166,7 @@ static INT32 HQA_FFT(
 
 	NdisMoveMemory((PUCHAR)&Value, (PUCHAR)&HqaCmdFrame->Data, 4);
 	Value = PKTL_TRAN_TO_HOST(Value);
-	MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO, "%d\n", Value);
+	MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("%s: %d\n", __func__, Value));
 	Ret = ATEOp->SetFFTMode(pAd, Value);
 	return Ret;
 }
@@ -2966,8 +3184,8 @@ static INT32 HQA_SetTxTonePower(PRTMP_ADAPTER pAd, RTMP_IOCTL_INPUT_STRUCT *WRQ,
 	pwr1 = PKTL_TRAN_TO_HOST(Value);
 	memcpy((PUCHAR)&Value, (PUCHAR)&HqaCmdFrame->Data + 4, 4);
 	pwr2 = PKTL_TRAN_TO_HOST(Value);
-	MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO,
-			 "pwr1:%d, pwr2:%d\n", pwr1, pwr2);
+	MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_TRACE,
+			 ("%s: pwr1:%d, pwr2:%d\n", __func__, pwr1, pwr2));
 
 	if (ATEOp->SetTxTonePower)
 		ATEOp->SetTxTonePower(pAd, pwr1, pwr2);
@@ -2992,8 +3210,8 @@ static INT32 HQA_SetAIFS(PRTMP_ADAPTER pAd, RTMP_IOCTL_INPUT_STRUCT *WRQ, struct
 	SlotTime = PKTL_TRAN_TO_HOST(Value);
 	memcpy((PUCHAR)&Value, (PUCHAR)&HqaCmdFrame->Data + 4, 4);
 	SifsTime = PKTL_TRAN_TO_HOST(Value);
-	MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO,
-			 "SlotTime:%d, SifsTime:%d\n", SlotTime, SifsTime);
+	MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_TRACE,
+			 ("%s: SlotTime:%d, SifsTime:%d\n", __func__, SlotTime, SifsTime));
 
 	if (ATEOp->SetSlotTime)
 		ATEOp->SetSlotTime(pAd, SlotTime, SifsTime);
@@ -3016,11 +3234,10 @@ static INT32 HQA_MPSSetSeqData(PRTMP_ADAPTER pAd, RTMP_IOCTL_INPUT_STRUCT *WRQ, 
 	UINT32 *mps_setting = NULL;
 	UINT32 band_idx = 0;
 	UINT32 offset = 0;
-	struct _HQA_MPS_CB *mps_cb = NULL;
 
 	len = PKTS_TRAN_TO_HOST(HqaCmdFrame->Length) / sizeof(UINT32) - 1;
-	MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO,
-			 "len:%u\n", len);
+	MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_TRACE,
+			 ("%s: len:%u\n", __func__, len));
 
 	if ((len > 512) || (len == 0))
 		goto MPS_SEQ_DATA_RET;
@@ -3048,13 +3265,9 @@ static INT32 HQA_MPSSetSeqData(PRTMP_ADAPTER pAd, RTMP_IOCTL_INPUT_STRUCT *WRQ, 
 	ATEOp->MPSSetParm(pAd, MPS_SEQDATA, len, mps_setting);
 	os_free_mem(mps_setting);
 MPS_SEQ_DATA_RET:
-	if (band_idx < DBDC_BAND_NUM) {
-		mps_cb = (struct _HQA_MPS_CB *)TESTMODE_GET_PADDR(pAd, band_idx, mps_cb);
-		MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO,
-				 "len:%u, MPS_CNT:%u\n", len, mps_cb->mps_cnt);
-		ResponseToQA(HqaCmdFrame, WRQ, 2, Ret);
-	} else
-		Ret = TM_STATUS_NOTSUPPORT;
+	MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_TRACE,
+			 ("%s: len:%u, MPS_CNT:%u\n", __func__, len, ATECtrl->mps_cb.mps_cnt));
+	ResponseToQA(HqaCmdFrame, WRQ, 2, Ret);
 	return Ret;
 }
 
@@ -3070,11 +3283,10 @@ static INT32 HQA_MPSSetPayloadLength(PRTMP_ADAPTER pAd, RTMP_IOCTL_INPUT_STRUCT 
 	UINT32 *mps_setting = NULL;
 	UINT32 band_idx = 0;
 	UINT32 offset = 0;
-	struct _HQA_MPS_CB *mps_cb = NULL;
 
 	len = PKTS_TRAN_TO_HOST(HqaCmdFrame->Length) / 4 - 1;
-	MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO,
-			 "len:%u\n", len);
+	MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_TRACE,
+			 ("%s: len:%u\n", __func__, len));
 
 	if ((len > 1024) || (len == 0))
 		goto MPS_PKT_LEN_RET;
@@ -3102,16 +3314,10 @@ static INT32 HQA_MPSSetPayloadLength(PRTMP_ADAPTER pAd, RTMP_IOCTL_INPUT_STRUCT 
 	ATEOp->MPSSetParm(pAd, MPS_PAYLOAD_LEN, len, mps_setting);
 	os_free_mem(mps_setting);
 MPS_PKT_LEN_RET:
-	if (band_idx < DBDC_BAND_NUM) {
-		mps_cb = (struct _HQA_MPS_CB *)TESTMODE_GET_PADDR(pAd, band_idx, mps_cb);
-		MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO,
-				 "len:%u, MPS_CNT:%u\n", len, mps_cb->mps_cnt);
-		ResponseToQA(HqaCmdFrame, WRQ, 2, Ret);
-		return Ret;
-	} else {
-		Ret = TM_STATUS_NOTSUPPORT;
-		return Ret;
-	}
+	MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_TRACE,
+			 ("%s: len:%u, MPS_CNT:%u\n", __func__, len, ATECtrl->mps_cb.mps_cnt));
+	ResponseToQA(HqaCmdFrame, WRQ, 2, Ret);
+	return Ret;
 }
 
 
@@ -3126,11 +3332,10 @@ static INT32 HQA_MPSSetPacketCount(PRTMP_ADAPTER pAd, RTMP_IOCTL_INPUT_STRUCT *W
 	UINT32 *mps_setting = NULL;
 	UINT32 band_idx = 0;
 	UINT32 offset = 0;
-	struct _HQA_MPS_CB *mps_cb = NULL;
 
 	len = PKTS_TRAN_TO_HOST(HqaCmdFrame->Length) / 4 - 1;
-	MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO,
-			 "len:%u\n", len);
+	MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_TRACE,
+			 ("%s: len:%u\n", __func__, len));
 
 	if ((len > 1024) || (len == 0))
 		goto MPS_PKT_CNT_RET;
@@ -3158,16 +3363,10 @@ static INT32 HQA_MPSSetPacketCount(PRTMP_ADAPTER pAd, RTMP_IOCTL_INPUT_STRUCT *W
 	ATEOp->MPSSetParm(pAd, MPS_TX_COUNT, len, mps_setting);
 	os_free_mem(mps_setting);
 MPS_PKT_CNT_RET:
-	if (band_idx < DBDC_BAND_NUM) {
-		mps_cb = (struct _HQA_MPS_CB *)TESTMODE_GET_PADDR(pAd, band_idx, mps_cb);
-		MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO,
-				 "len:%u, MPS_CNT:%u\n", len, mps_cb->mps_cnt);
-		ResponseToQA(HqaCmdFrame, WRQ, 2, Ret);
-		return Ret;
-	} else {
-		Ret = TM_STATUS_NOTSUPPORT;
-		return Ret;
-	}
+	MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_TRACE,
+			 ("%s: len:%u, MPS_CNT:%u\n", __func__, len, ATECtrl->mps_cb.mps_cnt));
+	ResponseToQA(HqaCmdFrame, WRQ, 2, Ret);
+	return Ret;
 }
 
 static INT32 HQA_MPSSetPowerGain(PRTMP_ADAPTER pAd, RTMP_IOCTL_INPUT_STRUCT *WRQ, struct _HQA_CMD_FRAME *HqaCmdFrame)
@@ -3181,11 +3380,10 @@ static INT32 HQA_MPSSetPowerGain(PRTMP_ADAPTER pAd, RTMP_IOCTL_INPUT_STRUCT *WRQ
 	UINT32 *mps_setting = NULL;
 	UINT32 band_idx = 0;
 	UINT32 offset = 0;
-	struct _HQA_MPS_CB *mps_cb = NULL;
 
 	len = PKTS_TRAN_TO_NET(HqaCmdFrame->Length) / 4 - 1;
-	MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO,
-			 "len:%u\n", len);
+	MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_TRACE,
+			 ("%s: len:%u\n", __func__, len));
 
 	if ((len > 1024) || (len == 0))
 		goto MPS_SET_PWR_RET;
@@ -3213,16 +3411,10 @@ static INT32 HQA_MPSSetPowerGain(PRTMP_ADAPTER pAd, RTMP_IOCTL_INPUT_STRUCT *WRQ
 	ATEOp->MPSSetParm(pAd, MPS_PWR_GAIN, len, mps_setting);
 	os_free_mem(mps_setting);
 MPS_SET_PWR_RET:
-	if (band_idx < DBDC_BAND_NUM) {
-		mps_cb = (struct _HQA_MPS_CB *)TESTMODE_GET_PADDR(pAd, band_idx, mps_cb);
-		MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO,
-				 "len:%u, MPS_CNT:%u\n", len, mps_cb->mps_cnt);
-		ResponseToQA(HqaCmdFrame, WRQ, 2, Ret);
-		return Ret;
-	} else {
-		Ret = TM_STATUS_NOTSUPPORT;
-		return Ret;
-	}
+	MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_TRACE,
+			 ("%s: len:%u, MPS_CNT:%u\n", __func__, len, ATECtrl->mps_cb.mps_cnt));
+	ResponseToQA(HqaCmdFrame, WRQ, 2, Ret);
+	return Ret;
 }
 
 
@@ -3238,7 +3430,7 @@ static INT32 HQA_MPSStart(PRTMP_ADAPTER pAd, RTMP_IOCTL_INPUT_STRUCT *WRQ, struc
 
 	ATECtrl->control_band_idx = (UCHAR)band_idx;
 
-	MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO, "\n");
+	MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("%s\n", __func__));
 	Ret = ATEOp->MPSTxStart(pAd);
 
 	if (WRQ)
@@ -3254,7 +3446,7 @@ static INT32 HQA_MPSStop(PRTMP_ADAPTER pAd, RTMP_IOCTL_INPUT_STRUCT *WRQ, struct
 	struct _ATE_OPERATION *ATEOp = ATECtrl->ATEOp;
 	UINT32 band_idx = 0;
 
-	MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO, "\n");
+	MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("%s\n", __func__));
 	NdisMoveMemory((PUCHAR)&band_idx, (PUCHAR)&HqaCmdFrame->Data, 4);
 	band_idx = PKTL_TRAN_TO_HOST(band_idx);
 
@@ -3279,11 +3471,10 @@ static INT32 HQA_MPSSetNss(PRTMP_ADAPTER pAd, RTMP_IOCTL_INPUT_STRUCT *WRQ, stru
 	UINT32 *mps_setting = NULL;
 	UINT32 band_idx = 0;
 	UINT32 offset = 0;
-	struct _HQA_MPS_CB *mps_cb = NULL;
 
 	len = PKTS_TRAN_TO_HOST(HqaCmdFrame->Length) / sizeof(UINT32) - 1;
-	MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO,
-			 "len:%u\n", len);
+	MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_TRACE,
+			 ("%s: len:%u\n", __func__, len));
 
 	if ((len > 512) || (len == 0))
 		goto out;
@@ -3311,16 +3502,10 @@ static INT32 HQA_MPSSetNss(PRTMP_ADAPTER pAd, RTMP_IOCTL_INPUT_STRUCT *WRQ, stru
 	ATEOp->MPSSetParm(pAd, MPS_NSS, len, mps_setting);
 	os_free_mem(mps_setting);
 out:
-	if (band_idx < DBDC_BAND_NUM) {
-		mps_cb = (struct _HQA_MPS_CB *)TESTMODE_GET_PADDR(pAd, band_idx, mps_cb);
-		MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO,
-				 "len:%u, MPS_CNT:%u\n", len, mps_cb->mps_cnt);
-		ResponseToQA(HqaCmdFrame, WRQ, 2, Ret);
-		return Ret;
-	} else {
-		Ret = TM_STATUS_NOTSUPPORT;
-		return Ret;
-	}
+	MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_TRACE,
+			 ("%s: len:%u, MPS_CNT:%u\n", __func__, len, ATECtrl->mps_cb.mps_cnt));
+	ResponseToQA(HqaCmdFrame, WRQ, 2, Ret);
+	return Ret;
 }
 
 
@@ -3336,11 +3521,10 @@ static INT32 HQA_MPSSetPerpacketBW(PRTMP_ADAPTER pAd, RTMP_IOCTL_INPUT_STRUCT *W
 	UINT32 band_idx = 0;
 	UINT32 per_pkt_bw = 0;
 	UINT32 offset = 0;
-	struct _HQA_MPS_CB *mps_cb = NULL;
 
 	len = PKTS_TRAN_TO_HOST(HqaCmdFrame->Length) / sizeof(UINT32) - 1;
-	MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO,
-			 "len:%u\n", len);
+	MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_TRACE,
+			 ("%s: len:%u\n", __func__, len));
 
 	if ((len > 512) || (len == 0))
 		goto out;
@@ -3401,16 +3585,10 @@ static INT32 HQA_MPSSetPerpacketBW(PRTMP_ADAPTER pAd, RTMP_IOCTL_INPUT_STRUCT *W
 	ATEOp->MPSSetParm(pAd, MPS_PKT_BW, len, mps_setting);
 	os_free_mem(mps_setting);
 out:
-	if (band_idx < DBDC_BAND_NUM) {
-		mps_cb = (struct _HQA_MPS_CB *)TESTMODE_GET_PADDR(pAd, band_idx, mps_cb);
-		MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO,
-				 "len:%u, MPS_CNT:%u\n", len, mps_cb->mps_cnt);
-		ResponseToQA(HqaCmdFrame, WRQ, 2, Ret);
-		return Ret;
-	} else {
-		Ret = TM_STATUS_NOTSUPPORT;
-		return Ret;
-	}
+	MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_TRACE,
+			 ("%s: len:%u, MPS_CNT:%u\n", __func__, len, ATECtrl->mps_cb.mps_cnt));
+	ResponseToQA(HqaCmdFrame, WRQ, 2, Ret);
+	return Ret;
 }
 
 
@@ -3420,8 +3598,8 @@ static INT32 HQA_CheckEfuseModeType(PRTMP_ADAPTER pAd, RTMP_IOCTL_INPUT_STRUCT *
 	INT32 Ret = 0;
 
 #if !defined(COMPOS_TESTMODE_WIN)
-	MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO,
-			 "%x\n", pAd->E2pCtrl.e2pCurMode);
+	MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_TRACE,
+			 ("%s: %x\n", __func__, pAd->E2pCtrl.e2pCurMode));
 	val = PKTL_TRAN_TO_NET(pAd->E2pCtrl.e2pCurMode);	/* Fix me::pAd unify */
 #endif
 	NdisMoveMemory(HqaCmdFrame->Data + 2, &(val), sizeof(val));
@@ -3436,8 +3614,8 @@ static INT32 HQA_CheckEfuseNativeModeType(PRTMP_ADAPTER pAd, RTMP_IOCTL_INPUT_ST
 	INT32 Ret = 0;
 
 #if !defined(COMPOS_TESTMODE_WIN)
-	MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO,
-			 "%x\n", pAd->E2pAccessMode);
+	MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_TRACE,
+			 ("%s: %x\n", __func__, pAd->E2pAccessMode));
 	val = PKTL_TRAN_TO_NET(pAd->E2pAccessMode);	/* Fix me::pAd unify */
 #endif
 	NdisMoveMemory(HqaCmdFrame->Data + 2, &(val), sizeof(val));
@@ -3472,8 +3650,9 @@ static INT32 HQA_SetBandMode(PRTMP_ADAPTER pAd, RTMP_IOCTL_INPUT_STRUCT *WRQ, st
 	}
 
 #endif
-	MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO,
-			 "band_mode:%x, band_type:%x\n", band_mode, band_type);
+	MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_OFF,
+			 ("%s: band_mode:%x, band_type:%x\n",
+			  __func__, band_mode, band_type));
 	ResponseToQA(HqaCmdFrame, WRQ, 2, Ret);
 	return Ret;
 }
@@ -3496,15 +3675,9 @@ static INT32 HQA_GetBandMode(PRTMP_ADAPTER pAd, RTMP_IOCTL_INPUT_STRUCT *WRQ, st
 	    2: 5G
 	    3. 2.4G+5G
 	*/
-#ifdef DBDC_MODE
 	if (is_dbdc) {
-		if (IS_MT7626(pAd))
-			band_mode = (band_idx == TESTMODE_BAND0) ? 1 : 2;
-		else
-			band_mode = (band_idx == TESTMODE_BAND0) ? 3 : 2;
-	} else
-#endif /* DBDC_MODE */
-	{
+		band_mode = (band_idx == TESTMODE_BAND0) ? 1 : 2;
+	} else {
 		band_mode = 3; /* Always report 2.4+5G*/
 
 		/* If is_dbdc=0, band_idx should not be 1 so return band_mode=0 */
@@ -3514,9 +3687,9 @@ static INT32 HQA_GetBandMode(PRTMP_ADAPTER pAd, RTMP_IOCTL_INPUT_STRUCT *WRQ, st
 
 	band_mode = PKTL_TRAN_TO_HOST(band_mode);
 
-	MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO,
-		"is_dbdc:%x, band_mode:%x, band_idx:%x\n",
-		is_dbdc, band_mode, band_idx);
+	MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_OFF,
+		("%s: is_dbdc:%x, band_mode:%x, band_idx:%x\n",
+		__func__, is_dbdc, band_mode, band_idx));
 	NdisMoveMemory(HqaCmdFrame->Data + 2, &(band_mode), sizeof(band_mode));
 	ResponseToQA(HqaCmdFrame, WRQ, 2 + sizeof(band_mode), Ret);
 	return Ret;
@@ -3539,8 +3712,8 @@ static INT32 HQA_RDDStartExt(PRTMP_ADAPTER pAd, RTMP_IOCTL_INPUT_STRUCT *WRQ, st
 	rdd_in_sel = PKTL_TRAN_TO_HOST(rdd_in_sel);
 	Ret = ate_ops->onOffRDD(pAd, rdd_num, rdd_in_sel, 1);
 	ResponseToQA(HqaCmdFrame, WRQ, 2, Ret);
-	MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO,
-			 "%x\n", rdd_num);
+	MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_TRACE,
+			 ("%s: %x\n", __func__, rdd_num));
 	return Ret;
 }
 
@@ -3561,8 +3734,8 @@ static INT32 HQA_RDDStopExt(PRTMP_ADAPTER pAd, RTMP_IOCTL_INPUT_STRUCT *WRQ, str
 	rdd_in_sel = PKTL_TRAN_TO_HOST(rdd_in_sel);
 	Ret = ate_ops->onOffRDD(pAd, rdd_num, rdd_in_sel, 0);
 	ResponseToQA(HqaCmdFrame, WRQ, 2, Ret);
-	MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO,
-			 "%x\n", rdd_num);
+	MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_TRACE,
+			 ("%s: %x\n", __func__, rdd_num));
 	return Ret;
 }
 
@@ -3570,7 +3743,7 @@ static INT32 HQA_RDDStopExt(PRTMP_ADAPTER pAd, RTMP_IOCTL_INPUT_STRUCT *WRQ, str
 static INT32 HQA_BssInfoUpdate(PRTMP_ADAPTER pAd, RTMP_IOCTL_INPUT_STRUCT *WRQ, struct _HQA_CMD_FRAME *HqaCmdFrame)
 {
 	UINT32 OwnMacIdx = 0, BssIdx = 0;
-	UCHAR Bssid[MAC_ADDR_LEN] = {0};
+	UCHAR Bssid[MAC_ADDR_LEN];
 	INT32 Ret = 0;
 	struct _ATE_CTRL *ATECtrl = &(pAd->ATECtrl);
 	struct _ATE_OPERATION *ATEOp = ATECtrl->ATEOp;
@@ -3579,9 +3752,9 @@ static INT32 HQA_BssInfoUpdate(PRTMP_ADAPTER pAd, RTMP_IOCTL_INPUT_STRUCT *WRQ, 
 	EthGetParamAndShiftBuff(TRUE, sizeof(OwnMacIdx), &data, (UCHAR *)&OwnMacIdx);
 	EthGetParamAndShiftBuff(TRUE, sizeof(BssIdx), &data, (UCHAR *)&BssIdx);
 	EthGetParamAndShiftBuff(FALSE, sizeof(Bssid), &data, Bssid);
-	MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO,
-			 "BssIdx:%d Bssid:%02x:%02x:%02x:%02x:%02x:%02x\n",
-			  BssIdx, PRINT_MAC(Bssid));
+	MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_TRACE,
+			 ("%s: BssIdx:%d Bssid:%02x:%02x:%02x:%02x:%02x:%02x\n",
+			  __func__, BssIdx, PRINT_MAC(Bssid)));
 	Ret = ATEOp->BssInfoUpdate(pAd, OwnMacIdx, BssIdx, Bssid);
 	ResponseToQA(HqaCmdFrame, WRQ, 2, Ret);
 	return Ret;
@@ -3591,7 +3764,7 @@ static INT32 HQA_BssInfoUpdate(PRTMP_ADAPTER pAd, RTMP_IOCTL_INPUT_STRUCT *WRQ, 
 static INT32 HQA_DevInfoUpdate(PRTMP_ADAPTER pAd, RTMP_IOCTL_INPUT_STRUCT *WRQ, struct _HQA_CMD_FRAME *HqaCmdFrame)
 {
 	UINT32 Band = 0, OwnMacIdx = 0;
-	UCHAR Bssid[MAC_ADDR_LEN] = {0};
+	UCHAR Bssid[MAC_ADDR_LEN];
 	INT32 Ret = 0;
 	struct _ATE_CTRL *ATECtrl = &(pAd->ATECtrl);
 	struct _ATE_OPERATION *ATEOp = ATECtrl->ATEOp;
@@ -3602,50 +3775,12 @@ static INT32 HQA_DevInfoUpdate(PRTMP_ADAPTER pAd, RTMP_IOCTL_INPUT_STRUCT *WRQ, 
 	EthGetParamAndShiftBuff(FALSE, sizeof(Bssid), &data, Bssid);
 	ATECtrl->control_band_idx = (UCHAR)Band;
 
-	MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO,
-			 "Band:%d OwnMacIdx:%d Bssid:%02x:%02x:%02x:%02x:%02x:%02x\n",
-			  Band, OwnMacIdx, PRINT_MAC(Bssid));
+	MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_TRACE,
+			 ("%s: Band:%d OwnMacIdx:%d Bssid:%02x:%02x:%02x:%02x:%02x:%02x\n",
+			  __func__, Band, OwnMacIdx, PRINT_MAC(Bssid)));
 	Ret = ATEOp->DevInfoUpdate(pAd, OwnMacIdx, Bssid);
 	ResponseToQA(HqaCmdFrame, WRQ, 2, Ret);
 	return Ret;
-}
-
-static BOOLEAN checkRecalInDumpStatus(
-	PRTMP_ADAPTER pAd,
-	UINT32 log_type,
-	UINT32 log_ctrl,
-	UINT32 log_size
-	)
-{
-	struct _ATE_CTRL *ATECtrl = &(pAd->ATECtrl);
-	struct _ATE_LOG_DUMP_CB *log_cb = &(ATECtrl->log_dump[ATE_LOG_RE_CAL-1]);
-	BOOLEAN rStatus = FALSE;
-
-	if (log_cb->is_dumping) {
-		if (log_type == ATE_LOG_RE_CAL) {
-			if (log_ctrl == ATE_LOG_ON)
-				ATECtrl->reCalInDumpSts = REENABLE_RECAL_IN_DUMP;
-			else if (log_ctrl == ATE_LOG_OFF) {
-				ATECtrl->reCalInDumpSts = DISABLE_RECAL_IN_DUMP;
-				ATECtrl->logStsInDump[0] = log_type;
-				ATECtrl->logStsInDump[1] = log_ctrl;
-				ATECtrl->logStsInDump[2] = log_size;
-			} else {
-				MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-						"Shouldn't happen ! log_ctrl:%d\n", log_ctrl);
-				ATECtrl->reCalInDumpSts = DISABLE_RECAL_IN_DUMP;
-			}
-			MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO,
-					"Recal Log dumping, log_ctrl:%d, log_type:%d, reCalInDumpSts:%d\n",
-					log_ctrl, log_type, ATECtrl->reCalInDumpSts);
-			rStatus = TRUE;
-		} else {
-			ATECtrl->reCalInDumpSts = NO_CHANGE_RECAL;
-		}
-	} else {
-		ATECtrl->reCalInDumpSts = NO_CHANGE_RECAL;
-	}
-	return rStatus;
 }
 
 static INT32 HQA_LogOnOff(PRTMP_ADAPTER pAd, RTMP_IOCTL_INPUT_STRUCT *WRQ, struct _HQA_CMD_FRAME *HqaCmdFrame)
@@ -3674,39 +3809,14 @@ static INT32 HQA_LogOnOff(PRTMP_ADAPTER pAd, RTMP_IOCTL_INPUT_STRUCT *WRQ, struc
 
 	ATECtrl->control_band_idx = (UCHAR)band_idx;
 
-	if (checkRecalInDumpStatus(pAd, log_type, log_ctrl, log_size) == TRUE)
-		goto recalDumping;
-
 	Ret = ATEOp->LogOnOff(pAd, log_type, log_ctrl, log_size);
-	MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO,
-			 "band_idx:%x, log_type:%x, log_ctrl:%x, en_log:%x, log_size:%u\n",
-			  band_idx, log_type, log_ctrl, ATECtrl->en_log, log_size);
-
-	if (log_ctrl == ATE_LOG_ON) {
-		switch (log_type) {
-
-		case ATE_LOG_RE_CAL:
-			ATECtrl->firstReCal = TRUE;
-			break;
-
-		case ATE_LOG_RDD:
-			ATECtrl->firstRDD = TRUE;
-			break;
-
-		case ATE_LOG_RXV:
-			ATECtrl->firstRXV = TRUE;
-			break;
-
-		default:
-			break;
-		}
-	}
-
-recalDumping:
-
+	MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_OFF,
+			 ("%s: band_idx:%x, log_type:%x, log_ctrl:%x, en_log:%x, log_size:%u\n",
+			  __func__, band_idx, log_type, log_ctrl, ATECtrl->en_log, log_size));
 	ResponseToQA(HqaCmdFrame, WRQ, 2, Ret);
 	return Ret;
 }
+
 
 static INT32 HQA_SetPowerToBufferBin(PRTMP_ADAPTER pAd, RTMP_IOCTL_INPUT_STRUCT *WRQ, struct _HQA_CMD_FRAME *HqaCmdFrame)
 {
@@ -3742,9 +3852,9 @@ static INT32 HQA_SetPowerToBufferBin(PRTMP_ADAPTER pAd, RTMP_IOCTL_INPUT_STRUCT 
 		Ret = 0;
 	}
 
-	MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO,
-			 "power:%x, channel:%x, band_idx:%x, offset:%x, antenna_idx:%x\n",
-			  power, channel, band_idx, efuse_offset, antenna_idx);
+	MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_OFF,
+			 ("%s: power:%x, channel:%x, band_idx:%x, offset:%x, antenna_idx:%x\n",
+			  __func__, power, channel, band_idx, efuse_offset, antenna_idx));
 	ResponseToQA(HqaCmdFrame, WRQ, 2, Ret);
 	return Ret;
 }
@@ -3754,7 +3864,8 @@ static INT32 HQA_SetFrequencyOffsetToBufferBin(PRTMP_ADAPTER pAd, RTMP_IOCTL_INP
 {
 	INT32 Ret = 0;
 
-	MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_ERROR, "Not support\n");
+	MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_OFF,
+			 ("%s: Not support\n", __func__));
 	ResponseToQA(HqaCmdFrame, WRQ, 2, Ret);
 	return Ret;
 }
@@ -3787,13 +3898,13 @@ static INT32 HQA_HIFTestSetStartLoopback(PRTMP_ADAPTER pAd, RTMP_IOCTL_INPUT_STR
 	if (!pAd->LbCtrl.LoopBackRunning)
 		LoopBack_Start(pAd, &set);
 	else
-		MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO, "LB is running\n");
+		MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_WARN, ("%s: LB is running\n", __func__));
 
 	ResponseToQA(HqaCmdFrame, WRQ, 2, Ret);
-	MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO,
-			 "start_len:%u, stop_len:%u, repeat:%u, is_default:%u, bulkout_num:%u, bulkin_num:%u, txagg_num:%u, rxagg_limit:%u, rxagg_lm:%u, rxagg_to:%u, enable_rxagg:%u\n",
-			  param->start_len, param->stop_len, param->repeat_time, param->is_def_pattern,
-			  param->bulkout_num, param->bulkin_num, param->txagg_num, param->rxagg_limit, param->rxagg_lm, param->rxagg_to, param->enable_rxagg);
+	MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_OFF,
+			 ("%s: start_len:%u, stop_len:%u, repeat:%u, is_default:%u, bulkout_num:%u, bulkin_num:%u, txagg_num:%u, rxagg_limit:%u, rxagg_lm:%u, rxagg_to:%u, enable_rxagg:%u\n",
+			  __func__, param->start_len, param->stop_len, param->repeat_time, param->is_def_pattern,
+			  param->bulkout_num, param->bulkin_num, param->txagg_num, param->rxagg_limit, param->rxagg_lm, param->rxagg_to, param->enable_rxagg));
 	return Ret;
 }
 
@@ -3802,7 +3913,8 @@ static INT32 HQA_HIFTestSetStopLoopback(PRTMP_ADAPTER pAd, RTMP_IOCTL_INPUT_STRU
 {
 	INT32 Ret = 0;
 
-	MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO, "\n");
+	MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_OFF,
+			 ("%s\n", __func__));
 
 	if (pAd->LbCtrl.LoopBackRunning)
 		LoopBack_Stop(pAd);
@@ -3822,7 +3934,8 @@ static INT32 HQA_HIFTestGetStatus(PRTMP_ADAPTER pAd, RTMP_IOCTL_INPUT_STRUCT *WR
 	resp = PKTLA_TRAN_TO_NET(sizeof(tmp) / 4, &tmp);
 	NdisMoveMemory(HqaCmdFrame->Data + 2, (UCHAR *)resp, sizeof(tmp));
 	ResponseToQA(HqaCmdFrame, WRQ, 2 + sizeof(tmp), Ret);
-	MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO, "\n");
+	MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_OFF,
+			 ("%s\n", __func__));
 	return Ret;
 }
 
@@ -3842,24 +3955,19 @@ static INT32 HQA_HIFTestSetTxData(PRTMP_ADAPTER pAd, RTMP_IOCTL_INPUT_STRUCT *WR
 	if (pAd->LbCtrl.DebugMode) {
 		UINT32 j = 0;
 
-		MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO,
-				 "TxExpect Dump(%u): ", tx_len);
-		/* check the range for coverity,2044=2048-sizeof(UINT32) */
-		if (tx_len < 2044) {
-			for (j = 0; j < tx_len; j++)
-				MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO, "%02x", raw[j]);
+		MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_TRACE,
+				 ("%s: TxExpect Dump(%u): ", __func__, tx_len));
 
-			MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO, "\n");
-		} else {
-			Ret = -1;
-			return Ret;
-		}
+		for (j = 0; j < tx_len; j++)
+			MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("%02x", raw[j]));
+
+		MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("\n"));
 	}
 
 	LoopBack_ExpectTx(pAd, tx_len, raw);
 	ResponseToQA(HqaCmdFrame, WRQ, 2, Ret);
-	MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO,
-			 "len:%u, tx_len:%u\n", len, tx_len);
+	MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_OFF,
+			 ("%s: len:%u, tx_len:%u\n", __func__, len, tx_len));
 	return Ret;
 }
 
@@ -3879,24 +3987,19 @@ static INT32 HQA_HIFTestSetRxData(PRTMP_ADAPTER pAd, RTMP_IOCTL_INPUT_STRUCT *WR
 	if (pAd->LbCtrl.DebugMode) {
 		UINT32 j = 0;
 
-		MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO,
-				 "RxExpect Dump(%u): ", rx_len);
-		/* check the range for coverity,2044=2048-sizeof(UINT32) */
-		if (rx_len < 2044) {
-			for (j = 0; j < rx_len; j++)
-				MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO, "%02x", raw[j]);
+		MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_TRACE,
+				 ("%s: RxExpect Dump(%u): ", __func__, rx_len));
 
-			MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO, "\n");
-		} else {
-			Ret = -1;
-			return Ret;
-		}
+		for (j = 0; j < rx_len; j++)
+			MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("%02x", raw[j]));
+
+		MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("\n"));
 	}
 
 	LoopBack_ExpectRx(pAd, rx_len, raw);
 	ResponseToQA(HqaCmdFrame, WRQ, 2, Ret);
-	MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO,
-			 "len:%u, rx_len:%u\n", len, rx_len);
+	MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_OFF,
+			 ("%s: len:%u, rx_len:%u\n", __func__, len, rx_len));
 	return Ret;
 }
 
@@ -3916,15 +4019,15 @@ static INT32 HQA_HIFTestGetTxRxData(PRTMP_ADAPTER pAd, RTMP_IOCTL_INPUT_STRUCT *
 	NdisMoveMemory(out, &tmp, sizeof(UINT32));
 	tlen += out_len;
 	out += out_len + sizeof(UINT32);
-	MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO,
-			 "tx_out_len:%u\n", out_len);
+	MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_OFF,
+			 ("%s: tx_out_len:%u\n", __func__, out_len));
 	/* Rx Data */
 	LoopBack_RawData(pAd, &out_len, FALSE, out + sizeof(UINT32));
 	tmp = PKTL_TRAN_TO_NET(out_len);
 	NdisMoveMemory(out, &tmp, sizeof(UINT32));
 	tlen += out_len;
-	MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO,
-			 "rx_out_len:%u, total_len:%u\n", out_len, tlen);
+	MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_OFF,
+			 ("%s: rx_out_len:%u, total_len:%u\n", __func__, out_len, tlen));
 	ResponseToQA(HqaCmdFrame, WRQ, 2 + tlen + sizeof(UINT32) * 2, Ret);
 	return Ret;
 }
@@ -3935,7 +4038,7 @@ static INT32 HQA_UDMAAction(PRTMP_ADAPTER pAd, RTMP_IOCTL_INPUT_STRUCT *WRQ, str
 	UINT32 val = 0;
 	INT32 Ret = 0;
 
-	MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO, "\n");
+	MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_OFF, ("%s\n", __func__));
 	NdisMoveMemory(HqaCmdFrame->Data + 2, &(val), sizeof(val));
 	ResponseToQA(HqaCmdFrame, WRQ, 2, Ret);
 	return Ret;
@@ -3947,7 +4050,7 @@ static INT32 HQA_WIFIPowerOff(PRTMP_ADAPTER pAd, RTMP_IOCTL_INPUT_STRUCT *WRQ, s
 	UINT32 val = 0;
 	INT32 Ret = 0;
 
-	MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO, "\n");
+	MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_OFF, ("%s\n", __func__));
 	NdisMoveMemory(HqaCmdFrame->Data + 2, &(val), sizeof(val));
 	ResponseToQA(HqaCmdFrame, WRQ, 2, Ret);
 	return Ret;
@@ -3965,67 +4068,67 @@ static INT32 ToDoFunction(PRTMP_ADAPTER pAd, RTMP_IOCTL_INPUT_STRUCT *WRQ, struc
 
 static HQA_CMD_HANDLER HQA_CMD_SET5[] = {
 	/* cmd id start from 0x1500 */
-	hqa_get_fw_info,					/* 0x1500 */
-	HQA_StartContinousTx,				/* 0x1501 */
-	HQA_SetSTBC,						/* 0x1502 */
-	HQA_SetShortGI,						/* 0x1503 */
-	HQA_SetDPD,							/* 0x1504 */
-	HQA_SetTssiOnOff,					/* 0x1505 */
-	ToDoFunction,				/* 0x1506, replaced by 0x151c */
-	HQA_StartContiTxTone,				/* 0x1507 */
-	HQA_StopContiTxTone,				/* 0x1508 */
-	HQA_CalibrationTestMode,			/* 0x1509 */
-	HQA_DoCalibrationTestItem,			/* 0x150A */
-	HQA_eFusePhysicalWrite,				/* 0x150B */
-	HQA_eFusePhysicalRead,				/* 0x150C */
-	HQA_eFuseLogicalRead,				/* 0x150D */
-	HQA_eFuseLogicalWrite,				/* 0x150E */
-	HQA_TMRSetting,						/* 0x150F */
-	HQA_GetRxSNR,						/* 0x1510 */
-	HQA_WriteBufferDone,				/* 0x1511 */
-	HQA_FFT,							/* 0x1512 */
-	HQA_SetTxTonePower,					/* 0x1513 */
-	HQA_GetChipID,						/* 0x1514 */
-	HQA_MPSSetSeqData,					/* 0x1515 */
-	HQA_MPSSetPayloadLength,			/* 0x1516 */
-	HQA_MPSSetPacketCount,				/* 0x1517 */
-	HQA_MPSSetPowerGain,				/* 0x1518 */
-	HQA_MPSStart,						/* 0x1519 */
-	HQA_MPSStop,						/* 0x151A */
-	ToDoFunction,						/* 0x151B */
-	ToDoFunction,						/* 0x151C */
-	ToDoFunction,						/* 0x151D */
-	ToDoFunction,						/* 0x151E */
-	ToDoFunction,						/* 0x151F */
-	ToDoFunction,						/* 0x1520 */
-	HQA_SetAIFS,						/* 0x1521 */
-	HQA_CheckEfuseModeType,				/* 0x1522 */
+	hqa_get_fw_info,			/* 0x1500 */
+	HQA_StartContinousTx,			/* 0x1501 */
+	HQA_SetSTBC,				/* 0x1502 */
+	HQA_SetShortGI,				/* 0x1503 */
+	HQA_SetDPD,				/* 0x1504 */
+	HQA_SetTssiOnOff,			/* 0x1505 */
+	HQA_GetRxStatisticsAll,			/* 0x1506 */
+	HQA_StartContiTxTone,			/* 0x1507 */
+	HQA_StopContiTxTone,			/* 0x1508 */
+	HQA_CalibrationTestMode,		/* 0x1509 */
+	HQA_DoCalibrationTestItem,		/* 0x150A */
+	HQA_eFusePhysicalWrite,			/* 0x150B */
+	HQA_eFusePhysicalRead,			/* 0x150C */
+	HQA_eFuseLogicalRead,			/* 0x150D */
+	HQA_eFuseLogicalWrite,			/* 0x150E */
+	HQA_TMRSetting,				/* 0x150F */
+	HQA_GetRxSNR,				/* 0x1510 */
+	HQA_WriteBufferDone,			/* 0x1511 */
+	HQA_FFT,				/* 0x1512 */
+	HQA_SetTxTonePower,			/* 0x1513 */
+	HQA_GetChipID,				/* 0x1514 */
+	HQA_MPSSetSeqData,			/* 0x1515 */
+	HQA_MPSSetPayloadLength,		/* 0x1516 */
+	HQA_MPSSetPacketCount,			/* 0x1517 */
+	HQA_MPSSetPowerGain,			/* 0x1518 */
+	HQA_MPSStart,				/* 0x1519 */
+	HQA_MPSStop,				/* 0x151A */
+	ToDoFunction,				/* 0x151B */
+	ToDoFunction,				/* 0x151C */
+	ToDoFunction,				/* 0x151D */
+	ToDoFunction,				/* 0x151E */
+	ToDoFunction,				/* 0x151F */
+	ToDoFunction,				/* 0x1520 */
+	HQA_SetAIFS,				/* 0x1521 */
+	HQA_CheckEfuseModeType,			/* 0x1522 */
 	HQA_CheckEfuseNativeModeType,		/* 0x1523 */
 	HQA_HIFTestSetStartLoopback,		/* 0x1524 */
-	HQA_HIFTestSetStopLoopback,			/* 0x1525 */
-	HQA_HIFTestGetStatus,				/* 0x1526 */
-	HQA_HIFTestSetTxData,				/* 0x1527 */
-	HQA_HIFTestSetRxData,				/* 0x1528 */
-	HQA_HIFTestGetTxRxData,				/* 0x1529 */
-	HQA_UDMAAction,						/* 0x152A */
-	HQA_WIFIPowerOff,					/* 0x152B */
-	HQA_SetBandMode,					/* 0x152C */
-	HQA_GetBandMode,					/* 0x152D */
-	HQA_RDDStartExt,					/* 0x152E */
-	HQA_RDDStopExt,						/* 0x152F */
-	ToDoFunction,						/* 0x1530 */
-	HQA_BssInfoUpdate,					/* 0x1531 */
-	HQA_DevInfoUpdate,					/* 0x1532 */
-	HQA_LogOnOff,						/* 0x1533 */
-	HQA_SetPowerToBufferBin,			/* 0x1534 */
+	HQA_HIFTestSetStopLoopback,		/* 0x1525 */
+	HQA_HIFTestGetStatus,			/* 0x1526 */
+	HQA_HIFTestSetTxData,			/* 0x1527 */
+	HQA_HIFTestSetRxData,			/* 0x1528 */
+	HQA_HIFTestGetTxRxData,			/* 0x1529 */
+	HQA_UDMAAction,				/* 0x152A */
+	HQA_WIFIPowerOff,			/* 0x152B */
+	HQA_SetBandMode,			/* 0x152C */
+	HQA_GetBandMode,			/* 0x152D */
+	HQA_RDDStartExt,			/* 0x152E */
+	HQA_RDDStopExt,				/* 0x152F */
+	ToDoFunction,				/* 0x1530 */
+	HQA_BssInfoUpdate,			/* 0x1531 */
+	HQA_DevInfoUpdate,			/* 0x1532 */
+	HQA_LogOnOff,				/* 0x1533 */
+	HQA_SetPowerToBufferBin,		/* 0x1534 */
 	HQA_SetFrequencyOffsetToBufferBin,	/* 0x1535 */
-	HQA_MPSSetNss,						/* 0x1536 */
-	HQA_MPSSetPerpacketBW,				/* 0x1537 */
+	HQA_MPSSetNss,				/* 0x1536 */
+	HQA_MPSSetPerpacketBW,			/* 0x1537 */
 };
 
 
 #ifdef TXBF_SUPPORT
-#if defined(MT_MAC) || defined(MT7637)
+#if defined(MT7615) || defined(MT7637) || defined(MT7622)
 VOID HQA_BF_INFO_CB(RTMP_ADAPTER *pAd, unsigned char *data, UINT32 len)
 {
 	struct _ATE_CTRL *ate_ctrl = &(pAd->ATECtrl);
@@ -4035,7 +4138,7 @@ VOID HQA_BF_INFO_CB(RTMP_ADAPTER *pAd, unsigned char *data, UINT32 len)
 	UINT32 data_len = 0;
 	UCHAR *bf_data = bf_info->aucBuffer;
 
-	if (!(ate_ctrl->op_mode & fATE_IN_BF))
+	if (!(ate_ctrl->Mode & fATE_IN_BF))
 		return;
 
 	ate_ctrl->txbf_info_len = 0;
@@ -4081,16 +4184,22 @@ VOID HQA_BF_INFO_CB(RTMP_ADAPTER *pAd, unsigned char *data, UINT32 len)
 	}
 
 err0:
-	MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO,
-			 "(%x)\n", status);
+	MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO,
+			 ("%s(%x)\n", __func__, status));
 	RTMP_OS_COMPLETE(&ate_ctrl->cmd_done);
 }
-#endif /* defined(MT_MAC) || defined(MT7637) */
+#else
+VOID HQA_BF_INFO_CB(RTMP_ADAPTER *pAd, unsigned char *data, UINT32 len)
+{
+	MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_WARN,
+			 ("%s not supported yet\n", __func__));
+}
+#endif /* MT7615 */
+
 
 static INT32 HQA_TxBfProfileTagInValid(PRTMP_ADAPTER pAd, RTMP_IOCTL_INPUT_STRUCT *WRQ, struct _HQA_CMD_FRAME *HqaCmdFrame)
 {
 	INT32 Ret = 0;
-	INT snprintf_ret;
 	UINT32 invalid = 0;
 	RTMP_STRING *cmd;
 
@@ -4104,18 +4213,12 @@ static INT32 HQA_TxBfProfileTagInValid(PRTMP_ADAPTER pAd, RTMP_IOCTL_INPUT_STRUC
 	NdisMoveMemory((PUCHAR)&invalid, (PUCHAR)&HqaCmdFrame->Data, sizeof(invalid));
 	invalid = PKTL_TRAN_TO_HOST(invalid);
 	memset(cmd, 0x00, HQA_BF_STR_SIZE);
-	snprintf_ret = snprintf(cmd, HQA_BF_STR_SIZE, "%u", invalid);
-	if (os_snprintf_error(HQA_BF_STR_SIZE, snprintf_ret)) {
-		MTWF_DBG(pAd, DBG_CAT_CFG, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-			"cmd snprintf error!\n");
-		os_free_mem(cmd);
-		return FALSE;
-	}
-#if defined(MT_MAC)
+	sprintf(cmd, "%u", invalid);
+#if defined(MT7615) || defined(MT7622)
 	Set_TxBfProfileTag_InValid(pAd, cmd);
 #endif
-	MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO,
-			 "val:%u, str:%s\n", invalid, cmd);
+	MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_OFF,
+			 ("%s: val:%u, str:%s\n", __func__, invalid, cmd));
 	os_free_mem(cmd);
 BF_PROFILE_TAG_INVALID_FAIL:
 	ResponseToQA(HqaCmdFrame, WRQ, 2, Ret);
@@ -4126,7 +4229,6 @@ BF_PROFILE_TAG_INVALID_FAIL:
 static INT32 HQA_TxBfProfileTagPfmuIdx(PRTMP_ADAPTER pAd, RTMP_IOCTL_INPUT_STRUCT *WRQ, struct _HQA_CMD_FRAME *HqaCmdFrame)
 {
 	INT32 Ret = 0;
-	INT snprintf_ret;
 	UINT32 pfmuidx = 0;
 	RTMP_STRING *cmd;
 
@@ -4140,18 +4242,12 @@ static INT32 HQA_TxBfProfileTagPfmuIdx(PRTMP_ADAPTER pAd, RTMP_IOCTL_INPUT_STRUC
 	NdisMoveMemory((PUCHAR)&pfmuidx, (PUCHAR)&HqaCmdFrame->Data, sizeof(pfmuidx));
 	pfmuidx = PKTL_TRAN_TO_HOST(pfmuidx);
 	memset(cmd, 0x00, HQA_BF_STR_SIZE);
-	snprintf_ret = snprintf(cmd, HQA_BF_STR_SIZE, "%u", pfmuidx);
-	if (os_snprintf_error(HQA_BF_STR_SIZE, snprintf_ret)) {
-		MTWF_DBG(pAd, DBG_CAT_CFG, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-			"cmd snprintf error!\n");
-		os_free_mem(cmd);
-		return FALSE;
-	}
-#if defined(MT_MAC)
+	sprintf(cmd, "%u", pfmuidx);
+#if defined(MT7615) || defined(MT7622)
 	Set_TxBfProfileTag_PfmuIdx(pAd, cmd);
 #endif
-	MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO,
-			 "val:%u, str:%s\n", pfmuidx, cmd);
+	MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_OFF,
+			 ("%s: val:%u, str:%s\n", __func__, pfmuidx, cmd));
 	os_free_mem(cmd);
 BF_PROFILE_TAG_PFMU_FAIL:
 	ResponseToQA(HqaCmdFrame, WRQ, 2, Ret);
@@ -4162,7 +4258,6 @@ BF_PROFILE_TAG_PFMU_FAIL:
 static INT32 HQA_TxBfProfileTagBfType(PRTMP_ADAPTER pAd, RTMP_IOCTL_INPUT_STRUCT *WRQ, struct _HQA_CMD_FRAME *HqaCmdFrame)
 {
 	INT32 Ret = 0;
-	INT snprintf_ret;
 	UINT32 bftype = 0;
 	RTMP_STRING *cmd;
 
@@ -4176,18 +4271,12 @@ static INT32 HQA_TxBfProfileTagBfType(PRTMP_ADAPTER pAd, RTMP_IOCTL_INPUT_STRUCT
 	NdisMoveMemory((PUCHAR)&bftype, (PUCHAR)&HqaCmdFrame->Data, 4);
 	bftype = PKTL_TRAN_TO_HOST(bftype);
 	memset(cmd, 0x00, HQA_BF_STR_SIZE);
-	snprintf_ret = snprintf(cmd, HQA_BF_STR_SIZE, "%u", bftype);
-	if (os_snprintf_error(HQA_BF_STR_SIZE, snprintf_ret)) {
-		MTWF_DBG(pAd, DBG_CAT_CFG, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-			"cmd snprintf error!\n");
-		os_free_mem(cmd);
-		return FALSE;
-	}
-#if defined(MT_MAC)
+	sprintf(cmd, "%u", bftype);
+#if defined(MT7615) || defined(MT7622)
 	Set_TxBfProfileTag_BfType(pAd, cmd);
 #endif
-	MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO,
-			 "val:%u, str:%s\n", bftype, cmd);
+	MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_OFF,
+			 ("%s: val:%u, str:%s\n", __func__, bftype, cmd));
 	os_free_mem(cmd);
 BF_PROFILE_TAG_BFTYPE_FAIL:
 	ResponseToQA(HqaCmdFrame, WRQ, 2, Ret);
@@ -4198,7 +4287,6 @@ BF_PROFILE_TAG_BFTYPE_FAIL:
 static INT32 HQA_TxBfProfileTagBw(PRTMP_ADAPTER pAd, RTMP_IOCTL_INPUT_STRUCT *WRQ, struct _HQA_CMD_FRAME *HqaCmdFrame)
 {
 	INT32 Ret = 0;
-	INT snprintf_ret;
 	UINT32 tag_bw = 0;
 	RTMP_STRING *cmd;
 
@@ -4212,18 +4300,12 @@ static INT32 HQA_TxBfProfileTagBw(PRTMP_ADAPTER pAd, RTMP_IOCTL_INPUT_STRUCT *WR
 	NdisMoveMemory((PUCHAR)&tag_bw, (PUCHAR)&HqaCmdFrame->Data, 4);
 	tag_bw = PKTL_TRAN_TO_HOST(tag_bw);
 	memset(cmd, 0x00, HQA_BF_STR_SIZE);
-	snprintf_ret = snprintf(cmd, HQA_BF_STR_SIZE, "%u", tag_bw);
-	if (os_snprintf_error(HQA_BF_STR_SIZE, snprintf_ret)) {
-		MTWF_DBG(pAd, DBG_CAT_CFG, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-			"cmd snprintf error!\n");
-		os_free_mem(cmd);
-		return FALSE;
-	}
-#if defined(MT_MAC)
+	sprintf(cmd, "%u", tag_bw);
+#if defined(MT7615) || defined(MT7622)
 	Set_TxBfProfileTag_DBW(pAd, cmd);
 #endif
-	MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO,
-			 "val:%u, str:%s\n", tag_bw, cmd);
+	MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_OFF,
+			 ("%s: val:%u, str:%s\n", __func__, tag_bw, cmd));
 	os_free_mem(cmd);
 BF_PROFILE_TAG_BW_FAIL:
 	ResponseToQA(HqaCmdFrame, WRQ, 2, Ret);
@@ -4234,7 +4316,6 @@ BF_PROFILE_TAG_BW_FAIL:
 static INT32 HQA_TxBfProfileTagSuMu(PRTMP_ADAPTER pAd, RTMP_IOCTL_INPUT_STRUCT *WRQ, struct _HQA_CMD_FRAME *HqaCmdFrame)
 {
 	INT32 Ret = 0;
-	INT snprintf_ret;
 	UINT32 su_mu = 0;
 	RTMP_STRING *cmd;
 
@@ -4248,18 +4329,12 @@ static INT32 HQA_TxBfProfileTagSuMu(PRTMP_ADAPTER pAd, RTMP_IOCTL_INPUT_STRUCT *
 	NdisMoveMemory((PUCHAR)&su_mu, (PUCHAR)&HqaCmdFrame->Data, 4);
 	su_mu = PKTL_TRAN_TO_HOST(su_mu);
 	memset(cmd, 0x00, HQA_BF_STR_SIZE);
-	snprintf_ret = snprintf(cmd, HQA_BF_STR_SIZE, "%u", su_mu);
-	if (os_snprintf_error(HQA_BF_STR_SIZE, snprintf_ret)) {
-		MTWF_DBG(pAd, DBG_CAT_CFG, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-			"cmd snprintf error!\n");
-		os_free_mem(cmd);
-		return FALSE;
-	}
-#if defined(MT_MAC)
+	sprintf(cmd, "%u", su_mu);
+#if defined(MT7615) || defined(MT7622)
 	Set_TxBfProfileTag_SuMu(pAd, cmd);
 #endif
-	MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO,
-			 "val:%u, str:%s\n", su_mu, cmd);
+	MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_OFF,
+			 ("%s: val:%u, str:%s\n", __func__, su_mu, cmd));
 	os_free_mem(cmd);
 BF_PROFILE_TAG_SUMU_FAIL:
 	ResponseToQA(HqaCmdFrame, WRQ, 2, Ret);
@@ -4270,14 +4345,13 @@ BF_PROFILE_TAG_SUMU_FAIL:
 static INT32 HQA_TxBfProfileTagMemAlloc(PRTMP_ADAPTER pAd, RTMP_IOCTL_INPUT_STRUCT *WRQ, struct _HQA_CMD_FRAME *HqaCmdFrame)
 {
 	INT32 Ret = 0;
-	INT snprintf_ret;
 	UINT16 len = 0;
 	struct _HQA_BF_TAG_ALLOC tmp, *layout = NULL;
 	RTMP_STRING *cmd = NULL;
 
 	if (!HqaCmdFrame) {
-		MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-				 "HqaCmdFrame is NULL\n");
+		MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
+				("%s: HqaCmdFrame is NULL\n", __func__));
 		Ret = NDIS_STATUS_INVALID_DATA;
 		return Ret;
 	}
@@ -4299,16 +4373,10 @@ static INT32 HQA_TxBfProfileTagMemAlloc(PRTMP_ADAPTER pAd, RTMP_IOCTL_INPUT_STRU
 	NdisMoveMemory((PUCHAR)&tmp, (PUCHAR)&HqaCmdFrame->Data, len);
 	layout = PKTLA_TRAN_TO_HOST(len / 4, &tmp);
 	memset(cmd, 0x00, HQA_BF_STR_SIZE);
-	snprintf_ret = snprintf(cmd, HQA_BF_STR_SIZE, "%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x",
+	sprintf(cmd, "%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x",
 			layout->col_idx0, layout->row_idx0, layout->col_idx1, layout->row_idx1,
 			layout->col_idx2, layout->row_idx2, layout->col_idx3, layout->row_idx3);
-	if (os_snprintf_error(HQA_BF_STR_SIZE, snprintf_ret)) {
-		MTWF_DBG(pAd, DBG_CAT_CFG, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-			"cmd snprintf error!\n");
-		os_free_mem(cmd);
-		return FALSE;
-	}
-#if defined(MT_MAC)
+#if defined(MT7615) || defined(MT7622)
 	Set_TxBfProfileTag_Mem(pAd, cmd);
 #endif
 HQA_TAG_MEMALLOC_FAIL:
@@ -4318,10 +4386,9 @@ HQA_TAG_MEMALLOC_FAIL:
 
 	ResponseToQA(HqaCmdFrame, WRQ, 2, Ret);
 	if (layout)
-		MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO,
-			"col0/row0:%x/%x, col1/row1:%x/%x, col2/row2:%x/%x, col3/row3:%x/%x\n",
-			layout->col_idx0, layout->row_idx0, layout->col_idx1, layout->row_idx1,
-			layout->col_idx2, layout->row_idx2, layout->col_idx3, layout->row_idx3);
+		MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_OFF,
+				 ("%s: col0/row0:%x/%x, col1/row1:%x/%x, col2/row2:%x/%x, col3/row3:%x/%x\n",
+				  __func__, layout->col_idx0, layout->row_idx0, layout->col_idx1, layout->row_idx1, layout->col_idx2, layout->row_idx2, layout->col_idx3, layout->row_idx3));
 	return Ret;
 }
 
@@ -4329,14 +4396,13 @@ HQA_TAG_MEMALLOC_FAIL:
 static INT32 HQA_TxBfProfileTagMatrix(PRTMP_ADAPTER pAd, RTMP_IOCTL_INPUT_STRUCT *WRQ, struct _HQA_CMD_FRAME *HqaCmdFrame)
 {
 	INT32 Ret = 0;
-	INT snprintf_ret;
 	UINT16 len = 0;
 	struct _HQA_BF_TAG_MATRIX tmp, *matrix = NULL;
 	RTMP_STRING *cmd;
 
 	if (!HqaCmdFrame) {
-		MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-				 "HqaCmdFrame is NULL\n");
+		MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
+				("%s: HqaCmdFrame is NULL\n", __func__));
 		Ret = NDIS_STATUS_INVALID_DATA;
 		return Ret;
 	}
@@ -4349,36 +4415,20 @@ static INT32 HQA_TxBfProfileTagMatrix(PRTMP_ADAPTER pAd, RTMP_IOCTL_INPUT_STRUCT
 	}
 
 	len = PKTS_TRAN_TO_HOST(HqaCmdFrame->Length);
-	/* check the range for coverity, 24=sizeof(_HQA_BF_TAG_MATRIX)*/
-	if (len < 24) {
-		NdisMoveMemory((PUCHAR)&tmp, (PUCHAR)&HqaCmdFrame->Data, len);
-		matrix = PKTLA_TRAN_TO_HOST(len / 4, &tmp);
-		memset(cmd, 0x00, HQA_BF_STR_SIZE);
-		snprintf_ret = snprintf(cmd, HQA_BF_STR_SIZE, "%02x:%02x:%02x:%02x:%02x:%02x", matrix->nrow, matrix->ncol, matrix->ngroup, matrix->LM, matrix->code_book, matrix->htc_exist);
-		if (os_snprintf_error(HQA_BF_STR_SIZE, snprintf_ret)) {
-			MTWF_DBG(pAd, DBG_CAT_CFG, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-				"cmd snprintf error!\n");
-			os_free_mem(cmd);
-			return FALSE;
-		}
-
-#if defined(MT_MAC)
-		Set_TxBfProfileTag_Matrix(pAd, cmd);
+	NdisMoveMemory((PUCHAR)&tmp, (PUCHAR)&HqaCmdFrame->Data, len);
+	matrix = PKTLA_TRAN_TO_HOST(len / 4, &tmp);
+	memset(cmd, 0x00, HQA_BF_STR_SIZE);
+	sprintf(cmd, "%02x:%02x:%02x:%02x:%02x:%02x", matrix->nrow, matrix->ncol, matrix->ngroup, matrix->LM, matrix->code_book, matrix->htc_exist);
+#if defined(MT7615) || defined(MT7622)
+	Set_TxBfProfileTag_Matrix(pAd, cmd);
 #endif
-		} else {
-			MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-				"length larger than 2048\n");
-			Ret = NDIS_STATUS_INVALID_DATA;
-		}
-
 	os_free_mem(cmd);
 HQA_TAG_MATRIX_FAIL:
 	ResponseToQA(HqaCmdFrame, WRQ, 2, Ret);
 	if (matrix)
-		MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO,
-		"nrow:%x, ncol:%x, ngroup:%x, LM:%x, code_book:%x, htc:%x\n",
-		matrix->nrow, matrix->ncol, matrix->ngroup, matrix->LM,
-		matrix->code_book, matrix->htc_exist);
+		MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_OFF,
+				 ("%s: nrow:%x, ncol:%x, ngroup:%x, LM:%x, code_book:%x, htc:%x\n",
+				  __func__, matrix->nrow, matrix->ncol, matrix->ngroup, matrix->LM, matrix->code_book, matrix->htc_exist));
 	return Ret;
 }
 
@@ -4386,14 +4436,13 @@ HQA_TAG_MATRIX_FAIL:
 static INT32 HQA_TxBfProfileTagSnr(PRTMP_ADAPTER pAd, RTMP_IOCTL_INPUT_STRUCT *WRQ, struct _HQA_CMD_FRAME *HqaCmdFrame)
 {
 	INT32 Ret = 0;
-	INT snprintf_ret;
 	UINT16 len = 0;
 	struct _HQA_BF_TAG_SNR tmp, *snr = NULL;
 	RTMP_STRING *cmd;
 
 	if (!HqaCmdFrame) {
-		MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-				 "HqaCmdFrame is NULL\n");
+		MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
+				("%s: HqaCmdFrame is NULL\n", __func__));
 		Ret = NDIS_STATUS_INVALID_DATA;
 		return Ret;
 	}
@@ -4406,43 +4455,27 @@ static INT32 HQA_TxBfProfileTagSnr(PRTMP_ADAPTER pAd, RTMP_IOCTL_INPUT_STRUCT *W
 	}
 
 	len = PKTS_TRAN_TO_HOST(HqaCmdFrame->Length);
-	/* check the range for coverity, 16=sizeof(_HQA_BF_TAG_SNR)*/
-	if (len < 16) {
-		NdisMoveMemory((PUCHAR)&tmp, (PUCHAR)&HqaCmdFrame->Data, len);
-		snr = PKTLA_TRAN_TO_HOST(len / 4, &tmp);
-		memset(cmd, 0x00, HQA_BF_STR_SIZE);
-		snprintf_ret = snprintf(cmd, HQA_BF_STR_SIZE, "%02x:%02x:%02x:%02x", snr->snr_sts0, snr->snr_sts1, snr->snr_sts2, snr->snr_sts3);
-		if (os_snprintf_error(HQA_BF_STR_SIZE, snprintf_ret)) {
-			MTWF_DBG(pAd, DBG_CAT_CFG, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-				"cmd snprintf error!\n");
-			os_free_mem(cmd);
-			return FALSE;
-		}
-#if defined(MT_MAC)
-		Set_TxBfProfileTag_SNR(pAd, cmd);
+	NdisMoveMemory((PUCHAR)&tmp, (PUCHAR)&HqaCmdFrame->Data, len);
+	snr = PKTLA_TRAN_TO_HOST(len / 4, &tmp);
+	memset(cmd, 0x00, HQA_BF_STR_SIZE);
+	sprintf(cmd, "%02x:%02x:%02x:%02x", snr->snr_sts0, snr->snr_sts1, snr->snr_sts2, snr->snr_sts3);
+#if defined(MT7615) || defined(MT7622)
+	Set_TxBfProfileTag_SNR(pAd, cmd);
 #endif
-		} else {
-			MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-				"length larger than 2048\n");
-			Ret = NDIS_STATUS_INVALID_DATA;
-		}
-
 	os_free_mem(cmd);
 HQA_TAG_SNR_FAIL:
 	ResponseToQA(HqaCmdFrame, WRQ, 2, Ret);
-		if (snr)
-			MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO,
-					 "snr_sts0:%x, snr_sts1:%x, snr_sts2:%x, snr_sts3:%x,\n",
-					 snr->snr_sts0, snr->snr_sts1, snr->snr_sts2, snr->snr_sts3);
+	if (snr)
+		MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_OFF,
+				 ("%s: snr_sts0:%x, snr_sts1:%x, snr_sts2:%x, snr_sts3:%x,\n",
+				  __func__, snr->snr_sts0, snr->snr_sts1, snr->snr_sts2, snr->snr_sts3));
 	return Ret;
-
 }
 
 
 static INT32 HQA_TxBfProfileTagSmtAnt(PRTMP_ADAPTER pAd, RTMP_IOCTL_INPUT_STRUCT *WRQ, struct _HQA_CMD_FRAME *HqaCmdFrame)
 {
 	INT32 Ret = 0;
-	INT snprintf_ret;
 	UINT32 smt_ant = 0;
 	RTMP_STRING *cmd;
 
@@ -4463,18 +4496,12 @@ static INT32 HQA_TxBfProfileTagSmtAnt(PRTMP_ADAPTER pAd, RTMP_IOCTL_INPUT_STRUCT
 	 */
 	smt_ant = PKTL_TRAN_TO_HOST(smt_ant);
 	memset(cmd, 0x00, HQA_BF_STR_SIZE);
-	snprintf_ret = snprintf(cmd, HQA_BF_STR_SIZE, "%d", smt_ant);
-	if (os_snprintf_error(HQA_BF_STR_SIZE, snprintf_ret)) {
-		MTWF_DBG(pAd, DBG_CAT_CFG, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-			"cmd snprintf error!\n");
-		os_free_mem(cmd);
-		return FALSE;
-	}
-#if defined(MT_MAC)
+	sprintf(cmd, "%d", smt_ant);
+#if defined(MT7615) || defined(MT7622)
 	Set_TxBfProfileTag_SmartAnt(pAd, cmd);
 #endif
-	MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO,
-			 "val:%x, str:%s\n", smt_ant, cmd);
+	MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_OFF,
+			 ("%s: val:%x, str:%s\n", __func__, smt_ant, cmd));
 	os_free_mem(cmd);
 HQA_TAG_SMTANT_FAIL:
 	ResponseToQA(HqaCmdFrame, WRQ, 2, Ret);
@@ -4485,7 +4512,6 @@ HQA_TAG_SMTANT_FAIL:
 static INT32 HQA_TxBfProfileTagSeIdx(PRTMP_ADAPTER pAd, RTMP_IOCTL_INPUT_STRUCT *WRQ, struct _HQA_CMD_FRAME *HqaCmdFrame)
 {
 	INT32 Ret = 0;
-	INT snprintf_ret;
 	UINT32 se_idx = 0;
 	RTMP_STRING *cmd;
 
@@ -4499,18 +4525,12 @@ static INT32 HQA_TxBfProfileTagSeIdx(PRTMP_ADAPTER pAd, RTMP_IOCTL_INPUT_STRUCT 
 	NdisMoveMemory((PUCHAR)&se_idx, (PUCHAR)&HqaCmdFrame->Data, 4);
 	se_idx = PKTL_TRAN_TO_HOST(se_idx);
 	memset(cmd, 0x00, HQA_BF_STR_SIZE);
-	snprintf_ret = snprintf(cmd, HQA_BF_STR_SIZE, "%d", se_idx);
-	if (os_snprintf_error(HQA_BF_STR_SIZE, snprintf_ret)) {
-		MTWF_DBG(pAd, DBG_CAT_CFG, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-			"cmd snprintf error!\n");
-		os_free_mem(cmd);
-		return FALSE;
-	}
-#if defined(MT_MAC)
+	sprintf(cmd, "%d", se_idx);
+#if defined(MT7615) || defined(MT7622)
 	Set_TxBfProfileTag_SeIdx(pAd, cmd);
 #endif
-	MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO,
-			 "val:%x, str:%s\n", se_idx, cmd);
+	MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_OFF,
+			 ("%s: val:%x, str:%s\n", __func__, se_idx, cmd));
 	os_free_mem(cmd);
 HQA_TAG_SEIDX_FAIL:
 	ResponseToQA(HqaCmdFrame, WRQ, 2, Ret);
@@ -4521,7 +4541,6 @@ HQA_TAG_SEIDX_FAIL:
 static INT32 HQA_TxBfProfileTagRmsdThrd(PRTMP_ADAPTER pAd, RTMP_IOCTL_INPUT_STRUCT *WRQ, struct _HQA_CMD_FRAME *HqaCmdFrame)
 {
 	INT32 Ret = 0;
-	INT snprintf_ret;
 	UINT32 rmsd_thrd = 0;
 	RTMP_STRING *cmd;
 
@@ -4535,18 +4554,12 @@ static INT32 HQA_TxBfProfileTagRmsdThrd(PRTMP_ADAPTER pAd, RTMP_IOCTL_INPUT_STRU
 	NdisMoveMemory((PUCHAR)&rmsd_thrd, (PUCHAR)&HqaCmdFrame->Data, 4);
 	rmsd_thrd = PKTL_TRAN_TO_HOST(rmsd_thrd);
 	memset(cmd, 0x00, HQA_BF_STR_SIZE);
-	snprintf_ret = snprintf(cmd, HQA_BF_STR_SIZE, "%d", rmsd_thrd);
-	if (os_snprintf_error(HQA_BF_STR_SIZE, snprintf_ret)) {
-		MTWF_DBG(pAd, DBG_CAT_CFG, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-			"cmd snprintf error!\n");
-		os_free_mem(cmd);
-		return FALSE;
-	}
-#if defined(MT_MAC)
+	sprintf(cmd, "%d", rmsd_thrd);
+#if defined(MT7615) || defined(MT7622)
 	Set_TxBfProfileTag_RmsdThrd(pAd, cmd);
 #endif
-	MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO,
-			 "val:%x, cmd:%s\n", rmsd_thrd, cmd);
+	MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_OFF,
+			 ("%s: val:%x, cmd:%s\n", __func__, rmsd_thrd, cmd));
 	os_free_mem(cmd);
 HQA_TAG_RMSDTHRD_FAIL:
 	ResponseToQA(HqaCmdFrame, WRQ, 2, Ret);
@@ -4557,14 +4570,13 @@ HQA_TAG_RMSDTHRD_FAIL:
 static INT32 HQA_TxBfProfileTagMcsThrd(PRTMP_ADAPTER pAd, RTMP_IOCTL_INPUT_STRUCT *WRQ, struct _HQA_CMD_FRAME *HqaCmdFrame)
 {
 	INT32 Ret = 0;
-	INT snprintf_ret;
 	UINT16 len = 0;
 	struct _HQA_BF_TAG_MCS_THRD tmp, *mcs_thrd = NULL;
 	RTMP_STRING *cmd;
 
 	if (!HqaCmdFrame) {
-		MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-				 "HqaCmdFrame is NULL\n");
+		MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
+				("%s: HqaCmdFrame is NULL\n", __func__));
 		Ret = NDIS_STATUS_INVALID_DATA;
 		return Ret;
 	}
@@ -4577,35 +4589,20 @@ static INT32 HQA_TxBfProfileTagMcsThrd(PRTMP_ADAPTER pAd, RTMP_IOCTL_INPUT_STRUC
 	}
 
 	len = PKTS_TRAN_TO_HOST(HqaCmdFrame->Length);
-	/* check the range for coverity,24=sizeof(_HQA_BF_TAG_MCS_THRD) */
-	if (len < 24) {
-		NdisMoveMemory((PUCHAR)&tmp, (PUCHAR)&HqaCmdFrame->Data, len);
-		mcs_thrd = PKTLA_TRAN_TO_HOST(len / 4, &tmp);
-		memset(cmd, 0x00, HQA_BF_STR_SIZE);
-		snprintf_ret = snprintf(cmd, HQA_BF_STR_SIZE, "%02x:%02x:%02x:%02x:%02x:%02x", mcs_thrd->mcs_lss0, mcs_thrd->mcs_sss0, mcs_thrd->mcs_lss1, mcs_thrd->mcs_sss1, mcs_thrd->mcs_lss2, mcs_thrd->mcs_sss2);
-		if (os_snprintf_error(HQA_BF_STR_SIZE, snprintf_ret)) {
-			MTWF_DBG(pAd, DBG_CAT_CFG, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-				"cmd snprintf error!\n");
-			os_free_mem(cmd);
-			return FALSE;
-		}
-#if defined(MT_MAC)
-		Set_TxBfProfileTag_McsThrd(pAd, cmd);
+	NdisMoveMemory((PUCHAR)&tmp, (PUCHAR)&HqaCmdFrame->Data, len);
+	mcs_thrd = PKTLA_TRAN_TO_HOST(len / 4, &tmp);
+	memset(cmd, 0x00, HQA_BF_STR_SIZE);
+	sprintf(cmd, "%02x:%02x:%02x:%02x:%02x:%02x", mcs_thrd->mcs_lss0, mcs_thrd->mcs_sss0, mcs_thrd->mcs_lss1, mcs_thrd->mcs_sss1, mcs_thrd->mcs_lss2, mcs_thrd->mcs_sss2);
+#if defined(MT7615) || defined(MT7622)
+	Set_TxBfProfileTag_McsThrd(pAd, cmd);
 #endif
-		} else {
-			MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-				"length larger than 2048\n");
-			Ret = NDIS_STATUS_INVALID_DATA;
-		}
-
 	os_free_mem(cmd);
 HQA_TAG_MCSTHRD_FAIL:
 	ResponseToQA(HqaCmdFrame, WRQ, 2, Ret);
 	if (mcs_thrd)
-		MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO,
-		"len:%x, mcs_lss0:%x, mcs_sss0:%x, mcs_lss1:%x, mcs_sss1:%x, mcs_lss2:%x, mcs_sss2:%x\n",
-		len, mcs_thrd->mcs_lss0, mcs_thrd->mcs_sss0, mcs_thrd->mcs_lss1, mcs_thrd->mcs_sss1,
-		mcs_thrd->mcs_lss2, mcs_thrd->mcs_sss2);
+		MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_OFF,
+				 ("%s: len:%x, mcs_lss0:%x, mcs_sss0:%x, mcs_lss1:%x, mcs_sss1:%x, mcs_lss2:%x, mcs_sss2:%x\n",
+				  __func__, len, mcs_thrd->mcs_lss0, mcs_thrd->mcs_sss0, mcs_thrd->mcs_lss1, mcs_thrd->mcs_sss1, mcs_thrd->mcs_lss2, mcs_thrd->mcs_sss2));
 	return Ret;
 }
 
@@ -4613,7 +4610,6 @@ HQA_TAG_MCSTHRD_FAIL:
 static INT32 HQA_TxBfProfileTagTimeOut(PRTMP_ADAPTER pAd, RTMP_IOCTL_INPUT_STRUCT *WRQ, struct _HQA_CMD_FRAME *HqaCmdFrame)
 {
 	INT32 Ret = 0;
-	INT snprintf_ret;
 	UINT32 bf_tout = 0;
 	RTMP_STRING *cmd;
 
@@ -4627,18 +4623,12 @@ static INT32 HQA_TxBfProfileTagTimeOut(PRTMP_ADAPTER pAd, RTMP_IOCTL_INPUT_STRUC
 	NdisMoveMemory((PUCHAR)&bf_tout, (PUCHAR)&HqaCmdFrame->Data, 4);
 	bf_tout = PKTL_TRAN_TO_HOST(bf_tout);
 	memset(cmd, 0x00, HQA_BF_STR_SIZE);
-	snprintf_ret = snprintf(cmd, HQA_BF_STR_SIZE, "%d", bf_tout);
-	if (os_snprintf_error(HQA_BF_STR_SIZE, snprintf_ret)) {
-		MTWF_DBG(pAd, DBG_CAT_CFG, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-			"cmd snprintf error!\n");
-		os_free_mem(cmd);
-		return FALSE;
-	}
-#if defined(MT_MAC)
+	sprintf(cmd, "%d", bf_tout);
+#if defined(MT7615) || defined(MT7622)
 	Set_TxBfProfileTag_TimeOut(pAd, cmd);
 #endif
-	MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO,
-			 "val:%x, str:%s\n", bf_tout, cmd);
+	MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_OFF,
+			 ("%s: val:%x, str:%s\n", __func__, bf_tout, cmd));
 	os_free_mem(cmd);
 HQA_TAG_TOUT_FAIL:
 	ResponseToQA(HqaCmdFrame, WRQ, 2, Ret);
@@ -4649,7 +4639,6 @@ HQA_TAG_TOUT_FAIL:
 static INT32 HQA_TxBfProfileTagDesiredBw(PRTMP_ADAPTER pAd, RTMP_IOCTL_INPUT_STRUCT *WRQ, struct _HQA_CMD_FRAME *HqaCmdFrame)
 {
 	INT32 Ret = 0;
-	INT snprintf_ret;
 	UINT32 desire_bw = 0;
 	RTMP_STRING *cmd;
 
@@ -4663,18 +4652,12 @@ static INT32 HQA_TxBfProfileTagDesiredBw(PRTMP_ADAPTER pAd, RTMP_IOCTL_INPUT_STR
 	NdisMoveMemory((PUCHAR)&desire_bw, (PUCHAR)&HqaCmdFrame->Data, 4);
 	desire_bw = PKTL_TRAN_TO_HOST(desire_bw);
 	memset(cmd, 0x00, HQA_BF_STR_SIZE);
-	snprintf_ret = snprintf(cmd, HQA_BF_STR_SIZE, "%d", desire_bw);
-	if (os_snprintf_error(HQA_BF_STR_SIZE, snprintf_ret)) {
-		MTWF_DBG(pAd, DBG_CAT_CFG, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-			"cmd snprintf error!\n");
-		os_free_mem(cmd);
-		return FALSE;
-	}
-#if defined(MT_MAC)
+	sprintf(cmd, "%d", desire_bw);
+#if defined(MT7615) || defined(MT7622)
 	Set_TxBfProfileTag_DesiredBW(pAd, cmd);
 #endif
-	MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO,
-			 "val:%x, str:%s\n", desire_bw, cmd);
+	MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_OFF,
+			 ("%s: val:%x, str:%s\n", __func__, desire_bw, cmd));
 	os_free_mem(cmd);
 HQA_TAG_DBW_FAIL:
 	ResponseToQA(HqaCmdFrame, WRQ, 2, Ret);
@@ -4685,7 +4668,6 @@ HQA_TAG_DBW_FAIL:
 static INT32 HQA_TxBfProfileTagDesiredNc(PRTMP_ADAPTER pAd, RTMP_IOCTL_INPUT_STRUCT *WRQ, struct _HQA_CMD_FRAME *HqaCmdFrame)
 {
 	INT32 Ret = 0;
-	INT snprintf_ret;
 	UINT32 desire_nc = 0;
 	RTMP_STRING *cmd;
 
@@ -4699,18 +4681,12 @@ static INT32 HQA_TxBfProfileTagDesiredNc(PRTMP_ADAPTER pAd, RTMP_IOCTL_INPUT_STR
 	NdisMoveMemory((PUCHAR)&desire_nc, (PUCHAR)&HqaCmdFrame->Data, 4);
 	desire_nc = PKTL_TRAN_TO_HOST(desire_nc);
 	memset(cmd, 0x00, HQA_BF_STR_SIZE);
-	snprintf_ret = snprintf(cmd, HQA_BF_STR_SIZE, "%d", desire_nc);
-	if (os_snprintf_error(HQA_BF_STR_SIZE, snprintf_ret)) {
-		MTWF_DBG(pAd, DBG_CAT_CFG, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-			"cmd snprintf error!\n");
-		os_free_mem(cmd);
-		return FALSE;
-	}
-#if defined(MT_MAC)
+	sprintf(cmd, "%d", desire_nc);
+#if defined(MT7615) || defined(MT7622)
 	Set_TxBfProfileTag_DesiredNc(pAd, cmd);
 #endif
-	MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO,
-			 "val:%x, str:%s\n", desire_nc, cmd);
+	MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_OFF,
+			 ("%s: val:%x, str:%s\n", __func__, desire_nc, cmd));
 	os_free_mem(cmd);
 HQA_TAG_DNC_FAIL:
 	ResponseToQA(HqaCmdFrame, WRQ, 2, Ret);
@@ -4721,7 +4697,6 @@ HQA_TAG_DNC_FAIL:
 static INT32 HQA_TxBfProfileTagDesiredNr(PRTMP_ADAPTER pAd, RTMP_IOCTL_INPUT_STRUCT *WRQ, struct _HQA_CMD_FRAME *HqaCmdFrame)
 {
 	INT32 Ret = 0;
-	INT snprintf_ret;
 	UINT32 desire_nr = 0;
 	RTMP_STRING *cmd;
 
@@ -4735,18 +4710,12 @@ static INT32 HQA_TxBfProfileTagDesiredNr(PRTMP_ADAPTER pAd, RTMP_IOCTL_INPUT_STR
 	NdisMoveMemory((PUCHAR)&desire_nr, (PUCHAR)&HqaCmdFrame->Data, 4);
 	desire_nr = PKTL_TRAN_TO_HOST(desire_nr);
 	memset(cmd, 0x00, HQA_BF_STR_SIZE);
-	snprintf_ret = snprintf(cmd, HQA_BF_STR_SIZE, "%d", desire_nr);
-	if (os_snprintf_error(HQA_BF_STR_SIZE, snprintf_ret)) {
-		MTWF_DBG(pAd, DBG_CAT_CFG, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-			"cmd snprintf error!\n");
-		os_free_mem(cmd);
-		return FALSE;
-	}
-#if defined(MT_MAC)
+	sprintf(cmd, "%d", desire_nr);
+#if defined(MT7615) || defined(MT7622)
 	Set_TxBfProfileTag_DesiredNr(pAd, cmd);
 #endif
-	MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO,
-			 "val:%x, str:%s\n", desire_nr, cmd);
+	MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_OFF,
+			 ("%s: val:%x, str:%s\n", __func__, desire_nr, cmd));
 	os_free_mem(cmd);
 HQA_TAG_DNR_FAIL:
 	ResponseToQA(HqaCmdFrame, WRQ, 2, Ret);
@@ -4756,7 +4725,6 @@ HQA_TAG_DNR_FAIL:
 static INT32 HQA_TxBfProfileTagWrite(PRTMP_ADAPTER pAd, RTMP_IOCTL_INPUT_STRUCT *WRQ, struct _HQA_CMD_FRAME *HqaCmdFrame)
 {
 	INT32 Ret = 0;
-	INT snprintf_ret;
 	UINT32 idx = 0;	/* WLAN_IDX */
 	RTMP_STRING *cmd;
 
@@ -4770,18 +4738,12 @@ static INT32 HQA_TxBfProfileTagWrite(PRTMP_ADAPTER pAd, RTMP_IOCTL_INPUT_STRUCT 
 	NdisMoveMemory((PUCHAR)&idx, (PUCHAR)&HqaCmdFrame->Data, 4);
 	idx = PKTL_TRAN_TO_HOST(idx);
 	memset(cmd, 0x00, HQA_BF_STR_SIZE);
-	snprintf_ret = snprintf(cmd, HQA_BF_STR_SIZE, "%d", idx);
-	if (os_snprintf_error(HQA_BF_STR_SIZE, snprintf_ret)) {
-		MTWF_DBG(pAd, DBG_CAT_CFG, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-			"cmd snprintf error!\n");
-		os_free_mem(cmd);
-		return FALSE;
-	}
-#if defined(MT_MAC)
+	sprintf(cmd, "%d", idx);
+#if defined(MT7615) || defined(MT7622)
 	Set_TxBfProfileTagWrite(pAd, cmd);
 #endif
-	MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO,
-			 "val:%x, str:%s\n", idx, cmd);
+	MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_OFF,
+			 ("%s: val:%x, str:%s\n", __func__, idx, cmd));
 	os_free_mem(cmd);
 HQA_TAG_WRITE_FAIL:
 	ResponseToQA(HqaCmdFrame, WRQ, 2, Ret);
@@ -4792,7 +4754,6 @@ HQA_TAG_WRITE_FAIL:
 static INT32 HQA_TxBfProfileTagRead(PRTMP_ADAPTER pAd, RTMP_IOCTL_INPUT_STRUCT *WRQ, struct _HQA_CMD_FRAME *HqaCmdFrame)
 {
 	INT32 Ret = 0;
-	INT snprintf_ret;
 	UINT32 idx = 0, isBFer = 0;
 	struct _ATE_CTRL *ate_ctrl = &(pAd->ATECtrl);
 	UCHAR *out = NULL;
@@ -4806,40 +4767,29 @@ static INT32 HQA_TxBfProfileTagRead(PRTMP_ADAPTER pAd, RTMP_IOCTL_INPUT_STRUCT *
 		goto HQA_TAG_READ_FAIL;
 	}
 
-	ate_ctrl->op_mode |= fATE_IN_BF;
+	ate_ctrl->Mode |= fATE_IN_BF;
 	NdisMoveMemory((PUCHAR)&idx, (PUCHAR)&HqaCmdFrame->Data, 4);
 	idx = PKTL_TRAN_TO_HOST(idx);
 	NdisMoveMemory((PUCHAR)&isBFer, (PUCHAR)&HqaCmdFrame->Data + 4, 4);
 	isBFer = PKTL_TRAN_TO_HOST(isBFer);
 	memset(cmd, 0x00, HQA_BF_STR_SIZE);
-	/* check the range for coverity */
-	if (idx < 256 && isBFer < 256) {
-		snprintf_ret = snprintf(cmd, HQA_BF_STR_SIZE, "%02x:%02x", idx, isBFer);
-		if (os_snprintf_error(HQA_BF_STR_SIZE, snprintf_ret)) {
-			MTWF_DBG(pAd, DBG_CAT_CFG, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-				"cmd snprintf error!\n");
-			os_free_mem(cmd);
-			return FALSE;
-		}
-		MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO,
-				 "val:%x %x, str:%s\n", idx, isBFer, cmd);
-	} else
-		MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_ERROR, "idx larger than 255!\n");
-#if defined(MT_MAC) || defined(MT7637)
+	sprintf(cmd, "%02x:%02x", idx, isBFer);
+	MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_OFF,
+			 ("%s: val:%x %x, str:%s\n", __func__, idx, isBFer, cmd));
+	/* #ifdef MT7615 */
+#if defined(MT7615) || defined(MT7637) || defined(MT7622)
 	Set_TxBfProfileTagRead(pAd, cmd);
-	if (!RTMP_OS_WAIT_FOR_COMPLETION_TIMEOUT(&ate_ctrl->cmd_done, ate_ctrl->cmd_expire)) {
-		MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_ERROR, "wait cmd timeout!\n");
-	}
+	RTMP_OS_WAIT_FOR_COMPLETION_TIMEOUT(&ate_ctrl->cmd_done, ate_ctrl->cmd_expire);
 #endif
 
 	if (!ate_ctrl->txbf_info)
 		goto HQA_TAG_READ_FAIL;
 
 	out = PKTLA_TRAN_TO_NET(ate_ctrl->txbf_info_len / 4, ate_ctrl->txbf_info);
-	MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO,
-			 "val:%x %x, str:%s\n", idx, isBFer, cmd);
+	MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_OFF,
+			 ("%s: val:%x %x, str:%s\n", __func__, idx, isBFer, cmd));
 	NdisMoveMemory((PUCHAR)&HqaCmdFrame->Data + 2, (PUCHAR)out, ate_ctrl->txbf_info_len);
-	ate_ctrl->op_mode &= ~fATE_IN_BF;
+	ate_ctrl->Mode &= ~fATE_IN_BF;
 	os_free_mem(ate_ctrl->txbf_info);
 	ate_ctrl->txbf_info = NULL;
 HQA_TAG_READ_FAIL:
@@ -4855,7 +4805,6 @@ HQA_TAG_READ_FAIL:
 static INT32 HQA_StaRecCmmUpdate(PRTMP_ADAPTER pAd, RTMP_IOCTL_INPUT_STRUCT *WRQ, struct _HQA_CMD_FRAME *HqaCmdFrame)
 {
 	INT32 Ret = 0;
-	INT snprintf_ret;
 	UINT16 len = 0;
 	struct _HQA_BF_STA_CMM_REC tmp, *rec = NULL;
 	RTMP_STRING *cmd;
@@ -4889,14 +4838,8 @@ static INT32 HQA_StaRecCmmUpdate(PRTMP_ADAPTER pAd, RTMP_IOCTL_INPUT_STRUCT *WRQ
 	pfmu_info->bss_idx = rec->bss_idx;
 	NdisMoveMemory(pfmu_info->addr, rec->mac, MAC_ADDR_LEN);
 	memset(cmd, 0x00, HQA_BF_STR_SIZE);
-	snprintf_ret = snprintf(cmd, HQA_BF_STR_SIZE, "%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x", rec->wlan_idx, rec->bss_idx, rec->aid, PRINT_MAC(rec->mac));
-	if (os_snprintf_error(HQA_BF_STR_SIZE, snprintf_ret)) {
-		MTWF_DBG(pAd, DBG_CAT_CFG, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-			"cmd snprintf error!\n");
-		os_free_mem(cmd);
-		return FALSE;
-	}
-#if defined(MT_MAC)
+	sprintf(cmd, "%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x", rec->wlan_idx, rec->bss_idx, rec->aid, PRINT_MAC(rec->mac));
+#if defined(MT7615) || defined(MT7622)
 	Set_StaRecCmmUpdate(pAd, cmd);
 #endif
 err0:
@@ -4906,9 +4849,9 @@ err0:
 
 	ResponseToQA(HqaCmdFrame, WRQ, 2, Ret);
 	if (rec)
-		MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO,
-				 "wlan_idx:%x, bss_idx:%x, aid:%x, mac:%02x:%02x:%02x:%02x:%02x:%02x\n",
-				  rec->wlan_idx, rec->bss_idx, rec->aid, PRINT_MAC(rec->mac));
+		MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_OFF,
+				 ("%s: wlan_idx:%x, bss_idx:%x, aid:%x, mac:%02x:%02x:%02x:%02x:%02x:%02x\n",
+				  __func__, rec->wlan_idx, rec->bss_idx, rec->aid, PRINT_MAC(rec->mac)));
 
 	return Ret;
 }
@@ -4917,14 +4860,13 @@ err0:
 static INT32 HQA_StaRecBfUpdate(PRTMP_ADAPTER pAd, RTMP_IOCTL_INPUT_STRUCT *WRQ, struct _HQA_CMD_FRAME *HqaCmdFrame)
 {
 	INT32 Ret = 0;
-	INT snprintf_ret;
 	UINT16 len = 0;
 	struct _HQA_BF_STA_REC tmp, *rec = NULL;
 	RTMP_STRING *cmd;
 
 	if (!HqaCmdFrame) {
-		MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-				 "HqaCmdFrame is NULL\n");
+		MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
+				("%s: HqaCmdFrame is NULL\n", __func__));
 		Ret = NDIS_STATUS_INVALID_DATA;
 		return Ret;
 	}
@@ -4945,20 +4887,13 @@ static INT32 HQA_StaRecBfUpdate(PRTMP_ADAPTER pAd, RTMP_IOCTL_INPUT_STRUCT *WRQ,
 
 	NdisMoveMemory((PUCHAR)&tmp, (PUCHAR)&HqaCmdFrame->Data, len);
 	rec = PKTLA_TRAN_TO_HOST((len) / 4, &tmp);
-	PKTLA_DUMP(DBG_LVL_INFO, sizeof(*rec) / 4, rec);	/* Del after debug */
+	PKTLA_DUMP(DBG_LVL_OFF, sizeof(*rec) / 4, rec);	/* Del after debug */
 	memset(cmd, 0x00, HQA_BF_STR_SIZE);
-	snprintf_ret = snprintf(cmd, HQA_BF_STR_SIZE, "%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x",
+	sprintf(cmd, "%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x",
 			rec->wlan_idx, rec->bss_idx, rec->PfmuId, rec->su_mu, rec->etxbf_cap, rec->ndpa_rate, rec->ndp_rate, rec->report_poll_rate,
 			rec->tx_mode, rec->nc, rec->nr, rec->cbw, rec->spe_idx, rec->tot_mem_req, rec->mem_req_20m, rec->mem_row0, rec->mem_col0,
 			rec->mem_row1, rec->mem_col1, rec->mem_row2, rec->mem_col2, rec->mem_row3, rec->mem_col3);
-	if (os_snprintf_error(HQA_BF_STR_SIZE, snprintf_ret)) {
-		MTWF_DBG(pAd, DBG_CAT_CFG, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-			"cmd snprintf error!\n");
-		os_free_mem(cmd);
-		return FALSE;
-	}
-
-#if defined(MT_MAC)
+#if defined(MT7615) || defined(MT7622)
 	Set_StaRecBfUpdate(pAd, cmd);
 #endif
 HQA_STAREC_BF_UPDATE_FAIL:
@@ -4968,13 +4903,14 @@ HQA_STAREC_BF_UPDATE_FAIL:
 
 	ResponseToQA(HqaCmdFrame, WRQ, 2, Ret);
 	if (rec) {
-		MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO,
-				 "%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x\n",
+		MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_OFF,
+				 ("%s: %02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x\n", __func__,
 				  rec->wlan_idx, rec->bss_idx, rec->PfmuId, rec->su_mu, rec->etxbf_cap, rec->ndpa_rate, rec->ndp_rate, rec->report_poll_rate,
 				  rec->tx_mode, rec->nc, rec->nr, rec->cbw, rec->tot_mem_req, rec->mem_req_20m, rec->mem_row0, rec->mem_col0, rec->mem_row1,
-				  rec->mem_col1, rec->mem_row2, rec->mem_col2, rec->mem_row3, rec->mem_col3);
-		MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO,
-				 "wlan_idx:%x, bss_idx:%x\n", rec->wlan_idx, rec->bss_idx);
+				  rec->mem_col1, rec->mem_row2, rec->mem_col2, rec->mem_row3, rec->mem_col3));
+		MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_OFF,
+				 ("%s: wlan_idx:%x, bss_idx:%x\n",
+				  __func__, rec->wlan_idx, rec->bss_idx));
 	}
 	return Ret;
 }
@@ -4983,7 +4919,6 @@ HQA_STAREC_BF_UPDATE_FAIL:
 static INT32 HQA_BFProfileDataRead(PRTMP_ADAPTER pAd, RTMP_IOCTL_INPUT_STRUCT *WRQ, struct _HQA_CMD_FRAME *HqaCmdFrame)
 {
 	INT32 Ret = 0;
-	INT snprintf_ret;
 	UINT32 idx = 0, fgBFer = 0, subcarrIdx = 0, subcarr_start = 0, subcarr_end = 0;
 	UINT32 offset = 0;
 	UINT32 NumOfsub = 0;
@@ -5001,7 +4936,7 @@ static INT32 HQA_BFProfileDataRead(PRTMP_ADAPTER pAd, RTMP_IOCTL_INPUT_STRUCT *W
 		goto BF_PROFILE_DATA_READ_FAIL;
 	}
 
-	ate_ctrl->op_mode |= fATE_IN_BF;
+	ate_ctrl->Mode |= fATE_IN_BF;
 	NdisMoveMemory((PUCHAR)&idx, (PUCHAR)&HqaCmdFrame->Data, 4);
 	idx = PKTL_TRAN_TO_HOST(idx);
 	NdisMoveMemory((PUCHAR)&fgBFer, (PUCHAR)&HqaCmdFrame->Data + 4, 4);
@@ -5015,48 +4950,32 @@ static INT32 HQA_BFProfileDataRead(PRTMP_ADAPTER pAd, RTMP_IOCTL_INPUT_STRUCT *W
 	NdisMoveMemory((PUCHAR)&HqaCmdFrame->Data + 2, (PUCHAR)&NumOfsub, sizeof(NumOfsub));
 	offset += sizeof(NumOfsub);
 	DebugLevel = DBG_LVL_OFF;
-	/* check the range for coverity */
-	if (subcarr_end <= 65535) {
-		for (subcarrIdx = subcarr_start; subcarrIdx <= subcarr_end; subcarrIdx++) {
-			ate_ctrl->txbf_info = NULL;
-			SubIdx = (UCHAR *)&subcarrIdx;
-			memset(cmd, 0x00, HQA_BF_STR_SIZE);
-			MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO,
-					 "idx:%02x fgBFer:%02x Sub_H:%02x Sub_L:%02x subidx:%d\n",
-					  idx, fgBFer, SubIdx[1], SubIdx[0], subcarrIdx);
-			snprintf_ret = snprintf(cmd, HQA_BF_STR_SIZE, "%02x:%02x:%02x:%02x", idx, fgBFer, SubIdx[1], SubIdx[0]);
-			if (os_snprintf_error(HQA_BF_STR_SIZE, snprintf_ret)) {
-				MTWF_DBG(pAd, DBG_CAT_CFG, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-					"cmd snprintf error!\n");
-				os_free_mem(cmd);
-				return FALSE;
-			}
-#if defined(MT_MAC) || defined(MT7637)
-			/* check the range for coverity */
-			if (*cmd < HQA_BF_STR_SIZE) {
-				Set_TxBfProfileDataRead(pAd, cmd);
-			} else {
-				MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO,
-					"command length is wrong\n");
-				Ret = NDIS_STATUS_INVALID_DATA;
-			}
-			if (!RTMP_OS_WAIT_FOR_COMPLETION_TIMEOUT(&ate_ctrl->cmd_done, ate_ctrl->cmd_expire)) {
-				MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-					"wait cmd timeout!\n");
-			}
+
+	for (subcarrIdx = subcarr_start; subcarrIdx <= subcarr_end; subcarrIdx++) {
+		ate_ctrl->txbf_info = NULL;
+		SubIdx = (UCHAR *)&subcarrIdx;
+		memset(cmd, 0x00, HQA_BF_STR_SIZE);
+		MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO,
+				 ("%s: idx:%02x fgBFer:%02x Sub_H:%02x Sub_L:%02x subidx:%d\n",
+				  __func__, idx, fgBFer, SubIdx[1], SubIdx[0], subcarrIdx));
+		sprintf(cmd, "%02x:%02x:%02x:%02x", idx, fgBFer, SubIdx[1], SubIdx[0]);
+		/* #ifdef MT7615 */
+#if defined(MT7615) || defined(MT7637) || defined(MT7622)
+		Set_TxBfProfileDataRead(pAd, cmd);
+		RTMP_OS_WAIT_FOR_COMPLETION_TIMEOUT(&ate_ctrl->cmd_done, ate_ctrl->cmd_expire);
 #endif
 
-			if (!ate_ctrl->txbf_info)
-				goto BF_PROFILE_DATA_READ_FAIL;
+		if (!ate_ctrl->txbf_info)
+			goto BF_PROFILE_DATA_READ_FAIL;
 
-			out = PKTLA_TRAN_TO_NET(ate_ctrl->txbf_info_len / 4, ate_ctrl->txbf_info);
-			NdisMoveMemory((PUCHAR)&HqaCmdFrame->Data + 2 + offset, (PUCHAR)out, ate_ctrl->txbf_info_len);
-			offset += ate_ctrl->txbf_info_len;
-			os_free_mem(ate_ctrl->txbf_info);
-			ate_ctrl->txbf_info = NULL;
-		}
+		out = PKTLA_TRAN_TO_NET(ate_ctrl->txbf_info_len / 4, ate_ctrl->txbf_info);
+		NdisMoveMemory((PUCHAR)&HqaCmdFrame->Data + 2 + offset, (PUCHAR)out, ate_ctrl->txbf_info_len);
+		offset += ate_ctrl->txbf_info_len;
+		os_free_mem(ate_ctrl->txbf_info);
+		ate_ctrl->txbf_info = NULL;
 	}
-	ate_ctrl->op_mode &= ~fATE_IN_BF;
+
+	ate_ctrl->Mode &= ~fATE_IN_BF;
 BF_PROFILE_DATA_READ_FAIL:
 
 	if (cmd)
@@ -5070,12 +4989,10 @@ BF_PROFILE_DATA_READ_FAIL:
 static INT32 HQA_BFProfileDataWrite(PRTMP_ADAPTER pAd, RTMP_IOCTL_INPUT_STRUCT *WRQ, struct _HQA_CMD_FRAME *HqaCmdFrame)
 {
 	INT32 Ret = 0;
-	INT snprintf_ret;
 	UINT16 len = 0;
 	INT debug_lvl = DebugLevel;
 	struct _HQA_BF_STA_PROFILE tmp, *profile;
 	RTMP_STRING *cmd;
-	UINT cmd_left = 0;
 
 	os_alloc_mem(pAd, (UCHAR **)&cmd, sizeof(CHAR) * (HQA_BF_STR_SIZE));
 
@@ -5088,163 +5005,37 @@ static INT32 HQA_BFProfileDataWrite(PRTMP_ADAPTER pAd, RTMP_IOCTL_INPUT_STRUCT *
 	if (len > sizeof(struct _HQA_BF_STA_PROFILE)) {
 		len = sizeof(struct _HQA_BF_STA_PROFILE);
 
-		MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO,
-			"command length is wrong\n");
+		MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("%s: command length is wrong\n", __func__));
 	}
 	NdisMoveMemory((PUCHAR)&tmp, (PUCHAR)&HqaCmdFrame->Data, len);
 	profile = PKTLA_TRAN_TO_HOST((len) / sizeof(UINT32), &tmp);
 	DebugLevel = DBG_LVL_OFF;
 	PKTLA_DUMP(DBG_LVL_INFO, sizeof(tmp) / sizeof(UINT32), &tmp);	/* Del after debug */
 	memset(cmd, 0x00, HQA_BF_STR_SIZE);
-	snprintf_ret = snprintf(cmd, HQA_BF_STR_SIZE, "%02x:", profile->pfmuid);
-	if (os_snprintf_error(HQA_BF_STR_SIZE, snprintf_ret)) {
-		MTWF_DBG(pAd, DBG_CAT_CFG, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-			"cmd snprintf error!\n");
-		os_free_mem(cmd);
-		return FALSE;
-	}
-	cmd_left = HQA_BF_STR_SIZE - strlen(cmd);
-	snprintf_ret = snprintf(cmd + strlen(cmd), cmd_left, "%03x:", profile->subcarrier);
-	if (os_snprintf_error(cmd_left, snprintf_ret)) {
-		MTWF_DBG(pAd, DBG_CAT_CFG, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-			"cmd snprintf error!\n");
-		os_free_mem(cmd);
-		return FALSE;
-	}
-	cmd_left = HQA_BF_STR_SIZE - strlen(cmd);
-	snprintf_ret = snprintf(cmd + strlen(cmd), cmd_left, "%03x:", profile->phi11);
-	if (os_snprintf_error(cmd_left, snprintf_ret)) {
-		MTWF_DBG(pAd, DBG_CAT_CFG, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-			"cmd snprintf error!\n");
-		os_free_mem(cmd);
-		return FALSE;
-	}
-	cmd_left = HQA_BF_STR_SIZE - strlen(cmd);
-	snprintf_ret = snprintf(cmd + strlen(cmd), cmd_left, "%02x:", profile->psi21);
-	if (os_snprintf_error(cmd_left, snprintf_ret)) {
-		MTWF_DBG(pAd, DBG_CAT_CFG, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-			"cmd snprintf error!\n");
-		os_free_mem(cmd);
-		return FALSE;
-	}
-	cmd_left = HQA_BF_STR_SIZE - strlen(cmd);
-	snprintf_ret = snprintf(cmd + strlen(cmd), cmd_left, "%03x:", profile->phi21);
-	if (os_snprintf_error(cmd_left, snprintf_ret)) {
-		MTWF_DBG(pAd, DBG_CAT_CFG, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-			"cmd snprintf error!\n");
-		os_free_mem(cmd);
-		return FALSE;
-	}
-	cmd_left = HQA_BF_STR_SIZE - strlen(cmd);
-	snprintf_ret = snprintf(cmd + strlen(cmd), cmd_left, "%02x:", profile->psi31);
-	if (os_snprintf_error(cmd_left, snprintf_ret)) {
-		MTWF_DBG(pAd, DBG_CAT_CFG, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-			"cmd snprintf error!\n");
-		os_free_mem(cmd);
-		return FALSE;
-	}
-	cmd_left = HQA_BF_STR_SIZE - strlen(cmd);
-	snprintf_ret = snprintf(cmd + strlen(cmd), cmd_left, "%03x:", profile->phi31);
-	if (os_snprintf_error(cmd_left, snprintf_ret)) {
-		MTWF_DBG(pAd, DBG_CAT_CFG, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-			"cmd snprintf error!\n");
-		os_free_mem(cmd);
-		return FALSE;
-	}
-	cmd_left = HQA_BF_STR_SIZE - strlen(cmd);
-	snprintf_ret = snprintf(cmd + strlen(cmd), cmd_left, "%02x:", profile->psi41);
-	if (os_snprintf_error(cmd_left, snprintf_ret)) {
-		MTWF_DBG(pAd, DBG_CAT_CFG, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-			"cmd snprintf error!\n");
-		os_free_mem(cmd);
-		return FALSE;
-	}
-	cmd_left = HQA_BF_STR_SIZE - strlen(cmd);
-	snprintf_ret = snprintf(cmd + strlen(cmd), cmd_left, "%03x:", profile->phi22);
-	if (os_snprintf_error(cmd_left, snprintf_ret)) {
-		MTWF_DBG(pAd, DBG_CAT_CFG, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-			"cmd snprintf error!\n");
-		os_free_mem(cmd);
-		return FALSE;
-	}
-	cmd_left = HQA_BF_STR_SIZE - strlen(cmd);
-	snprintf_ret = snprintf(cmd + strlen(cmd), cmd_left, "%02x:", profile->psi32);
-	if (os_snprintf_error(cmd_left, snprintf_ret)) {
-		MTWF_DBG(pAd, DBG_CAT_CFG, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-			"cmd snprintf error!\n");
-		os_free_mem(cmd);
-		return FALSE;
-	}
-	cmd_left = HQA_BF_STR_SIZE - strlen(cmd);
-	snprintf_ret = snprintf(cmd + strlen(cmd), cmd_left, "%03x:", profile->phi32);
-	if (os_snprintf_error(cmd_left, snprintf_ret)) {
-		MTWF_DBG(pAd, DBG_CAT_CFG, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-			"cmd snprintf error!\n");
-		os_free_mem(cmd);
-		return FALSE;
-	}
-	cmd_left = HQA_BF_STR_SIZE - strlen(cmd);
-	snprintf_ret = snprintf(cmd + strlen(cmd), cmd_left, "%02x:", profile->psi42);
-	if (os_snprintf_error(cmd_left, snprintf_ret)) {
-		MTWF_DBG(pAd, DBG_CAT_CFG, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-			"cmd snprintf error!\n");
-		os_free_mem(cmd);
-		return FALSE;
-	}
-	cmd_left = HQA_BF_STR_SIZE - strlen(cmd);
-	snprintf_ret = snprintf(cmd + strlen(cmd), cmd_left, "%03x:", profile->phi33);
-	if (os_snprintf_error(cmd_left, snprintf_ret)) {
-		MTWF_DBG(pAd, DBG_CAT_CFG, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-			"cmd snprintf error!\n");
-		os_free_mem(cmd);
-		return FALSE;
-	}
-	cmd_left = HQA_BF_STR_SIZE - strlen(cmd);
-	snprintf_ret = snprintf(cmd + strlen(cmd), cmd_left, "%02x:", profile->psi43);
-	if (os_snprintf_error(cmd_left, snprintf_ret)) {
-		MTWF_DBG(pAd, DBG_CAT_CFG, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-			"cmd snprintf error!\n");
-		os_free_mem(cmd);
-		return FALSE;
-	}
-	cmd_left = HQA_BF_STR_SIZE - strlen(cmd);
-	snprintf_ret = snprintf(cmd + strlen(cmd), cmd_left, "%02x:", profile->snr00);
-	if (os_snprintf_error(HQA_BF_STR_SIZE, (strlen(cmd) + snprintf_ret))) {
-		MTWF_DBG(pAd, DBG_CAT_CFG, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-			"cmd snprintf error!\n");
-		os_free_mem(cmd);
-		return FALSE;
-	}
-	cmd_left = HQA_BF_STR_SIZE - strlen(cmd);
-	snprintf_ret = snprintf(cmd + strlen(cmd), cmd_left, "%02x:", profile->snr01);
-	if (os_snprintf_error(cmd_left, snprintf_ret)) {
-		MTWF_DBG(pAd, DBG_CAT_CFG, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-			"cmd snprintf error!\n");
-		os_free_mem(cmd);
-		return FALSE;
-	}
-	cmd_left = HQA_BF_STR_SIZE - strlen(cmd);
-	snprintf_ret = snprintf(cmd + strlen(cmd), cmd_left, "%02x:", profile->snr02);
-	if (os_snprintf_error(cmd_left, snprintf_ret)) {
-		MTWF_DBG(pAd, DBG_CAT_CFG, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-			"cmd snprintf error!\n");
-		os_free_mem(cmd);
-		return FALSE;
-	}
-	cmd_left = HQA_BF_STR_SIZE - strlen(cmd);
-	snprintf_ret = snprintf(cmd + strlen(cmd), cmd_left, "%02x", profile->snr03);
-	if (os_snprintf_error(cmd_left, snprintf_ret)) {
-		MTWF_DBG(pAd, DBG_CAT_CFG, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-			"cmd snprintf error!\n");
-		os_free_mem(cmd);
-		return FALSE;
-	}
-#if defined(MT_MAC)
+	sprintf(cmd, "%02x:", profile->pfmuid);
+	sprintf(cmd + strlen(cmd), "%03x:", profile->subcarrier);
+	sprintf(cmd + strlen(cmd), "%03x:", profile->phi11);
+	sprintf(cmd + strlen(cmd), "%02x:", profile->psi21);
+	sprintf(cmd + strlen(cmd), "%03x:", profile->phi21);
+	sprintf(cmd + strlen(cmd), "%02x:", profile->psi31);
+	sprintf(cmd + strlen(cmd), "%03x:", profile->phi31);
+	sprintf(cmd + strlen(cmd), "%02x:", profile->psi41);
+	sprintf(cmd + strlen(cmd), "%03x:", profile->phi22);
+	sprintf(cmd + strlen(cmd), "%02x:", profile->psi32);
+	sprintf(cmd + strlen(cmd), "%03x:", profile->phi32);
+	sprintf(cmd + strlen(cmd), "%02x:", profile->psi42);
+	sprintf(cmd + strlen(cmd), "%03x:", profile->phi33);
+	sprintf(cmd + strlen(cmd), "%02x:", profile->psi43);
+	sprintf(cmd + strlen(cmd), "%02x:", profile->snr00);
+	sprintf(cmd + strlen(cmd), "%02x:", profile->snr01);
+	sprintf(cmd + strlen(cmd), "%02x:", profile->snr02);
+	sprintf(cmd + strlen(cmd), "%02x", profile->snr03);
+#if defined(MT7615) || defined(MT7622)
 	Set_TxBfProfileDataWrite(pAd, cmd);
 #endif
 	os_free_mem(cmd);
 BF_PROFILE_DATA_WRITE_FAIL:
-	MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO, "\n");
+	MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO, ("%s\n", __func__));
 	ResponseToQA(HqaCmdFrame, WRQ, 2, Ret);
 	DebugLevel = debug_lvl;
 	return Ret;
@@ -5253,7 +5044,6 @@ BF_PROFILE_DATA_WRITE_FAIL:
 static INT32 HQA_BFQdRead(PRTMP_ADAPTER pAd, RTMP_IOCTL_INPUT_STRUCT *WRQ, struct _HQA_CMD_FRAME *HqaCmdFrame)
 {
 	INT32 Ret = 0;
-	INT snprintf_ret;
 	struct _ATE_CTRL *ate_ctrl = &(pAd->ATECtrl);
 	UCHAR *out = NULL;
 	RTMP_STRING *cmd;
@@ -5267,25 +5057,17 @@ static INT32 HQA_BFQdRead(PRTMP_ADAPTER pAd, RTMP_IOCTL_INPUT_STRUCT *WRQ, struc
 		goto HQA_BF_QD_READ_FAIL;
 	}
 
-	ate_ctrl->op_mode |= fATE_IN_BF;
+	ate_ctrl->Mode |= fATE_IN_BF;
 
 	NdisMoveMemory((PUCHAR)&subcarrier_idx, HqaCmdFrame->Data, sizeof(subcarrier_idx));
 	subcarrier_idx = PKTL_TRAN_TO_HOST(subcarrier_idx);
 
 	memset(cmd, 0x00, HQA_BF_STR_SIZE);
-	snprintf_ret = snprintf(cmd, HQA_BF_STR_SIZE, "%d", subcarrier_idx);
-	if (os_snprintf_error(HQA_BF_STR_SIZE, snprintf_ret)) {
-		MTWF_DBG(pAd, DBG_CAT_CFG, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-			"cmd snprintf error!\n");
-		os_free_mem(cmd);
-		return FALSE;
-	}
-	MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO, "val:%u, str:%s\n", subcarrier_idx, cmd);
-#if defined(MT_MAC)
+	sprintf(cmd, "%d", subcarrier_idx);
+	MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_OFF, ("%s, val:%u, str:%s\n", __func__, subcarrier_idx, cmd));
+#if defined(MT7615) || defined(MT7622)
 	Set_TxBfQdRead(pAd, cmd);
-	if (!RTMP_OS_WAIT_FOR_COMPLETION_TIMEOUT(&ate_ctrl->cmd_done, ate_ctrl->cmd_expire)) {
-		MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_ERROR, "wait cmd timeout!\n");
-	}
+	RTMP_OS_WAIT_FOR_COMPLETION_TIMEOUT(&ate_ctrl->cmd_done, ate_ctrl->cmd_expire);
 #endif
 	if (!ate_ctrl->txbf_info)
 		goto HQA_BF_QD_READ_FAIL;
@@ -5294,7 +5076,7 @@ static INT32 HQA_BFQdRead(PRTMP_ADAPTER pAd, RTMP_IOCTL_INPUT_STRUCT *WRQ, struc
 
 	PKTLA_DUMP(DBG_LVL_INFO, 14, out);
 	NdisMoveMemory((PUCHAR)&HqaCmdFrame->Data + 2, (PUCHAR)out, ate_ctrl->txbf_info_len);
-	ate_ctrl->op_mode &= ~fATE_IN_BF;
+	ate_ctrl->Mode &= ~fATE_IN_BF;
 	os_free_mem(ate_ctrl->txbf_info);
 	ate_ctrl->txbf_info = NULL;
 HQA_BF_QD_READ_FAIL:
@@ -5308,7 +5090,6 @@ HQA_BF_QD_READ_FAIL:
 static INT32 HQA_BFSounding(PRTMP_ADAPTER pAd, RTMP_IOCTL_INPUT_STRUCT *WRQ, struct _HQA_CMD_FRAME *HqaCmdFrame)
 {
 	INT32 Ret = 0;
-	INT snprintf_ret;
 	UINT16 len = 0;
 	struct _HQA_BF_SOUNDING tmp, *param;
 	RTMP_STRING *cmd;
@@ -5329,16 +5110,10 @@ static INT32 HQA_BFSounding(PRTMP_ADAPTER pAd, RTMP_IOCTL_INPUT_STRUCT *WRQ, str
 
 	NdisMoveMemory((PUCHAR)&tmp, (PUCHAR)&HqaCmdFrame->Data, len);
 	param = PKTLA_TRAN_TO_HOST((len) / sizeof(UINT32), &tmp);
-	PKTLA_DUMP(DBG_LVL_INFO, sizeof(*param) / sizeof(UINT32), param);/* Del after debug */
+	PKTLA_DUMP(DBG_LVL_OFF, sizeof(*param) / sizeof(UINT32), param);	/* Del after debug */
 	memset(cmd, 0x00, HQA_BF_STR_SIZE);
-	snprintf_ret = snprintf(cmd, HQA_BF_STR_SIZE, "%02x:%02x:%02x:%02x:%02x:%02x:%02x", param->su_mu, param->mu_num, param->snd_interval, param->wlan_id0, param->wlan_id1, param->wlan_id2, param->wlan_id3);
-	if (os_snprintf_error(HQA_BF_STR_SIZE, snprintf_ret)) {
-		MTWF_DBG(pAd, DBG_CAT_CFG, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-			"cmd snprintf error!\n");
-		os_free_mem(cmd);
-		return FALSE;
-	}
-#if defined(MT_MAC)
+	sprintf(cmd, "%02x:%02x:%02x:%02x:%02x:%02x:%02x", param->su_mu, param->mu_num, param->snd_interval, param->wlan_id0, param->wlan_id1, param->wlan_id2, param->wlan_id3);
+#if defined(MT7615) || defined(MT7622)
 	MtATESetMacTxRx(pAd, ASIC_MAC_TX, TRUE, param->band_idx);
 	Set_Trigger_Sounding_Proc(pAd, cmd);
 #endif
@@ -5347,7 +5122,7 @@ HQA_BFSOUNDING_FAIL:
 	if (cmd)
 		os_free_mem(cmd);
 
-	MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO, "\n");
+	MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_OFF, ("%s\n", __func__));
 	ResponseToQA(HqaCmdFrame, WRQ, 2, Ret);
 	return Ret;
 }
@@ -5357,10 +5132,10 @@ static INT32 HQA_TXBFSoundingStop(PRTMP_ADAPTER pAd, RTMP_IOCTL_INPUT_STRUCT *WR
 {
 	INT32 Ret = 0;
 
-#if defined(MT_MAC)
+#if defined(MT7615) || defined(MT7622)
 	Set_Stop_Sounding_Proc(pAd, NULL);
 #endif
-	MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO, "\n");
+	MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_OFF, ("%s\n", __func__));
 	ResponseToQA(HqaCmdFrame, WRQ, 2, Ret);
 	return Ret;
 }
@@ -5369,7 +5144,6 @@ static INT32 HQA_TXBFSoundingStop(PRTMP_ADAPTER pAd, RTMP_IOCTL_INPUT_STRUCT *WR
 static INT32 HQA_TXBFProfileDataWriteAllExt(PRTMP_ADAPTER pAd, RTMP_IOCTL_INPUT_STRUCT *WRQ, struct _HQA_CMD_FRAME *HqaCmdFrame)
 {
 	INT32 Ret = 0;
-	INT snprintf_ret;
 	UINT32 bw = 0;
 	UINT32 profile_idx = 0;
 	RTMP_STRING *cmd;
@@ -5386,20 +5160,14 @@ static INT32 HQA_TXBFProfileDataWriteAllExt(PRTMP_ADAPTER pAd, RTMP_IOCTL_INPUT_
 	bw = PKTL_TRAN_TO_HOST(bw);
 	profile_idx = PKTL_TRAN_TO_HOST(profile_idx);
 	memset(cmd, 0x00, HQA_BF_STR_SIZE);
-	snprintf_ret = snprintf(cmd, HQA_BF_STR_SIZE, "%x:%x", profile_idx, bw);
-	if (os_snprintf_error(HQA_BF_STR_SIZE, snprintf_ret)) {
-		MTWF_DBG(pAd, DBG_CAT_CFG, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-			"cmd snprintf error!\n");
-		os_free_mem(cmd);
-		return FALSE;
-	}
+	sprintf(cmd, "%x:%x", profile_idx, bw);
 err0:
 
 	if (cmd)
 		os_free_mem(cmd);
 
-	MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO,
-			 "bw:%x, profile_idx:%x\n", bw, profile_idx);
+	MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_OFF,
+			 ("%s: bw:%x, profile_idx:%x\n", __func__, bw, profile_idx));
 	ResponseToQA(HqaCmdFrame, WRQ, 2, Ret);
 	return Ret;
 }
@@ -5409,13 +5177,13 @@ err0:
 static INT32 HQA_TxBfTxApply(PRTMP_ADAPTER pAd, RTMP_IOCTL_INPUT_STRUCT *WRQ, struct _HQA_CMD_FRAME *HqaCmdFrame)
 {
 	INT32 Ret = 0;
-	INT snprintf_ret;
 	UINT32 eBF_enable = 0;
 	UINT32 iBF_enable = 0;
 	UINT32 wlan_id = 0;
 	UINT32 MuTx_enable = 0;
 	UINT32 iBFPhaseCali = 1;
 	RTMP_STRING *cmd;
+	struct _ATE_CTRL *ate_ctrl = &(pAd->ATECtrl);
 	UCHAR *data = HqaCmdFrame->Data;
 
 	os_alloc_mem(pAd, (UCHAR **)&cmd, sizeof(CHAR) * (HQA_BF_STR_SIZE));
@@ -5429,26 +5197,13 @@ static INT32 HQA_TxBfTxApply(PRTMP_ADAPTER pAd, RTMP_IOCTL_INPUT_STRUCT *WRQ, st
 	EthGetParamAndShiftBuff(TRUE, sizeof(UINT32), &data, (UCHAR *)&iBF_enable);
 	EthGetParamAndShiftBuff(TRUE, sizeof(UINT32), &data, (UCHAR *)&wlan_id);
 	EthGetParamAndShiftBuff(TRUE, sizeof(UINT32), &data, (UCHAR *)&MuTx_enable);
-	if (wlan_id < DBDC_BAND_NUM) {
-		TESTMODE_SET_PARAM(pAd, wlan_id, ebf, eBF_enable);
-		TESTMODE_SET_PARAM(pAd, wlan_id, ibf, iBF_enable);
-		snprintf_ret = snprintf(cmd, HQA_BF_STR_SIZE, "%02x:%02x:%02x:%02x:%02x", wlan_id, eBF_enable, iBF_enable, MuTx_enable, iBFPhaseCali);
-		if (os_snprintf_error(HQA_BF_STR_SIZE, snprintf_ret)) {
-			MTWF_DBG(pAd, DBG_CAT_CFG, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-				"cmd snprintf error!\n");
-			os_free_mem(cmd);
-			return FALSE;
-		}
-		MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO,
-				 "wlan_id:%x, eBF enable:%x, iBF enable:%x, MuTx:%x\n",
-				  wlan_id, eBF_enable, iBF_enable, MuTx_enable);
-		/* check the range for coverity */
-		if (*cmd < HQA_BF_STR_SIZE)
-			Set_TxBfTxApply(pAd, cmd);
-	} else {
-		Ret = NDIS_STATUS_RESOURCES;
-		goto err0;
-	}
+	TESTMODE_SET_PARAM(ate_ctrl, wlan_id, eTxBf, eBF_enable);
+	TESTMODE_SET_PARAM(ate_ctrl, wlan_id, iTxBf, iBF_enable);
+	sprintf(cmd, "%02x:%02x:%02x:%02x:%02x", wlan_id, eBF_enable, iBF_enable, MuTx_enable, iBFPhaseCali);
+	MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_OFF,
+			 ("%s: wlan_id:%x, eBF enable:%x, iBF enable:%x, MuTx:%x\n",
+			  __func__, wlan_id, eBF_enable, iBF_enable, MuTx_enable));
+	Set_TxBfTxApply(pAd, cmd);
 err0:
 
 	if (cmd)
@@ -5462,9 +5217,8 @@ err0:
 static INT32 HQA_ManualAssoc(PRTMP_ADAPTER pAd, RTMP_IOCTL_INPUT_STRUCT *WRQ, struct _HQA_CMD_FRAME *HqaCmdFrame)
 {
 	INT32 Ret = 0;
-	INT snprintf_ret;
 	P_MANUAL_CONN manual_cfg = &pAd->AteManualConnInfo;
-	struct _HQA_BF_MANUAL_CONN manual_conn = { {0} };
+	struct _HQA_BF_MANUAL_CONN manual_conn;
 	RTMP_STRING rate_str[64];
 	char ucNsts;
 	UINT_32 rate[8];
@@ -5537,8 +5291,9 @@ static INT32 HQA_ManualAssoc(PRTMP_ADAPTER pAd, RTMP_IOCTL_INPUT_STRUCT *WRQ, st
 		break;
 
 	default:
-		MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_WARN,
-				 "Cannot find BW with manual_conn.bw:%x\n", manual_conn.bw);
+		MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_WARN,
+				 ("%s: Cannot find BW with manual_conn.bw:%x\n",
+				  __func__, manual_conn.bw));
 		manual_cfg->peer_bw = manual_conn.bw;
 		break;
 	}
@@ -5550,60 +5305,55 @@ static INT32 HQA_ManualAssoc(PRTMP_ADAPTER pAd, RTMP_IOCTL_INPUT_STRUCT *WRQ, st
 	manual_cfg->aid = manual_conn.aid;
 	manual_cfg->peer_nss = 1; /* MU */
 	NdisMoveMemory(manual_cfg->peer_mac, manual_conn.mac, MAC_ADDR_LEN);
-	MTWF_DBG(pAd, DBG_CAT_CFG, DBG_SUBCAT_ALL, DBG_LVL_INFO,
-			 "User manual configured peer STA info:\n");
-	MTWF_DBG(pAd, DBG_CAT_CFG, DBG_SUBCAT_ALL, DBG_LVL_INFO,
-			 "\tMAC=>0x%02x:%02x:%02x:%02x:%02x:%02x\n", PRINT_MAC(pAd->AteManualConnInfo.peer_mac));
-	MTWF_DBG(pAd, DBG_CAT_CFG, DBG_SUBCAT_ALL, DBG_LVL_INFO,
-			 "\tBAND=>%d\n", pAd->AteManualConnInfo.peer_band);
-	MTWF_DBG(pAd, DBG_CAT_CFG, DBG_SUBCAT_ALL, DBG_LVL_INFO,
-			 "\tOwnMacIdx=>%d\n", pAd->AteManualConnInfo.ownmac_idx);
-	MTWF_DBG(pAd, DBG_CAT_CFG, DBG_SUBCAT_ALL, DBG_LVL_INFO,
-			 "\tWTBL_Idx=>%d\n", pAd->AteManualConnInfo.wtbl_idx);
-	MTWF_DBG(pAd, DBG_CAT_CFG, DBG_SUBCAT_ALL, DBG_LVL_INFO,
-			 "\tOperationType=>%d\n", pAd->AteManualConnInfo.peer_op_type);
-	MTWF_DBG(pAd, DBG_CAT_CFG, DBG_SUBCAT_ALL, DBG_LVL_INFO,
-			 "\tPhyMode=>%d\n", pAd->AteManualConnInfo.peer_phy_mode);
-	MTWF_DBG(pAd, DBG_CAT_CFG, DBG_SUBCAT_ALL, DBG_LVL_INFO,
-			 "\tBandWidth=>%d\n", pAd->AteManualConnInfo.peer_bw);
-	MTWF_DBG(pAd, DBG_CAT_CFG, DBG_SUBCAT_ALL, DBG_LVL_INFO,
-			 "\tNSS=>%d\n", pAd->AteManualConnInfo.peer_nss);
-	MTWF_DBG(pAd, DBG_CAT_CFG, DBG_SUBCAT_ALL, DBG_LVL_INFO,
-			 "\tPfmuId=>%d\n", pAd->AteManualConnInfo.pfmuId);
-	MTWF_DBG(pAd, DBG_CAT_CFG, DBG_SUBCAT_ALL, DBG_LVL_INFO,
-			 "\tAid=>%d\n", pAd->AteManualConnInfo.aid);
-	MTWF_DBG(pAd, DBG_CAT_CFG, DBG_SUBCAT_ALL, DBG_LVL_INFO,
-			 "\tSpe_idx=>%d\n", pAd->AteManualConnInfo.spe_idx);
-	MTWF_DBG(pAd, DBG_CAT_CFG, DBG_SUBCAT_ALL, DBG_LVL_INFO,
-			 "\tMaxRate_Mode=>%d\n", pAd->AteManualConnInfo.peer_maxrate_mode);
-	MTWF_DBG(pAd, DBG_CAT_CFG, DBG_SUBCAT_ALL, DBG_LVL_INFO,
-			 "\tMaxRate_MCS=>%d\n", pAd->AteManualConnInfo.peer_maxrate_mcs);
-	MTWF_DBG(pAd, DBG_CAT_CFG, DBG_SUBCAT_ALL, DBG_LVL_INFO,
-			 "Now apply it to hardware!\n");
+	MTWF_LOG(DBG_CAT_CFG, DBG_SUBCAT_ALL, DBG_LVL_OFF,
+			 ("%s:User manual configured peer STA info:\n", __func__));
+	MTWF_LOG(DBG_CAT_CFG, DBG_SUBCAT_ALL, DBG_LVL_OFF,
+			 ("\tMAC=>0x%02x:%02x:%02x:%02x:%02x:%02x\n", PRINT_MAC(pAd->AteManualConnInfo.peer_mac)));
+	MTWF_LOG(DBG_CAT_CFG, DBG_SUBCAT_ALL, DBG_LVL_OFF,
+			 ("\tBAND=>%d\n", pAd->AteManualConnInfo.peer_band));
+	MTWF_LOG(DBG_CAT_CFG, DBG_SUBCAT_ALL, DBG_LVL_OFF,
+			 ("\tOwnMacIdx=>%d\n", pAd->AteManualConnInfo.ownmac_idx));
+	MTWF_LOG(DBG_CAT_CFG, DBG_SUBCAT_ALL, DBG_LVL_OFF,
+			 ("\tWTBL_Idx=>%d\n", pAd->AteManualConnInfo.wtbl_idx));
+	MTWF_LOG(DBG_CAT_CFG, DBG_SUBCAT_ALL, DBG_LVL_OFF,
+			 ("\tOperationType=>%d\n", pAd->AteManualConnInfo.peer_op_type));
+	MTWF_LOG(DBG_CAT_CFG, DBG_SUBCAT_ALL, DBG_LVL_OFF,
+			 ("\tPhyMode=>%d\n", pAd->AteManualConnInfo.peer_phy_mode));
+	MTWF_LOG(DBG_CAT_CFG, DBG_SUBCAT_ALL, DBG_LVL_OFF,
+			 ("\tBandWidth=>%d\n", pAd->AteManualConnInfo.peer_bw));
+	MTWF_LOG(DBG_CAT_CFG, DBG_SUBCAT_ALL, DBG_LVL_OFF,
+			 ("\tNSS=>%d\n", pAd->AteManualConnInfo.peer_nss));
+	MTWF_LOG(DBG_CAT_CFG, DBG_SUBCAT_ALL, DBG_LVL_OFF,
+			 ("\tPfmuId=>%d\n", pAd->AteManualConnInfo.pfmuId));
+	MTWF_LOG(DBG_CAT_CFG, DBG_SUBCAT_ALL, DBG_LVL_OFF,
+			 ("\tAid=>%d\n", pAd->AteManualConnInfo.aid));
+	MTWF_LOG(DBG_CAT_CFG, DBG_SUBCAT_ALL, DBG_LVL_OFF,
+			 ("\tSpe_idx=>%d\n", pAd->AteManualConnInfo.spe_idx));
+	MTWF_LOG(DBG_CAT_CFG, DBG_SUBCAT_ALL, DBG_LVL_OFF,
+			 ("\tMaxRate_Mode=>%d\n", pAd->AteManualConnInfo.peer_maxrate_mode));
+	MTWF_LOG(DBG_CAT_CFG, DBG_SUBCAT_ALL, DBG_LVL_OFF,
+			 ("\tMaxRate_MCS=>%d\n", pAd->AteManualConnInfo.peer_maxrate_mcs));
+	MTWF_LOG(DBG_CAT_CFG, DBG_SUBCAT_ALL, DBG_LVL_OFF,
+			 ("Now apply it to hardware!\n"));
 	/* This applied the manual config info into the mac table entry, including the HT/VHT cap, VHT MCS set */
 	SetATEApplyStaToMacTblEntry(pAd);
 	/* Fixed rate configuration */
 	NdisZeroMemory(&rate_str[0], sizeof(rate_str));
-	snprintf_ret = snprintf(rate_str, sizeof(rate_str), "%d-%d-%d-%d-%d-%d-%d-%d-%d-%d",
+	sprintf(rate_str, "%d-%d-%d-%d-%d-%d-%d-%d-%d-%d",
 			pAd->AteManualConnInfo.wtbl_idx,
 			pAd->AteManualConnInfo.peer_maxrate_mode,
 			pAd->AteManualConnInfo.peer_bw,
 			pAd->AteManualConnInfo.peer_maxrate_mcs,
 			pAd->AteManualConnInfo.peer_nss,
 			0, 0, 0, 0, 0);
-	if (os_snprintf_error(sizeof(rate_str), snprintf_ret)) {
-		MTWF_DBG(pAd, DBG_CAT_CFG, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-			"rate_str snprintf error!\n");
-		return FALSE;
-	}
-	MTWF_DBG(pAd, DBG_CAT_CFG, DBG_SUBCAT_ALL, DBG_LVL_INFO,
-			 "\tSet fixed RateInfo string as %s\n", rate_str);
+	MTWF_LOG(DBG_CAT_CFG, DBG_SUBCAT_ALL, DBG_LVL_OFF,
+			 ("\tSet fixed RateInfo string as %s\n", rate_str));
 	/* Set_Fixed_Rate_Proc(pAd, rate_str); */
-	ucNsts = asic_get_nsts_by_mcs(pAd, pAd->AteManualConnInfo.peer_maxrate_mode,
+	ucNsts = get_nsts_by_mcs(pAd->AteManualConnInfo.peer_maxrate_mode,
 							 pAd->AteManualConnInfo.peer_maxrate_mcs,
 							 FALSE,
 							 pAd->AteManualConnInfo.peer_nss);
-	rate[0] = asic_tx_rate_to_tmi_rate(pAd, pAd->AteManualConnInfo.peer_maxrate_mode,
+	rate[0] = tx_rate_to_tmi_rate(pAd->AteManualConnInfo.peer_maxrate_mode,
 								  pAd->AteManualConnInfo.peer_maxrate_mcs,
 								  ucNsts,
 								  FALSE,
@@ -5615,7 +5365,7 @@ static INT32 HQA_ManualAssoc(PRTMP_ADAPTER pAd, RTMP_IOCTL_INPUT_STRUCT *WRQ, st
 	TxPhyCfg.ShortGI = FALSE;
 	/* TxPhyCfg.ldpc  = HT_LDPC | VHT_LDPC; */
 	TxPhyCfg.ldpc    = 0;
-	AsicTxCapAndRateTableUpdate(pAd,
+	MtAsicTxCapAndRateTableUpdate(pAd,
 								  pAd->AteManualConnInfo.wtbl_idx,
 								  &TxPhyCfg,
 								  rate,
@@ -5625,7 +5375,51 @@ static INT32 HQA_ManualAssoc(PRTMP_ADAPTER pAd, RTMP_IOCTL_INPUT_STRUCT *WRQ, st
 	ResponseToQA(HqaCmdFrame, WRQ, 2, Ret);
 	return Ret;
 }
+#else
+static INT32 HQA_eBFEnable(PRTMP_ADAPTER pAd, RTMP_IOCTL_INPUT_STRUCT *WRQ, struct _HQA_CMD_FRAME *HqaCmdFrame)
+{
+	INT32 Ret = 0;
+	UINT32 enable = 0;
+	UINT32 band_idx = 0;
+	struct _ATE_CTRL *ate_ctrl = &(pAd->ATECtrl);
+
+	NdisMoveMemory((PUCHAR)&enable, (PUCHAR)&HqaCmdFrame->Data, sizeof(enable));
+	NdisMoveMemory((PUCHAR)&band_idx, (PUCHAR)&HqaCmdFrame->Data + sizeof(enable), sizeof(band_idx));
+	enable = PKTL_TRAN_TO_HOST(enable);
+	band_idx = PKTL_TRAN_TO_HOST(band_idx);
+
+	ate_ctrl->control_band_idx = (UCHAR)band_idx;
+
+	TESTMODE_SET_PARAM(ate_ctrl, band_idx, eTxBf, enable);
+	MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_OFF,
+			 ("%s: enable:%x, band_idx:%x\n", __func__, enable, band_idx));
+	ResponseToQA(HqaCmdFrame, WRQ, 2, Ret);
+	return Ret;
+}
+
+
+static INT32 HQA_iBFEnable(PRTMP_ADAPTER pAd, RTMP_IOCTL_INPUT_STRUCT *WRQ, struct _HQA_CMD_FRAME *HqaCmdFrame)
+{
+	INT32 Ret = 0;
+	UINT32 enable = 0;
+	UINT32 band_idx = 0;
+	struct _ATE_CTRL *ate_ctrl = &(pAd->ATECtrl);
+
+	NdisMoveMemory((PUCHAR)&enable, (PUCHAR)&HqaCmdFrame->Data, sizeof(enable));
+	NdisMoveMemory((PUCHAR)&band_idx, (PUCHAR)&HqaCmdFrame->Data + sizeof(enable), sizeof(band_idx));
+	enable = PKTL_TRAN_TO_HOST(enable);
+	band_idx = PKTL_TRAN_TO_HOST(band_idx);
+
+	ate_ctrl->control_band_idx = (UCHAR)band_idx;
+
+	TESTMODE_SET_PARAM(ate_ctrl, band_idx, iTxBf, enable);
+	MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_OFF,
+			 ("%s: enable:%x, band_idx:%x\n", __func__, enable, band_idx));
+	ResponseToQA(HqaCmdFrame, WRQ, 2, Ret);
+	return Ret;
+}
 #endif
+
 
 static HQA_CMD_HANDLER HQA_TXBF_CMDS[] = {
 	HQA_TxBfProfileTagInValid,	/* 0x1540 */
@@ -5656,6 +5450,9 @@ static HQA_CMD_HANDLER HQA_TXBF_CMDS[] = {
 #ifdef MT_MAC
 	HQA_TxBfTxApply,		/* 0x1559 */
 	HQA_ManualAssoc,		/* 0x155A */
+#else
+	HQA_eBFEnable,			/* 0x1559 */
+	HQA_iBFEnable,			/* 0x155A */
 #endif
 	HQA_BFQdRead			/* 0x155B */
 };
@@ -5678,8 +5475,8 @@ static INT32 HQA_MUGetInitMCS(PRTMP_ADAPTER pAd, RTMP_IOCTL_INPUT_STRUCT *WRQ, s
 	out.user2 = init_mcs.user2InitMCS;
 	out.user3 = init_mcs.user3InitMCS;
 	NdisMoveMemory(HqaCmdFrame->Data + 2, (UCHAR *)&out, sizeof(out));
-	MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO,
-			 "gid:%u\n", gid);
+	MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_OFF,
+			 ("%s: gid:%u\n", __func__, gid));
 	ResponseToQA(HqaCmdFrame, WRQ, 2 + sizeof(init_mcs), Ret);
 	return Ret;
 }
@@ -5693,22 +5490,22 @@ static INT32 HQA_MUCalInitMCS(PRTMP_ADAPTER pAd, RTMP_IOCTL_INPUT_STRUCT *WRQ, s
 	UCHAR *data = HqaCmdFrame->Data;
 
 	os_zero_mem(&param, sizeof(param));
-	EthGetParamAndShiftBuff(FALSE, sizeof(UINT8), &data, (UCHAR *)&param.num_of_user);
-	EthGetParamAndShiftBuff(FALSE, sizeof(UINT8), &data, (UCHAR *)&param.bandwidth);
-	EthGetParamAndShiftBuff(FALSE, sizeof(UINT8), &data, (UCHAR *)&param.nss_of_user0);
-	EthGetParamAndShiftBuff(FALSE, sizeof(UINT8), &data, (UCHAR *)&param.nss_of_user1);
-	EthGetParamAndShiftBuff(FALSE, sizeof(UINT8), &data, (UCHAR *)&param.nss_of_user2);
-	EthGetParamAndShiftBuff(FALSE, sizeof(UINT8), &data, (UCHAR *)&param.nss_of_user3);
-	EthGetParamAndShiftBuff(FALSE, sizeof(UINT8), &data, (UCHAR *)&param.pf_mu_id_of_user0);
-	EthGetParamAndShiftBuff(FALSE, sizeof(UINT8), &data, (UCHAR *)&param.pf_mu_id_of_user1);
-	EthGetParamAndShiftBuff(FALSE, sizeof(UINT8), &data, (UCHAR *)&param.pf_mu_id_of_user2);
-	EthGetParamAndShiftBuff(FALSE, sizeof(UINT8), &data, (UCHAR *)&param.pf_mu_id_of_user3);
-	EthGetParamAndShiftBuff(FALSE, sizeof(UINT8), &data, (UCHAR *)&param.num_of_txer);
-	EthGetParamAndShiftBuff(FALSE, sizeof(UINT8), &data, (UCHAR *)&param.spe_index);
-	EthGetParamAndShiftBuff(TRUE, sizeof(UINT16), &data, (UCHAR *)&param.group_index);
+	EthGetParamAndShiftBuff(TRUE, sizeof(UINT32), &data, (UCHAR *)&param.num_of_user);
+	EthGetParamAndShiftBuff(TRUE, sizeof(UINT32), &data, (UCHAR *)&param.bandwidth);
+	EthGetParamAndShiftBuff(TRUE, sizeof(UINT32), &data, (UCHAR *)&param.nss_of_user0);
+	EthGetParamAndShiftBuff(TRUE, sizeof(UINT32), &data, (UCHAR *)&param.nss_of_user1);
+	EthGetParamAndShiftBuff(TRUE, sizeof(UINT32), &data, (UCHAR *)&param.nss_of_user2);
+	EthGetParamAndShiftBuff(TRUE, sizeof(UINT32), &data, (UCHAR *)&param.nss_of_user3);
+	EthGetParamAndShiftBuff(TRUE, sizeof(UINT32), &data, (UCHAR *)&param.pf_mu_id_of_user0);
+	EthGetParamAndShiftBuff(TRUE, sizeof(UINT32), &data, (UCHAR *)&param.pf_mu_id_of_user1);
+	EthGetParamAndShiftBuff(TRUE, sizeof(UINT32), &data, (UCHAR *)&param.pf_mu_id_of_user2);
+	EthGetParamAndShiftBuff(TRUE, sizeof(UINT32), &data, (UCHAR *)&param.pf_mu_id_of_user3);
+	EthGetParamAndShiftBuff(TRUE, sizeof(UINT32), &data, (UCHAR *)&param.num_of_txer);
+	EthGetParamAndShiftBuff(TRUE, sizeof(UINT32), &data, (UCHAR *)&param.spe_index);
+	EthGetParamAndShiftBuff(TRUE, sizeof(UINT32), &data, (UCHAR *)&param.group_index);
 	Ret = hqa_wifi_test_mu_cal_init_mcs(pAd, &param);
-	MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO,
-			 "spe_idx:%d\n", param.spe_index);
+	MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_OFF,
+			 ("%s: spe_idx:%d\n", __func__, param.spe_index));
 	ResponseToQA(HqaCmdFrame, WRQ, 2, Ret);
 	return Ret;
 }
@@ -5727,19 +5524,19 @@ static INT32 HQA_MUCalLQ(PRTMP_ADAPTER pAd, RTMP_IOCTL_INPUT_STRUCT *WRQ, struct
 	os_zero_mem(&param_su, sizeof(param_su));
 	os_zero_mem(&param_mu, sizeof(param_mu));
 	EthGetParamAndShiftBuff(TRUE, sizeof(UINT32), &data, (UCHAR *)&Type);
-	EthGetParamAndShiftBuff(FALSE, sizeof(UINT8), &data, (UCHAR *)&param_mu.num_of_user);
-	EthGetParamAndShiftBuff(FALSE, sizeof(UINT8), &data, (UCHAR *)&param_mu.bandwidth);
-	EthGetParamAndShiftBuff(FALSE, sizeof(UINT8), &data, (UCHAR *)&param_mu.nss_of_user0);
-	EthGetParamAndShiftBuff(FALSE, sizeof(UINT8), &data, (UCHAR *)&param_mu.nss_of_user1);
-	EthGetParamAndShiftBuff(FALSE, sizeof(UINT8), &data, (UCHAR *)&param_mu.nss_of_user2);
-	EthGetParamAndShiftBuff(FALSE, sizeof(UINT8), &data, (UCHAR *)&param_mu.nss_of_user3);
-	EthGetParamAndShiftBuff(FALSE, sizeof(UINT8), &data, (UCHAR *)&param_mu.pf_mu_id_of_user0);
-	EthGetParamAndShiftBuff(FALSE, sizeof(UINT8), &data, (UCHAR *)&param_mu.pf_mu_id_of_user1);
-	EthGetParamAndShiftBuff(FALSE, sizeof(UINT8), &data, (UCHAR *)&param_mu.pf_mu_id_of_user2);
-	EthGetParamAndShiftBuff(FALSE, sizeof(UINT8), &data, (UCHAR *)&param_mu.pf_mu_id_of_user3);
-	EthGetParamAndShiftBuff(FALSE, sizeof(UINT8), &data, (UCHAR *)&param_mu.num_of_txer);
-	EthGetParamAndShiftBuff(FALSE, sizeof(UINT8), &data, (UCHAR *)&param_mu.spe_index);
-	EthGetParamAndShiftBuff(TRUE, sizeof(UINT16), &data, (UCHAR *)&param_mu.group_index);
+	EthGetParamAndShiftBuff(TRUE, sizeof(UINT32), &data, (UCHAR *)&param_mu.num_of_user);
+	EthGetParamAndShiftBuff(TRUE, sizeof(UINT32), &data, (UCHAR *)&param_mu.bandwidth);
+	EthGetParamAndShiftBuff(TRUE, sizeof(UINT32), &data, (UCHAR *)&param_mu.nss_of_user0);
+	EthGetParamAndShiftBuff(TRUE, sizeof(UINT32), &data, (UCHAR *)&param_mu.nss_of_user1);
+	EthGetParamAndShiftBuff(TRUE, sizeof(UINT32), &data, (UCHAR *)&param_mu.nss_of_user2);
+	EthGetParamAndShiftBuff(TRUE, sizeof(UINT32), &data, (UCHAR *)&param_mu.nss_of_user3);
+	EthGetParamAndShiftBuff(TRUE, sizeof(UINT32), &data, (UCHAR *)&param_mu.pf_mu_id_of_user0);
+	EthGetParamAndShiftBuff(TRUE, sizeof(UINT32), &data, (UCHAR *)&param_mu.pf_mu_id_of_user1);
+	EthGetParamAndShiftBuff(TRUE, sizeof(UINT32), &data, (UCHAR *)&param_mu.pf_mu_id_of_user2);
+	EthGetParamAndShiftBuff(TRUE, sizeof(UINT32), &data, (UCHAR *)&param_mu.pf_mu_id_of_user3);
+	EthGetParamAndShiftBuff(TRUE, sizeof(UINT32), &data, (UCHAR *)&param_mu.num_of_txer);
+	EthGetParamAndShiftBuff(TRUE, sizeof(UINT32), &data, (UCHAR *)&param_mu.spe_index);
+	EthGetParamAndShiftBuff(TRUE, sizeof(UINT32), &data, (UCHAR *)&param_mu.group_index);
 	param_su.num_of_user = param_mu.num_of_user;
 	param_su.bandwidth = param_mu.bandwidth;
 	param_su.nss_of_user0 = param_mu.nss_of_user0;
@@ -5747,8 +5544,9 @@ static INT32 HQA_MUCalLQ(PRTMP_ADAPTER pAd, RTMP_IOCTL_INPUT_STRUCT *WRQ, struct
 	param_su.num_of_txer = param_mu.num_of_txer;
 	param_su.spe_index = param_mu.spe_index;
 	param_su.group_index = param_mu.group_index;
-	MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO,
-			 "gid:%u, txer:%u spe_idx:%d\n", gid, txer, param_mu.spe_index);
+	MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_OFF,
+			 ("%s: gid:%u, txer:%u spe_idx:%d\n",
+			  __func__, gid, txer, param_mu.spe_index));
 
 	if (Type == 0)
 		Ret = hqa_wifi_test_su_cal_lq(pAd, &param_su);
@@ -5776,17 +5574,17 @@ static INT32 HQA_MUGetLQ(PRTMP_ADAPTER pAd, RTMP_IOCTL_INPUT_STRUCT *WRQ, struct
 	/* TODO:: Check if structure changed*/
 	if (Type == 0) {
 		Ret = hqa_wifi_test_su_get_lq(pAd, &lq_su);
-		PKTLA_DUMP(DBG_LVL_INFO, sizeof(lq_su) / sizeof(int), &lq_su);
+		PKTLA_DUMP(DBG_LVL_OFF, sizeof(lq_su) / sizeof(int), &lq_su);
 		NdisMoveMemory(HqaCmdFrame->Data + 2, (UCHAR *)&lq_su, sizeof(lq_su));
 		ResponseToQA(HqaCmdFrame, WRQ, 2 + sizeof(lq_su), Ret);
 	} else {
 		Ret = hqa_wifi_test_mu_get_lq(pAd, &lq_mu);
-		PKTLA_DUMP(DBG_LVL_INFO, sizeof(lq_mu) / sizeof(int), &lq_mu);
+		PKTLA_DUMP(DBG_LVL_OFF, sizeof(lq_mu) / sizeof(int), &lq_mu);
 		NdisMoveMemory(HqaCmdFrame->Data + 2, (UCHAR *)&lq_mu, sizeof(lq_mu));
 		ResponseToQA(HqaCmdFrame, WRQ, 2 + sizeof(lq_mu), Ret);
 	}
 
-	MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO, "\n");
+	MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_OFF, ("%s\n", __func__));
 	return Ret;
 }
 
@@ -5798,9 +5596,9 @@ static INT32 HQA_MUSetSNROffset(PRTMP_ADAPTER pAd, RTMP_IOCTL_INPUT_STRUCT *WRQ,
 
 	NdisMoveMemory((UCHAR *)&offset, HqaCmdFrame->Data, sizeof(offset));
 	offset = PKTL_TRAN_TO_HOST(offset);
-	Ret = hqa_wifi_test_snr_offset_set(pAd, (UINT8)offset);
-	MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO,
-			 "offset:%x\n", offset);
+	Ret = hqa_wifi_test_snr_offset_set(pAd, offset);
+	MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_OFF,
+			 ("%s: offset:%x\n", __func__, offset));
 	ResponseToQA(HqaCmdFrame, WRQ, 2, Ret);
 	return Ret;
 }
@@ -5813,9 +5611,9 @@ static INT32 HQA_MUSetZeroNss(PRTMP_ADAPTER pAd, RTMP_IOCTL_INPUT_STRUCT *WRQ, s
 
 	NdisMoveMemory((UCHAR *)&zero_nss, HqaCmdFrame->Data, sizeof(zero_nss));
 	zero_nss = PKTL_TRAN_TO_HOST(zero_nss);
-	Ret = hqa_wifi_test_mu_set_zero_nss(pAd, (UINT8)zero_nss);
-	MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO,
-			 "zero_nss:%x\n", zero_nss);
+	Ret = hqa_wifi_test_mu_set_zero_nss(pAd, (UCHAR)zero_nss);
+	MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_OFF,
+			 ("%s: zero_nss:%x\n", __func__, zero_nss));
 	ResponseToQA(HqaCmdFrame, WRQ, 2, Ret);
 	return Ret;
 }
@@ -5829,8 +5627,8 @@ static INT32 HQA_MUSetSpeedUpLQ(PRTMP_ADAPTER pAd, RTMP_IOCTL_INPUT_STRUCT *WRQ,
 	NdisMoveMemory((UCHAR *)&spdup_lq, HqaCmdFrame->Data, sizeof(spdup_lq));
 	spdup_lq = PKTL_TRAN_TO_HOST(spdup_lq);
 	Ret = hqa_wifi_test_mu_speed_up_lq(pAd, spdup_lq);
-	MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO,
-			 "spdup_lq:%x\n", spdup_lq);
+	MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_OFF,
+			 ("%s: spdup_lq:%x\n", __func__, spdup_lq));
 	ResponseToQA(HqaCmdFrame, WRQ, 2, Ret);
 	return Ret;
 }
@@ -5848,14 +5646,6 @@ static INT32 HQA_MUSetMUTable(PRTMP_ADAPTER pAd, RTMP_IOCTL_INPUT_STRUCT *WRQ, s
 	len = PKTS_TRAN_TO_HOST(HqaCmdFrame->Length) - sizeof(su_mu);
 	NdisMoveMemory((UCHAR *)&su_mu, HqaCmdFrame->Data, sizeof(su_mu));
 	su_mu = PKTL_TRAN_TO_HOST(su_mu);
-	/* check the range for coverity */
-	if (len == 0 || len >= 2044) {
-		MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-				 "len==0 or len >=2044 which cost tbl overrun\n");
-		Ret = TM_STATUS_NOTSUPPORT;
-		return Ret;
-	}
-
 	Ret = os_alloc_mem(pAd, (UCHAR **)&tbl, sizeof(UCHAR) * len);
 
 	if (Ret)
@@ -5868,10 +5658,8 @@ static INT32 HQA_MUSetMUTable(PRTMP_ADAPTER pAd, RTMP_IOCTL_INPUT_STRUCT *WRQ, s
 	info.prTable = tbl;
 	Ret = hqa_wifi_test_mu_table_set(pAd, &info);
 err0:
-	if (tbl != NULL)
-		os_free_mem(tbl);
-	MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO,
-			 "len:%u, su_mu:%u\n", len, su_mu);
+	MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_OFF,
+			 ("%s: len:%u, su_mu:%u\n", __func__, len, su_mu));
 	ResponseToQA(HqaCmdFrame, WRQ, 2, Ret);
 	return Ret;
 }
@@ -5944,15 +5732,16 @@ static INT32 HQA_MUSetGroup(PRTMP_ADAPTER pAd, RTMP_IOCTL_INPUT_STRUCT *WRQ, str
 	data += MAC_ADDR_LEN;
 	NdisMoveMemory(grp.aucUser3MacAddr, data, MAC_ADDR_LEN);
 	Ret = hqa_wifi_test_mu_group_set(pAd, &grp);
-	MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO, "len:%x\n", len);
-	MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO,
-			 "0:%02x:%02x:%02x:%02x:%02x:%02x\n", PRINT_MAC(grp.aucUser0MacAddr));
-	MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO,
-			 "1:%02x:%02x:%02x:%02x:%02x:%02x\n", PRINT_MAC(grp.aucUser1MacAddr));
-	MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO,
-			 "2:%02x:%02x:%02x:%02x:%02x:%02x\n", PRINT_MAC(grp.aucUser2MacAddr));
-	MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO,
-			 "3:%02x:%02x:%02x:%02x:%02x:%02x\n", PRINT_MAC(grp.aucUser3MacAddr));
+	MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_OFF,
+			 ("%s: len:%x\n", __func__, len));
+	MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_OFF,
+			 ("0:%02x:%02x:%02x:%02x:%02x:%02x\n", PRINT_MAC(grp.aucUser0MacAddr)));
+	MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_OFF,
+			 ("1:%02x:%02x:%02x:%02x:%02x:%02x\n", PRINT_MAC(grp.aucUser1MacAddr)));
+	MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_OFF,
+			 ("2:%02x:%02x:%02x:%02x:%02x:%02x\n", PRINT_MAC(grp.aucUser2MacAddr)));
+	MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_OFF,
+			 ("3:%02x:%02x:%02x:%02x:%02x:%02x\n", PRINT_MAC(grp.aucUser3MacAddr)));
 	ResponseToQA(HqaCmdFrame, WRQ, 2, Ret);
 	return Ret;
 }
@@ -5972,9 +5761,9 @@ static INT32 HQA_MUGetQD(PRTMP_ADAPTER pAd, RTMP_IOCTL_INPUT_STRUCT *WRQ, struct
 	Ret = hqa_wifi_test_mu_get_qd(pAd, subcarrier_idx, &qd);
 	PKTLA_DUMP(DBG_LVL_INFO, sizeof(qd) / sizeof(int), &qd);
 	NdisMoveMemory(HqaCmdFrame->Data + 2, (UCHAR *)&qd, sizeof(qd));
-	MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO,
-			 "sub:%u, qd.length:%zu, pqd:%p, HqaCmd->Data:%p\n",
-			  subcarrier_idx, sizeof(qd), &qd, HqaCmdFrame->Data);
+	MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_TRACE,
+			 ("%s: sub:%u, qd.length:%zu, pqd:%p, HqaCmd->Data:%p\n",
+			  __func__, subcarrier_idx, sizeof(qd), &qd, HqaCmdFrame->Data));
 	ResponseToQA(HqaCmdFrame, WRQ, 2 + sizeof(qd), Ret);
 	DebugLevel = debug_lvl;
 	return Ret;
@@ -5988,9 +5777,9 @@ static INT32 HQA_MUSetEnable(PRTMP_ADAPTER pAd, RTMP_IOCTL_INPUT_STRUCT *WRQ, st
 	/* struct _ATE_CTRL *ate_ctrl = &(pAd->ATECtrl); */
 	NdisMoveMemory((PUCHAR)&is_enable, HqaCmdFrame->Data, sizeof(is_enable));
 	is_enable = PKTL_TRAN_TO_HOST(is_enable);
-	Ret = hqa_wifi_test_mu_set_enable(pAd, (BOOLEAN)is_enable);
-	MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO,
-			 "MU is_enable:%x\n", is_enable);
+	Ret = hqa_wifi_test_mu_set_enable(pAd, is_enable);
+	MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_OFF,
+			 ("%s: MU is_enable:%x\n", __func__, is_enable));
 	ResponseToQA(HqaCmdFrame, WRQ, 2, Ret);
 	return Ret;
 }
@@ -6022,7 +5811,7 @@ static INT32 HQA_MUSetGID_UP(PRTMP_ADAPTER pAd, RTMP_IOCTL_INPUT_STRUCT *WRQ, st
 	}
 
 	/* Del after debug */
-	PKTLA_DUMP(DBG_LVL_INFO, sizeof(param) / sizeof(UINT32), &param);
+	PKTLA_DUMP(DBG_LVL_OFF, sizeof(param) / sizeof(UINT32), &param);
 	Ret = hqa_wifi_test_mu_set_sta_gid_and_up(pAd, &param);
 	ResponseToQA(HqaCmdFrame, WRQ, 2, Ret);
 	return Ret;
@@ -6056,13 +5845,19 @@ static INT32  HQA_MUTriggerTx(PRTMP_ADAPTER pAd, RTMP_IOCTL_INPUT_STRUCT *WRQ, s
 	mu_tx_param.u4MuPacketCount = val32;
 	Ret = EthGetParamAndShiftBuff(TRUE, sizeof(val32), &data, (UCHAR *)&val32);
 	mu_tx_param.u4NumOfSTAs = val32;
+	NdisMoveMemory(mu_tx_param.macAddrs[0], data, MAC_ADDR_LEN);
+	data += MAC_ADDR_LEN;
+	NdisMoveMemory(mu_tx_param.macAddrs[1], data, MAC_ADDR_LEN);
+	data += MAC_ADDR_LEN;
+	NdisMoveMemory(mu_tx_param.macAddrs[2], data, MAC_ADDR_LEN);
+	data += MAC_ADDR_LEN;
+	NdisMoveMemory(mu_tx_param.macAddrs[3], data, MAC_ADDR_LEN);
 
 	ate_ctrl->control_band_idx = (UCHAR)band_idx;
 
 	Ret = hqa_wifi_test_mu_trigger_mu_tx(pAd, &mu_tx_param);
-	MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO,
-			 "len:%x\n", len);
-
+	MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_OFF,
+			 ("%s: len:%x\n", __func__, len));
 	ResponseToQA(HqaCmdFrame, WRQ, 2, Ret);
 	return Ret;
 }
@@ -6092,86 +5887,52 @@ static INT32 HQA_CapWiFiSpectrum(PRTMP_ADAPTER pAd, RTMP_IOCTL_INPUT_STRUCT *WRQ
 	INT32 Ret = 0;
 #ifdef INTERNAL_CAPTURE_SUPPORT
 	/* Set Param*/
-	UINT32 Control = 0, Trigger = 0, RingCapEn = 0, Event = 0, Node = 0, Len = 0;
-	UINT32 StopCycle = 0, BW = 0, PdEnable = 0, Band = 0;
-	UINT32 CapSource = 0, PhyIdx = 0, FixRxGain = 0, WifiPath = 0;
-	UCHAR SourceAddress[MAC_ADDR_LEN] = {0};
-	RBIST_CAP_START_T *prICapInfo = NULL;
+	UINT32 Control, Trigger, RingCapEn, Event, Node, Len, StopCycle, BW, MACTriggerEvent, Band;
+	UINT32    SourceAddrLSB = 0;
+	UINT32    SourceAddrMSB = 0;
+	UCHAR SourceAddress[MAC_ADDR_LEN];
 	/* Get Param*/
 	UINT32 Value, i;
 	UINT32 RespLen = 2;
-	UINT32 WF_Num = 0, IQ_Type = 0;
+	UINT32 WF_Num, IQ_Type;
 	PINT32 pData = NULL;
 	PINT32 pDataLen = NULL;
 	struct _ATE_CTRL *ATECtrl = &(pAd->ATECtrl);
 	struct _ATE_OPERATION *ATEOp = ATECtrl->ATEOp;
 	UCHAR *data = HqaCmdFrame->Data;
 
+	MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("%s:", __func__));
 	EthGetParamAndShiftBuff(TRUE, sizeof(UINT32), &data, (UCHAR *)&Control);
-	MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO, "Control:%d\n", Control);
+	MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("Control:%d\n", Control));
 
 	if (Control == 1) {
 		if (ATEOp->SetICapStart) {
-			{
-				INT32 retval;
+			EthGetParamAndShiftBuff(TRUE, sizeof(UINT32), &data, (UCHAR *)&Trigger);
+			MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("Trigger:%d\n", Trigger));
+			EthGetParamAndShiftBuff(TRUE, sizeof(UINT32), &data, (UCHAR *)&RingCapEn);
+			MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("RingCapEn:%d\n", RingCapEn));
+			EthGetParamAndShiftBuff(TRUE, sizeof(UINT32), &data, (UCHAR *)&Event);
+			MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("Event:%d\n", Event));
+			EthGetParamAndShiftBuff(TRUE, sizeof(UINT32), &data, (UCHAR *)&Node);
+			MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("Node:%d\n", Node));
+			EthGetParamAndShiftBuff(TRUE, sizeof(UINT32), &data, (UCHAR *)&Len);
+			MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("Len:%d\n", Len));
+			EthGetParamAndShiftBuff(TRUE, sizeof(UINT32), &data, (UCHAR *)&StopCycle);
+			MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("StopCycle:%d\n", StopCycle));
+			EthGetParamAndShiftBuff(TRUE, sizeof(UINT32), &data, (UCHAR *)&BW);
+			MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("BW:%d\n", BW));
+			EthGetParamAndShiftBuff(TRUE, sizeof(UINT32), &data, (UCHAR *)&MACTriggerEvent);
+			MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("MACTriggerEvent:%d\n", MACTriggerEvent));
+			EthGetParamAndShiftBuff(FALSE, MAC_ADDR_LEN, &data, (UCHAR *)SourceAddress);
+			MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("SourceAddress:%02x:%02x:%02x:%02x:%02x:%02x\n ", PRINT_MAC(SourceAddress)));
+			EthGetParamAndShiftBuff(TRUE, sizeof(UINT32), &data, (UCHAR *)&Band);
+			MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("Band:%d\n", Band));
 
-				/* Dynamic allocate memory for prRBISTInfo */
-				retval = os_alloc_mem(pAd, (UCHAR **)&prICapInfo, sizeof(RBIST_CAP_START_T));
-				if (retval != NDIS_STATUS_SUCCESS) {
-					MTWF_DBG(pAd, DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-							"Not enough memory for dynamic allocating !!\n");
-					goto error1;
-				}
-				os_zero_mem(prICapInfo, sizeof(RBIST_CAP_START_T));
+			ATECtrl->control_band_idx = (UCHAR)Band;
 
-				EthGetParamAndShiftBuff(TRUE, sizeof(UINT32), &data, (UCHAR *)&Trigger);
-				MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO, "Trigger:%d\n", Trigger);
-				EthGetParamAndShiftBuff(TRUE, sizeof(UINT32), &data, (UCHAR *)&RingCapEn);
-				MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO, "RingCapEn:%d\n", RingCapEn);
-				EthGetParamAndShiftBuff(TRUE, sizeof(UINT32), &data, (UCHAR *)&Event);
-				MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO, "Event:%d\n", Event);
-				EthGetParamAndShiftBuff(TRUE, sizeof(UINT32), &data, (UCHAR *)&Node);
-				MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO, "Node:%d\n", Node);
-				EthGetParamAndShiftBuff(TRUE, sizeof(UINT32), &data, (UCHAR *)&Len);
-				MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO, "Len:%d\n", Len);
-				EthGetParamAndShiftBuff(TRUE, sizeof(UINT32), &data, (UCHAR *)&StopCycle);
-				MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO, "StopCycle:%d\n", StopCycle);
-				EthGetParamAndShiftBuff(TRUE, sizeof(UINT32), &data, (UCHAR *)&BW);
-				MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO, "BW:%d\n", BW);
-				EthGetParamAndShiftBuff(TRUE, sizeof(UINT32), &data, (UCHAR *)&PdEnable);
-				MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO, "PdEnable:%d\n", PdEnable);
-				EthGetParamAndShiftBuff(FALSE, MAC_ADDR_LEN, &data, (UCHAR *)SourceAddress);
-				MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO, "SourceAddress:%02x:%02x:%02x:%02x:%02x:%02x\n ", PRINT_MAC(SourceAddress));
-				EthGetParamAndShiftBuff(TRUE, sizeof(UINT32), &data, (UCHAR *)&Band);
-				MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO, "Band:%d\n", Band);
-				EthGetParamAndShiftBuff(TRUE, sizeof(UINT32), &data, (UCHAR *)&PhyIdx);
-				MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO, "PhyIdx:%d\n", PhyIdx);
-				EthGetParamAndShiftBuff(TRUE, sizeof(UINT32), &data, (UCHAR *)&CapSource);
-				MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO, "CapSource:%d\n", CapSource);
-				EthGetParamAndShiftBuff(TRUE, sizeof(UINT32), &data, (UCHAR *)&FixRxGain);
-				MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO, "FixRxGain:%d\n", FixRxGain);
-				EthGetParamAndShiftBuff(TRUE, sizeof(UINT32), &data, (UCHAR *)&WifiPath);
-				MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO, "WifiPath:%d\n", WifiPath);
-
-
-				prICapInfo->fgTrigger = Trigger;
-				prICapInfo->fgRingCapEn = RingCapEn;
-				prICapInfo->u4TriggerEvent = Event;
-				prICapInfo->u4CaptureNode = Node;
-				prICapInfo->u4CaptureLen = Len;
-				prICapInfo->u4CapStopCycle = StopCycle;
-				prICapInfo->u4BW = BW;
-				prICapInfo->u4PdEnable = PdEnable;
-				prICapInfo->u4BandIdx = Band;
-				prICapInfo->u4PhyIdx = PhyIdx;
-				prICapInfo->u4CapSource = CapSource;
-				prICapInfo->u4FixRxGain = FixRxGain;
-				prICapInfo->u4WifiPath = WifiPath;
-				ATEOp->SetICapStart(pAd, (UINT8 *)prICapInfo);
-error1:
-				if (prICapInfo != NULL)
-					os_free_mem(prICapInfo);
-			}
+			SourceAddrLSB = ((SourceAddress[0]) | (SourceAddress[1] << 8) | (SourceAddress[2]) << 16 | (SourceAddress[3]) << 24);
+			SourceAddrMSB = ((SourceAddress[4]) | (SourceAddress[5] << 8) | (0x1 << 16));
+			ATEOp->SetICapStart(pAd, Trigger, RingCapEn, Event, Node, Len, StopCycle, BW, MACTriggerEvent, SourceAddrLSB, SourceAddrMSB, Band);
 		} else
 			Ret = TM_STATUS_NOTSUPPORT;
 
@@ -6183,7 +5944,6 @@ error1:
 			if (IS_MT7615(pAd)) {
 				EXT_EVENT_RBIST_ADDR_T *icap_info = &(pAd->ATECtrl.icap_info);
 
-				data = HqaCmdFrame->Data;
 				Value = PKTL_TRAN_TO_HOST(icap_info->u4StartAddr1);
 				NdisMoveMemory(data + RespLen, (UCHAR *)&Value, sizeof(Value));
 				RespLen += sizeof(Value);
@@ -6202,13 +5962,13 @@ error1:
 				Value = PKTL_TRAN_TO_HOST(icap_info->u4Wrap);
 				NdisMoveMemory(data + RespLen, (UCHAR *)&Value, sizeof(Value));
 				RespLen += sizeof(Value);
-				MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO,
-						"StartAddr1:%02x StartAddr2:%02x StartAddr3:%02x EndAddr:%02x StopAddr:%02x Wrap:%02x\n",
-						icap_info->u4StartAddr1, icap_info->u4StartAddr2, icap_info->u4StartAddr3,
-						icap_info->u4EndAddr, icap_info->u4StopAddr, icap_info->u4Wrap);
+				MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_TRACE,
+						("%s, StartAddr1:%02x StartAddr2:%02x StartAddr3:%02x EndAddr:%02x StopAddr:%02x Wrap:%02x\n",
+						__func__, icap_info->u4StartAddr1, icap_info->u4StartAddr2, icap_info->u4StartAddr3,
+						icap_info->u4EndAddr, icap_info->u4StopAddr, icap_info->u4Wrap));
 			} else {
-				MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO,
-						"Status = %d", Ret);
+				MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_TRACE,
+						("%s : Status = %d", __func__, Ret));
 			}
 		} else
 			Ret = TM_STATUS_NOTSUPPORT;
@@ -6217,619 +5977,76 @@ error1:
 	} else if (Control == 3) {
 		if (ATEOp->GetICapIQData) {
 			EthGetParamAndShiftBuff(TRUE, sizeof(UINT32), &data, (UCHAR *)&WF_Num);
-			MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO, "WF_Num:%d\n", WF_Num);
+			MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("WF_Num:%d\n", WF_Num));
 			EthGetParamAndShiftBuff(TRUE, sizeof(UINT32), &data, (UCHAR *)&IQ_Type);
-			MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO, "IQ_Type:%d\n", IQ_Type);
-		   {
+			MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("IQ_Type:%d\n", IQ_Type));
+		   {       
     			UINT32 Len;
     			INT32 retval;
     			UCHAR *data = HqaCmdFrame->Data;
-
-				/* Dynamic allocate memory for data length */
-				retval = os_alloc_mem(pAd, (UCHAR **)&pDataLen, sizeof(INT32));
-				if (retval != NDIS_STATUS_SUCCESS) {
-					MTWF_DBG(pAd, DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-							 "Not enough memory for dynamic allocating !!\n");
-						goto error2;
-				}
-				os_zero_mem(pDataLen, sizeof(INT32));
-
-				/* Dynamic allocate memory for 1KByte data buffer */
-				Len = ICAP_EVENT_DATA_SAMPLE * sizeof(INT32);
-				retval = os_alloc_mem(pAd, (UCHAR **)&pData, Len);
-				if (retval != NDIS_STATUS_SUCCESS) {
-					MTWF_DBG(pAd, DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-							 "Not enough memory for dynamic allocating !!\n");
-						goto error2;
-				}
-				os_zero_mem(pData, ICAP_EVENT_DATA_SAMPLE * sizeof(INT32));
-
-				ATEOp->GetICapIQData(pAd, pData, pDataLen, IQ_Type, WF_Num);
-				Value = PKTL_TRAN_TO_HOST(Control);
-				NdisMoveMemory(data + RespLen, (UCHAR *)&Value, sizeof(Value));
-				RespLen += sizeof(Value);
-				Value = PKTL_TRAN_TO_HOST(WF_Num);
-				NdisMoveMemory(data + RespLen, (UCHAR *)&Value, sizeof(Value));
-				RespLen += sizeof(Value);
-				Value = PKTL_TRAN_TO_HOST(IQ_Type);
-				NdisMoveMemory(data + RespLen, (UCHAR *)&Value, sizeof(Value));
-				RespLen += sizeof(Value);
-				Value = PKTL_TRAN_TO_HOST(*pDataLen);
-				NdisMoveMemory(data + RespLen, (UCHAR *)&Value, sizeof(Value));
-				RespLen += sizeof(Value);
-
-				for (i = 0; i < *pDataLen; i++) {
-					INT32 Value;
-
-					Value = PKTL_TRAN_TO_HOST(pData[i]);
-					NdisMoveMemory(data + RespLen, (UCHAR *)&Value, sizeof(Value));
-					RespLen += sizeof(Value);
-				}
-	error2:
-				if (pDataLen != NULL)
-					os_free_mem(pDataLen);
-				if (pData != NULL)
-					os_free_mem(pData);
+                
+			/* Dynamic allocate memory for data length */
+			retval = os_alloc_mem(pAd, (UCHAR **)&pDataLen, sizeof(INT32));
+			if (retval != NDIS_STATUS_SUCCESS) {
+				MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
+						 ("%s : Not enough memory for dynamic allocating !!\n", __func__));
+				goto error;
 			}
+
+			/* Dynamic allocate memory for 1KByte data buffer */
+			Len = ICAP_EVENT_DATA_SAMPLE * sizeof(INT32);
+			retval = os_alloc_mem(pAd, (UCHAR **)&pData, Len);
+			if (retval != NDIS_STATUS_SUCCESS) {
+				MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
+						 ("%s : Not enough memory for dynamic allocating !!\n", __func__));
+				goto error;
+			}
+
+			ATEOp->GetICapIQData(pAd, pData, pDataLen, IQ_Type, WF_Num);
+			Value = PKTL_TRAN_TO_HOST(Control);
+			NdisMoveMemory(data + RespLen, (UCHAR *)&Value, sizeof(Value));
+			RespLen += sizeof(Value);
+			Value = PKTL_TRAN_TO_HOST(WF_Num);
+			NdisMoveMemory(data + RespLen, (UCHAR *)&Value, sizeof(Value));
+			RespLen += sizeof(Value);
+			Value = PKTL_TRAN_TO_HOST(IQ_Type);
+			NdisMoveMemory(data + RespLen, (UCHAR *)&Value, sizeof(Value));
+			RespLen += sizeof(Value);
+			Value = PKTL_TRAN_TO_HOST(*pDataLen);
+			NdisMoveMemory(data + RespLen, (UCHAR *)&Value, sizeof(Value));
+			RespLen += sizeof(Value);
+
+			for (i = 0; i < *pDataLen; i++) {
+    				INT32 Value;
+				Value = PKTL_TRAN_TO_HOST(pData[i]);
+				NdisMoveMemory(data + RespLen, (UCHAR *)&Value, sizeof(Value));
+				RespLen += sizeof(Value);
+			}
+
+error:
+			if (pDataLen != NULL)
+				os_free_mem(pDataLen);
+			if (pData != NULL)
+				os_free_mem(pData);
+		   }    
 		} else
 			Ret = TM_STATUS_NOTSUPPORT;
 
 		ResponseToQA(HqaCmdFrame, WRQ, RespLen, Ret);
 	}
+
+	/* else */
+	/* ResponseToQA(HqaCmdFrame, WRQ, RespLen, Ret); */
 #endif /* INTERNAL_CAPTURE_SUPPORT */
 
 	return Ret;
 }
 
-/* Command 0x1581 */
-INT32 HQA_GetDumpRecal(PRTMP_ADAPTER pAd, RTMP_IOCTL_INPUT_STRUCT *WRQ, struct _HQA_CMD_FRAME *HqaCmdFrame)
-{
-#define MAX_RECAL_DUMP_SIZE 100
-	static INT32 idx;
-	INT32  i4Ret = 0;
-	UINT32 u4BufferCounter = 0;
-	UINT32 count_total = 0;
-	UINT32 BandIdx;
-	INT32 end = 0, remindIdx = 0;
-	struct _ATE_CTRL *ATECtrl = &(pAd->ATECtrl);
-	struct _ATE_LOG_DUMP_CB *log_cb = &(ATECtrl->log_dump[ATE_LOG_RE_CAL-1]);
-
-	/* Get HW band from cmd */
-	/* HQA cmd frame: cmd type + cmd ID + length + Sequence + Data (Band0/Band1) */
-	/* Data is 4 bytes */
-	memcpy((PUCHAR)&BandIdx, (PUCHAR)&HqaCmdFrame->Data, 4);
-	BandIdx = PKTL_TRAN_TO_HOST(BandIdx);
-
-	/* Prepare for RECAL dump */
-	OS_SPIN_LOCK(&log_cb->lock);
-	log_cb->is_dumping = TRUE;
-	OS_SPIN_UNLOCK(&log_cb->lock);
-	MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO,
-		"[RECAL DUMP START][HQA_GetDumpRecal]\n");
-	pAd->fgDumpStart = 1;
-
-	/*Get Recal dump from log dump*/
-	MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO,
-		"log_cb->idx is %d, log_cb->len is %d\n", log_cb->idx, log_cb->len);
-
-	if ((ATECtrl->firstReCal == TRUE) || (ATECtrl->firstQATool == TRUE)) {
-		/*
-		 * Reset idx - 1. HQA Re-cal dump (re-)enable
-		 * Reset idx - 2. HQA Tool (re-)open
-		 */
-		idx = 0;
-	}
-
-	MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO, "idx: %d\n", idx);
-	/* If log_cb->idx greater than log_cb->len(6000), it will re-count from 0 */
-	remindIdx = (idx > log_cb->idx) ?
-		((log_cb->idx + log_cb->len) - idx) :
-		(log_cb->idx - idx);
-
-	end = (remindIdx > MAX_RECAL_DUMP_SIZE) ?
-		((idx + MAX_RECAL_DUMP_SIZE) % (log_cb->len)) :
-		((idx + remindIdx) % (log_cb->len));
-
-	MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO,
-		"remindIdx: %d, end: %d\n", remindIdx, end);
-
-	do {
-		idx = (idx % (log_cb->len));
-		if (log_cb->entry[idx].un_dumped) {
-			struct _ATE_LOG_RECAL re_cal = log_cb->entry[idx].log.re_cal;
-			UINT32 cal_type = re_cal.cal_type;
-			UINT32 cr_addr = re_cal.cr_addr;
-			UINT32 cr_val = re_cal.cr_val;
-
-			MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO,
-				"[Recal][%08x][%08x]%08x\n", cal_type, cr_addr, cr_val);
-			log_cb->entry[idx].un_dumped = FALSE;
-			u4BufferCounter++;
-
-			/*Reverse the ordering of the four bytes in a 32-bit unsigned integer value*/
-			cal_type = PKTL_TRAN_TO_HOST(cal_type);
-			cr_addr = PKTL_TRAN_TO_HOST(cr_addr);
-			cr_val = PKTL_TRAN_TO_HOST(cr_val);
-
-			/* Response format:
-			 * cmd type + cmd ID + length + Sequence + Data
-			 * (status + count + cal_type + cr_addr + cr_val) */
-			/*Data -> {status (2 bytes) + count (4 bytes) = 6 bytes} + [cal_type (4 bytes)] */
-			memcpy(HqaCmdFrame->Data + 6 + count_total*4, &cal_type, 4);
-			count_total++;
-			/*Data -> {status (2 bytes) + count (4 bytes) = 6 bytes} + [cr_addr (4 bytes)] */
-			memcpy(HqaCmdFrame->Data + 6 + count_total*4, &cr_addr, 4);
-			count_total++;
-			/*Data -> {status (2 bytes) + count (4 bytes) = 6 bytes} + [cr_val (4 bytes)] */
-			memcpy(HqaCmdFrame->Data + 6 + count_total*4, &cr_val, 4);
-			count_total++;
-		}
-
-		/* The size of per entry is 38 bytes and for QAtool log buffer limitation. */
-		if ((pAd->fgQAtoolBatchDumpSupport) &&
-			(u4BufferCounter >= (1 << (CONFIG_LOG_BUF_SHIFT - 1)) / 38)) {
-			pAd->u2LogEntryIdx = idx;
-			break;
-		}
-
-		INC_RING_INDEX(idx, log_cb->len);
-	} while (idx != end);
-
-	MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO,
-			"[After dumping] idx: %d, end: %d\n", idx, end);
-
-	/* RECAL DUMP END */
-	/* Count = Total number of 4 bytes RECAL values divided by 3 */
-	count_total = count_total / 3;
-	MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO,
-		"[HQA_GetDumpRecal]: Total Count As a Group of three = %d\n", count_total);
-	if ((idx == log_cb->idx) && (pAd->fgDumpStart)) {
-		MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO, "[RECAL DUMP END]\n");
-		pAd->fgDumpStart = 0;
-	}
-
-	/* Send RECAL Dump to HQA tool */
-	if (count_total > 0) {
-		/*Response format: cmd type + cmd ID + length + Sequence + Data (status + count + RecalID + Offset + Value)*/
-		/*Data -> status (2 bytes) + [count (4 bytes)] + RecalID (4 bytes) + Offset (4 bytes) + Value(4 bytes)*/
-		count_total = PKTL_TRAN_TO_HOST(count_total);
-		memcpy(HqaCmdFrame->Data + 2, &count_total, 4);
-		count_total = PKTL_TRAN_TO_HOST(count_total);
-		/*Data -> status (2 bytes) + count (4 bytes) + [RecalID (4 bytes) + Offset (4 bytes) + Value(4 bytes)]*count_total */
-		ResponseToQA(HqaCmdFrame, WRQ, 6 + count_total*12, i4Ret);
-	} else {
-		/*Data -> [status (2 bytes)] + count (4 bytes) + RecalID (4 bytes) + Offset (4 bytes) + Value(4 bytes) */
-		memcpy(HqaCmdFrame->Data + 2, &count_total, 4);
-		ResponseToQA(HqaCmdFrame, WRQ, 6, i4Ret);
-		OS_SPIN_LOCK(&log_cb->lock);
-		log_cb->is_dumping = FALSE;
-		OS_SPIN_UNLOCK(&log_cb->lock);
-
-		if (ATECtrl->reCalInDumpSts == DISABLE_RECAL_IN_DUMP) {
-			struct _ATE_OPERATION *ATEOp = ATECtrl->ATEOp;
-
-			MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO,
-					 "LogOnOff, log_type:%d, log_ctrl:%d, log_size:%d\n",
-					  ATECtrl->logStsInDump[0],
-					  ATECtrl->logStsInDump[1], ATECtrl->logStsInDump[2]);
-			ATEOp->LogOnOff(pAd, ATECtrl->logStsInDump[0],
-				ATECtrl->logStsInDump[1], ATECtrl->logStsInDump[2]);
-			ATECtrl->logStsInDump[0] = 0;
-			ATECtrl->logStsInDump[1] = 0;
-			ATECtrl->logStsInDump[2] = 0;
-
-			ATECtrl->reCalInDumpSts = NO_CHANGE_RECAL;
-			/*
-			 * Reset idx - 3. HQA Re-cal dump disable during dumping
-			 */
-			idx = 0;
-		}
-	}
-
-	ATECtrl->firstReCal     = FALSE;
-	ATECtrl->firstQATool    = FALSE;
-#undef MAX_RECAL_DUMP_SIZE
-	return STATUS_SUCCESS;
-}
-
-/* Command 0x1583*/
-INT32 HQA_GetDumpRDD(PRTMP_ADAPTER pAd, RTMP_IOCTL_INPUT_STRUCT *WRQ, struct _HQA_CMD_FRAME *HqaCmdFrame)
-{
-	static INT32 idx;
-	INT32 i4Ret = 0;
-	UINT32 u4BufferCounter = 0;
-	UINT32 count_total = 0;
-	UINT32 BandIdx;
-	INT32 end = 0, remindIdx = 0;
-
-	struct _ATE_CTRL *ATECtrl = &(pAd->ATECtrl);
-	struct _ATE_LOG_DUMP_CB *log_cb = &(ATECtrl->log_dump[ATE_LOG_RDD-1]);
-
-	/* Get HW band from cmd */
-	/* HQA cmd frame: cmd type + cmd ID + length + Sequence + Data (Band0/Band1) */
-	/* Data is 4 bytes */
-	memcpy((PUCHAR)&BandIdx, (PUCHAR)&HqaCmdFrame->Data, 4);
-	BandIdx = PKTL_TRAN_TO_HOST(BandIdx);
-
-	/* Prepare for RDD dump */
-	OS_SPIN_LOCK(&log_cb->lock);
-	log_cb->is_dumping = TRUE;
-	OS_SPIN_UNLOCK(&log_cb->lock);
-	MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO, "[RDD DUMP START][HQA_GetDumpRDD]\n");
-	pAd->fgDumpStart = 1;
-
-	/*Get RDD dump from log dump*/
-	MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO,
-		"log_cb->idx is %d, log_cb->len is %d\n", log_cb->idx, log_cb->len);
-
-	if ((ATECtrl->firstRDD == TRUE) || (ATECtrl->firstQATool == TRUE)) {
-		/*
-		 * Reset idx - 1. HQA RDD dump (re-)enable
-		 * Reset idx - 2. HQA Tool (re-)open
-		 */
-		idx = 0;
-	}
-
-	MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO, "idx: %d\n", idx);
-	/* If log_cb->idx greater than log_cb->len(RDDBufferSize), it will re-count from 0 */
-	remindIdx = (idx > log_cb->idx) ?
-		((log_cb->idx + log_cb->len) - idx) :
-		(log_cb->idx - idx);
-
-	end = (remindIdx > MAX_RDD_DUMP_SIZE) ?
-		((idx + MAX_RDD_DUMP_SIZE) % (log_cb->len)) :
-		((idx + remindIdx) % (log_cb->len));
-
-	MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO,
-		"remindIdx: %d, end: %d\n", remindIdx, end);
-
-	do {
-			idx = (idx % (log_cb->len));
-			if (log_cb->entry[idx].un_dumped) {
-				struct _ATE_RDD_LOG *result = &log_cb->entry[idx].log.rdd;
-				UINT32 *pulse = (UINT32 *)result->aucBuffer;
-
-				/* To sperate the interrupts of radar signals */
-				if (!result->byPass) {
-					MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO,
-						"[RDD]0x%08x %08x\n", result->u4Prefix, result->u4Count);
-					/*Response format: cmd type + cmd ID + length + Sequence + Data (status + count + value1 + value2)*/
-					/*Data -> [status (2 bytes) + count (4 bytes)] = 6 bytes + value1 (4 bytes) + value2 (4 bytes) */
-					memcpy(HqaCmdFrame->Data + 6 + count_total*4, &result->u4Prefix, 4);
-					count_total++;
-					result->u4Count = OS_NTOHL(result->u4Count);
-					memcpy(HqaCmdFrame->Data + 6 + count_total*4, &result->u4Count, 4);
-					count_total++;
-				}
-
-				MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO, "[RDD]0x%08x %08x\n", pulse[0], pulse[1]);
-				log_cb->entry[idx].un_dumped = FALSE;
-				u4BufferCounter++;
-
-				/*Reverse the ordering of the four bytes in a 32-bit unsigned integer value*/
-				pulse[0] = OS_NTOHL(pulse[0]);
-				pulse[1] = OS_NTOHL(pulse[1]);
-
-				/*Response format: cmd type + cmd ID + length + Sequence + Data (status + count + value1 + value2)*/
-				/*Data -> {status (2 bytes) + count (4 bytes) = 6 bytes} + [value1 (4 bytes)] + value2 (4 bytes) */
-				memcpy(HqaCmdFrame->Data + 6 + count_total*4, &pulse[0], 4);
-				count_total++;
-				/*Data -> {status (2 bytes) + count (4 bytes) = 6 bytes} + value1 (4 bytes) + [value2 (4 bytes)] */
-				memcpy(HqaCmdFrame->Data + 6 + count_total*4, &pulse[1], 4);
-				count_total++;
-			}
-
-			/* The size of per entry is 38 bytes and for QAtool log buffer limitation. */
-			if ((pAd->fgQAtoolBatchDumpSupport) &&
-				(u4BufferCounter >= (1 << (CONFIG_LOG_BUF_SHIFT - 1)) / 38)) {
-				pAd->u2LogEntryIdx = idx;
-				break;
-			}
-
-			INC_RING_INDEX(idx, log_cb->len);
-	} while (idx != end);
-
-	MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO, "[After RDD dumping] idx: %d, end: %d\n", idx, end);
-
-	/* RDD DUMP END */
-	/* Count = Total number of 4 bytes RDD values divided by 2 */
-	count_total = count_total / 2;
-	MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO,
-		"[HQA_GetDumpRDD]: Total Count As a Group of Two Pulses = %d\n", count_total);
-	MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO,
-		"[HQA_GetDumpRDD] idx = %d, log_cb->idx = %d, pAd->fgDumpStart = %d\n", idx, log_cb->idx, pAd->fgDumpStart);
-	if ((idx == log_cb->idx) && (pAd->fgDumpStart)) {
-		MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO, "[RDD DUMP END]\n");
-		pAd->fgDumpStart = 0;
-	}
-	OS_SPIN_LOCK(&log_cb->lock);
-	log_cb->is_dumping = FALSE;
-	OS_SPIN_UNLOCK(&log_cb->lock);
-
-	/* Send RDD Dump to HQA tool */
-	if (count_total > 0) {
-		/*Response format: cmd type + cmd ID + length + Sequence + Data (status + count + value1 + value2)*/
-		/*Data -> status (2 bytes) + [count (4 bytes)] + value1 (4 bytes) + value2 (4 bytes) */
-		count_total = OS_NTOHL(count_total);
-		memcpy(HqaCmdFrame->Data + 2, &count_total, 4);
-		count_total = OS_NTOHL(count_total);
-		/*Data -> status (2 bytes) + count (4 bytes) + [value1 (4 bytes) + value2 (4 bytes)]*count_total */
-		ResponseToQA(HqaCmdFrame, WRQ, 6 + count_total*8, i4Ret);
-	} else {
-		/*Data -> [status (2 bytes)] + count (4 bytes) + value1 (4 bytes) + value2 (4 bytes) */
-		memcpy(HqaCmdFrame->Data + 2, &count_total, 4);
-		ResponseToQA(HqaCmdFrame, WRQ, 6, i4Ret);
-	}
-
-	ATECtrl->firstRDD    	= FALSE;
-	ATECtrl->firstQATool	= FALSE;
-
-	return STATUS_SUCCESS;
-}
-
-static INT32 HQA_GetDumpRXV(PRTMP_ADAPTER pAd, RTMP_IOCTL_INPUT_STRUCT *WRQ, struct _HQA_CMD_FRAME *HqaCmdFrame)
-{
-#define MAX_DUMP_SIZE_OUT_RXV 40
-	INT32 Ret = 0;
-	UINT32 band_idx = 0, Value = 0, i = 0;
-	UINT32 RespLen = 2;
-	UCHAR *data = HqaCmdFrame->Data;
-	struct _ATE_CTRL *ATECtrl = &(pAd->ATECtrl);
-	struct _ATE_OPERATION *ATEOp = ATECtrl->ATEOp;
-
-	NdisMoveMemory((PUCHAR)&band_idx, data, sizeof(band_idx));
-	band_idx = PKTL_TRAN_TO_HOST(band_idx);
-	ATECtrl->control_band_idx = (UCHAR)band_idx;
-	MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO,
-			"band_idx:%x, en_log:%x\n", band_idx, ATECtrl->en_log);
-
-	if (ATEOp->GetDumpRXV) {
-		INT32 retval;
-		UINT32 CycleCnt, Len;
-		PUINT32 pData = NULL;
-		PUINT32 pCount = NULL;
-
-		/* Dynamic allocate memory for data length */
-		Len = sizeof(UINT32);
-		retval = os_alloc_mem(pAd, (UCHAR **)&pCount, Len);
-		if (retval != NDIS_STATUS_SUCCESS) {
-			MTWF_DBG(pAd, DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-					"Not enough memory for dynamic allocating !!\n");
-			goto error;
-		}
-		os_zero_mem(pCount, Len);
-		*pCount = MAX_DUMP_SIZE_OUT_RXV;
-
-		/* Dynamic allocate memory for data buffer */
-		CycleCnt = (*pCount) * (sizeof(struct _ATE_RXV_LOG)/sizeof(UINT32));
-		Len = CycleCnt * sizeof(UINT32);
-		retval = os_alloc_mem(pAd, (UCHAR **)&pData, Len);
-		if (retval != NDIS_STATUS_SUCCESS) {
-			MTWF_DBG(pAd, DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-					"Not enough memory for dynamic allocating !!\n");
-			goto error;
-		}
-		os_zero_mem(pData, Len);
-
-		/* Initial value for pCount */
-		Ret = ATEOp->GetDumpRXV(pAd, pData, pCount);
-
-		MTWF_DBG(pAd, DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_INFO,
-				"pCount = %d !!\n", *pCount);
-
-		Value = PKTL_TRAN_TO_HOST(*pCount);
-		NdisMoveMemory(data + RespLen, (UCHAR *)&Value, sizeof(Value));
-		RespLen += sizeof(Value);
-
-		CycleCnt = (*pCount) * (sizeof(struct _ATE_RXV_LOG)/sizeof(UINT32));
-
-		for (i = 0; i < CycleCnt; i++) {
-			Value = PKTL_TRAN_TO_HOST(pData[i]);
-			NdisMoveMemory(data + RespLen, (UCHAR *)&Value, sizeof(Value));
-			RespLen += sizeof(Value);
-		}
-
-		ResponseToQA(HqaCmdFrame, WRQ, RespLen, Ret);
-
-error:
-		if (pCount != NULL)
-			os_free_mem(pCount);
-		if (pData != NULL)
-			os_free_mem(pData);
-	} else
-		Ret = TM_STATUS_NOTSUPPORT;
-
-	ATECtrl->firstRXV	= FALSE;
-	ATECtrl->firstQATool	= FALSE;
-
-#undef MAX_DUMP_SIZE_OUT_RXV
-	return Ret;
-}
 
 static HQA_CMD_HANDLER HQA_ICAP_CMDS[] = {
-	HQA_CapWiFiSpectrum,			/*0x1580 */
-};
-static HQA_CMD_HANDLER HQA_ReCal_CMDS[] = {
-	HQA_GetDumpRecal,			/*0x1581 */
-};
-static HQA_CMD_HANDLER HQA_RXV_CMDS[] = {
-	HQA_GetDumpRXV,			/* 0x1582 */
-};
-static HQA_CMD_HANDLER HQA_RDD_CMDS[] = {
-	HQA_GetDumpRDD,			/*0x1583 */
+	HQA_CapWiFiSpectrum,			/* 0x1580 */
 };
 
-#if defined(DOT11_HE_AX)
-static INT32 HQA_SetMaxPacExt(PRTMP_ADAPTER ad, RTMP_IOCTL_INPUT_STRUCT *wrq, struct _HQA_CMD_FRAME *hqa_cmd_frame)
-{
-	INT32 Ret = 0;
-	UINT32 Value = 0;
-
-	memcpy((PUCHAR)&Value, (PUCHAR)&hqa_cmd_frame->Data, 4);
-	TESTMODE_SET_PARAM(ad, TESTMODE_GET_BAND_IDX(ad), max_pkt_ext, PKTL_TRAN_TO_HOST(Value));
-	MTWF_DBG(ad, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO,
-			 "Max Packet Extension:%d (%d us)\n", TESTMODE_GET_PARAM(ad, TESTMODE_GET_BAND_IDX(ad), max_pkt_ext),
-									     16-TESTMODE_GET_PARAM(ad, TESTMODE_GET_BAND_IDX(ad), max_pkt_ext)*8);
-
-	ResponseToQA(hqa_cmd_frame, wrq, 2, Ret);
-	return Ret;
-}
-
-static INT32 HQA_GetHETBParams(PRTMP_ADAPTER ad, RTMP_IOCTL_INPUT_STRUCT *wrq, struct _HQA_CMD_FRAME *hqa_cmd_frame)
-{
-	INT32 Ret = 0, afactor = 0, ldpc_str_sym = 0, pe_disamb = 0, tx_pe = 0, l_sig_len = 0, value = 0;
-	UINT8 dmnt_ru_idx = TESTMODE_GET_PARAM(ad, TESTMODE_GET_BAND_IDX(ad), dmnt_ru_idx);
-	struct _ATE_RU_STA *ru_sta = (struct _ATE_RU_STA *)TESTMODE_GET_PADDR(ad, TESTMODE_GET_BAND_IDX(ad), ru_info_list[0]);
-
-	afactor = ru_sta[dmnt_ru_idx].afactor_init;
-	ldpc_str_sym = ru_sta[dmnt_ru_idx].ldpc_extr_sym;
-	pe_disamb = ru_sta[dmnt_ru_idx].pe_disamb;
-	tx_pe = ru_sta[dmnt_ru_idx].t_pe;
-	l_sig_len = ru_sta[dmnt_ru_idx].l_len;
-
-	/* The response array should be a-factor, ldpc extra symbol, PE disambiguilty, TX PE, L-SIG length */
-	value = PKTL_TRAN_TO_NET(afactor);
-	memcpy(hqa_cmd_frame->Data + 2, &value, sizeof(value));
-	value = PKTL_TRAN_TO_NET(ldpc_str_sym);
-	memcpy(hqa_cmd_frame->Data + 2 + sizeof(value), &value, sizeof(value));
-	value = PKTL_TRAN_TO_NET(pe_disamb);
-	memcpy(hqa_cmd_frame->Data + 2 + sizeof(value)*2, &value, sizeof(value));
-	value = PKTL_TRAN_TO_NET(tx_pe);
-	memcpy(hqa_cmd_frame->Data + 2 + sizeof(value)*3, &value, sizeof(value));
-	value = PKTL_TRAN_TO_NET(l_sig_len);
-	memcpy(hqa_cmd_frame->Data + 2 + sizeof(value)*4, &value, sizeof(value));
-
-	ResponseToQA(hqa_cmd_frame, wrq, 2 + 5*sizeof(INT32), Ret);
-	return Ret;
-}
-
-static INT32 HQA_GetPFDInfo(PRTMP_ADAPTER ad, RTMP_IOCTL_INPUT_STRUCT *wrq, struct _HQA_CMD_FRAME *hqa_cmd_frame)
-{
-	INT32 Ret = 0;
-
-	ResponseToQA(hqa_cmd_frame, wrq, 2, Ret);
-	return Ret;
-}
-
-static INT32 HQA_GetStaRUSetting(PRTMP_ADAPTER ad, RTMP_IOCTL_INPUT_STRUCT *wrq, struct _HQA_CMD_FRAME *hqa_cmd_frame)
-{
-	INT32 Ret = 0;
-
-	ResponseToQA(hqa_cmd_frame, wrq, 2, Ret);
-	return Ret;
-}
-
-static UINT8 mt_ate_translate_ru_allocation(UINT32 user_ru_allocation)
-{
-	UINT8 allocation = 0, i = 0;
-
-	for (i = 0 ; i < sizeof(UINT32)*2 ; i++) {
-		allocation |= ((user_ru_allocation & 0x1) << i);
-		user_ru_allocation >>= 4;
-	}
-
-	return allocation;
-}
-static INT32 HQA_SetStaRUSetting(PRTMP_ADAPTER ad, RTMP_IOCTL_INPUT_STRUCT *wrq, struct _HQA_CMD_FRAME *hqa_cmd_frame)
-{
-	INT32 Ret = 0, tone_idx = 0;
-	UINT32 len = 0, band_idx = 0, seg_sta_cnt[2] = {0}, sta_seq = 0, value = 0;
-	UCHAR *data = hqa_cmd_frame->Data, param_cnt = 0, segment_idx = 0;
-	UINT32 mpdu_length = 0;
-	struct _ATE_RU_ALLOCATION *ru_allocation = NULL;
-	struct _ATE_RU_STA *ru_sta = NULL;
-
-	len = PKTS_TRAN_TO_HOST(hqa_cmd_frame->Length);
-	EthGetParamAndShiftBuff(TRUE, sizeof(UINT32), &data, (UCHAR *)&band_idx);
-	EthGetParamAndShiftBuff(TRUE, sizeof(UINT32), &data, (UCHAR *)&seg_sta_cnt[0]);
-	EthGetParamAndShiftBuff(TRUE, sizeof(UINT32), &data, (UCHAR *)&seg_sta_cnt[1]);
-	param_cnt = (len-sizeof(UINT32)*3)/(seg_sta_cnt[0]+seg_sta_cnt[1])/sizeof(UINT32);
-
-	MTWF_DBG(ad, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO,
-			 "Band:%d [ru_segment 0]:%d, [ru_segment 1]:%d, parameters count:%d\n",
-			  band_idx, seg_sta_cnt[0], seg_sta_cnt[1], param_cnt);
-
-	mpdu_length = TESTMODE_GET_PARAM(ad, band_idx, tx_len);
-	ru_allocation = (struct _ATE_RU_ALLOCATION *)TESTMODE_GET_PADDR(ad, band_idx, ru_alloc);
-	ru_sta = (struct _ATE_RU_STA *)TESTMODE_GET_PADDR(ad, band_idx, ru_info_list[0]);
-	os_zero_mem(ru_sta, sizeof(struct _ATE_RU_STA)*MAX_MULTI_TX_STA);
-	os_fill_mem(ru_allocation, sizeof(*ru_allocation), 0xff);
-
-	/* for maximum bw 80+80/160, 2 segments only */
-	for (segment_idx = 0; segment_idx < 2 ; segment_idx++) {
-		for (sta_seq = 0 ; sta_seq < seg_sta_cnt[segment_idx] ; sta_seq++) {
-			UINT allocation = 0;
-			param_cnt = (len-sizeof(UINT32)*3)/(seg_sta_cnt[0]+seg_sta_cnt[1])/sizeof(UINT32);
-
-			sta_seq += seg_sta_cnt[0]*segment_idx;
-			ru_sta[sta_seq].valid = TRUE;
-			EthGetParamAndShiftBuff(TRUE, sizeof(UINT32), &data, (UCHAR *)&value);	/* ru caterogy */
-			param_cnt--;
-			EthGetParamAndShiftBuff(TRUE, sizeof(UINT32), &data, (UCHAR *)&value);	/* ru allocation */
-			param_cnt--;
-			allocation = mt_ate_translate_ru_allocation(value);
-			EthGetParamAndShiftBuff(TRUE, sizeof(UINT32), &data, (UCHAR *)&value);	/* sta index */
-			param_cnt--;
-			EthGetParamAndShiftBuff(TRUE, sizeof(UINT32), &data, (UCHAR *)&value);
-			param_cnt--;
-			ru_sta[sta_seq].ru_index = (value << 1) | segment_idx;
-			mt_ate_add_allocation(ru_allocation, allocation, segment_idx, value);
-			EthGetParamAndShiftBuff(TRUE, sizeof(UINT32), &data, (UCHAR *)&value);
-			param_cnt--;
-			ru_sta[sta_seq].rate = value;
-			EthGetParamAndShiftBuff(TRUE, sizeof(UINT32), &data, (UCHAR *)&value);
-			param_cnt--;
-			ru_sta[sta_seq].ldpc = value;
-			EthGetParamAndShiftBuff(TRUE, sizeof(UINT32), &data, (UCHAR *)&value);
-			param_cnt--;
-			ru_sta[sta_seq].nss = value;
-			EthGetParamAndShiftBuff(TRUE, sizeof(UINT32), &data, (UCHAR *)&value);
-			param_cnt--;
-			ru_sta[sta_seq].start_sp_st = value-1;
-			EthGetParamAndShiftBuff(TRUE, sizeof(UINT32), &data, (UCHAR *)&value);
-			if (value > 24)
-				ru_sta[sta_seq].mpdu_length = value;
-			else
-				ru_sta[sta_seq].mpdu_length = mpdu_length;
-			param_cnt--;
-
-			if (param_cnt) {
-				EthGetParamAndShiftBuff(TRUE, sizeof(UINT32), &data, (UCHAR *)&value);
-				param_cnt--;
-				ru_sta[sta_seq].alpha = value;
-			}
-
-			if (param_cnt) {
-				EthGetParamAndShiftBuff(TRUE, sizeof(UINT32), &data, (UCHAR *)&value);
-				param_cnt--;
-				ru_sta[sta_seq].ru_mu_nss = value;
-			}
-
-			MTWF_DBG(ad, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO,
-					 "ru_segment[%d][0x%x]: ru_idx:%d, rate:%x, ldpc:%d, nss:%d,\n\t\t\t\t start spatial stream:%d, mpdu length=%d, alpha:%d, ru_mu_nss=%d\n",
-					  segment_idx, allocation, ru_sta[sta_seq].ru_index >> 1, ru_sta[sta_seq].rate, ru_sta[sta_seq].ldpc,
-					  ru_sta[sta_seq].nss, ru_sta[sta_seq].start_sp_st, ru_sta[sta_seq].mpdu_length, ru_sta[sta_seq].alpha, ru_sta[sta_seq].ru_mu_nss);
-
-		}
-	}
-
-	mt_ate_fill_empty_allocation(ru_allocation);
-
-	for (tone_idx = 0 ; tone_idx < sizeof(*ru_allocation) ; tone_idx++)
-		MTWF_DBG(ad, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO, "allocation[%d] = 0x%x\n", tone_idx, ru_allocation->allocation[tone_idx]);
-
-	ResponseToQA(hqa_cmd_frame, wrq, 2, Ret);
-	return Ret;
-}
-
-static HQA_CMD_HANDLER HQA_HE_CMDS[] = {
-	HQA_SetMaxPacExt,		/*0x1590 */
-	HQA_GetHETBParams,		/*0x1591 */
-	HQA_GetPFDInfo,			/*0x1592 */
-	HQA_GetStaRUSetting,	/*0x1593 */
-	HQA_SetStaRUSetting,	/*0x1594 */
-};
-#endif /* DOT11_HE_AX */
 
 static INT32 hqa_set_channel_ext(PRTMP_ADAPTER pAd,
 					RTMP_IOCTL_INPUT_STRUCT *wrq,
@@ -6837,7 +6054,7 @@ static INT32 hqa_set_channel_ext(PRTMP_ADAPTER pAd,
 {
 	INT32 ret = 0;
 	UINT32 len = 0;
-	struct _HQA_EXT_SET_CH param = {0};
+	struct _HQA_EXT_SET_CH param;
 	struct _ATE_CTRL *ate_ctrl = &(pAd->ATECtrl);
 	struct _ATE_OPERATION *ate_ops = ate_ctrl->ATEOp;
 	UCHAR *data = cmd_frame->Data;
@@ -6896,10 +6113,10 @@ static INT32 hqa_set_channel_ext(PRTMP_ADAPTER pAd,
 		break;
 
 	default:
-		bw = BAND_WIDTH_20;
-		MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_WARN,
-				 "Cannot find BW with param.sys_bw:%x, forced as 0x%x\n",
-				  param.sys_bw, bw);
+		MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_WARN,
+				 ("%s: Cannot find BW with param.sys_bw:%x\n",
+				  __func__, param.sys_bw));
+		bw = param.sys_bw;
 		break;
 	}
 
@@ -6930,35 +6147,35 @@ static INT32 hqa_set_channel_ext(PRTMP_ADAPTER pAd,
 		break;
 
 	default:
-		per_pkt_bw = BAND_WIDTH_20;
-		MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_WARN,
-				 "Cannot find BW with param.sys_bw:%x\n, forced as 0x%x",
-				  param.sys_bw, per_pkt_bw);
+		MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_WARN,
+				 ("%s: Cannot find BW with param.sys_bw:%x\n",
+				  __func__, param.sys_bw));
+		per_pkt_bw = bw;
 		break;
 	}
 
 	/* Set Param */
-	TESTMODE_SET_PARAM(pAd, band_idx, channel, param.central_ch0);
+	TESTMODE_SET_PARAM(ate_ctrl, band_idx, Channel, param.central_ch0);
 #ifdef DOT11_VHT_AC
-	TESTMODE_SET_PARAM(pAd, band_idx, channel_2nd, param.central_ch1);
+	TESTMODE_SET_PARAM(ate_ctrl, band_idx, Channel_2nd, param.central_ch1);
 #endif
-	TESTMODE_SET_PARAM(pAd, band_idx, per_pkt_bw, per_pkt_bw);
-	TESTMODE_SET_PARAM(pAd, band_idx, bw, bw);
-	TESTMODE_SET_PARAM(pAd, band_idx, pri_sel, param.pri_sel);
-	TESTMODE_SET_PARAM(pAd, band_idx, ch_band, param.ch_band);
-	TESTMODE_SET_PARAM(pAd, band_idx, out_band_freq, param.out_band_freq);
+	TESTMODE_SET_PARAM(ate_ctrl, band_idx, PerPktBW, per_pkt_bw);
+	TESTMODE_SET_PARAM(ate_ctrl, band_idx, BW, bw);
+	TESTMODE_SET_PARAM(ate_ctrl, band_idx, PriSel, param.pri_sel);
+	TESTMODE_SET_PARAM(ate_ctrl, band_idx, Ch_Band, param.ch_band);
+	TESTMODE_SET_PARAM(ate_ctrl, band_idx, OutBandFreq, param.out_band_freq);
 	ate_ctrl->control_band_idx = (UCHAR)band_idx;
 
 	ate_ops->SetChannel(pAd, param.central_ch0, param.pri_sel, param.reason, param.ch_band);
 err0:
 	NdisMoveMemory(cmd_frame->Data + 2, (UCHAR *)&param.ext_id, 4);
-	MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO,
-			 "len:%x, num_param:%x, band_idx:%x, ch0:%u, ch1:%u, sys_bw:%x, bw_conver:%x, ",
-			  len, param.num_param, param.band_idx,
-			  param.central_ch0, param.central_ch1, param.sys_bw, bw);
-	MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO,
-			 "perpkt_bw:%x, pri_sel:%x, pri_ch:%u, ch_band:%u\n",
-			  param.perpkt_bw, param.pri_sel, pri_ch,  param.ch_band);
+	MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_OFF,
+			 ("%s: len:%x, num_param:%x, band_idx:%x, ch0:%u, ch1:%u, sys_bw:%x, bw_conver:%x, ",
+			  __func__, len, param.num_param, param.band_idx,
+			  param.central_ch0, param.central_ch1, param.sys_bw, bw));
+	MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_OFF,
+			 ("perpkt_bw:%x, pri_sel:%x, pri_ch:%u\n",
+			  param.perpkt_bw, param.pri_sel, pri_ch));
 	ResponseToQA(cmd_frame, wrq, 6, ret);
 	return ret;
 }
@@ -6968,14 +6185,13 @@ static INT32 hqa_set_txcontent_ext(PRTMP_ADAPTER pAd, RTMP_IOCTL_INPUT_STRUCT *w
 {
 	INT32 ret = 0;
 	UINT32 len = 0, pl_len = 0;
-	struct _HQA_EXT_TX_CONTENT param = {0};
+	struct _HQA_EXT_TX_CONTENT param;
 	struct _ATE_CTRL *ate_ctrl = &(pAd->ATECtrl);
 	struct _ATE_TX_TIME_PARAM *tx_time_param = NULL;
 	UCHAR *data = cmd_frame->Data;
 	HEADER_802_11 *phdr = NULL;
 	UCHAR *addr1, *addr2, *addr3, *payload;
 	UINT32 band_idx = 0;
-	UINT16 sta_idx = 0;
 
 	len = PKTS_TRAN_TO_HOST(cmd_frame->Length);
 	EthGetParamAndShiftBuff(TRUE, sizeof(UINT32), &data, (UCHAR *)&param.ext_id);
@@ -6999,64 +6215,63 @@ static INT32 hqa_set_txcontent_ext(PRTMP_ADAPTER pAd, RTMP_IOCTL_INPUT_STRUCT *w
 	band_idx = param.band_idx;
 	ate_ctrl->control_band_idx = (UCHAR)band_idx;
 
-	for (sta_idx = 0 ; sta_idx < MAX_MULTI_TX_STA ; sta_idx++) {
-		if (band_idx < DBDC_BAND_NUM) {
-			addr1 = TESTMODE_GET_PARAM(pAd, band_idx, addr1[sta_idx]);
-			addr2 = TESTMODE_GET_PARAM(pAd, band_idx, addr2[sta_idx]);
-			addr3 = TESTMODE_GET_PARAM(pAd, band_idx, addr3[sta_idx]);
-
-			NdisMoveMemory(addr1, param.addr1, MAC_ADDR_LEN);
-			NdisMoveMemory(addr2, param.addr2, MAC_ADDR_LEN);
-			NdisMoveMemory(addr3, param.addr3, MAC_ADDR_LEN);
-		} else
-			return NDIS_STATUS_FAILURE;
-	}
-	phdr = (HEADER_802_11 *)TESTMODE_GET_PARAM(pAd, band_idx, template_frame);
-	pl_len = TESTMODE_GET_PARAM(pAd, band_idx, pl_len);
-	/* pl_addr = TESTMODE_GET_PADDR(pAd, band_idx, payload); */
-	payload = TESTMODE_GET_PARAM(pAd, band_idx, payload);
+	addr1 = TESTMODE_GET_PARAM(ate_ctrl, band_idx, Addr1);
+	addr2 = TESTMODE_GET_PARAM(ate_ctrl, band_idx, Addr2);
+	addr3 = TESTMODE_GET_PARAM(ate_ctrl, band_idx, Addr3);
+	NdisMoveMemory(addr1, param.addr1, MAC_ADDR_LEN);
+	NdisMoveMemory(addr2, param.addr2, MAC_ADDR_LEN);
+	NdisMoveMemory(addr3, param.addr3, MAC_ADDR_LEN);
+	phdr = (HEADER_802_11 *)TESTMODE_GET_PARAM(ate_ctrl, band_idx, TemplateFrame);
+	pl_len = TESTMODE_GET_PARAM(ate_ctrl, band_idx, pl_len);
+	/* pl_addr = TESTMODE_GET_PADDR(ate_ctrl, band_idx, payload); */
+	payload = TESTMODE_GET_PARAM(ate_ctrl, band_idx, payload);
 	NdisMoveMemory(&phdr->FC, &param.FC, sizeof(phdr->FC));
 	phdr->Duration = (UINT16)param.dur;
 	phdr->Sequence = (UINT16)param.seq;
-	TESTMODE_SET_PARAM(pAd, band_idx, fixed_payload, param.gen_payload_rule);
-	TESTMODE_SET_PARAM(pAd, band_idx, tx_len, param.txlen);
-	TESTMODE_SET_PARAM(pAd, band_idx, pl_len, param.payload_len);
+	TESTMODE_SET_PARAM(ate_ctrl, band_idx, FixedPayload, param.gen_payload_rule);
+	TESTMODE_SET_PARAM(ate_ctrl, band_idx, TxLength, param.txlen);
+	TESTMODE_SET_PARAM(ate_ctrl, band_idx, pl_len, param.payload_len);
 	/* payload = *pl_addr; */
 
 	/* Error check for txlen and payload_len */
 	if ((param.txlen == 0) || (param.payload_len == 0)) {
-		MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-			"txlen/payload_len=%d/%d can't be 0!!\n", param.txlen, param.payload_len);
+		MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
+			("%s: txlen/payload_len=%d/%d can't be 0!!\n",
+			__func__, param.txlen, param.payload_len));
 		return NDIS_STATUS_FAILURE;
 	}
 
 	/* Packet TX time feature implementation */
-	tx_time_param = (struct _ATE_TX_TIME_PARAM *)TESTMODE_GET_PADDR(pAd, band_idx, tx_time_param);
+	tx_time_param = TESTMODE_GET_PADDR(ate_ctrl, band_idx, tx_time_param);
 	if (tx_time_param->pkt_tx_time_en == TRUE) {
 		tx_time_param->pkt_tx_time = param.txlen;
-		MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO,
-			"FC:%04x, dur:%u, seq:%u, plen:%u, pkt_tx_time:%u, GENPKT:%u\n",
-			param.FC, param.dur, param.seq, param.payload_len,
-			tx_time_param->pkt_tx_time, param.gen_payload_rule);
+		MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_OFF,
+			("%s: FC:%04x, dur:%u, seq:%u, plen:%u, pkt_tx_time:%u, GENPKT:%u\n",
+			__func__, param.FC, param.dur, param.seq, param.payload_len,
+			tx_time_param->pkt_tx_time, param.gen_payload_rule));
 
 	} else {
-		MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO,
-			"FC:%04x, dur:%u, seq:%u, plen:%u, txlen:%u, GENPKT:%u\n",
-			param.FC, param.dur, param.seq, param.payload_len,
-			param.txlen, param.gen_payload_rule);
+		MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_OFF,
+			("%s: FC:%04x, dur:%u, seq:%u, plen:%u, txlen:%u, GENPKT:%u\n",
+			__func__, param.FC, param.dur, param.seq, param.payload_len,
+			param.txlen, param.gen_payload_rule));
 	}
 
 	EthGetParamAndShiftBuff(FALSE, param.payload_len, &data, payload);
 	NdisMoveMemory(cmd_frame->Data + 2, (UCHAR *)&param.ext_id, sizeof(param.ext_id));
 	ResponseToQA(cmd_frame, wrq, 2 + sizeof(param.ext_id), ret);
-	MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO,
-		"addr1:%02x:%02x:%02x:%02x:%02x:%02x\n", PRINT_MAC(addr1));
-	MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO,
-		"addr2:%02x:%02x:%02x:%02x:%02x:%02x\n", PRINT_MAC(addr2));
-	MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO,
-		"addr3:%02x:%02x:%02x:%02x:%02x:%02x\n", PRINT_MAC(addr3));
-	MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO,
-		"ret:%u, len:%u, param_len:%u\n", ret, param.payload_len, pl_len);
+	MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_OFF,
+		("%s: addr1:%02x:%02x:%02x:%02x:%02x:%02x\n",
+		__func__, PRINT_MAC(addr1)));
+	MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_OFF,
+		("%s: addr2:%02x:%02x:%02x:%02x:%02x:%02x\n",
+		__func__, PRINT_MAC(addr2)));
+	MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_OFF,
+		("%s: addr3:%02x:%02x:%02x:%02x:%02x:%02x\n",
+		__func__, PRINT_MAC(addr3)));
+	MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_OFF,
+		("%s: ret:%u, len:%u, param_len:%u\n",
+		__func__, ret, param.payload_len, pl_len));
 
 	return ret;
 }
@@ -7070,16 +6285,16 @@ static INT32 hqa_start_tx_ext(PRTMP_ADAPTER pAd, RTMP_IOCTL_INPUT_STRUCT *wrq, s
 	struct _ATE_CTRL *ate_ctrl = &(pAd->ATECtrl);
 	struct _ATE_OPERATION *ate_ops = ate_ctrl->ATEOp;
 	UCHAR *data = cmd_frame->Data;
-	struct _HQA_EXT_TXV param = {0};
+	struct _HQA_EXT_TXV param;
 	ATE_TXPOWER TxPower;
-	UINT32 Channel, Ch_Band, SysBw = 0, PktBw = 0, ipg = 0;
+	UINT32 Channel = 0, Ch_Band = 0, SysBw = 0, PktBw = 0, ipg = 0;
 
 	len = PKTS_TRAN_TO_HOST(cmd_frame->Length);
 	EthGetParamAndShiftBuff(TRUE, sizeof(UINT32), &data, (UCHAR *)&param.ext_id);
 	EthGetParamAndShiftBuff(TRUE, sizeof(UINT32), &data, (UCHAR *)&param.num_param);
 	EthGetParamAndShiftBuff(TRUE, sizeof(UINT32), &data, (UCHAR *)&param.band_idx);
 	EthGetParamAndShiftBuff(TRUE, sizeof(UINT32), &data, (UCHAR *)&param.pkt_cnt);
-	EthGetParamAndShiftBuff(TRUE, sizeof(UINT32), &data, (UCHAR *)&param.tx_mode);
+	EthGetParamAndShiftBuff(TRUE, sizeof(UINT32), &data, (UCHAR *)&param.phymode);
 	EthGetParamAndShiftBuff(TRUE, sizeof(UINT32), &data, (UCHAR *)&param.rate);
 	EthGetParamAndShiftBuff(TRUE, sizeof(UINT32), &data, (UCHAR *)&param.pwr);
 	EthGetParamAndShiftBuff(TRUE, sizeof(UINT32), &data, (UCHAR *)&param.stbc);
@@ -7095,39 +6310,33 @@ static INT32 hqa_start_tx_ext(PRTMP_ADAPTER pAd, RTMP_IOCTL_INPUT_STRUCT *wrq, s
 
 	if (!param.pkt_cnt)
 		param.pkt_cnt = 0x8fffffff;
-	if (band_idx >= DBDC_BAND_NUM) {
-		ret = -1;
-		MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-				 "Band_idx out of range!\n");
-		goto err0;
-	}
 
-	TESTMODE_SET_PARAM(pAd, band_idx, ATE_TX_CNT, param.pkt_cnt);
-	TESTMODE_SET_PARAM(pAd, band_idx, tx_mode, param.tx_mode);
-	TESTMODE_SET_PARAM(pAd, band_idx, mcs, param.rate);
-	TESTMODE_SET_PARAM(pAd, band_idx, stbc, param.stbc);
-	TESTMODE_SET_PARAM(pAd, band_idx, ldpc, param.ldpc);
+	TESTMODE_SET_PARAM(ate_ctrl, band_idx, TxCount, param.pkt_cnt);
+	TESTMODE_SET_PARAM(ate_ctrl, band_idx, PhyMode, param.phymode);
+	TESTMODE_SET_PARAM(ate_ctrl, band_idx, Mcs, param.rate);
+	TESTMODE_SET_PARAM(ate_ctrl, band_idx, Stbc, param.stbc);
+	TESTMODE_SET_PARAM(ate_ctrl, band_idx, Ldpc, param.ldpc);
 #ifdef TXBF_SUPPORT
-	TESTMODE_SET_PARAM(pAd, band_idx, ibf, param.ibf);
-	TESTMODE_SET_PARAM(pAd, band_idx, ebf, param.ebf);
+	TESTMODE_SET_PARAM(ate_ctrl, band_idx, iTxBf, param.ibf);
+	TESTMODE_SET_PARAM(ate_ctrl, band_idx, eTxBf, param.ebf);
 #endif
 	ate_ctrl->wcid_ref = param.wlan_id;
 	/* TODO: Need to modify */
-	TESTMODE_SET_PARAM(pAd, band_idx, ipg_param.ipg, param.aifs);		/* Fix me */
-	TESTMODE_SET_PARAM(pAd, band_idx, sgi, param.gi);
-	TESTMODE_SET_PARAM(pAd, band_idx, tx_ant, param.tx_path);
-	TESTMODE_SET_PARAM(pAd, band_idx, nss, param.nss);
-	Channel = TESTMODE_GET_PARAM(pAd, band_idx, channel);
-	Ch_Band = TESTMODE_GET_PARAM(pAd, band_idx, ch_band);
-	PktBw = TESTMODE_GET_PARAM(pAd, band_idx, per_pkt_bw);
-	SysBw = TESTMODE_GET_PARAM(pAd, band_idx, bw);
-	ipg = TESTMODE_GET_PARAM(pAd, band_idx, ipg_param.ipg);
+	TESTMODE_SET_PARAM(ate_ctrl, band_idx, ipg_param.ipg, param.aifs);		/* Fix me */
+	TESTMODE_SET_PARAM(ate_ctrl, band_idx, Sgi, param.gi);
+	TESTMODE_SET_PARAM(ate_ctrl, band_idx, TxAntennaSel, param.tx_path);
+	TESTMODE_SET_PARAM(ate_ctrl, band_idx, Nss, param.nss);
+	Channel = TESTMODE_GET_PARAM(ate_ctrl, band_idx, Channel);
+	Ch_Band = TESTMODE_GET_PARAM(ate_ctrl, band_idx, Ch_Band);
+	PktBw = TESTMODE_GET_PARAM(ate_ctrl, band_idx, PerPktBW);
+	SysBw = TESTMODE_GET_PARAM(ate_ctrl, band_idx, BW);
+	ipg = TESTMODE_GET_PARAM(ate_ctrl, band_idx, ipg_param.ipg);
 	ate_ctrl->control_band_idx = (UCHAR)band_idx;
 
-	if (param.tx_mode < MODE_VHT && param.rate == 32 && PktBw != BAND_WIDTH_40 && SysBw != BAND_WIDTH_40) {
+	if (param.rate == 32 && PktBw != BAND_WIDTH_40 && SysBw != BAND_WIDTH_40) {
 		ret = -1;
-		MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-				 "Bandwidth must to be 40 at MCS 32\n");
+		MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_OFF,
+				 ("%s: Bandwidth must to be 40 at MCS 32\n", __func__));
 		goto err0;
 	}
 
@@ -7136,20 +6345,20 @@ static INT32 hqa_start_tx_ext(PRTMP_ADAPTER pAd, RTMP_IOCTL_INPUT_STRUCT *wrq, s
 	TxPower.Channel = Channel;
 	TxPower.Dbdc_idx = band_idx;
 	TxPower.Band_idx = Ch_Band;
-	ate_ops->SetIPG(pAd, ipg);
-	ate_ops->tx_commit(pAd);
+	ret = ate_ops->SetTxPower0(pAd, TxPower);
+	ret = ate_ops->SetIPG(pAd, ipg);
 	ret = ate_ops->StartTx(pAd);
 err0:
 	NdisMoveMemory(cmd_frame->Data + 2, (UCHAR *)&param.ext_id, sizeof(param.ext_id));
 	ResponseToQA(cmd_frame, wrq, 2 + sizeof(param.ext_id), ret);
-	MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO,
-			 "band_idx:%u, pkt_cnt:%u, phy:%u, mcs:%u, stbc:%u, ldpc:%u\n",
-			  param.band_idx, param.pkt_cnt, param.tx_mode,
-			  param.rate, param.stbc, param.ldpc);
-	MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO,
-			 "ibf:%u, ebf:%u, wlan_id:%u, aifs:%u, gi:%u, tx_path:%x, nss:%x\n",
-			  param.ibf, param.ebf, param.wlan_id, param.aifs,
-			  param.gi, param.tx_path, param.nss);
+	MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_OFF,
+			 ("%s: band_idx:%u, pkt_cnt:%u, phy:%u, mcs:%u, stbc:%u, ldpc:%u\n",
+			  __func__, param.band_idx, param.pkt_cnt, param.phymode,
+			  param.rate, param.stbc, param.ldpc));
+	MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_OFF,
+			 ("%s: ibf:%u, ebf:%u, wlan_id:%u, aifs:%u, gi:%u, tx_path:%x, nss:%x\n",
+			  __func__, param.ibf, param.ebf, param.wlan_id, param.aifs,
+			  param.gi, param.tx_path, param.nss));
 	return ret;
 }
 
@@ -7164,10 +6373,7 @@ static INT32 hqa_start_rx_ext(PRTMP_ADAPTER pAd, RTMP_IOCTL_INPUT_STRUCT *wrq, s
 	UINT32 param_num = 0;
 	UINT32 band_idx = 0;
 	UINT32 rx_path = 0;
-	UINT32 user_idx = 0;
 	UCHAR own_mac[MAC_ADDR_LEN];
-	UINT32 tx_mode = 0;
-	UINT32 ltf_gi = 0;
 
 	NdisZeroMemory(own_mac, MAC_ADDR_LEN);
 	EthGetParamAndShiftBuff(TRUE, sizeof(UINT32), &data, (UCHAR *)&ext_id);
@@ -7177,34 +6383,13 @@ static INT32 hqa_start_rx_ext(PRTMP_ADAPTER pAd, RTMP_IOCTL_INPUT_STRUCT *wrq, s
 	EthGetParamAndShiftBuff(TRUE, sizeof(UINT32), &data, (UCHAR *)&rx_path);
 
 	ate_ctrl->control_band_idx = (UCHAR)band_idx;
-	if (band_idx >= DBDC_BAND_NUM) {
-		ret = -1;
-		MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-				 "Band_idx out of range!\n");
-		return ret;
-	}
 
-	EthGetParamAndShiftBuff(TRUE, sizeof(UINT32), &data, (UCHAR *)TESTMODE_GET_PADDR(pAd, band_idx, mu_rx_aid));
-	if (param_num > 3) {
-		EthGetParamAndShiftBuff(TRUE, sizeof(UINT32), &data, (UCHAR *)&tx_mode);
-		EthGetParamAndShiftBuff(TRUE, sizeof(UINT32), &data, (UCHAR *)&ltf_gi);
-		EthGetParamAndShiftBuff(TRUE, sizeof(UINT32), &data, (UCHAR *)&user_idx);
-
-		MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO,
-				"param num:%d, tx_mode:%d, ltf_gi:%d, user_idx:%d\n", param_num, tx_mode, ltf_gi, user_idx);
-	}
-
-	TESTMODE_SET_PARAM(pAd, TESTMODE_GET_BAND_IDX(pAd), tx_mode, tx_mode);
-	TESTMODE_SET_PARAM(pAd, TESTMODE_GET_BAND_IDX(pAd), sgi, ltf_gi);
-	TESTMODE_SET_PARAM(pAd, TESTMODE_GET_BAND_IDX(pAd), user_idx, user_idx);
-
-	ret = ate_ops->SetRxUserIdx(pAd, band_idx, user_idx);
 	ret = ate_ops->SetRxAntenna(pAd, rx_path);
 	ret = ate_ops->SetAutoResp(pAd, own_mac, 1);
 	ret = ate_ops->StartRx(pAd);
-	MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO,
-			 "param num:%u, band_sel:%u, rx_path:%x, mac:%02x:%02x:%02x:%02x:%02x:%02x, MU Aid:%d\n",
-			  param_num, band_idx, rx_path, PRINT_MAC(own_mac), TESTMODE_GET_PARAM(pAd, band_idx, mu_rx_aid));
+	MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_OFF,
+			 ("%s: param num:%u, band_sel:%u, rx_path:%x, mac:%02x:%02x:%02x:%02x:%02x:%02x\n",
+			  __func__, param_num, band_idx, rx_path, PRINT_MAC(own_mac)));
 	NdisMoveMemory(cmd_frame->Data + 2, (UCHAR *)&ext_id, sizeof(ext_id));
 	ResponseToQA(cmd_frame, wrq, 2 + sizeof(ext_id), ret);
 	return ret;
@@ -7227,12 +6412,11 @@ static INT32 hqa_stop_tx_ext(PRTMP_ADAPTER pAd, RTMP_IOCTL_INPUT_STRUCT *wrq, st
 
 	ate_ctrl->control_band_idx = (UCHAR)band_idx;
 
-	ate_ops->StopTx(pAd);
-	ret = ate_ops->tx_revert(pAd);
+	ret = ate_ops->StopTx(pAd);
 	NdisMoveMemory(cmd_frame->Data + 2, (UCHAR *)&ext_id, sizeof(ext_id));
 	ResponseToQA(cmd_frame, wrq, 2 + sizeof(ext_id), ret);
-	MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO,
-		"band_idx:%u\n", band_idx);
+	MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_TRACE,
+		("%s: band_idx:%u\n", __func__, band_idx));
 	return ret;
 }
 
@@ -7255,8 +6439,8 @@ static INT32 hqa_stop_rx_ext(PRTMP_ADAPTER pAd, RTMP_IOCTL_INPUT_STRUCT *wrq, st
 	ret = ate_ops->StopRx(pAd);
 	NdisMoveMemory(cmd_frame->Data + 2, (UCHAR *)&ext_id, sizeof(ext_id));
 	ResponseToQA(cmd_frame, wrq, 2 + sizeof(ext_id), ret);
-	MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO,
-		"band_idx:%u\n", band_idx);
+	MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_TRACE,
+		("%s: band_idx:%u\n", __func__, band_idx));
 	return ret;
 }
 
@@ -7274,13 +6458,7 @@ static INT32 hqa_set_tx_time(PRTMP_ADAPTER pAd, RTMP_IOCTL_INPUT_STRUCT *wrq, st
 	EthGetParamAndShiftBuff(TRUE, sizeof(UINT32), &data, (UCHAR *)&ext_id);
 	EthGetParamAndShiftBuff(TRUE, sizeof(UINT32), &data, (UCHAR *)&band_idx);
 	EthGetParamAndShiftBuff(TRUE, sizeof(UINT32), &data, (UCHAR *)&is_tx_time);
-	if (band_idx >= DBDC_BAND_NUM) {
-		MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-			"band_idx is out of range\n");
-		ret = -1;
-		return ret;
-	}
-	tx_time_param = (struct _ATE_TX_TIME_PARAM *)TESTMODE_GET_PADDR(pAd, band_idx, tx_time_param);
+	tx_time_param = TESTMODE_GET_PADDR(ate_ctrl, band_idx, tx_time_param);
 
 	ate_ctrl->control_band_idx = (UCHAR)band_idx;
 
@@ -7293,81 +6471,31 @@ static INT32 hqa_set_tx_time(PRTMP_ADAPTER pAd, RTMP_IOCTL_INPUT_STRUCT *wrq, st
 	}
 	NdisMoveMemory(cmd_frame->Data + 2, (UCHAR *)&ext_id, sizeof(ext_id));
 	ResponseToQA(cmd_frame, wrq, 2 + sizeof(ext_id), ret);
-	MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO,
-		"band_idx:%u, is_tx_time:%d\n", band_idx, is_tx_time);
+	MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_OFF,
+		("%s: band_idx:%u, is_tx_time:%d\n", __func__, band_idx, is_tx_time));
 	return ret;
 }
 
-#if OFF_CH_SCAN_SUPPORT
-static INT32 hqa_off_ch_scan(PRTMP_ADAPTER pAd, RTMP_IOCTL_INPUT_STRUCT *wrq, struct _HQA_CMD_FRAME *cmd_frame)
-{
-	INT32 ret = 0;
-	UCHAR *data = cmd_frame->Data;
-	struct _ATE_CTRL *ate_ctrl = &(pAd->ATECtrl);
-	struct _ATE_OPERATION *ate_ops = ate_ctrl->ATEOp;
-	ATE_OFF_CH_SCAN param;
-
-	/* Initialize parameters */
-	os_zero_mem(&param, sizeof(param));
-
-	/* Get parameters from command frame */
-	/* Data sequences of command frame:
-	*  ExtendId (4 bytes) + HW Band idx (4 bytes) + Channel (4 bytes) +
-	*  isAband (4 bytes) + systemBW (4 bytes) + TxRxPath (4 bytes) + Status (4 bytes)
-	*/
-	EthGetParamAndShiftBuff(TRUE, sizeof(UINT32), &data, (UCHAR *)&param.ext_id);
-	EthGetParamAndShiftBuff(TRUE, sizeof(UINT32), &data, (UCHAR *)&param.dbdc_idx);
-	EthGetParamAndShiftBuff(TRUE, sizeof(UINT32), &data, (UCHAR *)&param.mntr_ch);
-	EthGetParamAndShiftBuff(TRUE, sizeof(UINT32), &data, (UCHAR *)&param.is_aband);
-	EthGetParamAndShiftBuff(TRUE, sizeof(UINT32), &data, (UCHAR *)&param.mntr_bw);
-	EthGetParamAndShiftBuff(TRUE, sizeof(UINT32), &data, (UCHAR *)&param.mntr_tx_rx_pth);
-	EthGetParamAndShiftBuff(TRUE, sizeof(UINT32), &data, (UCHAR *)&param.scan_mode);
-
-	ret = ate_ops->off_ch_scan(pAd, &param);
-
-	/* Send response to QA tool */
-	/* Response format:
-	*  Status (2 bytes) + Extend ID (4 bytes)
-	*/
-	NdisMoveMemory(cmd_frame->Data + 2, (UCHAR *)&(param.ext_id), sizeof(param.ext_id));
-	ResponseToQA(cmd_frame, wrq, 6, ret);
-	return ret;
-
-}
-#else
-static INT32 hqa_off_ch_scan(PRTMP_ADAPTER pAd, RTMP_IOCTL_INPUT_STRUCT *wrq, struct _HQA_CMD_FRAME *cmd_frame)
-{
-	INT32 ret = 0;
-
-	MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_ERROR, "Not support\n");
-	ResponseToQA(cmd_frame, wrq, 2, ret);
-
-	return ret;
-}
-#endif
 
 #ifdef TXBF_SUPPORT
 static INT32 hqa_iBFGetStatus_ext(PRTMP_ADAPTER pAd, RTMP_IOCTL_INPUT_STRUCT *wrq, struct _HQA_CMD_FRAME *cmd_frame)
 {
 	INT32 ret = 0;
 	UCHAR *data = cmd_frame->Data;
-	UCHAR control_band_idx = TESTMODE_GET_BAND_IDX(pAd);
-	UCHAR *txbf_info = TESTMODE_GET_PARAM(pAd, control_band_idx, txbf_info);
-	UINT32 u4Op_mode;
+	struct _ATE_CTRL *ate_ctrl = &(pAd->ATECtrl);
 	UINT32 ext_id = 0;
 	UINT32 u4Status = 0;
 
 	EthGetParamAndShiftBuff(TRUE, sizeof(UINT32), &data, (UCHAR *)&ext_id);
 
-	if (!(TESTMODE_GET_PARAM(pAd, control_band_idx, txbf_info)))
+	if (!ate_ctrl->txbf_info)
 		goto HQA_TAG_DNC_FAIL;
 
-	u4Status = TESTMODE_GET_PARAM(pAd, control_band_idx, iBFCalStatus);
-	u4Op_mode = TESTMODE_GET_PARAM(pAd, control_band_idx, op_mode);
-	u4Op_mode &= ~fATE_IN_BF;
-	TESTMODE_SET_PARAM(pAd, control_band_idx, op_mode, u4Op_mode);
-	os_free_mem(txbf_info);
-	/* MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO, "val:%x\n", u4Status); */
+	u4Status = ate_ctrl->iBFCalStatus;
+	ate_ctrl->Mode &= ~fATE_IN_BF;
+	os_free_mem(ate_ctrl->txbf_info);
+	ate_ctrl->txbf_info = NULL;
+	/* MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_OFF,("%s, val:%x\n", __FUNCTION__, u4Status)); */
 	ext_id   = PKTL_TRAN_TO_HOST(ext_id);
 	u4Status = PKTL_TRAN_TO_HOST(u4Status);
 	NdisMoveMemory(cmd_frame->Data + 2, (UCHAR *)&ext_id, sizeof(ext_id));
@@ -7381,17 +6509,14 @@ HQA_TAG_DNC_FAIL:
 static INT32 hqa_iBFSetValue_ext(PRTMP_ADAPTER pAd, RTMP_IOCTL_INPUT_STRUCT *wrq, struct _HQA_CMD_FRAME *cmd_frame)
 {
 	INT32 ret = 0;
-	INT snprintf_ret;
 	UCHAR *data = cmd_frame->Data;
-	UCHAR control_band_idx = TESTMODE_GET_BAND_IDX(pAd);
-	UCHAR *txbf_info = TESTMODE_GET_PARAM(pAd, control_band_idx, txbf_info);
-	UINT32 u4Op_mode;
+	struct _ATE_CTRL *ate_ctrl = &(pAd->ATECtrl);
 	UINT32 ext_id = 0;
 	UINT32 u4Action = 0;
 	UINT32 u4InArg[8] = {0, 0, 0, 0, 0, 0, 0, 0};
 	RTMP_STRING *cmd;
 
-	txbf_info = NULL;
+	ate_ctrl->txbf_info = NULL;
 	os_alloc_mem(pAd, (UCHAR **)&cmd, sizeof(CHAR) * (HQA_BF_STR_SIZE));
 
 	if (!cmd) {
@@ -7413,135 +6538,69 @@ static INT32 hqa_iBFSetValue_ext(PRTMP_ADAPTER pAd, RTMP_IOCTL_INPUT_STRUCT *wrq
 	switch (u4Action) {
 	case ATE_TXBF_INIT:
 		memset(cmd, 0x00, HQA_BF_STR_SIZE);
-		snprintf_ret = snprintf(cmd, HQA_BF_STR_SIZE, "%d", (UCHAR)u4InArg[0]);
-		if (os_snprintf_error(HQA_BF_STR_SIZE, snprintf_ret)) {
-			MTWF_DBG(pAd, DBG_CAT_CFG, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-				"cmd snprintf error!\n");
-			os_free_mem(cmd);
-			return FALSE;
-		}
+		sprintf(cmd, "%d", (UCHAR)u4InArg[0]);
 		SetATETxBfDutInitProc(pAd, cmd);
 		break;
 
 	case ATE_CHANNEL:
 		memset(cmd, 0x00, HQA_BF_STR_SIZE);
 
-		if (u4InArg[1] == 1) {
-			snprintf_ret = snprintf(cmd, HQA_BF_STR_SIZE, "%d:1", (UCHAR)u4InArg[0]);
-			if (os_snprintf_error(HQA_BF_STR_SIZE, snprintf_ret)) {
-				MTWF_DBG(pAd, DBG_CAT_CFG, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-					"cmd snprintf error!\n");
-				os_free_mem(cmd);
-				return FALSE;
-			}
-		} else {
-			snprintf_ret = snprintf(cmd, HQA_BF_STR_SIZE, "%d", (UCHAR)u4InArg[0]);
-			if (os_snprintf_error(HQA_BF_STR_SIZE, snprintf_ret)) {
-				MTWF_DBG(pAd, DBG_CAT_CFG, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-					"cmd snprintf error!\n");
-				os_free_mem(cmd);
-				return FALSE;
-			}
-		}
+		if (u4InArg[1] == 1)
+			sprintf(cmd, "%d:1", (UCHAR)u4InArg[0]);
+		else
+			sprintf(cmd, "%d", (UCHAR)u4InArg[0]);
 
 		SetATEChannel(pAd, cmd);
 		break;
 
 	case ATE_TX_MCS:
 		memset(cmd, 0x00, HQA_BF_STR_SIZE);
-		snprintf_ret = snprintf(cmd, HQA_BF_STR_SIZE, "%d", (UCHAR)u4InArg[0]);
-		if (os_snprintf_error(HQA_BF_STR_SIZE, snprintf_ret)) {
-			MTWF_DBG(pAd, DBG_CAT_CFG, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-				"cmd snprintf error!\n");
-			os_free_mem(cmd);
-			return FALSE;
-		}
+		sprintf(cmd, "%d", (UCHAR)u4InArg[0]);
 		SetATETxMcs(pAd, cmd);
 		break;
 
 	case ATE_TX_POW0:
 		memset(cmd, 0x00, HQA_BF_STR_SIZE);
-		snprintf_ret = snprintf(cmd, HQA_BF_STR_SIZE, "%d", (UCHAR)u4InArg[0]);
-		if (os_snprintf_error(HQA_BF_STR_SIZE, snprintf_ret)) {
-			MTWF_DBG(pAd, DBG_CAT_CFG, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-				"cmd snprintf error!\n");
-			os_free_mem(cmd);
-			return FALSE;
-		}
+		sprintf(cmd, "%d", (UCHAR)u4InArg[0]);
 		SetATETxPower0(pAd, cmd);
 		break;
 
 	case ATE_TX_ANT:
 		memset(cmd, 0x00, HQA_BF_STR_SIZE);
-		snprintf_ret = snprintf(cmd, HQA_BF_STR_SIZE, "%d", (UCHAR)u4InArg[0]);
-		if (os_snprintf_error(HQA_BF_STR_SIZE, snprintf_ret)) {
-			MTWF_DBG(pAd, DBG_CAT_CFG, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-				"cmd snprintf error!\n");
-			os_free_mem(cmd);
-			return FALSE;
-		}
+		sprintf(cmd, "%d", (UCHAR)u4InArg[0]);
 		SetATETxAntenna(pAd, cmd);
 		break;
 
 	case ATE_RX_FRAME:
-		SetATE(pAd, "TXSTOP");
 		memset(cmd, 0x00, HQA_BF_STR_SIZE);
-		snprintf_ret = snprintf(cmd, HQA_BF_STR_SIZE, "%s", "RXFRAME");
-		if (os_snprintf_error(HQA_BF_STR_SIZE, snprintf_ret)) {
-			MTWF_DBG(pAd, DBG_CAT_CFG, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-				"cmd snprintf error!\n");
-			os_free_mem(cmd);
-			return FALSE;
-		}
+		sprintf(cmd, "RXFRAME");
 		SetATE(pAd, cmd);
 		break;
 
 	case ATE_RX_ANT:
 		memset(cmd, 0x00, HQA_BF_STR_SIZE);
-		snprintf_ret = snprintf(cmd, HQA_BF_STR_SIZE, "%d", (UCHAR)u4InArg[0]);
-		if (os_snprintf_error(HQA_BF_STR_SIZE, snprintf_ret)) {
-			MTWF_DBG(pAd, DBG_CAT_CFG, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-				"cmd snprintf error!\n");
-			os_free_mem(cmd);
-			return FALSE;
-		}
+		sprintf(cmd, "%d", (UCHAR)u4InArg[0]);
 		SetATERxAntenna(pAd, cmd);
 		break;
 
 	case ATE_TXBF_LNA_GAIN:
 		memset(cmd, 0x00, HQA_BF_STR_SIZE);
-		snprintf_ret = snprintf(cmd, HQA_BF_STR_SIZE, "%d", (UCHAR)u4InArg[0]);
-		if (os_snprintf_error(HQA_BF_STR_SIZE, snprintf_ret)) {
-			MTWF_DBG(pAd, DBG_CAT_CFG, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-				"cmd snprintf error!\n");
-			os_free_mem(cmd);
-			return FALSE;
-		}
+		sprintf(cmd, "%d", (UCHAR)u4InArg[0]);
 		SetATETxBfLnaGain(pAd, cmd);
 		break;
 
 	case ATE_IBF_PHASE_COMP:
 		memset(cmd, 0x00, HQA_BF_STR_SIZE);
 		/* BW:DBDC idx:Group:Read from E2P:Dis compensation */
-		snprintf_ret = snprintf(cmd, HQA_BF_STR_SIZE, "%02x:%02x:%02x:%02x:%02x",
+		sprintf(cmd, "%02x:%02x:%02x:%02x:%02x",
 				u4InArg[0], u4InArg[1],
 				u4InArg[2], u4InArg[3],
 				u4InArg[4]);
-		if (os_snprintf_error(HQA_BF_STR_SIZE, snprintf_ret)) {
-			MTWF_DBG(pAd, DBG_CAT_CFG, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-				"cmd snprintf error!\n");
-			os_free_mem(cmd);
-			return FALSE;
-		}
 
-		/* check the range for coverity */
-		if (*cmd < HQA_BF_STR_SIZE) {
-			if (SetATEIBfPhaseComp(pAd, cmd) == FALSE) {
-				MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_ERROR, " ATE_IBF_PHASE_COMP is failed!!\n");
-				ret = NDIS_STATUS_FAILURE;
-				goto HQA_IBF_CMD_FAIL;
-			}
-
+		if (SetATEIBfPhaseComp(pAd, cmd) == FALSE) {
+			MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_ERROR, (" ATE_IBF_PHASE_COMP is failed!!\n"));
+			ret = NDIS_STATUS_FAILURE;
+			goto HQA_IBF_CMD_FAIL;
 		}
 
 		break;
@@ -7550,60 +6609,37 @@ static INT32 hqa_iBFSetValue_ext(PRTMP_ADAPTER pAd, RTMP_IOCTL_INPUT_STRUCT *wrq
 		u4InArg[2] = 0; /* for test purpose */
 		memset(cmd, 0x00, HQA_BF_STR_SIZE);
 		/* fgBf:WLAN idx:Txcnt */
-		snprintf_ret = snprintf(cmd, HQA_BF_STR_SIZE, "%02x:%02x:%02x",
+		sprintf(cmd, "%02x:%02x:%02x",
 				u4InArg[0], u4InArg[1],
 				u4InArg[2]);
-		if (os_snprintf_error(HQA_BF_STR_SIZE, snprintf_ret)) {
-			MTWF_DBG(pAd, DBG_CAT_CFG, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-				"cmd snprintf error!\n");
-			os_free_mem(cmd);
-			return FALSE;
-		}
 
-		/* check the range for coverity */
-		if (*cmd < HQA_BF_STR_SIZE) {
-			if (SetATETxPacketWithBf(pAd, cmd) == FALSE) {
-				MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_ERROR, " ATE_IBF_TX is failed!!\n");
-				ret = NDIS_STATUS_FAILURE;
-				goto HQA_IBF_CMD_FAIL;
-			}
-
+		if (SetATETxPacketWithBf(pAd, cmd) == FALSE) {
+			MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_ERROR, (" ATE_IBF_TX is failed!!\n"));
+			ret = NDIS_STATUS_FAILURE;
+			goto HQA_IBF_CMD_FAIL;
 		}
 
 		break;
+
 	case ATE_IBF_PROF_UPDATE:
 		memset(cmd, 0x00, HQA_BF_STR_SIZE);
 		/* Pfmu idx:Nr:Nc */
-		snprintf_ret = snprintf(cmd, HQA_BF_STR_SIZE, "%02x:%02x:%02x",
+		sprintf(cmd, "%02x:%02x:%02x",
 				u4InArg[0], u4InArg[1],
 				u4InArg[2]);
-		if (os_snprintf_error(HQA_BF_STR_SIZE, snprintf_ret)) {
-			MTWF_DBG(pAd, DBG_CAT_CFG, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-				"cmd snprintf error!\n");
-			os_free_mem(cmd);
-			return FALSE;
+
+		if (SetATEIBfProfileUpdate(pAd, cmd) == FALSE) {
+			MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_ERROR, (" ATE_IBF_PROF_UPDATE is failed!!\n"));
+			ret = NDIS_STATUS_FAILURE;
+			goto HQA_IBF_CMD_FAIL;
 		}
 
-		/* check the range for coverity */
-		if (*cmd < HQA_BF_STR_SIZE) {
-			if (SetATEIBfProfileUpdate(pAd, cmd) == FALSE) {
-				MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_ERROR, " ATE_IBF_PROF_UPDATE is failed!!\n");
-				ret = NDIS_STATUS_FAILURE;
-				goto HQA_IBF_CMD_FAIL;
-			}
-		}
 		memset(cmd, 0x00, HQA_BF_STR_SIZE);
 		/* Wlan Id:EBf:IBf:Mu:PhaseCalFlg */
-		snprintf_ret = snprintf(cmd, HQA_BF_STR_SIZE, "01:00:01:00:01");
-		if (os_snprintf_error(HQA_BF_STR_SIZE, snprintf_ret)) {
-			MTWF_DBG(pAd, DBG_CAT_CFG, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-				"cmd snprintf error!\n");
-			os_free_mem(cmd);
-			return FALSE;
-		}
+		sprintf(cmd, "01:00:01:00:01");
 
 		if (Set_TxBfTxApply(pAd, cmd) == FALSE) {
-			MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_ERROR, " IBF flag setting in WTBL is failed!!\n");
+			MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_ERROR, (" IBF flag setting in WTBL is failed!!\n"));
 			ret = NDIS_STATUS_FAILURE;
 			goto HQA_IBF_CMD_FAIL;
 		}
@@ -7613,84 +6649,50 @@ static INT32 hqa_iBFSetValue_ext(PRTMP_ADAPTER pAd, RTMP_IOCTL_INPUT_STRUCT *wrq
 	case ATE_EBF_PROF_UPDATE:
 		memset(cmd, 0x00, HQA_BF_STR_SIZE);
 		/* Pfmu idx:Nr:Nc */
-		snprintf_ret = snprintf(cmd, HQA_BF_STR_SIZE, "%02x:%02x:%02x",
+		sprintf(cmd, "%02x:%02x:%02x",
 				u4InArg[0], u4InArg[1],
 				u4InArg[2]);
-		if (os_snprintf_error(HQA_BF_STR_SIZE, snprintf_ret)) {
-			MTWF_DBG(pAd, DBG_CAT_CFG, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-				"cmd snprintf error!\n");
-			os_free_mem(cmd);
-			return FALSE;
-		}
 
-		/* check the range for coverity */
-		if (*cmd < HQA_BF_STR_SIZE) {
-			if (SetATEEBfProfileConfig(pAd, cmd) == FALSE) {
-				MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_ERROR, " ATE_EBF_PROF_UPDATE is failed!!\n");
-				ret = NDIS_STATUS_FAILURE;
-				goto HQA_IBF_CMD_FAIL;
-			}
-
+		if (SetATEEBfProfileConfig(pAd, cmd) == FALSE) {
+			MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_ERROR, (" ATE_EBF_PROF_UPDATE is failed!!\n"));
+			ret = NDIS_STATUS_FAILURE;
+			goto HQA_IBF_CMD_FAIL;
 		}
 
 		break;
 
 	case ATE_IBF_INST_CAL:
-		u4Op_mode = TESTMODE_GET_PARAM(pAd, control_band_idx, op_mode);
-		u4Op_mode |= fATE_IN_BF;
-		TESTMODE_SET_PARAM(pAd, control_band_idx, op_mode, u4Op_mode);
+		ate_ctrl->Mode |= fATE_IN_BF;
 		memset(cmd, 0x00, HQA_BF_STR_SIZE);
 		/* Group idx:Group_L_M_H:fgSX2:Calibration type:Lna level */
-		snprintf_ret = snprintf(cmd, HQA_BF_STR_SIZE, "%02x:%02x:%02x:%02x:%02x",
+		sprintf(cmd, "%02x:%02x:%02x:%02x:%02x",
 				u4InArg[0], u4InArg[1],
 				u4InArg[2], u4InArg[3],
 				u4InArg[4]);
-		if (os_snprintf_error(HQA_BF_STR_SIZE, snprintf_ret)) {
-			MTWF_DBG(pAd, DBG_CAT_CFG, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-				"cmd snprintf error!\n");
-			os_free_mem(cmd);
-			return FALSE;
-		}
 
-		/* check the range for coverity */
-		if (*cmd < HQA_BF_STR_SIZE) {
-			if (SetATEIBfInstCal(pAd, cmd) == FALSE) {
-				MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_ERROR, " ATE_IBF_GD_CAL is failed!!\n");
-				ret = NDIS_STATUS_FAILURE;
-				goto HQA_IBF_CMD_FAIL;
-			}
-
+		if (SetATEIBfInstCal(pAd, cmd) == FALSE) {
+			MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_ERROR, (" ATE_IBF_GD_CAL is failed!!\n"));
+			ret = NDIS_STATUS_FAILURE;
+			goto HQA_IBF_CMD_FAIL;
 		}
 
 		break;
 
 	case ATE_IBF_INST_VERIFY:
-		u4Op_mode = TESTMODE_GET_PARAM(pAd, control_band_idx, op_mode);
-		u4Op_mode |= fATE_IN_BF;
-		TESTMODE_SET_PARAM(pAd, control_band_idx, op_mode, u4Op_mode);
+		ate_ctrl->Mode |= fATE_IN_BF;
 		u4InArg[3] = 4; /* iBF phase verification with instrument */
 		u4InArg[4] = 1; /* Force LNA gain is middle gain */
 		memset(cmd, 0x00, HQA_BF_STR_SIZE);
 		/* Group idx:Group_L_M_H:fgSX2:Calibration type:Lna level */
-		snprintf_ret = snprintf(cmd, HQA_BF_STR_SIZE, "%02x:%02x:%02x:%02x:%02x",
+		sprintf(cmd, "%02x:%02x:%02x:%02x:%02x",
 				u4InArg[0], u4InArg[1],
 				u4InArg[2], u4InArg[3],
 				u4InArg[4]);
-		if (os_snprintf_error(HQA_BF_STR_SIZE, snprintf_ret)) {
-			MTWF_DBG(pAd, DBG_CAT_CFG, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-				"cmd snprintf error!\n");
-			os_free_mem(cmd);
-			return FALSE;
-		}
 
-		/* check the range for coverity */
-		if (*cmd < HQA_BF_STR_SIZE) {
-			if (SetATEIBfInstCal(pAd, cmd) == FALSE) {
-				MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_ERROR, " ATE_IBF_INST_VERIFY is failed!!\n");
-				ret = NDIS_STATUS_FAILURE;
-				goto HQA_IBF_CMD_FAIL;
-			}
-
+		if (SetATEIBfInstCal(pAd, cmd) == FALSE) {
+			MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_ERROR, (" ATE_IBF_INST_VERIFY is failed!!\n"));
+			ret = NDIS_STATUS_FAILURE;
+			goto HQA_IBF_CMD_FAIL;
 		}
 
 		break;
@@ -7701,25 +6703,15 @@ static INT32 hqa_iBFSetValue_ext(PRTMP_ADAPTER pAd, RTMP_IOCTL_INPUT_STRUCT *wrq
 	case ATE_IBF_PHASE_E2P_UPDATE:
 		memset(cmd, 0x00, HQA_BF_STR_SIZE);
 		/* Group idx:fgSX2:E2P update type */
-		snprintf_ret = snprintf(cmd, HQA_BF_STR_SIZE, "%02x:%02x:%02x",
+		sprintf(cmd, "%02x:%02x:%02x",
 				u4InArg[0], u4InArg[1],
 				u4InArg[2]);
-		if (os_snprintf_error(HQA_BF_STR_SIZE, snprintf_ret)) {
-			MTWF_DBG(pAd, DBG_CAT_CFG, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-				"cmd snprintf error!\n");
-			os_free_mem(cmd);
-			return FALSE;
-		}
 		pAd->fgCalibrationFail = FALSE; /* Enable EEPROM write of calibrated phase */
 
-		/* check the range for coverity */
-		if (*cmd < HQA_BF_STR_SIZE) {
-			if (SetATETxBfPhaseE2pUpdate(pAd, cmd) == FALSE) {
-				MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_ERROR, " ATE_IBF_PHASE_E2P_UPDATE is failed!!\n");
-				ret = NDIS_STATUS_FAILURE;
-				goto HQA_IBF_CMD_FAIL;
-			}
-
+		if (SetATETxBfPhaseE2pUpdate(pAd, cmd) == FALSE) {
+			MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_ERROR, (" ATE_IBF_PHASE_E2P_UPDATE is failed!!\n"));
+			ret = NDIS_STATUS_FAILURE;
+			goto HQA_IBF_CMD_FAIL;
 		}
 
 		break;
@@ -7728,11 +6720,10 @@ static INT32 hqa_iBFSetValue_ext(PRTMP_ADAPTER pAd, RTMP_IOCTL_INPUT_STRUCT *wrq
 		break;
 	}
 
-	/* MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO, "Action ID : %d, str:%s\n", u4Action, cmd); */
+	/* MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_OFF,("%s, Action ID : %d, str:%s\n", __FUNCTION__, u4Action, cmd)); */
+	os_free_mem(cmd);
 	NdisMoveMemory(cmd_frame->Data + 2, (UCHAR *)&ext_id, sizeof(ext_id));
 HQA_IBF_CMD_FAIL:
-	if (cmd)
-		os_free_mem(cmd);
 	ResponseToQA(cmd_frame, wrq, 6, ret);
 	return ret;
 }
@@ -7741,13 +6732,11 @@ HQA_IBF_CMD_FAIL:
 static INT32 hqa_iBFChanProfUpdate_ext(PRTMP_ADAPTER pAd, RTMP_IOCTL_INPUT_STRUCT *wrq, struct _HQA_CMD_FRAME *cmd_frame)
 {
 	INT32 ret = 0;
-	INT snprintf_ret;
 	UCHAR *data = cmd_frame->Data;
 	UINT32 ext_id = 0;
-	UINT32 u4PfmuId = 0, u4Subcarr = 0, fgFinalData = 0;
-	UINT32 i2H11 = 0, i2AngleH11 = 0, i2H21 = 0, i2AngleH21 = 0, i2H31 = 0;
-	UINT32 i2AngleH31 = 0, i2H41 = 0, i2AngleH41 = 0;
-	RTMP_STRING *cmd = NULL;
+	UINT32 u4PfmuId, u4Subcarr, fgFinalData;
+	UINT32 i2H11, i2AngleH11, i2H21, i2AngleH21, i2H31, i2AngleH31, i2H41, i2AngleH41;
+	RTMP_STRING *cmd;
 
 	os_alloc_mem(pAd, (UCHAR **)&cmd, sizeof(CHAR) * (HQA_BF_STR_SIZE));
 
@@ -7769,26 +6758,17 @@ static INT32 hqa_iBFChanProfUpdate_ext(PRTMP_ADAPTER pAd, RTMP_IOCTL_INPUT_STRUC
 	EthGetParamAndShiftBuff(TRUE, sizeof(UINT32), &data, (UCHAR *)&i2H41);
 	EthGetParamAndShiftBuff(TRUE, sizeof(UINT32), &data, (UCHAR *)&i2AngleH41);
 	memset(cmd, 0x00, HQA_BF_STR_SIZE);
-	snprintf_ret = snprintf(cmd, HQA_BF_STR_SIZE, "%03x:%03x:%03x:%03x:%03x:%03x:%03x:%03x:%03x:%03x:%03x",
+	sprintf(cmd, "%03x:%03x:%03x:%03x:%03x:%03x:%03x:%03x:%03x:%03x:%03x",
 			u4PfmuId, u4Subcarr, fgFinalData, i2H11, i2AngleH11, i2H21, i2AngleH21,
 			i2H31, i2AngleH31, i2H41, i2AngleH41);
-	if (os_snprintf_error(HQA_BF_STR_SIZE, snprintf_ret)) {
-		MTWF_DBG(pAd, DBG_CAT_CFG, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-			"cmd snprintf error!\n");
-		os_free_mem(cmd);
-		return FALSE;
+
+	if (SetATETxBfChanProfileUpdate(pAd, cmd) == FALSE) {
+		MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_ERROR, (" SetATETxBfChanProfileUpdate is failed!!\n"));
+		ret = NDIS_STATUS_FAILURE;
+		goto HQA_PROFILE_UPDATE_FAIL;
 	}
 
-	/* check the range for coverity */
-	if (*cmd < HQA_BF_STR_SIZE) {
-		if (SetATETxBfChanProfileUpdate(pAd, cmd) == FALSE) {
-			MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_ERROR, " SetATETxBfChanProfileUpdate is failed!!\n");
-			ret = NDIS_STATUS_FAILURE;
-			goto HQA_PROFILE_UPDATE_FAIL;
-		}
-	}
-
-	/* MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO, "str:%s\n", cmd); */
+	/* MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_OFF,("%s, str:%s\n", __FUNCTION__, cmd)); */
 	os_free_mem(cmd);
 	NdisMoveMemory(cmd_frame->Data + 2, (UCHAR *)&ext_id, sizeof(ext_id));
 HQA_PROFILE_UPDATE_FAIL:
@@ -7802,7 +6782,7 @@ static INT32 hqa_iBFChanProfUpdateAll_ext(PRTMP_ADAPTER pAd, RTMP_IOCTL_INPUT_ST
 	INT32 ret = 0;
 	UCHAR *data = cmd_frame->Data;
 	UINT32 ext_id = 0;
-	UINT32 u4PfmuId = 0, u4Temp = 0;
+	UINT32 u4PfmuId, u4Temp;
 
 	EthGetParamAndShiftBuff(TRUE, sizeof(UINT32), &data, (UCHAR *)&ext_id);
 	EthGetParamAndShiftBuff(TRUE, sizeof(UINT32), &data, (UCHAR *)&u4PfmuId);
@@ -7812,12 +6792,13 @@ static INT32 hqa_iBFChanProfUpdateAll_ext(PRTMP_ADAPTER pAd, RTMP_IOCTL_INPUT_ST
 	EthGetParamAndShiftBuff(TRUE, sizeof(UINT32), &data, (UCHAR *)&u4Temp);
 
 	if (TxBfProfileDataWrite20MAll(pAd, u4PfmuId, data) == FALSE) {
-		MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_ERROR, " SetATETxBfChanProfileUpdate is failed!!\n");
+		MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_ERROR, (" SetATETxBfChanProfileUpdate is failed!!\n"));
 		ret = NDIS_STATUS_FAILURE;
 		goto HQA_PROFILE_UPDATE_FAIL;
 	}
 
-	MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO, "str:%d\n", u4PfmuId);
+	MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_OFF,
+			 ("%s: str:%d\n", __func__, u4PfmuId));
 	NdisMoveMemory(cmd_frame->Data + 2, (UCHAR *)&ext_id, sizeof(ext_id));
 HQA_PROFILE_UPDATE_FAIL:
 	ResponseToQA(cmd_frame, wrq, 6, ret);
@@ -7828,11 +6809,10 @@ HQA_PROFILE_UPDATE_FAIL:
 static INT32 hqa_iBFProfileRead_ext(PRTMP_ADAPTER pAd, RTMP_IOCTL_INPUT_STRUCT *wrq, struct _HQA_CMD_FRAME *cmd_frame)
 {
 	INT32 ret = 0;
-	INT snprintf_ret;
 	UCHAR *data = cmd_frame->Data;
 	UINT32 ext_id = 0;
-	UINT32 u4PfmuId = 0, u4Subcarr = 0;
-	RTMP_STRING *cmd = NULL;
+	UINT32 u4PfmuId, u4Subcarr;
+	RTMP_STRING *cmd;
 
 	os_alloc_mem(pAd, (UCHAR **)&cmd, sizeof(CHAR) * (HQA_BF_STR_SIZE));
 
@@ -7845,19 +6825,10 @@ static INT32 hqa_iBFProfileRead_ext(PRTMP_ADAPTER pAd, RTMP_IOCTL_INPUT_STRUCT *
 	EthGetParamAndShiftBuff(TRUE, sizeof(UINT32), &data, (UCHAR *)&u4PfmuId);
 	EthGetParamAndShiftBuff(TRUE, sizeof(UINT32), &data, (UCHAR *)&u4Subcarr);
 	memset(cmd, 0x00, HQA_BF_STR_SIZE);
-	snprintf_ret = snprintf(cmd, HQA_BF_STR_SIZE, "%03x:%03x", (UCHAR)u4PfmuId, (UCHAR)u4Subcarr);
-	if (os_snprintf_error(HQA_BF_STR_SIZE, snprintf_ret)) {
-		MTWF_DBG(pAd, DBG_CAT_CFG, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-			"cmd snprintf error!\n");
-		os_free_mem(cmd);
-		return FALSE;
-	}
-	/* check the range for coverity */
-	if (*cmd < HQA_BF_STR_SIZE) {
-		SetATETxBfProfileRead(pAd, cmd);
-		MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO, "str:%s\n", cmd);
-	}
-
+	sprintf(cmd, "%03x:%03x", (UCHAR)u4PfmuId, (UCHAR)u4Subcarr);
+	SetATETxBfProfileRead(pAd, cmd);
+	MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_OFF,
+			 ("%s: str:%s\n", __func__, cmd));
 	os_free_mem(cmd);
 	NdisMoveMemory(cmd_frame->Data + 2, (UCHAR *)&ext_id, sizeof(ext_id));
 	NdisMoveMemory(cmd_frame->Data + 6, (UCHAR *)&pAd->prof, sizeof(PFMU_DATA));
@@ -7909,8 +6880,7 @@ static HQA_CMD_HANDLER hqa_ext_cmd_set[] = {
 	NULL,				/* 0x00000023 */
 	NULL,				/* 0x00000024 */
 	NULL,				/* 0x00000025 */
-	hqa_set_tx_time,	/* 0x00000026 */
-	hqa_off_ch_scan,	/* 0x00000027 */
+	hqa_set_tx_time,		/* 0x00000026 */
 };
 
 
@@ -7921,11 +6891,13 @@ static INT32 hqa_ext_cmds(PRTMP_ADAPTER pAd, RTMP_IOCTL_INPUT_STRUCT *wrq, struc
 
 	NdisMoveMemory((PUCHAR)&idx, (PUCHAR)&cmd_frame->Data, 4);
 	idx = PKTL_TRAN_TO_HOST(idx);
-	MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO, "0x%x\n", idx);
+	MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_TRACE,
+		("%s: 0x%x\n", __FUNCTION__, idx));
 
-	if (idx >= (sizeof(hqa_ext_cmd_set)/sizeof(HQA_CMD_HANDLER)) || idx < 0) {
-		MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_WARN,
-			"cmd idx 0x%x is over bounded\n", idx);
+	if (idx >= (sizeof(hqa_ext_cmd_set)/sizeof(HQA_CMD_HANDLER))) {
+		MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_WARN,
+			("%s: cmd idx 0x%x is over bounded\n",
+			__FUNCTION__, idx));
 		return ret;
 	}
 
@@ -7933,8 +6905,9 @@ static INT32 hqa_ext_cmds(PRTMP_ADAPTER pAd, RTMP_IOCTL_INPUT_STRUCT *wrq, struc
 	if (hqa_ext_cmd_set[idx] != NULL)
 		ret = (*hqa_ext_cmd_set[idx])(pAd, wrq, cmd_frame);
 	else
-		MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_WARN,
-			"cmd idx 0x%x is not supported\n", idx);
+		MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_WARN,
+			("%s: cmd idx 0x%x is not supported\n",
+			__FUNCTION__, idx));
 
 	return ret;
 }
@@ -7953,7 +6926,7 @@ static INT32	HQA_MCU_RegRead(
 {
 	INT32 Ret = 0;
 
-	MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO, "\n");
+	MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("%s\n", __func__));
 	return Ret;
 }
 
@@ -7964,7 +6937,7 @@ static INT32	HQA_MCU_RegWrite(
 {
 	INT32 Ret = 0;
 
-	MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO, "\n");
+	MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("%s\n", __func__));
 	return Ret;
 }
 
@@ -8038,28 +7011,6 @@ static struct _HQA_CMD_TABLE HQA_CMD_TABLES[] = {
 		0x1580,
 	},
 	{
-		HQA_ReCal_CMDS,
-		sizeof(HQA_ReCal_CMDS) / sizeof(HQA_CMD_HANDLER),
-		0x1581,
-	},
-	{
-		HQA_RXV_CMDS,
-		sizeof(HQA_RXV_CMDS) / sizeof(HQA_CMD_HANDLER),
-		0x1582,
-	},
-	{
-		HQA_RDD_CMDS,
-		sizeof(HQA_RDD_CMDS) / sizeof(HQA_CMD_HANDLER),
-		0x1583,
-	},
-#ifdef DOT11_HE_AX
-	{
-		HQA_HE_CMDS,
-		sizeof(HQA_HE_CMDS) / sizeof(HQA_CMD_HANDLER),
-		0x1590,
-	},
-#endif
-	{
 		HQA_CMD_SET6,
 		sizeof(HQA_CMD_SET6) / sizeof(HQA_CMD_HANDLER),
 		0x1600,
@@ -8088,8 +7039,8 @@ UINT32 HQA_CMDHandler(
 		return TM_STATUS_NOTSUPPORT;
 
 	CmdId = PKTS_TRAN_TO_HOST(HqaCmdFrame->Id);
-	MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_DEBUG,
-			 "--> Command_Id = 0x%04x, testmode_ioctl\n", CmdId);
+	MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO,
+			 ("%s: Command_Id = 0x%04x, testmode_ioctl\n", __func__, CmdId));
 
 	while (TableIndex < (sizeof(HQA_CMD_TABLES) / sizeof(struct _HQA_CMD_TABLE))) {
 		UINT32 CmdIndex = 0;
@@ -8115,9 +7066,6 @@ UINT32 HQA_CMDHandler(
 		/* HqaCmdFrame->Type = 0x8005; */
 	} else
 		HqaCmdFrame->Type = TM_CMDRSP;
-
-	MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO,
-			 "Command_Id = 0x%04x, testmode_ioctl <--\n", CmdId);
 
 	return Status;
 }

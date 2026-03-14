@@ -1,17 +1,18 @@
 /*
- * Copyright (c) [2020], MediaTek Inc. All rights reserved.
- *
- * This software/firmware and related documentation ("MediaTek Software") are
- * protected under relevant copyright laws.
- * The information contained herein is confidential and proprietary to
- * MediaTek Inc. and/or its licensors.
- * Except as otherwise provided in the applicable licensing terms with
- * MediaTek Inc. and/or its licensors, any reproduction, modification, use or
- * disclosure of MediaTek Software, and information contained herein, in whole
- * or in part, shall be strictly prohibited.
-*/
-/*
  ***************************************************************************
+ * Ralink Tech Inc.
+ * 4F, No. 2 Technology	5th Rd.
+ * Science-based Industrial Park
+ * Hsin-chu, Taiwan, R.O.C.
+ *
+ * (c) Copyright 2002-2004, Ralink Technology, Inc.
+ *
+ * All rights reserved.	Ralink's source	code is	an unpublished work and the
+ * use of a copyright notice does not imply otherwise. This source code
+ * contains confidential trade secret material of Ralink Tech. Any attemp
+ * or participation in deciphering, decoding, reverse engineering or in any
+ * way altering	the source code	is stricitly prohibited, unless	the prior
+ * written consent of Ralink Technology, Inc. is obtained.
  ***************************************************************************
 
 	Module Name:
@@ -29,6 +30,7 @@
 #define __MT_MAC_H__
 
 #include "mac/mac_mt/top.h"
+#include "mac/mac_mt/smac/gpio.h"
 #include "mac/mac_mt/smac/wf_agg.h"
 #include "mac/mac_mt/smac/wf_aon.h"
 #include "mac/mac_mt/smac/wf_arb.h"
@@ -1845,9 +1847,19 @@ typedef struct wtbl_entry {
 #define MT_TOP_REMAP_ADDR_THEMAL	 0xa2000 /* Get Thermal sensor adc cal value: 0x80022000 bits(8,14), Offset 0x80000 + 0x22000 = 0xa2000 */
 #define MT_TOP_THEMAL_ADC	0x80022000 /* Get Thermal sensor adc cal value: 0x80022000 bits(8,14) */
 
-#define MCU_CFG_BASE		0x80000000
+#define MCU_CFG_BASE		0x2000
+#define MCU_PCIE_REMAP_1	(MCU_CFG_BASE + 0x500)
+#define REMAP_1_OFFSET_MASK (0x3ffff)
+#define GET_REMAP_1_OFFSET(p) (((p) & REMAP_1_OFFSET_MASK))
+#define REMAP_1_BASE_MASK	(0x3fff << 18)
+#define GET_REMAP_1_BASE(p) (((p) & REMAP_1_BASE_MASK) >> 18)
+#define MCU_PCIE_REMAP_2	(MCU_CFG_BASE + 0x504)
+#define REMAP_2_OFFSET_MASK (0x7ffff)
+#define GET_REMAP_2_OFFSET(p) (((p) & REMAP_2_OFFSET_MASK))
+#define REMAP_2_BASE_MASK (0x1fff << 19)
+#define GET_REMAP_2_BASE(p) (((p) & REMAP_2_BASE_MASK) >> 19)
 
-#define TOP_CFG_BASE        0x80020000
+#define TOP_CFG_BASE        0x0000
 
 #define XTAL_CTL4           (TOP_CFG_BASE + 0x1210)
 #define XTAL_CTL13          (TOP_CFG_BASE + 0x1234)
@@ -1864,16 +1876,22 @@ typedef struct wtbl_entry {
 #define MT_PSE_PAGE_SIZE		128
 #endif /* MT7603_FPGA */
 
+
+#define MT_PCI_REMAP_ADDR_1		0x40000
+#define MT_PCI_REMAP_ADDR_2		0x80000
+
 #define DBDC_BAND_NUM 1
 /* TODO: shiang-7603, this is a dummy data structure and need to revise to adapative for MT7603 series */
 
 #define WMM_QUE_NUM		4 /* each sta has 4 Queues to mapping to each WMM AC */
 
+#ifndef COMPOS_WIN
 /* value domain of pTxD->HostQId (4-bit: 0~15) */
 #define QID_AC_BK               0
 #define QID_AC_BE               1
 #define QID_AC_VI               2
 #define QID_AC_VO               3
+#endif
 
 #define QID_HCCA                4
 #define NUM_OF_TX_RING		4
@@ -1984,12 +2002,26 @@ typedef struct __TX_CNT_INFO {
 
 struct _RTMP_ADAPTER;
 
+VOID dump_mt_mac_cr(struct _RTMP_ADAPTER *pAd);
 
+INT mt_wtbl_init_ByFw(struct _RTMP_ADAPTER *pAd);
 INT mt_wtbl_init_ByDriver(struct _RTMP_ADAPTER *pAd);
+INT mt_mac_init(struct _RTMP_ADAPTER *pAd);
+INT mt_hw_tb_init(struct _RTMP_ADAPTER *pAd, BOOLEAN bHardReset);
+
 INT mt_wtbl_get_entry234(struct _RTMP_ADAPTER *pAd, UCHAR idx, struct wtbl_entry *ent);
 VOID dump_wtbl_entry(struct _RTMP_ADAPTER *pAd, struct wtbl_entry *ent);
 VOID dump_wtbl_info(struct _RTMP_ADAPTER *pAd, UINT wtbl_idx);
+#ifdef CONFIG_WTBL_TLV_MODE
+VOID dump_wtbl_info_ByTlv(struct _RTMP_ADAPTER *pAd, UINT wtbl_idx);
+#endif
 VOID dump_wtbl_base_info(struct _RTMP_ADAPTER *pAd);
+
+INT mt_mac_set_ctrlch(struct _RTMP_ADAPTER *pAd, UINT8 extch);
+#ifdef GREENAP_SUPPORT
+INT rtmp_mac_set_mmps(struct _RTMP_ADAPTER *pAd, INT ReduceCorePower);
+#endif /* GREENAP_SUPPORT */
+
 UINT16 tx_rate_to_tmi_rate(UINT8 mode, UINT8 mcs, UINT8 nss, BOOLEAN stbc, UINT8 preamble);
 UCHAR get_nsts_by_mcs(UCHAR phy_mode, UCHAR mcs, BOOLEAN stbc, UCHAR vht_nss);
 
@@ -2017,7 +2049,7 @@ typedef struct _TMAC_INFO {
 	UINT8 QueIdx;
 	UINT8 PortIdx;
 	BOOLEAN UsbNextValid; /*Check with Lens*/
-	UINT16 Wcid;
+	UINT8 Wcid;
 	BOOLEAN bAckRequired;
 	UINT8 UserPriority;
 	UINT8 OwnMacIdx;
@@ -2053,8 +2085,10 @@ typedef struct _TMAC_INFO {
 	UCHAR band_idx;
 } TMAC_INFO;
 
+VOID MtWriteTMacInfo(struct _RTMP_ADAPTER *pAd, UCHAR *buf, struct _TMAC_INFO *TxInfo);
 
-VOID mt_show_mac_info(struct _RTMP_ADAPTER *pAd);
+
+VOID mt_chip_info_show(struct _RTMP_ADAPTER *pAd);
 INT mt_nic_asic_init(struct _RTMP_ADAPTER *pAd);
 
 #endif /* __MT_MAC_H__ */

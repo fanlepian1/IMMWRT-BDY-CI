@@ -56,7 +56,6 @@ int mt_wlan_hook_register(struct mt_wlan_hook_ops *ops)
 		/*add first entry*/
 		DlListAdd(&wlan_hook.hook_head, &ops->list);
 	}
-
 	return 0;
 }
 EXPORT_SYMBOL(mt_wlan_hook_register);
@@ -72,15 +71,12 @@ int mt_wlan_hook_unregister(struct mt_wlan_hook_ops *ops)
 	if (!ops)
 		return -1;
 
-	cur = DlListEntry((&wlan_hook.hook_head)->Next, struct mt_wlan_hook_ops, list);
-	if (cur) {
-		DlListForEachSafe(cur, next, &wlan_hook.hook_head,
-						  struct mt_wlan_hook_ops, list)
+	DlListForEachSafe(cur, next, &wlan_hook.hook_head,
+					  struct mt_wlan_hook_ops, list)
 
-		if (ops == cur) {
-			DlListDel(&ops->list);
-			return 0;
-		}
+	if (ops == cur) {
+		DlListDel(&ops->list);
+		return 0;
 	}
 
 	return -1;

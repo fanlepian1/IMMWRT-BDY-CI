@@ -1,17 +1,18 @@
 /*
- * Copyright (c) [2020], MediaTek Inc. All rights reserved.
- *
- * This software/firmware and related documentation ("MediaTek Software") are
- * protected under relevant copyright laws.
- * The information contained herein is confidential and proprietary to
- * MediaTek Inc. and/or its licensors.
- * Except as otherwise provided in the applicable licensing terms with
- * MediaTek Inc. and/or its licensors, any reproduction, modification, use or
- * disclosure of MediaTek Software, and information contained herein, in whole
- * or in part, shall be strictly prohibited.
-*/
-/*
  ***************************************************************************
+ * Ralink Tech Inc.
+ * 4F, No. 2 Technology 5th Rd.
+ * Science-based Industrial Park
+ * Hsin-chu, Taiwan, R.O.C.
+ *
+ * (c) Copyright 2002-2004, Ralink Technology, Inc.
+ *
+ * All rights reserved. Ralink's source code is an unpublished work and the
+ * use of a copyright notice does not imply otherwise. This source code
+ * contains confidential trade secret material of Ralink Tech. Any attemp
+ * or participation in deciphering, decoding, reverse engineering or in any
+ * way altering the source code is stricitly prohibited, unless the prior
+ * written consent of Ralink Technology, Inc. is obtained.
  ***************************************************************************
 
 	Module Name:
@@ -98,7 +99,7 @@ UCHAR RTMPCkipSbox(
 
 VOID next_key(
 	IN  PUCHAR  key,
-	IN  UINT     round)
+	IN  INT     round)
 {
 	UCHAR       rcon;
 	UCHAR       sbox_key[4];
@@ -169,13 +170,13 @@ VOID mix_column(
 {
 	INT         i;
 	UCHAR       add1b[4];
-	UCHAR       add1bf7[4] = {0};
+	UCHAR       add1bf7[4];
 	UCHAR       rotl[4];
 	UCHAR       swap_halfs[4];
 	UCHAR       andf7[4];
-	UCHAR       rotr[4] = {0};
-	UCHAR       temp[4] = {0};
-	UCHAR       tempb[4] = {0};
+	UCHAR       rotr[4];
+	UCHAR       temp[4];
+	UCHAR       tempb[4];
 
 	for (i = 0; i < 4; i++) {
 		if ((in[i] & 0x80) == 0x80)
@@ -346,9 +347,9 @@ void construct_mic_iv(
 /****************************************/
 void aes128k128d(unsigned char *key, unsigned char *data, unsigned char *ciphertext)
 {
-	unsigned int round;
-	unsigned int i;
-	unsigned char intermediatea[16] = {0};
+	int round;
+	int i;
+	unsigned char intermediatea[16];
 	unsigned char intermediateb[16];
 	unsigned char round_key[16];
 
@@ -436,11 +437,11 @@ BOOLEAN RTMPSoftDecryptAES(
 	UINT			to_ds;
 	INT				a4_exists;
 	INT				qc_exists;
-	UCHAR			aes_out[16] = {0};
+	UCHAR			aes_out[16];
 	int				payload_index;
 	UINT			i;
 	UCHAR			ctr_preload[16];
-	UCHAR			chain_buffer[16] = {0};
+	UCHAR			chain_buffer[16];
 	UCHAR			padded_buffer[16];
 	UCHAR			mic_iv[16];
 	UCHAR			mic_header1[16];
@@ -472,7 +473,7 @@ BOOLEAN RTMPSoftDecryptAES(
 		HeaderLen += 2;
 
 	if (pWpaKey->KeyLen == 0) {
-		MTWF_DBG(pAd, DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_INFO, "RTMPSoftDecryptAES failed!(the Length can not be 0)\n");
+		MTWF_LOG(DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("RTMPSoftDecryptAES failed!(the Length can not be 0)\n"));
 		return FALSE;
 	}
 
@@ -579,7 +580,7 @@ BOOLEAN RTMPSoftDecryptAES(
 		MIC[i] = aes_out[i];
 
 	if (!NdisEqualMemory(MIC, TrailMIC, 8)) {
-		MTWF_DBG(pAd, DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_ERROR, "RTMPSoftDecryptAES, MIC Error !\n");	 /* MIC error. */
+		MTWF_LOG(DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_ERROR, ("RTMPSoftDecryptAES, MIC Error !\n"));	 /* MIC error. */
 		return FALSE;
 	}
 
@@ -718,7 +719,7 @@ VOID RTMPConstructCCMPNonce(
 	NdisMoveMemory(&nonce_hdr[n_offset], pHdr + 10, MAC_ADDR_LEN);
 	n_offset += MAC_ADDR_LEN;
 
-	/* Fill in the PN. The PN field occupies octets 7ï¿½V12.
+	/* Fill in the PN. The PN field occupies octets 7¡V12.
 		The octets of PN shall be ordered so that PN0 is at octet index 12
 		and PN5 is at octet index 7. */
 	for (i = 0; i < 6; i++)
@@ -874,7 +875,7 @@ BOOLEAN RTMPSoftDecryptCCMP(
 
 	/* Check the key is valid */
 	if (pKey->KeyLen == 0) {
-		MTWF_DBG(pAd, DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_ERROR, "The key is not available !\n");
+		MTWF_LOG(DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_ERROR, ("%s : The key is not available !\n", __func__));
 		return FALSE;
 	}
 
@@ -994,16 +995,16 @@ VOID CCMP_test_vector(
 	UINT8 res_buf[100];
 	UINT res_len = 0;
 
-	MTWF_DBG(pAd, DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_INFO, "== CCMP test vector ==\n");
+	MTWF_LOG(DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_ERROR, ("== CCMP test vector ==\n"));
 	/* Check AAD */
 	NdisZeroMemory(res_buf, 100);
 	res_len = 0;
 	RTMPConstructCCMPAAD(HDR, TRUE, 0, 0, res_buf, &res_len);
 
 	if (res_len == 22 && NdisEqualMemory(res_buf, AAD, res_len))
-		MTWF_DBG(pAd, DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_INFO, "Construct AAD is OK!!!\n");
+		MTWF_LOG(DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_ERROR, ("Construct AAD is OK!!!\n"));
 	else {
-		MTWF_DBG(pAd, DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_ERROR, "\n!!!Construct AAD is FAILURE!!!\n\n");
+		MTWF_LOG(DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_ERROR, ("\n!!!Construct AAD is FAILURE!!!\n\n"));
 		hex_dump("Calculate AAD", res_buf, res_len);
 	}
 
@@ -1013,9 +1014,9 @@ VOID CCMP_test_vector(
 	RTMPConstructCCMPNonce(HDR, 0, 0, FALSE, PN, res_buf, &res_len);
 
 	if (res_len == 13 && NdisEqualMemory(res_buf, CCM_NONCE, res_len))
-		MTWF_DBG(pAd, DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_INFO, "Construct NONCE is OK!!!\n");
+		MTWF_LOG(DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_ERROR, ("Construct NONCE is OK!!!\n"));
 	else {
-		MTWF_DBG(pAd, DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_ERROR, "\n!!!Construct NONCE is FAILURE!!!\n\n");
+		MTWF_LOG(DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_ERROR, ("\n!!!Construct NONCE is FAILURE!!!\n\n"));
 		hex_dump("Calculate NONCE", res_buf, res_len);
 	}
 
@@ -1025,9 +1026,9 @@ VOID CCMP_test_vector(
 	RTMPConstructCCMPHdr(Key_ID, PN, res_buf);
 
 	if (NdisEqualMemory(res_buf, CCMP_HDR, 8))
-		MTWF_DBG(pAd, DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_INFO, "Construct CCMP_HDR is OK!!!\n");
+		MTWF_LOG(DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_ERROR, ("Construct CCMP_HDR is OK!!!\n"));
 	else {
-		MTWF_DBG(pAd, DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_ERROR, "\n!!!Construct CCMP_HDR is FAILURE!!!\n\n");
+		MTWF_LOG(DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_ERROR, ("\n!!!Construct CCMP_HDR is FAILURE!!!\n\n"));
 		hex_dump("Calculate CCMP_HDR", res_buf, 8);
 	}
 
@@ -1043,9 +1044,9 @@ VOID CCMP_test_vector(
 						res_buf, &res_len) == 0) {
 		if (res_len == sizeof(C_TEXT_DATA) &&
 			NdisEqualMemory(res_buf, C_TEXT_DATA, res_len))
-			MTWF_DBG(pAd, DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_INFO, "CCM_Encrypt is OK!!!\n");
+			MTWF_LOG(DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_ERROR, ("CCM_Encrypt is OK!!!\n"));
 		else {
-			MTWF_DBG(pAd, DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_ERROR, "\n!!!CCM_Encrypt is FAILURE!!!\n\n");
+			MTWF_LOG(DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_ERROR, ("\n!!!CCM_Encrypt is FAILURE!!!\n\n"));
 			hex_dump("CCM_Encrypt", res_buf, res_len);
 		}
 	}
@@ -1061,12 +1062,12 @@ VOID CCMP_test_vector(
 						res_buf, &res_len) == 0) {
 		if (res_len == sizeof(P_TEXT_DATA) &&
 			NdisEqualMemory(res_buf, P_TEXT_DATA, res_len))
-			MTWF_DBG(pAd, DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_INFO, "CCM_Decrypt is OK!!!\n");
+			MTWF_LOG(DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_ERROR, ("CCM_Decrypt is OK!!!\n"));
 		else {
-			MTWF_DBG(pAd, DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_ERROR, "\n!!!CCM_Decrypt is FAILURE!!!\n\n");
+			MTWF_LOG(DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_ERROR, ("\n!!!CCM_Decrypt is FAILURE!!!\n\n"));
 			hex_dump("CCM_Decrypt", res_buf, res_len);
 		}
 	}
 
-	MTWF_DBG(pAd, DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_INFO, "== CCMP test vector ==\n");
+	MTWF_LOG(DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_ERROR, ("== CCMP test vector ==\n"));
 }

@@ -1,16 +1,15 @@
-/*
- * Copyright (c) [2020], MediaTek Inc. All rights reserved.
- *
- * This software/firmware and related documentation ("MediaTek Software") are
- * protected under relevant copyright laws.
- * The information contained herein is confidential and proprietary to
- * MediaTek Inc. and/or its licensors.
- * Except as otherwise provided in the applicable licensing terms with
- * MediaTek Inc. and/or its licensors, any reproduction, modification, use or
- * disclosure of MediaTek Software, and information contained herein, in whole
- * or in part, shall be strictly prohibited.
-*/
 /****************************************************************************
+ * Ralink Tech Inc.
+ * Taiwan, R.O.C.
+ *
+ * (c) Copyright 2002, Ralink Technology, Inc.
+ *
+ * All rights reserved. Ralink's source code is an unpublished work and the
+ * use of a copyright notice does not imply otherwise. This source code
+ * contains confidential trade secret material of Ralink Tech. Any attemp
+ * or participation in deciphering, decoding, reverse engineering or in any
+ * way altering the source code is stricitly prohibited, unless the prior
+ * written consent of Ralink Technology, Inc. is obtained.
  ***************************************************************************/
 
 /****************************************************************************
@@ -89,59 +88,20 @@ VOID uapsd_config_get(struct wifi_dev *wdev, struct uapsd_config *cfg);
 #define UAPSD_SP_START(__pAd, __pEntry)	\
 	(__pEntry->bAPSDFlagSPStart = 1)
 
-#ifdef CONFIG_STA_SUPPORT
-#define UAPSD_SP_END(__pAd, __pEntry)			\
-	do {\
-		__pEntry->bAPSDFlagSPStart = 0;		\
-		RtmpAsicSleepHandle(__pAd);		\
-	} while (0)
-
-#else
 /* for AP, we maybe sleep until all SPs are closed */
 #define UAPSD_SP_END(__pAd, __pEntry)					\
 	(__pEntry->bAPSDFlagSPStart = 0)
-#endif /* CONFIG_STA_SUPPORT */
 
 
-#ifdef CONFIG_STA_SUPPORT
-
-/* ASIC power save behavior */
-/* TODO: maybe need to do protection */
-#define ASIC_PS_CAN_SLEEP(__pAd)											\
-	(__pAd->StaCfg[0].FlgPsmCanNotSleep = FALSE)
-
-#define ASIC_PS_CAN_NOT_SLEEP(__pAd)										\
-	(__pAd->StaCfg[0].FlgPsmCanNotSleep = TRUE)
-
-/* we will recover ps mode after 5 second if no packet is received. */
-#define RTMP_PS_VIRTUAL_MAX_TIME_OUT		5
-
-/* reset virtual ps mode timeout when we receive any packet from the peer */
-#define RTMP_PS_VIRTUAL_TIMEOUT_RESET(__pMacEntry)					\
-	do {\
-		if (__pMacEntry->VirtualTimeout > 0)					\
-			__pMacEntry->VirtualTimeout = RTMP_PS_VIRTUAL_MAX_TIME_OUT;	\
-	} while (0)
-
-/* wake up the peer virtually */
-#define RTMP_PS_VIRTUAL_WAKEUP_PEER(__pMacEntry)							\
-	{																			\
-		__pMacEntry->FlgPsModeIsWakeForAWhile = TRUE;							\
-		__pMacEntry->VirtualTimeout = RTMP_PS_VIRTUAL_MAX_TIME_OUT;				\
-		MTWF_DBG(NULL, DBG_CAT_PS, CATPS_UAPSD, DBG_LVL_INFO,												\
-				 MACSTR" will not sleep for a while!\n",		\
-				  MAC2STR(__pMacEntry->Addr));	\
-	}
-#endif /* CONFIG_STA_SUPPORT */
 
 /* recover the peer power save mode virtually */
 #define RTMP_PS_VIRTUAL_SLEEP(__pMacEntry)									\
 	{																			\
 		__pMacEntry->FlgPsModeIsWakeForAWhile = FALSE;							\
 		__pMacEntry->VirtualTimeout = 0;										\
-		MTWF_DBG(NULL, DBG_CAT_PS, CATPS_UAPSD, DBG_LVL_INFO,												\
-				 MACSTR" can sleep (ps mode = %d)!\n",		\
-				  MAC2STR(__pMacEntry->Addr), __pMacEntry->PsMode);		\
+		MTWF_LOG(DBG_CAT_PS, CATPS_UAPSD, DBG_LVL_TRACE,												\
+				 ("%02x:%02x:%02x:%02x:%02x:%02x can sleep (ps mode = %d)!\n",		\
+				  PRINT_MAC(__pMacEntry->Addr), __pMacEntry->PsMode));		\
 	}
 
 /* check if the peer virtual ps mode timeout */
@@ -150,8 +110,8 @@ VOID uapsd_config_get(struct wifi_dev *wdev, struct uapsd_config *cfg);
 		if (__pMacEntry->VirtualTimeout > 0) {					\
 			__pMacEntry->VirtualTimeout--;					\
 			if (__pMacEntry->VirtualTimeout == 0) {				\
-				MTWF_DBG(NULL, DBG_CAT_PS, CATPS_UAPSD, DBG_LVL_INFO,	\
-						 "tdls uapsd> virtual ps timeout!\n");\
+				MTWF_LOG(DBG_CAT_PS, CATPS_UAPSD, DBG_LVL_TRACE,	\
+						 ("tdls uapsd> virtual ps timeout!\n"));\
 				RTMP_PS_VIRTUAL_SLEEP(__pMacEntry);			\
 			}								\
 		}									\
@@ -195,7 +155,7 @@ VOID uapsd_config_get(struct wifi_dev *wdev, struct uapsd_config *cfg);
 		(__pEntry)->bAPSDFlagSPStart = 0;									\
 		(__pEntry)->bAPSDFlagEOSPOK = 0;									\
 		(__pEntry)->MaxSPLength = 0;										\
-		MTWF_DBG(NULL, DBG_CAT_PS, CATPS_UAPSD, DBG_LVL_INFO, "uapsd> MaxSPLength = 0!\n");			\
+		MTWF_LOG(DBG_CAT_PS, CATPS_UAPSD, DBG_LVL_TRACE, ("uapsd> MaxSPLength = 0!\n"));			\
 	}
 
 /*
@@ -221,7 +181,7 @@ VOID uapsd_config_get(struct wifi_dev *wdev, struct uapsd_config *cfg);
 		__pSta->bAPSDFlagSPStart = 0;										\
 		__pSta->bAPSDFlagEOSPOK = 0;                                                                            \
 		UAPSD_SP_END(__pAd, __pSta);										\
-		MTWF_DBG(NULL, DBG_CAT_PS, CATPS_UAPSD, DBG_LVL_INFO, "uapsd> clear UAPSD queues!\n"); }
+		MTWF_LOG(DBG_CAT_PS, CATPS_UAPSD, DBG_LVL_TRACE, ("uapsd> clear UAPSD queues!\n")); }
 
 /*
  * we can not use bMoreData bit to get EOSP bit because
@@ -258,7 +218,7 @@ VOID uapsd_config_get(struct wifi_dev *wdev, struct uapsd_config *cfg);
 /* check if the AC is UAPSD delivery-enabled AC */
 #define UAPSD_MR_IS_UAPSD_AC(__pMacEntry, __AcId)							\
 	(CLIENT_STATUS_TEST_FLAG((__pMacEntry), fCLIENT_STATUS_APSD_CAPABLE) &&	\
-	((__AcId) < WMM_NUM_OF_AC) && /* 0 ~ 3 */	\
+	 ((0 <= (__AcId)) && ((__AcId) < WMM_NUM_OF_AC)) && /* 0 ~ 3 */	\
 	 (__pMacEntry)->bAPSDDeliverEnabledPerAC[(__AcId)])
 
 /* check if all AC are UAPSD delivery-enabled AC */
@@ -272,6 +232,28 @@ VOID uapsd_config_get(struct wifi_dev *wdev, struct uapsd_config *cfg);
 /* resume SP */
 #define UAPSD_MR_SP_RESUME(__pAd)											\
 	((__pAd)->bAPSDFlagSPSuspend = 0)
+
+/* mark PS poll frame sent in mix mode */
+#ifdef RTMP_MAC_PCI
+/*
+	Note:
+	(1) When SP is not started, try to mark a flag to record if the legacy ps
+		packet is handled in statistics handler;
+	(2) When SP is started, increase the UAPSD count number for the legacy PS.
+*/
+#define UAPSD_MR_MIX_PS_POLL_RCV(__pAd, __pMacEntry)				\
+	do {\
+		if ((__pMacEntry)->bAPSDFlagSpRoughUse == 0) {			\
+			if ((__pMacEntry)->bAPSDFlagSPStart == 0) {		\
+				if ((__pMacEntry)->bAPSDFlagLegacySent == 1)	\
+					NICUpdateFifoStaCounters((__pAd));	\
+				(__pMacEntry)->bAPSDFlagLegacySent = 1;		\
+			} else							\
+				(__pMacEntry)->UAPSDTxNum++;			\
+		}								\
+	} while (0)
+
+#endif /* RTMP_MAC_PCI */
 
 
 #else
@@ -580,6 +562,54 @@ UAPSD_EXTERN VOID UAPSD_SP_AUE_Handle(
 	IN UCHAR			FlgSuccess);
 
 
+/*
+========================================================================
+Routine Description:
+	Close current Service Period.
+
+Arguments:
+	pAd				Pointer to our adapter
+
+Return Value:
+	None
+
+Note:
+	When we receive EOSP frame tx done interrupt and a uplink packet
+	from the station simultaneously, we will regard it as a new trigger
+	frame because the packet is received when EOSP frame tx done interrupt.
+
+	We can not sure the uplink packet is sent after old SP or in the old SP.
+	So we must close the old SP in receive done ISR to avoid the problem.
+========================================================================
+*/
+UAPSD_EXTERN VOID UAPSD_SP_CloseInRVDone(
+	IN	PRTMP_ADAPTER		pAd);
+
+
+/*
+========================================================================
+Routine Description:
+	Check if we need to close current SP.
+
+Arguments:
+	pAd				Pointer to our adapter
+	pPacket			Completed TX packet
+	pDstMac			Destinated MAC address
+
+Return Value:
+	None
+
+Note:
+	1. We need to call the function in TxDone ISR.
+	2. SMP protection by caller for packet enqueue.
+========================================================================
+*/
+UAPSD_EXTERN VOID UAPSD_SP_PacketCheck(
+	IN	PRTMP_ADAPTER		pAd,
+	IN	PNDIS_PACKET		pPacket,
+	IN	UCHAR * pDstMac);
+
+
 #ifdef UAPSD_TIMING_RECORD_FUNC
 /*
 ========================================================================
@@ -691,6 +721,8 @@ UAPSD_EXTERN VOID UAPSD_TriggerFrameHandle(
 	IN	PRTMP_ADAPTER		pAd,
 	IN	MAC_TABLE_ENTRY		*pEntry,
 	IN	UCHAR				UpOfFrame);
+
+
 
 /* End of ap_uapsd.h */
 #endif /*__UAPSD_H__*/

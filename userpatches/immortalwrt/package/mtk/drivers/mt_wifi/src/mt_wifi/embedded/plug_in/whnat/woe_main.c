@@ -1,17 +1,13 @@
 /*
- * Copyright (c) [2020], MediaTek Inc. All rights reserved.
- *
- * This software/firmware and related documentation ("MediaTek Software") are
- * protected under relevant copyright laws.
- * The information contained herein is confidential and proprietary to
- * MediaTek Inc. and/or its licensors.
- * Except as otherwise provided in the applicable licensing terms with
- * MediaTek Inc. and/or its licensors, any reproduction, modification, use or
- * disclosure of MediaTek Software, and information contained herein, in whole
- * or in part, shall be strictly prohibited.
-*/
-/*
  ***************************************************************************
+ * MediaTek Inc.
+ *
+ * All rights reserved. source code is an unpublished work and the
+ * use of a copyright notice does not imply otherwise. This source code
+ * contains confidential trade secret material of MediaTek. Any attemp
+ * or participation in deciphering, decoding, reverse engineering or in any
+ * way altering the source code is stricitly prohibited, unless the prior
+ * written consent of MediaTek, Inc. is obtained.
  ***************************************************************************
 
 	Module Name: whnat
@@ -48,10 +44,6 @@ static const struct of_device_id whnat_of_ids[] = {
 /*whnat support list write here*/
 static const unsigned int whnat_support_list[] = {
 	0x7615,
-	0x7915,
-	0x7986,
-	0x7906,
-	0x7981,
 	0
 };
 
@@ -196,7 +188,7 @@ static int whnat_probe(struct platform_device *pdev)
 	/*wifi chip related setting*/
 	wifi_chip_probe(wifi, wed->irq);
 	/*after wifi probe should write wpdma mask to wed*/
-	whnat_hal_pdma_mask_set(wed, *wifi->int_mask);
+	whnat_hal_pdma_mask_set(whnat);
 	/*pcie mapping*/
 	whnat_hal_pcie_map(whnat);
 	WHNAT_DBG(WHNAT_DBG_INF, "%s(): platform device probe is done\n", __func__);
@@ -245,7 +237,7 @@ static int whnat_driver_init(void *cookie)
 {
 	struct platform_driver *pdriver;
 	struct whnat_entry *entry;
-	static char name[MAX_NAME_SIZE] = "";
+	char name[MAX_NAME_SIZE] = "";
 	struct whnat_ctrl *wc = whnat_ctrl_get();
 
 	if (!whnat_cap_support(cookie)) {
@@ -339,7 +331,7 @@ static int whnat_ctrl_init(struct whnat_ctrl *wc)
 	wc->whnat_num = num;
 	wc->whnat_driver_idx = 0;
 	size = sizeof(struct whnat_entry)*num;
-	wc->entry = kmalloc(size, GFP_KERNEL);/* Do not wrap this kmalloc with os_alloc_mem, because it's in a different module */
+	wc->entry = kmalloc(size, GFP_KERNEL);
 	memset(wc->entry, 0, size);
 
 	if (!wc->entry) {
@@ -369,7 +361,7 @@ static void whnat_ctrl_exit(struct whnat_ctrl *wc)
 	for (i = 0; i < num; i++)
 		whnat_entry_exit(&wc->entry[i]);
 
-	kfree(wc->entry);/* Do not wrap this kfree with os_free_mem, because it's in a different module */
+	kfree(wc->entry);
 	WHNAT_DBG(WHNAT_DBG_OFF, "%s(): whnat entry free done!!\n", __func__);
 }
 
@@ -381,11 +373,11 @@ static int whnat_ring_init(void *cookie)
 {
 	struct whnat_entry *whnat;
 
-	WHNAT_DBG(WHNAT_DBG_INF, "%s(): cookie=%p\n", __func__, cookie);
+	WHNAT_DBG(WHNAT_DBG_OFF, "%s(): cookie=%p\n", __func__, cookie);
 	whnat = whnat_entry_search(cookie);
 
 	if (!whnat) {
-		WHNAT_DBG(WHNAT_DBG_INF, "%s(): whnat can't find for cookie:%p\n", __func__, cookie);
+		WHNAT_DBG(WHNAT_DBG_ERR, "%s(): whnat can't find for cookie:%p\n", __func__, cookie);
 		return -1;
 	}
 
@@ -399,7 +391,7 @@ static int whnat_ring_init(void *cookie)
 	/*hw setting for wed enable*/
 	whnat_hal_wpdma_ring_init(whnat);
 	/*enable wed interrupt*/
-	whnat_hal_int_ctrl(whnat, ALL_INT_AGENT, TRUE);
+	whnat_hal_int_ctrl(whnat, TRUE);
 	/*enable wed ext interrupt*/
 	whnat_hal_eint_init(whnat);
 	whnat_hal_eint_ctrl(whnat, TRUE);
@@ -439,7 +431,7 @@ static void whnat_ring_exit(void *cookie)
 	/*Reset Ring and HW setting*/
 	whnat_hal_dma_ctrl(whnat, WHNAT_DMA_DISABLE);
 	whnat_hal_eint_ctrl(whnat, FALSE);
-	whnat_hal_int_ctrl(whnat, ALL_INT_AGENT, FALSE);
+	whnat_hal_int_ctrl(whnat, FALSE);
 	whnat_hal_hw_reset(whnat, WHNAT_RESET_ALL);
 }
 
@@ -456,7 +448,7 @@ static void whnat_wlan_tx(void *cookie, UCHAR *tx_info)
 	if (!whnat)
 		return;
 
-	if (wifi_hw_tx_allow(cookie, tx_info) == FALSE)
+	if (wifi_hw_tx_allow(cookie,tx_info) == FALSE)
 		return;
 
 #ifdef WED_HW_TX_SUPPORT
@@ -528,12 +520,12 @@ static void whnat_ser_handler(void *cookie, void *ser_ctrl)
 		}
 
 		whnat_hal_eint_ctrl(entry, FALSE);
-		whnat_hal_int_ctrl(entry, WDMA_INT_AGENT, FALSE);
+		whnat_hal_int_ctrl(entry, FALSE);
 	}
 	break;
 
 	case WIFI_ERR_RECOV_STOP_IDLE_DONE: {
-		whnat_hal_int_ctrl(entry, ALL_INT_AGENT, TRUE);
+		whnat_hal_int_ctrl(entry, TRUE);
 	}
 	break;
 
@@ -649,8 +641,6 @@ void whnat_dump_cfg(struct whnat_entry *whnat)
 	dump_wed_value(wed, "WED_TX_BM_DYN_TH", WED_TX_BM_DYN_TH);
 	dump_wed_value(wed, "WED_TX_BM_INTF", WED_TX_BM_INTF);
 	dump_wed_value(wed, "WED_TX_BM_RECYC", WED_TX_BM_RECYC);
-	dump_wed_value(wed, "WED_TX_FREE_TO_TX_BM_TKID_MIB", WED_TX_FREE_TO_TX_BM_TKID_MIB);
-	dump_wed_value(wed, "WED_TX_BM_TO_WDMA_RX_DRV_TKID_MIB", WED_TX_BM_TO_WDMA_RX_DRV_TKID_MIB);
 	WHNAT_DBG(WHNAT_DBG_OFF, "==========WED PCI Host Control:==========\n");
 	dump_wed_value(wed, "WED_PCIE_CFG_BASE", WED_PCIE_CFG_BASE);
 	dump_wed_value(wed, "WED_PCIE_OFST", WED_PCIE_OFST);
@@ -796,7 +786,6 @@ void whnat_dump_rxinfo(struct whnat_entry *whnat)
 	dump_wed_value(wed, "WED_WPDMA_RX1_CIDX", WED_WPDMA_RX1_CTRL2);
 	dump_wed_value(wed, "WED_WPDMA_RX1_DIDX", WED_WPDMA_RX1_CTRL3);
 	dump_wed_value(wed, "WED_WPDMA_RX1_COHERENT_MIB", WED_WPDMA_RX1_COHERENT_MIB);
-	dump_wed_value(wed, "WED_WPDMA_RX1_EXTC_FREE_TKID_MIB", WED_WPDMA_RX_EXTC_FREE_TKID_MIB);
 	/*WPDMA*/
 	WHNAT_DBG(WHNAT_DBG_OFF, "==========WPDMA RX ring info:==========\n");
 	dump_wifi_value(wifi, "WPDMA_RX1_BASE", WIFI_RX_RING1_BASE);
@@ -816,23 +805,6 @@ struct whnat_entry *whnat_entry_search(void *cookie)
 	for (i = 0; i < wc->whnat_num; i++) {
 
 		if (wc->entry[i].wifi.cookie && wc->entry[i].wifi.cookie == cookie)
-			return &wc->entry[i];
-	}
-
-	return NULL;
-}
-
-/*
-*
-*/
-struct whnat_entry *whnat_entry_search_by_hw_ctrl(void *hw_ctrl)
-{
-	unsigned char i;
-	struct whnat_ctrl *wc = whnat_ctrl_get();
-
-	for (i = 0; i < wc->whnat_num; i++) {
-		if (wc->entry[i].wifi.cookie &&
-			wifi_get_hw_ctrl(wc->entry[i].wifi.cookie) == hw_ctrl)
 			return &wc->entry[i];
 	}
 
@@ -874,14 +846,14 @@ static int __init whnat_module_init(void)
 	WHNAT_DBG(WHNAT_DBG_OFF, "%s(): module init and register callback for whnat\n", __func__);
 	/*initial global whnat control*/
 	memset(wc, 0, sizeof(struct whnat_ctrl));
+	/*register hook function*/
+	mt_wlan_hook_register(&whnat_ops);
 	/*register proc*/
 	whnat_ctrl_proc_init(wc);
 	/*initial whnat driver and check */
 	whnat_ctrl_init(wc);
 	/*initial pci cr mirror cfg*/
 	whnat_hif_init(&wc->hif_cfg);
-	/*register hook function*/
-	mt_wlan_hook_register(&whnat_ops);
 	return 0;
 }
 
@@ -890,10 +862,10 @@ static void __exit whnat_module_exit(void)
 	struct whnat_ctrl *wc = whnat_ctrl_get();
 
 	WHNAT_DBG(WHNAT_DBG_OFF, "%s(): whnat module exist\n", __func__);
-	mt_wlan_hook_unregister(&whnat_ops);
 	whnat_hif_exit(&wc->hif_cfg);
 	whnat_ctrl_exit(wc);
 	whnat_ctrl_proc_exit(wc);
+	mt_wlan_hook_unregister(&whnat_ops);
 }
 
 module_init(whnat_module_init);

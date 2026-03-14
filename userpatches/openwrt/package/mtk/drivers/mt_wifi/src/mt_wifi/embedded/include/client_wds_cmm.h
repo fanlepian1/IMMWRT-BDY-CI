@@ -1,17 +1,18 @@
 /*
- * Copyright (c) [2020], MediaTek Inc. All rights reserved.
- *
- * This software/firmware and related documentation ("MediaTek Software") are
- * protected under relevant copyright laws.
- * The information contained herein is confidential and proprietary to
- * MediaTek Inc. and/or its licensors.
- * Except as otherwise provided in the applicable licensing terms with
- * MediaTek Inc. and/or its licensors, any reproduction, modification, use or
- * disclosure of MediaTek Software, and information contained herein, in whole
- * or in part, shall be strictly prohibited.
-*/
-/*
  ***************************************************************************
+ * Ralink Tech Inc.
+ * 4F, No. 2 Technology 5th Rd.
+ * Science-based Industrial Park
+ * Hsin-chu, Taiwan, R.O.C.
+ *
+ * (c) Copyright 2002, Ralink Technology, Inc.
+ *
+ * All rights reserved. Ralink's source code is an unpublished work and the
+ * use of a copyright notice does not imply otherwise. This source code
+ * contains confidential trade secret material of Ralink Tech. Any attemp
+ * or participation in deciphering, decoding, reverse engineering or in any
+ * way altering the source code is stricitly prohibited, unless the prior
+ * written consent of Ralink Technology, Inc. is obtained.
  ***************************************************************************
 
 	Module Name:
@@ -27,15 +28,13 @@
 
 #ifdef CLIENT_WDS
 
-#ifdef ETH_CONVERT_SUPPORT
-#error: "ETH_CONVERT function are conflict with CLIENT_WDS function. And Can't support both of them at same time."
-#endif /* ETH_CONVERT_SUPPORT */
 
 #ifdef MBSS_AS_WDS_AP_SUPPORT
 #define CLI_WDS_ENTRY_AGEOUT 300000  /* 300 seconds */
 #else
 #define CLI_WDS_ENTRY_AGEOUT 5000  /* seconds */
 #endif
+
 
 #define CLIWDS_POOL_SIZE 128
 #define CLIWDS_HASH_TAB_SIZE 64  /* the legth of hash table must be power of 2. */

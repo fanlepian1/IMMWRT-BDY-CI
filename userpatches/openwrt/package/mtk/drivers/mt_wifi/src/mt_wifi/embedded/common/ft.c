@@ -1,16 +1,16 @@
-/*
- * Copyright (c) [2020], MediaTek Inc. All rights reserved.
- *
- * This software/firmware and related documentation ("MediaTek Software") are
- * protected under relevant copyright laws.
- * The information contained herein is confidential and proprietary to
- * MediaTek Inc. and/or its licensors.
- * Except as otherwise provided in the applicable licensing terms with
- * MediaTek Inc. and/or its licensors, any reproduction, modification, use or
- * disclosure of MediaTek Software, and information contained herein, in whole
- * or in part, shall be strictly prohibited.
-*/
 /****************************************************************************
+ * Ralink Tech Inc.
+ * 4F, No. 2 Technology 5th Rd.
+ * Science-based Industrial Park
+ * Hsin-chu, Taiwan, R.O.C.
+ * (c) Copyright 2002, Ralink Technology, Inc.
+ *
+ * All rights reserved. Ralink's source code is an unpublished work and the
+ * use of a copyright notice does not imply otherwise. This source code
+ * contains confidential trade secret material of Ralink Tech. Any attemp
+ * or participation in deciphering, decoding, reverse engineering or in any
+ * way altering the source code is stricitly prohibited, unless the prior
+ * written consent of Ralink Technology, Inc. is obtained.
  ****************************************************************************
 
     Module Name:
@@ -37,7 +37,7 @@ static VOID FT_RrbEnqueue(
 	IN UINT16 FtActLen,
 	IN UINT32 ApIdx);
 
-static BOOLEAN FT_ReqActionParse(
+static VOID FT_ReqActionParse(
 	IN PRTMP_ADAPTER pAd,
 	IN UINT16 Len,
 	IN PUCHAR Ptr,
@@ -69,8 +69,6 @@ UINT16	FT_AssocReqRsnValidation(
 	IN	PRTMP_ADAPTER		pAd,
 	IN	PMAC_TABLE_ENTRY	pEntry,
 	IN	PFT_INFO			pFtInfo_in,
-	IN	UCHAR				*rsnxe,
-	IN	UCHAR				rsnxe_len,
 	OUT PFT_INFO			pFtInfo_out);
 
 /*
@@ -111,7 +109,7 @@ VOID FT_EnqueueAuthReply(
 	if (NStatus != NDIS_STATUS_SUCCESS)
 		return;
 
-	MTWF_DBG(pAd, DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_INFO, "AUTH_RSP - Send FT-AUTH response (%d)...\n", StatusCode);
+	MTWF_LOG(DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_TRACE, ("AUTH_RSP - Send FT-AUTH response (%d)...\n", StatusCode));
 	MgtMacHeaderInit(pAd, &AuthHdr, SUBTYPE_AUTH, 0, pHdr->Addr2,
 					 pHdr->Addr1,
 					 pHdr->Addr1);
@@ -126,7 +124,7 @@ VOID FT_EnqueueAuthReply(
 	if ((pMdIeInfo != NULL) && (pMdIeInfo->Len > 0)) {
 		mdie_ptr = pOutBuffer + FrameLen;
 		mdie_len = 5;
-		FT_InsertMdIE(pOutBuffer + FrameLen, &FrameLen,
+		FT_InsertMdIE(pAd, pOutBuffer + FrameLen, &FrameLen,
 					  pMdIeInfo->MdId, pMdIeInfo->FtCapPlc);
 	}
 
@@ -134,20 +132,20 @@ VOID FT_EnqueueAuthReply(
 	if ((pFtIeInfo != NULL) && (pFtIeInfo->Len != 0)) {
 		ftie_ptr = pOutBuffer + FrameLen;
 		ftie_len = (2 + pFtIeInfo->Len);
-		FT_InsertFTIE(pOutBuffer + FrameLen, &FrameLen,
+		FT_InsertFTIE(pAd, pOutBuffer + FrameLen, &FrameLen,
 					  pFtIeInfo->Len, pFtIeInfo->MICCtr,
 					  pFtIeInfo->MIC, pFtIeInfo->ANonce,
 					  pFtIeInfo->SNonce);
 
 		/* Insert R1KH IE into FTIE. */
 		if (pFtIeInfo->R1khIdLen != 0)
-			FT_FTIE_InsertKhIdSubIE(pOutBuffer + FrameLen, &FrameLen,
+			FT_FTIE_InsertKhIdSubIE(pAd, pOutBuffer + FrameLen, &FrameLen,
 									FT_R1KH_ID, pFtIeInfo->R1khId,
 									pFtIeInfo->R1khIdLen);
 
 		/* Insert R0KH IE into FTIE. */
 		if (pFtIeInfo->R0khIdLen != 0)
-			FT_FTIE_InsertKhIdSubIE(pOutBuffer + FrameLen, &FrameLen,
+			FT_FTIE_InsertKhIdSubIE(pAd, pOutBuffer + FrameLen, &FrameLen,
 									FT_R0KH_ID, pFtIeInfo->R0khId,
 									pFtIeInfo->R0khIdLen);
 	}
@@ -173,8 +171,7 @@ VOID FT_EnqueueAuthReply(
 	}
 
 	/* Calculate MIC in authentication-ACK frame */
-	if ((pRicInfo != NULL) && (pFtIeInfo != NULL) && (pFtIeInfo->Len != 0)
-	    && pFtIeInfo->MICCtr.field.IECnt) {
+	if ((pFtIeInfo != NULL) && (pFtIeInfo->MICCtr.field.IECnt)) {
 		PMAC_TABLE_ENTRY pEntry;
 
 		pEntry = MacTableLookup(pAd, pHdr->Addr2);
@@ -193,8 +190,6 @@ VOID FT_EnqueueAuthReply(
 							ftie_len,
 							pRicInfo->pRicInfo,
 							pRicInfo->Len,
-							NULL,
-							0,
 							ft_mic);
 			/* Update the MIC field of FTIE */
 			pFtIe = (PFT_FTIE)(ftie_ptr + 2);
@@ -218,7 +213,7 @@ Note:
 
 ========================================================================
 */
-static BOOLEAN FT_ReqActionParse(
+static VOID FT_ReqActionParse(
 	IN PRTMP_ADAPTER pAd,
 	IN UINT16 Len,
 	IN PUCHAR Ptr,
@@ -235,19 +230,11 @@ static BOOLEAN FT_ReqActionParse(
 	while (((UCHAR *)eid_ptr + eid_ptr->Len + 1) < ((PUCHAR)Ptr + Len)) {
 		switch (eid_ptr->Eid) {
 		case IE_FT_MDIE:
-			if (FT_FillMdIeInfo(eid_ptr, &pFtInfo->MdIeInfo) == FALSE) {
-				MTWF_DBG(pAd, DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_INFO,
-						"%s() - wrong IE_FT_MDIE\n", __func__);
-				return FALSE;
-			}
+			FT_FillMdIeInfo(eid_ptr, &pFtInfo->MdIeInfo);
 			break;
 
 		case IE_FT_FTIE:
-			if (FT_FillFtIeInfo(eid_ptr, &pFtInfo->FtIeInfo) == FALSE) {
-				MTWF_DBG(pAd, DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_INFO,
-						"%s() - wrong IE_FT_FTIE\n", __func__);
-				return FALSE;
-			}
+			FT_FillFtIeInfo(eid_ptr, &pFtInfo->FtIeInfo);
 			break;
 
 		case IE_FT_RIC_DATA:
@@ -259,34 +246,22 @@ static BOOLEAN FT_ReqActionParse(
 									   - (UCHAR *)eid_ptr + 1;
 			}
 
-			break;
-
 		case IE_FT_RIC_DESCRIPTOR:
 			if ((pFtInfo->RicInfo.RicIEsLen + eid_ptr->Len + 2) < MAX_RICIES_LEN) {
 				NdisMoveMemory(&pFtInfo->RicInfo.RicIEs[pFtInfo->RicInfo.RicIEsLen],
 							   &eid_ptr->Eid, eid_ptr->Len + 2);
 				pFtInfo->RicInfo.RicIEsLen += eid_ptr->Len + 2;
-			} else {
-				MTWF_DBG(pAd, DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_INFO,
-						"%s() - wrong IE_FT_RIC_DESCRIPTOR\n", __func__);
-				return FALSE;
 			}
 
 			break;
 
 		case IE_RSN:
 		case IE_WPA:
-			if (parse_rsn_ie(eid_ptr)) {
 
-				if (NdisEqualMemory(eid_ptr->Octet, WPA1_OUI, sizeof(WPA1_OUI))
-						|| NdisEqualMemory(&eid_ptr->Octet[2], WPA2_OUI, sizeof(WPA2_OUI))) {
-					NdisMoveMemory(pFtInfo->RSN_IE, eid_ptr, eid_ptr->Len + 2);
-					pFtInfo->RSNIE_Len = eid_ptr->Len + 2;
-				}
-			} else {
-				MTWF_DBG(pAd, DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_INFO,
-						"%s() - wrong IE_RSN\n", __func__);
-				return FALSE;
+			if (NdisEqualMemory(eid_ptr->Octet, WPA1_OUI, sizeof(WPA1_OUI))
+				|| NdisEqualMemory(&eid_ptr->Octet[2], WPA2_OUI, sizeof(WPA2_OUI))) {
+				NdisMoveMemory(pFtInfo->RSN_IE, eid_ptr, eid_ptr->Len + 2);
+				pFtInfo->RSNIE_Len = eid_ptr->Len + 2;
 			}
 
 			break;
@@ -297,8 +272,6 @@ static BOOLEAN FT_ReqActionParse(
 
 		eid_ptr = (PEID_STRUCT)((UCHAR *)eid_ptr + 2 + eid_ptr->Len);
 	}
-
-	return TRUE;
 }
 
 /*
@@ -350,6 +323,7 @@ VOID FT_MakeFtActFrame(
 		*pFrameLen += TmpLen;
 	}
 
+
 	if (pFtInfo->RSNIE_Len != 0) {
 		ULONG TmpLen;
 
@@ -359,47 +333,39 @@ VOID FT_MakeFtActFrame(
 		*pFrameLen += TmpLen;
 	}
 
+
 	/* Insert MD IE into packet. */
 	if (pFtInfo->MdIeInfo.Len != 0)
-		FT_InsertMdIE((pFrameBuf + *pFrameLen), pFrameLen,
+		FT_InsertMdIE(pAd, (pFrameBuf + *pFrameLen), pFrameLen,
 					  pFtInfo->MdIeInfo.MdId, pFtInfo->MdIeInfo.FtCapPlc);
 
 	/* Insert FT IE into packet. */
 	if (pFtInfo->FtIeInfo.Len != 0)
-		FT_InsertFTIE((pFrameBuf + *pFrameLen), pFrameLen,
+		FT_InsertFTIE(pAd, (pFrameBuf + *pFrameLen), pFrameLen,
 					  pFtInfo->FtIeInfo.Len, pFtInfo->FtIeInfo.MICCtr,
 					  pFtInfo->FtIeInfo.MIC, pFtInfo->FtIeInfo.ANonce,
 					  pFtInfo->FtIeInfo.SNonce);
 
 	if (pFtInfo->FtIeInfo.R0khIdLen != 0)
-		FT_FTIE_InsertKhIdSubIE((pFrameBuf + *pFrameLen),
+		FT_FTIE_InsertKhIdSubIE(pAd, (pFrameBuf + *pFrameLen),
 								pFrameLen, FT_R0KH_ID, pFtInfo->FtIeInfo.R0khId,
 								pFtInfo->FtIeInfo.R0khIdLen);
 
 	if (pFtInfo->FtIeInfo.R1khIdLen != 0)
-		FT_FTIE_InsertKhIdSubIE((pFrameBuf + *pFrameLen),
+		FT_FTIE_InsertKhIdSubIE(pAd, (pFrameBuf + *pFrameLen),
 								pFrameLen, FT_R1KH_ID, pFtInfo->FtIeInfo.R1khId,
 								pFtInfo->FtIeInfo.R1khIdLen);
 
 	if (pFtInfo->FtIeInfo.GtkLen != 0)
-		FT_FTIE_InsertSubIE((pFrameBuf + *pFrameLen),
-							   pFrameLen, FT_GTK, pFtInfo->FtIeInfo.GtkSubIE,
+		FT_FTIE_InsertGTKSubIE(pAd, (pFrameBuf + *pFrameLen),
+							   pFrameLen, pFtInfo->FtIeInfo.GtkSubIE,
 							   pFtInfo->FtIeInfo.GtkLen);
 
 	if (pFtInfo->FtIeInfo.IGtkLen != 0)
-		FT_FTIE_InsertSubIE((pFrameBuf + *pFrameLen),
-			pFrameLen, FT_IGTK_ID, pFtInfo->FtIeInfo.IGtkSubIE,
+		FT_FTIE_InsertIGTKSubIE(pAd, (pFrameBuf + *pFrameLen),
+			pFrameLen, pFtInfo->FtIeInfo.IGtkSubIE,
 			pFtInfo->FtIeInfo.IGtkLen);
 
-	if (pFtInfo->FtIeInfo.OCILen != 0)
-		FT_FTIE_InsertSubIE((pFrameBuf + *pFrameLen),
-			pFrameLen, FT_OCI_ID, pFtInfo->FtIeInfo.OCISubIE,
-			pFtInfo->FtIeInfo.OCILen);
-
-	if (pFtInfo->FtIeInfo.BIGtkLen != 0)
-		FT_FTIE_InsertSubIE((pFrameBuf + *pFrameLen),
-			pFrameLen, FT_BIGTK_ID, pFtInfo->FtIeInfo.BIGtkSubIE,
-			pFtInfo->FtIeInfo.BIGtkLen);
 
 	/* Insert Ric IE into packet .*/
 	if ((ActType == FT_ACTION_BT_CONFIRM)
@@ -430,7 +396,6 @@ VOID FT_CfgInitial(
 	IN PRTMP_ADAPTER pAd)
 {
 	INT apidx;
-	INT n;
 	PFT_CFG pFtCfg;
 	RTMP_STRING R0khIdBuf[50];
 
@@ -450,13 +415,9 @@ VOID FT_CfgInitial(
 #endif
 
 		FT_SET_MDID(pFtCfg->FtMdId, FT_DEFAULT_MDID);
-		n = snprintf(R0khIdBuf, sizeof(R0khIdBuf), "Ralink:%02x:%02x:%02x:%02x:%02x:%02x",
+		snprintf(R0khIdBuf, sizeof(R0khIdBuf), "Ralink:%02x:%02x:%02x:%02x:%02x:%02x",
 				 RandomByte(pAd), RandomByte(pAd), RandomByte(pAd),
 				 RandomByte(pAd), RandomByte(pAd), RandomByte(pAd));
-		if (n < 0 || n >= sizeof(R0khIdBuf)) {
-			MTWF_DBG(pAd, DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_ERROR,
-				 "%s:%d snprintf Error\n", __func__, __LINE__);
-		}
 		NdisZeroMemory(pFtCfg->FtR0khId, sizeof(pFtCfg->FtR0khId));
 		NdisMoveMemory(pFtCfg->FtR0khId, R0khIdBuf, strlen(R0khIdBuf));
 		pFtCfg->FtR0khIdLen = strlen(R0khIdBuf);
@@ -471,26 +432,31 @@ VOID FT_Init(
 	IN PRTMP_ADAPTER pAd)
 {
 #ifdef FT_R1KH_KEEP
-	if (pAd->ApCfg.FtTab.FT_RadioOff != TRUE)
+	if (pAd->ApCfg.FtTab.FT_RadioOff != TRUE) {
 #endif /* FT_R1KH_KEEP */
-	{
-		FT_KDP_Init(pAd);
-		FT_RIC_Init(pAd);
-		FT_R1khEntryTabInit(pAd);
+	FT_KDP_Init(pAd);
+	FT_RIC_Init(pAd);
+	FT_R1khEntryTabInit(pAd);
+
+#ifdef FT_R1KH_KEEP
 	}
+#endif /* FT_R1KH_KEEP */
+
 }
 
 VOID FT_Release(
 	IN PRTMP_ADAPTER pAd)
 {
 #ifdef FT_R1KH_KEEP
-	if (pAd->ApCfg.FtTab.FT_RadioOff != TRUE)
+	if (pAd->ApCfg.FtTab.FT_RadioOff != TRUE) {
 #endif /* FT_R1KH_KEEP */
-	{
-		FT_KDP_Release(pAd);
-		FT_RIC_Release(pAd);
-		FT_R1khEntryTabDestroy(pAd);
+	FT_KDP_Release(pAd);
+	FT_RIC_Release(pAd);
+	FT_R1khEntryTabDestroy(pAd);
+
+#ifdef FT_R1KH_KEEP
 	}
+#endif /* FT_R1KH_KEEP */
 }
 
 /*
@@ -516,11 +482,11 @@ USHORT FT_AuthReqHandler(
 	PFT_CFG pFtCfg;
 	FT_CAP_AND_POLICY FtCapPlc;
 
-	MTWF_DBG(pAd, DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_INFO, "--->\n");
+	MTWF_LOG(DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_TRACE, ("---> %s\n", __func__));
 
 	if (ApIdx >= pAd->ApCfg.BssidNum) {
-		MTWF_DBG(pAd, DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_ERROR,
-				"invalid apidx (%d)\n", ApIdx);
+		MTWF_LOG(DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_ERROR, ("%s: invalid apidx (%d)\n", \
+				 __func__, ApIdx));
 		return MLME_UNSPECIFY_FAIL;
 	}
 
@@ -530,10 +496,11 @@ USHORT FT_AuthReqHandler(
 	do {
 		if ((pFtInfo->MdIeInfo.Len == 0)
 			|| (!FT_MDID_EQU(pFtInfo->MdIeInfo.MdId, pFtCfg->FtMdId))) {
-			MTWF_DBG(pAd, DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_ERROR,
-				"The MDIE is invalid(Peer MDID= %d %d, My MDID = %d %d\n",
-				pFtInfo->MdIeInfo.MdId[0], pFtInfo->MdIeInfo.MdId[1],
-				pFtCfg->FtMdId[0], pFtCfg->FtMdId[1]);
+			MTWF_LOG(DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_ERROR,
+					 ("%s : The MDIE is invalid(Peer MDID= %d %d, My MDID = %d %d\n",
+					  __func__,
+					  pFtInfo->MdIeInfo.MdId[0], pFtInfo->MdIeInfo.MdId[1],
+					  pFtCfg->FtMdId[0], pFtCfg->FtMdId[1]));
 			result = FT_STATUS_CODE_INVALID_MDIE;
 			break;
 		}
@@ -568,7 +535,7 @@ USHORT FT_AuthReqHandler(
 		break;
 	} while (0);
 
-	MTWF_DBG(pAd, DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_INFO, "<--- done. StatusCode(%d)\n", result);
+	MTWF_LOG(DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_TRACE, ("<--- %s done. StatusCode(%d)\n", __func__, result));
 	return result;
 }
 
@@ -599,14 +566,13 @@ USHORT FT_AuthConfirmHandler(
 	struct _HANDSHAKE_PROFILE *pHandshake4Way = NULL;
 	struct _SECURITY_CONFIG *pSecGroup = NULL;
 	CHAR rsne_idx = 0;
-	ULONG temp_len = 0;
 
-	MTWF_DBG(pAd, DBG_CAT_PROTO, CATPROTO_FT,
-			 DBG_LVL_INFO, "\n");
+	MTWF_LOG(DBG_CAT_PROTO, CATPROTO_FT,
+			 DBG_LVL_TRACE, ("%s:\n", __func__));
 
 	if (ApIdx >= pAd->ApCfg.BssidNum) {
-		MTWF_DBG(pAd, DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_ERROR,
-				"invalid apidx (%d)\n", ApIdx);
+		MTWF_LOG(DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_ERROR,
+				 ("%s: invalid apidx (%d)\n", __func__, ApIdx));
 		return MLME_UNSPECIFY_FAIL;
 	}
 
@@ -615,6 +581,7 @@ USHORT FT_AuthConfirmHandler(
 	pSecConfig = &pEntry->SecConfig;
 	pHandshake4Way = &pSecConfig->Handshake;
 	pFtCfg = &wdev->FtCfg;
+	NdisZeroMemory(pFtInfoBuf, sizeof(FT_INFO));
 
 	do {
 		if ((pFtInfo->MdIeInfo.Len == 0)
@@ -632,8 +599,9 @@ USHORT FT_AuthConfirmHandler(
 			PUINT8	pmkid_ptr = NULL;
 			UINT8	pmkid_len = 0;
 
-			MTWF_DBG(pAd, DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_INFO,
-					 "Fast BSS transition in a RSN\n");
+			MTWF_LOG(DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_TRACE,
+					 ("%s: Fast BSS transition in a RSN\n",
+					  __func__));
 			result = FT_AuthConfirmRsnValidation(pAd,
 												 pEntry,
 												 pFtInfo);
@@ -658,13 +626,11 @@ USHORT FT_AuthConfirmHandler(
 
 			pFtInfoBuf->RSNIE_Len = 0;
 			WPAInsertRSNIE(pFtInfoBuf->RSN_IE,
-						   &temp_len,
+						   (PULONG)&pFtInfoBuf->RSNIE_Len,
 						   rsnie_ptr,
 						   rsnie_len,
 						   pmkid_ptr,
 						   pmkid_len);
-
-			pFtInfoBuf->RSNIE_Len = (UCHAR)temp_len;
 
 			ft_len = sizeof(FT_FTIE);
 			/*
@@ -742,20 +708,18 @@ USHORT FT_AssocReqHandler(
 	IN BOOLEAN isReassoc,
 	IN PFT_CFG pFtCfg,
 	IN PMAC_TABLE_ENTRY pEntry,
-	IN PFT_INFO pPeer_FtInfo,
-	IN UCHAR *rsnxe,
-	IN UCHAR rsnxe_len,
+	IN PFT_INFO			pPeer_FtInfo,
 	OUT PFT_INFO	pFtInfoBuf)
 {
 	USHORT statusCode = MLME_SUCCESS;
 	FT_CAP_AND_POLICY FtCapPlc;
 
-	MTWF_DBG(pAd, DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_INFO, "\n");
+	MTWF_LOG(DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_TRACE, ("%s:\n", __func__));
 	NdisZeroMemory(pFtInfoBuf, sizeof(FT_INFO));
 
 	if ((pFtCfg->FtCapFlag.Dot11rFtEnable)
 		&& (pPeer_FtInfo != NULL) && (pPeer_FtInfo->MdIeInfo.Len != 0)) {
-		MTWF_DBG(pAd, DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_INFO, "it's FT client\n");
+		MTWF_LOG(DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_TRACE, ("%s: it's FT client\n", __func__));
 
 		/* If the contents of the MDIE received by the AP do not match the
 		** contents advertised in the Beacon and Probe Response frames, the
@@ -771,7 +735,7 @@ USHORT FT_AssocReqHandler(
 			/* Indicate this is a FT Initial Mobility Domain Association procedure */
 			if (!IS_FT_STA(pEntry)) {
 				NdisMoveMemory(&pEntry->MdIeInfo, &pPeer_FtInfo->MdIeInfo,
-							   sizeof(pPeer_FtInfo->MdIeInfo));
+							   pPeer_FtInfo->MdIeInfo.Len);
 			}
 
 			if (pPeer_FtInfo->RSNIE_Len != 0) {
@@ -779,12 +743,10 @@ USHORT FT_AssocReqHandler(
 				if (pPeer_FtInfo->FtIeInfo.Len > 0) {
 					UINT16 result;
 
-					MTWF_DBG(pAd, DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_INFO, "Fast BSS transition in a RSN\n");
+					MTWF_LOG(DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_TRACE, ("%s: Fast BSS transition in a RSN\n", __func__));
 					result = FT_AssocReqRsnValidation(pAd,
 													  pEntry,
 													  pPeer_FtInfo,
-													  rsnxe,
-													  rsnxe_len,
 													  pFtInfoBuf);
 
 					if (result != MLME_SUCCESS)
@@ -797,14 +759,6 @@ USHORT FT_AssocReqHandler(
 					/* Update the length of IGTK in FTIE*/
 					if (pFtInfoBuf->FtIeInfo.IGtkLen)
 						ft_len += (2 + pFtInfoBuf->FtIeInfo.IGtkLen);
-
-					/* Update the length of OCI in FTIE*/
-					if (pFtInfoBuf->FtIeInfo.OCILen)
-						ft_len += (2 + pFtInfoBuf->FtIeInfo.OCILen);
-
-					/* Update the length of BIGTK in FTIE*/
-					if (pFtInfoBuf->FtIeInfo.BIGtkLen)
-						ft_len += (2 + pFtInfoBuf->FtIeInfo.BIGtkLen);
 
 				}
 
@@ -824,11 +778,11 @@ USHORT FT_AssocReqHandler(
 				pFtInfoBuf->FtIeInfo.R1khIdLen = MAC_ADDR_LEN;
 #ifdef HOSTAPD_11R_SUPPORT
 				NdisMoveMemory(pFtInfoBuf->FtIeInfo.R1khId,
-								pFtCfg->FtR1khId, MAC_ADDR_LEN);
+							pFtCfg->FtR1khId, MAC_ADDR_LEN);
 #else
 				NdisMoveMemory(pFtInfoBuf->FtIeInfo.R1khId,
-						   pAd->ApCfg.MBSSID[pEntry->func_tb_idx].wdev.bssid, MAC_ADDR_LEN);
-#endif
+							   pAd->ApCfg.MBSSID[pEntry->func_tb_idx].wdev.bssid, MAC_ADDR_LEN);
+#endif /* HOSTAPD_11R_SUPPORT */
 				ft_len += (2 + MAC_ADDR_LEN);
 				/* Update the length of FTIE */
 				pFtInfoBuf->FtIeInfo.Len = ft_len;
@@ -843,7 +797,7 @@ USHORT FT_AssocReqHandler(
 			pFtInfoBuf->MdIeInfo.Len = 3;
 		}
 	} else
-		MTWF_DBG(pAd, DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_INFO, "it isn't FT client\n");
+		MTWF_LOG(DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_TRACE, ("%s: it isn't FT client\n", __func__));
 
 	return statusCode;
 }
@@ -864,10 +818,6 @@ VOID FT_R1khEntryTabInit(
 	IN PRTMP_ADAPTER pAd)
 {
 	INT idx;
-
-	if (pAd->ApCfg.FtTab.FT_R1khEntryTabReady == TRUE)
-		return;
-
 	/* init spin lock */
 	NdisAllocateSpinLock(pAd, &(pAd->ApCfg.FtTab.FT_R1khEntryTabLock));
 	pAd->ApCfg.FtTab.FT_R1khEntryTabSize = 0;
@@ -909,22 +859,22 @@ INT FT_R1khEntryInsert(
 	PFT_R1HK_ENTRY pEntry;
 
 	if (pAd->ApCfg.FtTab.FT_R1khEntryTabSize >= FT_R1KH_ENTRY_TABLE_SIZE) {
-		MTWF_DBG(pAd, DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_ERROR, "FT_R1khEntryTab full.\n");
+		MTWF_LOG(DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_ERROR, ("%s: FT_R1khEntryTab full.\n", __func__));
 		return -1;
 	}
 
 	if (os_alloc_mem(pAd, (PUCHAR *)&pEntry, sizeof(FT_R1HK_ENTRY)) ==
 		NDIS_STATUS_FAILURE) {
-		MTWF_DBG(pAd, DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_ERROR, "Unable to alloc memory.\n");
+		MTWF_LOG(DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_ERROR, ("%s: Unable to alloc memory.\n", __func__));
 		return -1;
 	}
-	NdisZeroMemory(pEntry, sizeof(FT_R1HK_ENTRY));
+
 	pEntry->pNext = NULL;
 
 	if (pStaMac != NULL)
 		NdisMoveMemory(pEntry->StaMac, pStaMac, MAC_ADDR_LEN);
 
-	if (pR0khId != NULL && (R0khIdLen <= FT_ROKH_ID_LEN)) {
+	if (pR0khId != NULL && R0khIdLen > 0) {
 		pEntry->R0khIdLen = R0khIdLen;
 		NdisMoveMemory(pEntry->R0khId, pR0khId, R0khIdLen);
 	}
@@ -1003,9 +953,6 @@ VOID FT_R1khEntryTabDestroy(
 	PFT_R1HK_ENTRY pEntry;
 	PFT_TAB pFtTab;
 
-	if (pAd->ApCfg.FtTab.FT_R1khEntryTabReady == FALSE)
-		return;
-
 	pFtTab = &pAd->ApCfg.FtTab;
 	pFtTab->FT_R1khEntryTabReady = FALSE;
 	RTMP_SEM_LOCK(&(pFtTab->FT_R1khEntryTabLock));
@@ -1074,7 +1021,7 @@ VOID FT_FtAction(
 	IN PRTMP_ADAPTER pAd,
 	IN MLME_QUEUE_ELEM * Elem)
 {
-	PMAC_TABLE_ENTRY pEntry = NULL;
+	PMAC_TABLE_ENTRY pEntry;
 	PHEADER_802_11 pHdr;
 	PFT_ACTION pFtAction;
 	UINT16 FtActLen;
@@ -1085,22 +1032,22 @@ VOID FT_FtAction(
 	NDIS_STATUS NStatus;
 	PUCHAR pFtActFrame = NULL;
 	ULONG FtActFrameLen = 0;
-	UINT apidx;
+	INT apidx;
 	PFT_CFG pFtCfg;
 
 	os_alloc_mem(pAd, (UCHAR **)&pFtInfo, sizeof(FT_INFO));
 
 	if (pFtInfo == NULL) {
-		MTWF_DBG(pAd, DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_INFO,
-				 "(%d):: pFtInfo alloc failed.\n", __LINE__);
+		MTWF_LOG(DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_TRACE,
+				 ("%s(%d):: pFtInfo alloc failed.\n", __func__, __LINE__));
 		return;
 	}
 
 	os_alloc_mem(pAd, (UCHAR **)&pFtInfoBuf, sizeof(FT_INFO));
 
 	if (pFtInfoBuf == NULL) {
-		MTWF_DBG(pAd, DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_INFO,
-				 "(%d):: pFtInfoBuf alloc failed.\n", __LINE__);
+		MTWF_LOG(DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_TRACE,
+				 ("%s(%d):: pFtInfoBuf alloc failed.\n", __func__, __LINE__));
 		goto out;
 	}
 
@@ -1119,18 +1066,25 @@ VOID FT_FtAction(
 								  pAd->ApCfg.MBSSID[apidx].wdev.bssid)) ? TRUE : FALSE;
 
 
+	MTWF_LOG(DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_TRACE,
+			("%s : The CurrentApAddr is %02x:%02x:%02x:%02x:%02x:%02x\n",
+			__func__, PRINT_MAC(pAd->ApCfg.MBSSID[apidx].wdev.bssid)));
+			MTWF_LOG(DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_TRACE,
+			("%s : The TargetApAddr is %02x:%02x:%02x:%02x:%02x:%02x\n",
+			__func__, PRINT_MAC(pFtAction->TargetApAddr)));
+
 
 	switch (pFtAction->Action) {
 	case FT_ACTION_BT_REQ:
-		MTWF_DBG(pAd, DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_INFO,
-				 "Get FT_ACTION_BT_REQ IsTerminate=%d\n", IsTerminate);
+		MTWF_LOG(DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_TRACE,
+				 ("Get FT_ACTION_BT_REQ IsTerminate=%d\n", IsTerminate));
 
 		if (IsTerminate) {
 			NStatus = MlmeAllocateMemory(pAd, &pFtActFrame);
 
 			if (NStatus != NDIS_STATUS_SUCCESS) {
-				MTWF_DBG(pAd, DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_ERROR, 
-						"allocate memory failed.\n");
+				MTWF_LOG(DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_ERROR, ("%s: allocate memory failed.\n",
+						 __func__));
 				goto out;
 			}
 
@@ -1139,32 +1093,21 @@ VOID FT_FtAction(
 
 			pEntry = MacTableLookup(pAd, pHdr->Addr2);
 
-			if (!pEntry) {
+			if (!pEntry)
 				pEntry = MacTableInsertEntry(pAd, pHdr->Addr2,
 											 &pAd->ApCfg.MBSSID[apidx].wdev, ENTRY_CLIENT, OPMODE_AP, TRUE);
-				if (!pEntry) {
-					MTWF_DBG(pAd, DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_ERROR,
-							"MacTableInsertEntry failed.\n");
-					goto out;
-				}
-			}
+
 			NdisZeroMemory(pFtInfo, sizeof(FT_INFO));
 			/* Parse FT-Request action frame. */
-			result = FT_ReqActionParse(pAd, (FtActLen - sizeof(PFT_ACTION)),
+			FT_ReqActionParse(pAd, (FtActLen - sizeof(PFT_ACTION)),
 							  pFtAction->Oct, pFtInfo);
-
-			if (result == FALSE)
-				goto out;
-
 			/* FT-Request frame Handler. */
 			result = FT_AuthReqHandler(pAd, pEntry, pFtInfo, pFtInfoBuf);
 
 			if (result == MLME_SUCCESS) {
 				NdisMoveMemory(&pEntry->MdIeInfo, &pFtInfo->MdIeInfo, sizeof(FT_MDIE_INFO));
 				pEntry->AuthState = AS_AUTH_OPEN;
-				/*According to specific, if it already in SST_ASSOC, it can not go back */
-				if (pEntry->Sst != SST_ASSOC)
-					pEntry->Sst = SST_AUTH;
+				pEntry->Sst = SST_AUTH;
 			}
 
 			/* Build Ft-Rsp action frame. */
@@ -1183,22 +1126,22 @@ VOID FT_FtAction(
 		break;
 
 	case FT_ACTION_BT_CONFIRM:
-		MTWF_DBG(pAd, DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_INFO,
-				 "Get FT_ACTION_BT_CONFIRM IsTerminate=%d\n", IsTerminate);
+		MTWF_LOG(DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_TRACE,
+				 ("Get FT_ACTION_BT_CONFIRM IsTerminate=%d\n", IsTerminate));
 
 		if (IsTerminate) {
 			NDIS_STATUS NStatus = MlmeAllocateMemory(pAd, &pFtActFrame);
 
 			if (NStatus != NDIS_STATUS_SUCCESS) {
-				MTWF_DBG(pAd, DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_ERROR, 
-						"allocate memory failed.\n");
+				MTWF_LOG(DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_ERROR, ("%s: allocate memory failed.\n",
+						 __func__));
 				goto out;
 			}
 
 			if (VALID_UCAST_ENTRY_WCID(pAd, Elem->Wcid))
 				pEntry = &pAd->MacTab.Content[Elem->Wcid];
 			else {
-				MTWF_DBG(pAd, DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_ERROR, "invalid STA.\n");
+				MTWF_LOG(DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_OFF, ("%s: invalid STA.\n", __func__));
 				goto out;
 			}
 
@@ -1209,12 +1152,8 @@ VOID FT_FtAction(
 				goto out;
 
 			/* Parse FT-Request action frame. */
-			result = FT_ReqActionParse(pAd, (FtActLen - sizeof(PFT_ACTION)),
-						  pFtAction->Oct, pFtInfo);
-
-			if (result == FALSE)
-				goto out;
-
+			FT_ReqActionParse(pAd, (FtActLen - sizeof(PFT_ACTION)),
+							  pFtAction->Oct, pFtInfo);
 			/* FT-Request frame Handler. */
 			NdisZeroMemory(pFtInfoBuf, sizeof(FT_INFO));
 			os_alloc_mem(pAd, (UCHAR **)&(pFtInfoBuf->RicInfo.pRicInfo), 512);
@@ -1240,14 +1179,17 @@ VOID FT_FtAction(
 
 	case FT_ACTION_BT_RSP:
 	case FT_ACTION_BT_ACK:
-		MTWF_DBG(pAd, DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_INFO,
-				 "Get FT_ACTION_BT_RSP or FT_ACTION_BT_ACK IsTerminate=%d\n", IsTerminate);
+		MTWF_LOG(DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_TRACE,
+			("Get %s IsTerminate=%d\n",
+			(pFtAction->Action == FT_ACTION_BT_RSP ? "FT_ACTION_BT_RSP" : "FT_ACTION_BT_ACK")
+			, IsTerminate));
+
 		/* forward it to corrspondign STA. */
 		NStatus = MlmeAllocateMemory(pAd, &pFtActFrame);
 
 		if (NStatus != NDIS_STATUS_SUCCESS) {
-			MTWF_DBG(pAd, DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_ERROR, 
-					"allocate memory failed.\n");
+			MTWF_LOG(DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_ERROR, ("%s: allocate memory failed.\n",
+					 __func__));
 			goto out;
 		}
 
@@ -1255,7 +1197,7 @@ VOID FT_FtAction(
 		COPY_MAC_ADDR(pHdr->Addr2, pAd->ApCfg.MBSSID[apidx].wdev.bssid);
 		COPY_MAC_ADDR(pHdr->Addr3, pAd->ApCfg.MBSSID[apidx].wdev.bssid);
 		pHdr->FC.ToDs = 0;
-		pHdr->FC.FrDs = 0;
+		pHdr->FC.FrDs = 1;
 		FtActFrameLen = 0;
 		MakeOutgoingFrame(pFtActFrame,  &FtActFrameLen,
 						  Elem->MsgLen,				pHdr,
@@ -1264,8 +1206,8 @@ VOID FT_FtAction(
 		break;
 
 	default:
-		MTWF_DBG(pAd, DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_ERROR, 
-				"unknown action type (%d).\n", pFtAction->Action);
+		MTWF_LOG(DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_ERROR, ("%s: unknow action type (%d).\n", \
+				 __func__, pFtAction->Action));
 		break;
 	}
 
@@ -1353,14 +1295,13 @@ VOID FT_RrbHandler(
 	PUCHAR pDA;
 	PUCHAR pSA;
 	PFT_ACTION pFtAction;
-	UINT16 Wcid;
+	ULONG Wcid;
 	struct wifi_dev *wdev;
-	UINT16 ft_act_len = ntohs(pRrb->FTActLen);
 
-	if (ApIdx >= pAd->ApCfg.BssidNum || ApIdx < 0) {
-		MTWF_DBG(pAd, DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_ERROR,
-				 "Unkown ApIdx(=%d)\n",
-				  ApIdx);
+	if (ApIdx >= pAd->ApCfg.BssidNum) {
+		MTWF_LOG(DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_OFF,
+				 ("%s: Unkown ApIdx(=%d)\n",
+				  __func__, ApIdx));
 		return;
 	}
 
@@ -1368,8 +1309,9 @@ VOID FT_RrbHandler(
 	Status = MlmeAllocateMemory(pAd, &pOutBuffer);
 
 	if (Status != NDIS_STATUS_SUCCESS) {
-		MTWF_DBG(pAd, DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_ERROR,
-				 "allocate auth buffer fail!\n");
+		MTWF_LOG(DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_OFF,
+				 ("%s: allocate auth buffer fail!\n",
+				  __func__));
 		return;
 	} /* End of if */
 
@@ -1381,32 +1323,35 @@ VOID FT_RrbHandler(
 	if (pEntry)
 		Wcid = pEntry->wcid;
 	else
-		Wcid = WCID_NO_MATCHED(pAd);
+		Wcid = RESERVED_WCID;
 
-	MTWF_DBG(pAd, DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_INFO,
-			"(): Wcid %d, da="MACSTR", sa="MACSTR"\n",
-			Wcid, MAC2STR(pDA), MAC2STR(pSA));
+	/* Make 802.11 header. */
+	ActHeaderInit(pAd, &Hdr, pDA, pSA, pRrb->APAdr);
+	/* Make ft action frame. */
+	MakeOutgoingFrame(pOutBuffer,				&FrameLen,
+					  sizeof(HEADER_802_11),		&Hdr,
+					  pRrb->FTActLen,				(PUCHAR)pRrb->Oct,
+					  END_OF_ARGS);
+	/* enqueue it into FT action state machine. */
+	if (pEntry) {
+#if defined(CUSTOMER_DCC_FEATURE) || defined(CONFIG_MAP_SUPPORT)
+		REPORT_MGMT_FRAME_TO_MLME(pAd, Wcid, pOutBuffer, FrameLen,
+			0, 0, 0, 0, 0, 0, 0, 0, 0, 0, OPMODE_AP, wdev, pEntry->HTPhyMode.field.MODE);
+#else
+		REPORT_MGMT_FRAME_TO_MLME(pAd, Wcid, pOutBuffer, FrameLen,
+			0, 0, 0, 0, 0, 0, OPMODE_AP, wdev, pEntry->HTPhyMode.field.MODE);
+#endif
+	} else {
+		/* Report basic phymode if pEntry = NULL  */
+#if defined(CUSTOMER_DCC_FEATURE) || defined(CONFIG_MAP_SUPPORT)
+		REPORT_MGMT_FRAME_TO_MLME(pAd, Wcid, pOutBuffer, FrameLen,
+			0, 0, 0, 0, 0, 0, 0, 0, 0, 0, OPMODE_AP, wdev, WMODE_CAP_5G(wdev->PhyMode) ? MODE_OFDM : MODE_CCK);
+#else
+		REPORT_MGMT_FRAME_TO_MLME(pAd, Wcid, pOutBuffer, FrameLen,
+			0, 0, 0, 0, 0, 0, OPMODE_AP, wdev, WMODE_CAP_5G(wdev->PhyMode) ? MODE_OFDM : MODE_CCK);
+#endif
+	}
 
-	if ((ft_act_len + sizeof(HEADER_802_11)) < MAX_MGMT_PKT_LEN) {
-		/* Make 802.11 header. */
-		ActHeaderInit(pAd, &Hdr, pDA, pSA, pRrb->APAdr);
-		/* Make ft action frame. */
-		MakeOutgoingFrame(pOutBuffer,				&FrameLen,
-				sizeof(HEADER_802_11),		&Hdr,
-				ft_act_len,				(PUCHAR)pRrb->Oct,
-				END_OF_ARGS);
-		/* enqueue it into FT action state machine. */
-		if (pEntry) {
-			REPORT_MGMT_FRAME_TO_MLME(pAd, Wcid, pOutBuffer, FrameLen,
-					0, 0, 0, 0, 0, 0, OPMODE_AP, wdev, pEntry->HTPhyMode.field.MODE);
-		} else {
-			/* Report basic phymode if pEntry = NULL  */
-			REPORT_MGMT_FRAME_TO_MLME(pAd, Wcid, pOutBuffer, FrameLen,
-					0, 0, 0, 0, 0, 0, OPMODE_AP, wdev, WMODE_CAP_5G(wdev->PhyMode) ? MODE_OFDM : MODE_CCK);
-		}
-	} else
-		MTWF_DBG(pAd, DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_ERROR, 
-				"len is overflow\n");
 	if (pOutBuffer)
 		os_free_mem(pOutBuffer);
 }
@@ -1428,7 +1373,7 @@ VOID FT_R1KHInfoMaintenance(
 {
 	INT HashIdx;
 	PFT_R1HK_ENTRY pEntry = NULL;
-	PMAC_TABLE_ENTRY pMacEntry = NULL;
+	PMAC_TABLE_ENTRY pMacEntry;
 	PFT_TAB pFtTab;
 
 	pFtTab = &pAd->ApCfg.FtTab;
@@ -1448,7 +1393,7 @@ VOID FT_R1KHInfoMaintenance(
 			if ((IS_AKM_FT_WPA2(pEntry->AKMMap))
 				&& (pEntry->KeyLifeTime--) == 0) {
 				PFT_R1HK_ENTRY pEntryTmp;
-				/* MLME_DISASSOC_REQ_STRUCT DisassocReq;*/
+				MLME_DISASSOC_REQ_STRUCT DisassocReq;
 
 				/*
 					Kick out the station.
@@ -1456,17 +1401,15 @@ VOID FT_R1KHInfoMaintenance(
 				*/
 				pMacEntry = MacTableLookup(pAd, pEntry->StaMac);
 
+				if (pMacEntry) {
 
-				if (pMacEntry && pMacEntry->wdev) {
-					cntl_disconnect_request(pMacEntry->wdev, CNTL_DISASSOC, pEntry->StaMac, REASON_DISASSOC_STA_LEAVING);
-					/*
-					   DisassocParmFill(pAd, &DisassocReq, pEntry->StaMac,
-					   MLME_UNSPECIFY_FAIL);
-					   MlmeEnqueue(pAd, ASSOC_FSM, ASSOC_FSM_MLME_DISASSOC_REQ,
-					   sizeof(MLME_DISASSOC_REQ_STRUCT), (PVOID)&DisassocReq, 0);*/
-					MTWF_DBG(pAd, DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_ERROR,
-							"PMKCache timeout. Kick out the station wcid(%d) "
-							"and delete FT_R1khEntry!\n", pMacEntry->wcid);
+					MTWF_LOG(DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_ERROR,
+						("%s: PMKCache timeout. Kick out the station wcid(%d)and delete FT_R1khEntry!\n",
+						__func__, pMacEntry->wcid));
+					DisassocParmFill(pAd, &DisassocReq, pEntry->StaMac,
+									 MLME_UNSPECIFY_FAIL);
+					MlmeEnqueue(pAd, AP_ASSOC_STATE_MACHINE, APMT2_MLME_DISASSOC_REQ,
+								sizeof(MLME_DISASSOC_REQ_STRUCT), (PVOID)&DisassocReq, 0);
 				}
 
 				/*
@@ -1512,8 +1455,8 @@ VOID FT_ConstructGTKSubIe(
 	gtk = wdev->SecConfig.GTK;
 	key_idx = wdev->SecConfig.GroupKeyId;
 	cipher_alg = wdev->SecConfig.GroupCipher;
-	MTWF_DBG(pAd, DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_INFO,
-			 "key idx(%d)\n", key_idx);
+	MTWF_LOG(DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_TRACE,
+			 ("%s : key idx(%d)\n", __func__, key_idx));
 
 	if (IS_CIPHER_TKIP(cipher_alg))
 		gtk_len = LEN_TKIP_TK;
@@ -1531,6 +1474,7 @@ VOID FT_ConstructGTKSubIe(
 	NdisMoveMemory(key_buf, gtk, gtk_len);
 	key_len = gtk_len;
 
+
 	if (key_len < 16) {
 		INT	i;
 
@@ -1547,7 +1491,7 @@ VOID FT_ConstructGTKSubIe(
 	KeyInfo.word = cpu2le16(KeyInfo.word);
 	/* Get Group RSC form Asic */
 	NdisZeroMemory(rsc, 8);
-	AsicGetTxTsc(pAd, wdev, TSC_TYPE_GTK_PN, rsc);
+	AsicGetTxTsc(pAd, wdev, rsc);
 	e_key_len = key_len;
 	AES_Key_Wrap(key_buf, key_len,
 				 &pEntry->FT_PTK[LEN_PTK_KCK], LEN_PTK_KEK,
@@ -1568,7 +1512,6 @@ VOID FT_ConstructIGTKSubIe(
 	OUT	PFT_FTIE_INFO		pFtInfo)
 {
 	UINT8	igtk_len = LEN_AES_GTK;
-	UINT8	pad_len = 0;
 	UINT8	key_buf[LEN_AES_GTK];
 	UINT8	e_key_buf[24];
 	UINT8	key_len;
@@ -1578,7 +1521,6 @@ VOID FT_ConstructIGTKSubIe(
 	UINT16	key_idx;
 	PUINT8	igtk;
 	ULONG	TmpLen = 0;
-	UINT8	remainder;
 	UINT8	IPN[6];
 	struct wifi_dev *wdev = pEntry->wdev;
 
@@ -1598,27 +1540,6 @@ VOID FT_ConstructIGTKSubIe(
 	key_len = igtk_len;
 
 
-	remainder = igtk_len & 0x07;
-	if (remainder != 0) {
-		INT	i;
-
-		pad_len = (8 - remainder);
-		key_buf[igtk_len] = 0xDD;
-		for (i = 1; i < pad_len; i++)
-			key_buf[igtk_len + i] = 0;
-
-		key_len += pad_len;
-	}
-
-	if (key_len < 16) {
-		INT	i;
-
-		pad_len = 16 - key_len;
-		for (i = 0; i < pad_len; i++)
-			key_buf[key_len + i] = 0;
-
-		key_len += pad_len;
-	}
 
 	/* Fill in the IPN field */
 	NdisMoveMemory(IPN, &wdev->SecConfig.PmfCfg.IPN[idx][0], LEN_WPA_TSC);
@@ -1636,117 +1557,10 @@ VOID FT_ConstructIGTKSubIe(
 					  e_key_len,					e_key_buf,
 					  END_OF_ARGS);
 
+	/* printk("========================>IGTK key len: %d, %d (%d)\n", e_key_len, key_len, key_idx); */
 	pFtInfo->IGtkLen = TmpLen;
 
 }
-
-#ifdef BCN_PROTECTION_SUPPORT
-VOID FT_ConstructBIGTKSubIe(
-	IN	PRTMP_ADAPTER		pAd,
-	IN	PMAC_TABLE_ENTRY	pEntry,
-	OUT	PFT_FTIE_INFO		pFtInfo)
-{
-	UINT8	bigtk_len = LEN_AES_GTK;
-	UINT8	pad_len = 0;
-	UINT8	key_buf[LEN_AES_GTK];
-	UINT8	e_key_buf[24];
-	UINT8	key_len;
-	UINT	e_key_len;
-	UCHAR	apidx;
-	UCHAR	idx;
-	UINT16	key_idx;
-	PUINT8	bigtk;
-	ULONG	TmpLen = 0;
-	UINT8	remainder;
-	UINT8	BIPN[6];
-	struct wifi_dev *wdev = pEntry->wdev;
-
-	/* according to spec, it should carry bigtk kde for pmf connection */
-	if (!wdev->SecConfig.bcn_prot_cfg.bcn_prot_en || !pEntry->SecConfig.PmfCfg.UsePMFConnect) {
-		pFtInfo->BIGtkLen = 0;
-		return;
-	}
-
-	apidx = pEntry->func_tb_idx;
-	key_idx = cpu2le16(wdev->SecConfig.bcn_prot_cfg.bigtk_key_idx);
-	idx = (wdev->SecConfig.bcn_prot_cfg.bigtk_key_idx == 7) ? 1 : 0;
-	bigtk = wdev->SecConfig.bcn_prot_cfg.bigtk[idx];
-
-	/*  The Key field shall be padded before encrypting if the key length
-		is less than 16 octets or if it is not a multiple of 8. */
-	NdisMoveMemory(key_buf, bigtk, bigtk_len);
-	key_len = bigtk_len;
-
-
-	remainder = bigtk_len & 0x07;
-	if (remainder != 0) {
-		INT	i;
-
-		pad_len = (8 - remainder);
-		key_buf[bigtk_len] = 0xDD;
-		for (i = 1; i < pad_len; i++)
-			key_buf[bigtk_len + i] = 0;
-
-		key_len += pad_len;
-	}
-
-	if (key_len < 16) {
-		INT	i;
-
-		pad_len = 16 - key_len;
-		for (i = 0; i < pad_len; i++)
-			key_buf[key_len + i] = 0;
-
-		key_len += pad_len;
-	}
-
-	/* Fill in the BIPN field */
-	AsicGetTxTsc(pAd, wdev, TSC_TYPE_BIGTK_PN, BIPN);
-
-	e_key_len = key_len;
-	AES_Key_Wrap(key_buf, key_len,
-			 &pEntry->FT_PTK[LEN_PTK_KCK], LEN_PTK_KEK,
-				 e_key_buf, &e_key_len);
-
-	/* Construct FT BIGTK-IE*/
-	MakeOutgoingFrame(pFtInfo->BIGtkSubIE,			&TmpLen,
-					  2,							&key_idx,
-					  6,							&BIPN,
-					  1,							&bigtk_len,
-					  e_key_len,					e_key_buf,
-					  END_OF_ARGS);
-
-	pFtInfo->BIGtkLen = TmpLen;
-}
-#endif
-
-VOID FT_ConstructOCISubIe(
-	IN	PMAC_TABLE_ENTRY	pEntry,
-	OUT	PFT_FTIE_INFO		pFtInfo)
-{
-	struct wifi_dev *wdev = pEntry->wdev;
-	UCHAR buf[MAX_OCI_LEN];
-	ULONG buf_len;
-	UCHAR len = 0;
-	ULONG tmp_len = 0;
-
-	if (!pEntry->SecConfig.ocv_support) {
-		pFtInfo->OCILen = 0;
-		return;
-	}
-
-	build_oci_common_field(pEntry->pAd, wdev, TRUE, buf, &buf_len);
-
-	len = buf_len & 0xff;
-
-	/* Construct FT OCI-IE*/
-	MakeOutgoingFrame(pFtInfo->OCISubIE,			&tmp_len,
-					  len,                          buf,
-					  END_OF_ARGS);
-
-	pFtInfo->OCILen = tmp_len;
-}
-
 
 /*
 ========================================================================
@@ -1771,17 +1585,13 @@ BOOLEAN FT_QueryKeyInfoForKDP(
 	INT		remain_time = 0;
 	PAP_BSSID_INFO pkeyInfo;
 	PFT_R1HK_ENTRY pR1khEntry;
-	UCHAR OriPMKR1Name[FT_KDP_WPA_NAME_MAX_SIZE] = { 0 };
-	struct wifi_dev *pMbss_wdev;
-
-	pMbss_wdev = &pAd->ApCfg.MBSSID[ApIdx].wdev;
-
+	UCHAR OriPMKR1Name[FT_KDP_WPA_NAME_MAX_SIZE];
 	/* Search PMK Cache */
-	CacheIdx = RTMPSearchPMKIDCache(&pAd->ApCfg.PMKIDCache, ApIdx, pEvtKeyReq->MacAddr, TRUE);
+	CacheIdx = RTMPSearchPMKIDCache(&pAd->ApCfg.PMKIDCache, ApIdx, pEvtKeyReq->MacAddr);
 
 	if (CacheIdx == INVALID_PMKID_IDX) {
-		MTWF_DBG(pAd, DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_ERROR, "The PMKR0 doesn't exist for "MACSTR"\n",
-				 MAC2STR(pEvtKeyReq->MacAddr));
+		MTWF_LOG(DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_ERROR, ("%s : The PMKR0 doesn't exist for %02x:%02x:%02x:%02x:%02x:%02x\n",
+				 __func__, PRINT_MAC(pEvtKeyReq->MacAddr)));
 		return FALSE;
 	}
 
@@ -1797,8 +1607,8 @@ BOOLEAN FT_QueryKeyInfoForKDP(
 	pR1khEntry = FT_R1khEntryTabLookup(pAd, OriPMKR1Name);
 
 	if (pR1khEntry == NULL) {
-		MTWF_DBG(pAd, DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_ERROR, "No initial association information 2 for "MACSTR"\n",
-				 MAC2STR(pEvtKeyReq->MacAddr));
+		MTWF_LOG(DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_ERROR, ("%s : No initial association information 2 for %02x:%02x:%02x:%02x:%02x:%02x\n",
+				 __func__, PRINT_MAC(pEvtKeyReq->MacAddr)));
 		return FALSE;
 	}
 
@@ -1830,7 +1640,16 @@ BOOLEAN FT_QueryKeyInfoForKDP(
 	NdisMoveMemory(pEvtKeyReq->PairwisChipher, pR1khEntry->PairwisChipher, 4);
 	NdisMoveMemory(pEvtKeyReq->AkmSuite, pR1khEntry->AkmSuite, 4);
 	/* Assign R0KH MAC */
-	NdisMoveMemory(pEvtKeyReq->R0KH_MAC, pMbss_wdev->bssid, 6);
+	MTWF_LOG(DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_TRACE,
+		("%s : pEvtKeyReq->KeyInfo.R1KHID %02x:%02x:%02x:%02x:%02x:%02x\n",
+		__func__, PRINT_MAC(pEvtKeyReq->KeyInfo.R1KHID)));
+	MTWF_LOG(DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_TRACE,
+		("%s : pEvtKeyReq->MacAddr %02x:%02x:%02x:%02x:%02x:%02x\n",
+		__func__, PRINT_MAC(pEvtKeyReq->MacAddr)));
+	MTWF_LOG(DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_TRACE,
+		("%s : pAd->ApCfg.MBSSID[ApIdx].wdev.bssid %02x:%02x:%02x:%02x:%02x:%02x for R0KH_MAC\n",
+		__func__, PRINT_MAC(pAd->ApCfg.MBSSID[ApIdx].wdev.bssid)));
+	NdisMoveMemory(pEvtKeyReq->R0KH_MAC, pAd->ApCfg.MBSSID[ApIdx].wdev.bssid, 6);
 
 	return TRUE;
 }
@@ -1859,10 +1678,9 @@ UINT16	FT_AuthReqRsnValidation(
 	UINT8 rsne_idx = 0;
 	PUINT8	pmkid_ptr = NULL;
 	UINT8	pmkid_len = 0;
-	ULONG temp_len = 0;
 
 #ifdef R1KH_HARD_RETRY
-	MTWF_DBG(pAd, DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_INFO, "(%ld)=>\n", (jiffies * 1000) / OS_HZ);
+	MTWF_LOG(DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_OFF, ("%s: (%ld)=>\n", __func__, (jiffies * 1000) / OS_HZ));
 #endif /* R1KH_HARD_RETRY */
 
 	wdev = &pAd->ApCfg.MBSSID[pEntry->func_tb_idx].wdev;
@@ -1884,8 +1702,8 @@ UINT16	FT_AuthReqRsnValidation(
 			reject the Authentication Request
 			with status code 53 ("Invalid PMKID")
 		*/
-		MTWF_DBG(pAd, DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_ERROR,
-				"The peer PMKID is emtpy\n");
+		MTWF_LOG(DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_ERROR,
+				 ("%s : The peer PMKID is emtpy\n", __func__));
 		return FT_STATUS_CODE_INVALID_PMKID;
 	}
 #ifdef FT_RSN_DEBUG
@@ -1902,12 +1720,12 @@ UINT16	FT_AuthReqRsnValidation(
 						   wdev->bssid,
 						   pEntry->Addr,
 						   pEntry->FT_PMK_R1_NAME);
-		hex_dump_with_cat_and_lvl("pPmkR0Name=", pPmkR0Name, LEN_PMK_NAME, DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_DEBUG);
-		hex_dump_with_cat_and_lvl("pAd->ApCfg.MBSSID[pEntry->func_tb_idx].Bssid=",
-				 wdev->bssid, 6, DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_DEBUG);
-		hex_dump_with_cat_and_lvl("pEntry->Addr=", pEntry->Addr, 6, DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_DEBUG);
-		hex_dump_with_cat_and_lvl("pEntry->FT_PMK_R1_NAME=", pEntry->FT_PMK_R1_NAME,
-				 sizeof(pEntry->FT_PMK_R1_NAME), DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_DEBUG);
+		hex_dump("pPmkR0Name=", pPmkR0Name, LEN_PMK_NAME);
+		hex_dump("pAd->ApCfg.MBSSID[pEntry->func_tb_idx].Bssid=",
+				 wdev->bssid, 6);
+		hex_dump("pEntry->Addr=", pEntry->Addr, 6);
+		hex_dump("pEntry->FT_PMK_R1_NAME=", pEntry->FT_PMK_R1_NAME,
+				 sizeof(pEntry->FT_PMK_R1_NAME));
 
 #ifdef R1KH_HARD_RETRY
 R1KH_QUERY:
@@ -1949,12 +1767,12 @@ R1KH_QUERY:
 #ifdef R1KH_HARD_RETRY
 
 /*
-	spec defines auth rsp should happen within 30 ms
+	magic delay 30, about KDP back time!
 */
-				MTWF_DBG(pAd, DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_INFO, "@(%ld)snd iapp!\n", (jiffies * 1000) / OS_HZ);
+				MTWF_LOG(DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_OFF, ("@(%ld)snd iapp!\n", (jiffies * 1000) / OS_HZ));
 				/* msleep(20); */
 				if (!RTMP_OS_WAIT_FOR_COMPLETION_TIMEOUT(&pEntry->ack_r1kh, RTMPMsecsToJiffies(30))) {
-					MTWF_DBG(pAd, DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_ERROR, "@(%ld)snd timeout!\n", (jiffies * 1000) / OS_HZ);
+					MTWF_LOG(DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_OFF, ("@(%ld)snd timeout!\n", (jiffies * 1000) / OS_HZ));
 				}
 
 				/* only hard retry one time! */
@@ -1978,14 +1796,14 @@ R1KH_QUERY:
 				("R0KH unreachable").
 			*/
 
-				MTWF_DBG(pAd, DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_ERROR,
-					"R0KH unreachable!!!\n");
+				MTWF_LOG(DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_ERROR,
+					("%s : R0KH unreachable!!!\n", __func__));
 				{ /* Debug block */
 				unsigned char *pt;
 				int x;
 
-				MTWF_DBG(pAd, DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_DEBUG,
-						"R0KHID provided by STA in FTIE is ...\n");
+				MTWF_LOG(DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_ERROR,
+					("%s : R0KHID provided by STA in FTIE is ...\n", __func__));
 
 				pt = pFtInfo_in->FtIeInfo.R0khId;
 				for (x = 0; x < pFtInfo_in->FtIeInfo.R0khIdLen; x++) {
@@ -2011,19 +1829,18 @@ R1KH_QUERY:
 		if ((pR1hkEntry == NULL) ||
 			(RTMPEqualMemory(pPmkR0Name,
 							 pR1hkEntry->PmkR0Name, LEN_PMK_NAME) == FALSE)) {
-			MTWF_DBG(pAd, DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_ERROR,
-					"The PMKID is invalid\n");
-			hex_dump_with_cat_and_lvl("Peer PMKR0Name", pPmkR0Name, LEN_PMK_NAME, DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_INFO);
-			if (pR1hkEntry)
-					hex_dump_with_cat_and_lvl("Own PMKR0Name",
-								pR1hkEntry->PmkR0Name, LEN_PMK_NAME, DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_INFO);
+			MTWF_LOG(DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_ERROR,
+					 ("%s : The PMKID is invalid\n", __func__));
+			hex_dump("Peer PMKR0Name", pPmkR0Name, LEN_PMK_NAME);
+			hex_dump("Own PMKR0Name",
+					 pR1hkEntry->PmkR0Name, LEN_PMK_NAME);
 			return FT_STATUS_CODE_INVALID_PMKID;
 		}
 		/* YF_TIE */
 		pR1hkEntry->AKMMap = pEntry->SecConfig.AKMMap;
-		MTWF_DBG(pAd, DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_INFO,
-			"WCID%d AKMAP update the %u to %u\n",
-			pEntry->wcid, pR1hkEntry->AKMMap, pEntry->SecConfig.AKMMap);
+		MTWF_LOG(DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_TRACE,
+			("%s : WCID%d AKMAP update the %u to %u\n", __func__,
+			pEntry->wcid, pR1hkEntry->AKMMap, pEntry->SecConfig.AKMMap));
 
 		/* Extract the AKM suite from the received RSNIE */
 		pAkmSuite = WPA_ExtractSuiteFromRSNIE(pFtInfo_in->RSN_IE,
@@ -2036,8 +1853,8 @@ R1KH_QUERY:
 				the AP shall reject the Authentication Request with
 				status code 43 ("Invalid AKMP").
 			*/
-			MTWF_DBG(pAd, DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_ERROR,
-					"The AKM is invalid\n");
+			MTWF_LOG(DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_ERROR,
+					 ("%s : The AKM is invalid\n", __func__));
 			return MLME_INVALID_AKMP;
 		}
 
@@ -2053,8 +1870,8 @@ R1KH_QUERY:
 			Domain association, then the AP shall reject the Authentication
 			Request with status code 19 ("Invalid Pair-wise Cipher").
 			*/
-			MTWF_DBG(pAd, DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_ERROR,
-					"The pairwise-cipher is invalid\n");
+			MTWF_LOG(DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_ERROR,
+					 ("%s : The pairwise-cipher is invalid\n", __func__));
 			return MLME_INVALID_PAIRWISE_CIPHER;
 		}
 
@@ -2068,8 +1885,8 @@ R1KH_QUERY:
 				an invalid R0KH-ID, the AP shall reject the FT Request
 				with status code 55 ("Invalid FTIE").
 			*/
-			MTWF_DBG(pAd, DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_ERROR,
-					"The FTIE is invalid\n");
+			MTWF_LOG(DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_ERROR,
+					 ("%s : The FTIE is invalid\n", __func__));
 			return FT_STATUS_CODE_INVALID_FTIE;
 		}
 
@@ -2079,8 +1896,8 @@ R1KH_QUERY:
 	}
 
 	if (pR1hkEntry == NULL) {
-		MTWF_DBG(pAd, DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_ERROR,
-				"The R1KH table doesn't exist\n");
+		MTWF_LOG(DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_ERROR,
+				 ("%s : The R1KH table doesn't exist\n", __func__));
 		return FT_STATUS_CODE_R0KH_UNREACHABLE;
 	}
 
@@ -2090,8 +1907,8 @@ R1KH_QUERY:
 	NdisMoveMemory(handshake->SNonce, pFtInfo_in->FtIeInfo.SNonce, LEN_NONCE);
 	/* Generate ANonce randomly */
 	GenRandom(pAd, wdev->bssid, handshake->ANonce);
-	hex_dump_with_cat_and_lvl("anonce", handshake->ANonce, 32, DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_DEBUG);
-	hex_dump_with_cat_and_lvl("snonce", handshake->SNonce, 32, DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_DEBUG);
+	hex_dump("anonce", handshake->ANonce, 32);
+	hex_dump("snonce", handshake->SNonce, 32);
 
 	if (IS_CIPHER_TKIP_Entry(pEntry))
 		ptk_len = 32 + 32;
@@ -2152,16 +1969,14 @@ R1KH_QUERY:
 
 	pFtInfo_out->RSNIE_Len = 0;
 	WPAInsertRSNIE(pFtInfo_out->RSN_IE,
-				   &temp_len,
+				   (PULONG)&pFtInfo_out->RSNIE_Len,
 				   rsnie_ptr,
 				   rsnie_len,
 				   pmkid_ptr,
 				   pmkid_len);
 
-	pFtInfo_out->RSNIE_Len = (UCHAR)temp_len;
-
 #ifdef R1KH_HARD_RETRY
-	MTWF_DBG(pAd, DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_INFO, "<=(%ld)\n", (jiffies * 1000) / OS_HZ);
+	MTWF_LOG(DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_OFF, ("%s:<=(%ld)\n", __func__, (jiffies * 1000) / OS_HZ));
 #endif /* R1KH_HARD_RETRY */
 
 	return MLME_SUCCESS;
@@ -2201,15 +2016,13 @@ UINT16	FT_AuthConfirmRsnValidation(
 					pFtInfo_in->FtIeInfo.Len + 2,
 					pFtInfo_in->RicInfo.RicIEs,
 					pFtInfo_in->RicInfo.RicIEsLen,
-					NULL,
-					0,
 					ft_mic);
 
 	if (!RTMPEqualMemory(ft_mic, pFtInfo_in->FtIeInfo.MIC, FT_MIC_LEN)) {
-		MTWF_DBG(pAd, DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_ERROR,
-				"MIC is different\n");
-		hex_dump_with_cat_and_lvl("received MIC", pFtInfo_in->FtIeInfo.MIC, FT_MIC_LEN, DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_INFO);
-		hex_dump_with_cat_and_lvl("desired  MIC", ft_mic, FT_MIC_LEN, DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_INFO);
+		MTWF_LOG(DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_ERROR,
+				 ("%s : MIC is different\n", __func__));
+		hex_dump("received MIC", pFtInfo_in->FtIeInfo.MIC, FT_MIC_LEN);
+		hex_dump("desired  MIC", ft_mic, FT_MIC_LEN);
 		return 0xFFFF;
 	}
 
@@ -2218,8 +2031,8 @@ UINT16	FT_AuthConfirmRsnValidation(
 	pR1hkEntry = FT_R1khEntryTabLookup(pAd, pEntry->FT_PMK_R1_NAME);
 
 	if (pR1hkEntry == NULL) {
-		MTWF_DBG(pAd, DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_ERROR,
-				"Invalid R1KH table in target AP\n");
+		MTWF_LOG(DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_ERROR,
+				 ("%s:Invalid R1KH table in target AP\n", __func__));
 		return FT_STATUS_CODE_RESERVED;
 	}
 
@@ -2235,8 +2048,8 @@ UINT16	FT_AuthConfirmRsnValidation(
 			the AP shall reject the Authentication Request with
 			status code 43 ("Invalid AKMP").
 		*/
-		MTWF_DBG(pAd, DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_ERROR,
-				"Invalid AKMP\n");
+		MTWF_LOG(DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_ERROR,
+				 ("%s : Invalid AKMP\n", __func__));
 		return MLME_INVALID_AKMP;
 	}
 
@@ -2252,8 +2065,8 @@ UINT16	FT_AuthConfirmRsnValidation(
 						 handshake->ANonce, 32) == FALSE) ||
 		(RTMPEqualMemory(pPeerFtIe->SNonce,
 						 handshake->SNonce, 32) == FALSE)) {
-		MTWF_DBG(pAd, DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_ERROR,
-				"Invalid FTIE\n");
+		MTWF_LOG(DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_ERROR,
+				 ("%s : Invalid FTIE\n", __func__));
 		return FT_STATUS_CODE_INVALID_FTIE;
 	}
 
@@ -2269,10 +2082,8 @@ UINT16	FT_AuthConfirmRsnValidation(
 	if ((pmkid_ptr == NULL) ||
 		(RTMPEqualMemory(pmkid_ptr,
 						 pEntry->FT_PMK_R1_NAME, LEN_PMK_NAME) == FALSE)) {
-		hex_dump_with_cat_and_lvl("FT_PMK_R1_NAME", pEntry->FT_PMK_R1_NAME, LEN_PMK_NAME, DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_INFO);
-		hex_dump_with_cat_and_lvl("peer pmkid", pmkid_ptr, LEN_PMK_NAME, DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_INFO);
-		MTWF_DBG(pAd, DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_ERROR,
-				"Invalid PMKID\n");
+		MTWF_LOG(DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_ERROR,
+				 ("%s : Invalid PMKID\n", __func__));
 		return FT_STATUS_CODE_INVALID_PMKID;
 	}
 
@@ -2283,8 +2094,6 @@ UINT16	FT_AssocReqRsnValidation(
 	IN	PRTMP_ADAPTER		pAd,
 	IN	PMAC_TABLE_ENTRY	pEntry,
 	IN	PFT_INFO			pFtInfo_in,
-	IN	UCHAR				*rsnxe,
-	IN	UCHAR				rsnxe_len,
 	OUT PFT_INFO			pFtInfo_out)
 {
 	PFT_FTIE_INFO  pPeerFtIe;
@@ -2301,7 +2110,6 @@ UINT16	FT_AssocReqRsnValidation(
 	struct _HANDSHAKE_PROFILE *handshake = NULL;
 	UINT8 rsne_idx = 0;
 	UINT8	pmkid_len = 0;
-	ULONG	temp_len = 0;
 
 	wdev = &pAd->ApCfg.MBSSID[pEntry->func_tb_idx].wdev;
 	sec_config = &pEntry->SecConfig;
@@ -2321,15 +2129,13 @@ UINT16	FT_AssocReqRsnValidation(
 					pFtInfo_in->FtIeInfo.Len + 2,
 					pFtInfo_in->RicInfo.RicIEs,
 					pFtInfo_in->RicInfo.RicIEsLen,
-					rsnxe,
-					rsnxe_len,
 					ft_mic);
 
 	if (!RTMPEqualMemory(ft_mic, pFtInfo_in->FtIeInfo.MIC, 16)) {
-		MTWF_DBG(pAd, DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_ERROR,
-				"MIC is different\n");
-		hex_dump_with_cat_and_lvl("received MIC", pFtInfo_in->FtIeInfo.MIC, 16, DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_INFO);
-		hex_dump_with_cat_and_lvl("desired  MIC", ft_mic, 16, DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_INFO);
+		MTWF_LOG(DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_ERROR,
+				 ("%s : MIC is different\n", __func__));
+		hex_dump("received MIC", pFtInfo_in->FtIeInfo.MIC, 16);
+		hex_dump("desired  MIC", ft_mic, 16);
 		return 0xFFFF;
 	}
 
@@ -2338,8 +2144,8 @@ UINT16	FT_AssocReqRsnValidation(
 	pR1hkEntry = FT_R1khEntryTabLookup(pAd, pEntry->FT_PMK_R1_NAME);
 
 	if (pR1hkEntry == NULL) {
-		MTWF_DBG(pAd, DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_ERROR,
-				"Invalid R1KH table in target AP\n");
+		MTWF_LOG(DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_ERROR,
+				 ("%s : Invalid R1KH table in target AP\n", __func__));
 		return FT_STATUS_CODE_RESERVED;
 	}
 
@@ -2355,8 +2161,8 @@ UINT16	FT_AssocReqRsnValidation(
 			the AP shall reject the Authentication Request with
 			status code 43 ("Invalid AKMP").
 		*/
-		MTWF_DBG(pAd, DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_ERROR,
-				"Invalid AKMP\n");
+		MTWF_LOG(DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_ERROR,
+				 ("%s : Invalid AKMP\n", __func__));
 		return MLME_INVALID_AKMP;
 	}
 
@@ -2368,24 +2174,7 @@ UINT16	FT_AssocReqRsnValidation(
 		(RTMPEqualMemory(pPeerFtIe->R1khId, wdev->bssid, MAC_ADDR_LEN) == FALSE) ||
 		(RTMPEqualMemory(pPeerFtIe->ANonce, handshake->ANonce, 32) == FALSE) ||
 		(RTMPEqualMemory(pPeerFtIe->SNonce, handshake->SNonce, 32) == FALSE)) {
-		MTWF_DBG(pAd, DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_ERROR, "Invalid FTIE\n");
-		return FT_STATUS_CODE_INVALID_FTIE;
-	}
-
-	if (pFtInfo_in->FtIeInfo.MICCtr.field.rsnxe_used
-		&& rsnxe_len == 0
-#ifdef HOSTAPD_WPA3R3_SUPPORT
-		&& build_rsnxe_ie(wdev, &wdev->SecConfig, NULL) != 0) {
-#else
-		&& build_rsnxe_ie(&wdev->SecConfig, NULL) != 0) {
-#endif
-		MTWF_DBG(pAd, DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_ERROR, "Invalid FTIE: rsnxe_used is 1 while no rsnxe ie\n");
-		return 0xffff; /*FT_STATUS_CODE_INVALID_FTIE;*/
-	}
-
-	if (pEntry->SecConfig.ocv_support &&
-		!parse_oci_common_field(pEntry->pAd, pEntry->wdev, TRUE, pFtInfo_in->FtIeInfo.OCISubIE, pFtInfo_in->FtIeInfo.OCILen)) {
-		MTWF_DBG(pAd, DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_ERROR, "OCI verify fail(len=%d)\n", pFtInfo_in->FtIeInfo.OCILen);
+		MTWF_LOG(DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_ERROR, ("%s : Invalid FTIE\n", __func__));
 		return FT_STATUS_CODE_INVALID_FTIE;
 	}
 
@@ -2396,9 +2185,7 @@ UINT16	FT_AssocReqRsnValidation(
 
 	if ((pmkid_ptr == NULL) ||
 		(RTMPEqualMemory(pmkid_ptr, pEntry->FT_PMK_R1_NAME, LEN_PMK_NAME) == FALSE)) {
-		hex_dump_with_cat_and_lvl("FT_PMK_R1_NAME", pEntry->FT_PMK_R1_NAME, LEN_PMK_NAME, DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_INFO);
-		hex_dump_with_cat_and_lvl("peer pmkid", pmkid_ptr, LEN_PMK_NAME, DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_INFO);
-		MTWF_DBG(pAd, DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_ERROR, "Invalid PMKID\n");
+		MTWF_LOG(DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_ERROR, ("%s : Invalid PMKID\n", __func__));
 		return FT_STATUS_CODE_INVALID_PMKID;
 	}
 
@@ -2425,13 +2212,11 @@ UINT16	FT_AssocReqRsnValidation(
 
 	pFtInfo_out->RSNIE_Len = 0;
 	WPAInsertRSNIE(pFtInfo_out->RSN_IE,
-				   &temp_len,
+				   (PULONG)&pFtInfo_out->RSNIE_Len,
 				   rsnie_ptr,
 				   rsnie_len,
 				   pmkid_ptr,
 				   pmkid_len);
-
-	pFtInfo_out->RSNIE_Len = (UCHAR)temp_len;
 
 	/* Prepare MIC-control and MIC field of FTIE for outgoing frame. */
 	pFtInfo_out->FtIeInfo.MICCtr.field.IECnt = 3;
@@ -2445,12 +2230,6 @@ UINT16	FT_AssocReqRsnValidation(
 	FT_ConstructGTKSubIe(pAd, pEntry, &pFtInfo_out->FtIeInfo);
 	/* Prepare I-GTK related information of FTIE for outgoing frame */
 	FT_ConstructIGTKSubIe(pAd, pEntry, &pFtInfo_out->FtIeInfo);
-#ifdef BCN_PROTECTION_SUPPORT
-	/* Prepare BI-GTK related information of FTIE for outgoing frame */
-	FT_ConstructBIGTKSubIe(pAd, pEntry, &pFtInfo_out->FtIeInfo);
-#endif
-	/* Prepare OCI related information of FTIE for outgoing frame */
-	FT_ConstructOCISubIe(pEntry, &pFtInfo_out->FtIeInfo);
 	/*ft_len += (2 + pFtInfo_out->FtIeInfo.GtkLen); */
 	/* Prepare RIC-Response */
 	return MLME_SUCCESS;
@@ -2470,17 +2249,11 @@ Note:
 
 ========================================================================
 */
-BOOLEAN FT_FillMdIeInfo(
+VOID FT_FillMdIeInfo(
 	PEID_STRUCT eid_ptr,
 	PFT_MDIE_INFO pMdIeInfo)
 {
 	PFT_MDIE pMdIe;
-
-	if (parse_md_ie(eid_ptr) == FALSE) {
-		MTWF_DBG(NULL, DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_ERROR,
-				"%s Invalid  MdIe Len = %d )\n", __func__, eid_ptr->Len);
-		return FALSE;
-	}
 
 	pMdIeInfo->Len = 3;
 	pMdIeInfo->pMdIe = eid_ptr;	/* store the pointer of the original MD-IE for MIC calculating */
@@ -2488,7 +2261,6 @@ BOOLEAN FT_FillMdIeInfo(
 	FT_SET_MDID(pMdIeInfo->MdId, pMdIe->MdId);
 	NdisMoveMemory(&(pMdIeInfo->FtCapPlc.word), &pMdIe->FtCapPlc.word,
 				   sizeof(FT_CAP_AND_POLICY));
-	return TRUE;
 }
 
 /*
@@ -2503,7 +2275,7 @@ Note:
 
 ========================================================================
 */
-BOOLEAN FT_FillFtIeInfo(
+VOID FT_FillFtIeInfo(
 	PEID_STRUCT eid_ptr,
 	PFT_FTIE_INFO pFtIeInfo)
 {
@@ -2512,12 +2284,6 @@ BOOLEAN FT_FillFtIeInfo(
 	UINT16 MicCtrBuf;
 	INT RemainLen;
 	PUINT8	ptr;
-
-	if (parse_ft_ie(eid_ptr) == FALSE) {
-		MTWF_DBG(NULL, DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_ERROR,
-				"%s Invalid  FtIe Len = %d )\n", __func__, eid_ptr->Len);
-		return FALSE;
-	}
 
 	RemainLen = eid_ptr->Len;
 	pFtIeInfo->Len = eid_ptr->Len;
@@ -2546,11 +2312,9 @@ BOOLEAN FT_FillFtIeInfo(
 				pFtIeInfo->R0khIdLen = subEidPtr->Len;
 				NdisMoveMemory(pFtIeInfo->R0khId, subEidPtr->Oct,
 							   pFtIeInfo->R0khIdLen);
-			} else {
-				MTWF_DBG(NULL, DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_ERROR, "Invalid R0KHID Length (%d)\n",
-						subEidPtr->Len);
-				return FALSE;
-			}
+			} else
+				MTWF_LOG(DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_ERROR, ("%s Invalid R0KHID Length (%d)\n",
+						 __func__, subEidPtr->Len));
 
 			break;
 
@@ -2559,11 +2323,9 @@ BOOLEAN FT_FillFtIeInfo(
 				pFtIeInfo->R1khIdLen = subEidPtr->Len;
 				NdisMoveMemory(pFtIeInfo->R1khId, subEidPtr->Oct,
 							   pFtIeInfo->R1khIdLen);
-			} else {
-				MTWF_DBG(NULL, DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_ERROR, "Invalid R1KHID Length (%d)\n",
-						subEidPtr->Len);
-				return FALSE;
-			}
+			} else
+				MTWF_LOG(DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_ERROR, ("%s Invalid R1KHID Length (%d)\n",
+						 __func__, subEidPtr->Len));
 
 			break;
 
@@ -2571,30 +2333,6 @@ BOOLEAN FT_FillFtIeInfo(
 			if (subEidPtr->Len > 0) {
 				pFtIeInfo->GtkLen = subEidPtr->Len;
 				NdisMoveMemory(pFtIeInfo->GtkSubIE, &subEidPtr->Oct[0], subEidPtr->Len);
-			}
-
-			break;
-
-		case FT_IGTK_ID:
-			if (subEidPtr->Len > 0) {
-				pFtIeInfo->IGtkLen = subEidPtr->Len;
-				NdisMoveMemory(pFtIeInfo->IGtkSubIE, &subEidPtr->Oct[0], subEidPtr->Len);
-			}
-
-			break;
-
-		case FT_BIGTK_ID:
-			if (subEidPtr->Len > 0) {
-				pFtIeInfo->BIGtkLen = subEidPtr->Len;
-				NdisMoveMemory(pFtIeInfo->BIGtkSubIE, &subEidPtr->Oct[0], subEidPtr->Len);
-			}
-
-			break;
-
-		case FT_OCI_ID:
-			if (subEidPtr->Len > 0) {
-				pFtIeInfo->OCILen = subEidPtr->Len;
-				NdisMoveMemory(pFtIeInfo->OCISubIE, &subEidPtr->Oct[0], subEidPtr->Len);
 			}
 
 			break;
@@ -2610,268 +2348,8 @@ BOOLEAN FT_FillFtIeInfo(
 		if (subEidPtr->Len == 0)
 			break;
 	}
-
-	return TRUE;
 }
 
-#ifdef CONFIG_STA_SUPPORT
-VOID FT_FTIeParse(
-	IN		UINT8		FtIeLen,
-	IN		PFT_FTIE	pFtIe,
-	OUT		PUCHAR		pR1KH_Id,
-	OUT		UCHAR		*GTKLen,
-	OUT		PUCHAR		pGTK,
-	OUT		UCHAR		*R0KH_IdLen,
-	OUT		PUCHAR		pR0KH_Id)
-{
-	UCHAR	*ptr;
-	UINT8	RemainLen;
-	PFT_OPTION_FIELD subEidPtr;
-	*GTKLen = 0;
-	*R0KH_IdLen = 0;
-	ptr = (PUCHAR)&pFtIe->Option[0];
-	RemainLen = FtIeLen - sizeof(FT_FTIE);
-	MTWF_DBG(NULL, DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_INFO, "FT_TEMP- FtIeParse (  FtIeLen = %d )\n", FtIeLen);
-	MTWF_DBG(NULL, DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_INFO, "FT_TEMP- FtIeParse ( Len that doesn't include subelement = %d )\n", RemainLen);
-
-	while (RemainLen > 0) {
-		subEidPtr = (PFT_OPTION_FIELD)ptr;
-
-		if (subEidPtr->SubElementId == FT_R1KH_ID) {
-			RTMPMoveMemory(pR1KH_Id, subEidPtr->Oct, subEidPtr->Len);
-			MTWF_DBG(NULL, DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_INFO, "%s : R1KHID length(%d)\n", __func__, subEidPtr->Len);
-		} else if (subEidPtr->SubElementId == FT_GTK) {
-			*GTKLen = subEidPtr->Len;
-			MTWF_DBG(NULL, DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_INFO, "FT_TEMP- FtIeParse ( *GTKLen = %d )\n", *GTKLen);
-
-			if ((*GTKLen >= 15) && (*GTKLen <= 64))
-				RTMPMoveMemory(pGTK, subEidPtr->Oct, subEidPtr->Len);
-			else {
-				*GTKLen = 0;
-				MTWF_DBG(NULL, DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_ERROR, "FT- FtIeParse ( Invalid  GTKLen  = %d)\n", *GTKLen);
-			}
-		} else if (subEidPtr->SubElementId == FT_R0KH_ID) {
-			*R0KH_IdLen = subEidPtr->Len;
-			MTWF_DBG(NULL, DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_INFO, "FT_TEMP- FtIeParse ( *R0KH_IdLen = %d )\n", *R0KH_IdLen);
-
-			if ((*R0KH_IdLen >= 1) && (*R0KH_IdLen <= 48))
-				RTMPMoveMemory(pR0KH_Id, subEidPtr->Oct, subEidPtr->Len);
-			else {
-				MTWF_DBG(NULL, DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_ERROR, "FT- FtIeParse ( Invalid  R0KH_IdLen = %d )\n", *R0KH_IdLen);
-				*R0KH_IdLen = 0;
-			}
-		}
-
-		ptr += (subEidPtr->Len + 2);
-		RemainLen -= (subEidPtr->Len + 2);
-	}
-
-	MTWF_DBG(NULL, DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_INFO, "%s done\n", __func__);
-}
-
-
-/*
-	==========================================================================
-	Description:
-
-
-	IRQL = DISPATCH_LEVEL
-
-	Output:
-	==========================================================================
- */
-BOOLEAN FT_CheckForRoaming(
-	IN	PRTMP_ADAPTER	pAd, IN struct wifi_dev *wdev)
-{
-	UINT		i;
-	PSTA_ADMIN_CONFIG pStaCfg = GetStaCfgByWdev(pAd, wdev);
-	PMAC_TABLE_ENTRY pApEntry = GetAssociatedAPByWdev(pAd, wdev);
-	BSS_TABLE	*pRoamTab = &pStaCfg->MlmeAux.RoamTab;
-	BSS_ENTRY	*pBss;
-	CHAR max_rssi;
-	BSS_TABLE *ScanTab = get_scan_tab_by_wdev(pAd, wdev);
-	MTWF_DBG(pAd, DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_INFO, "==> FT_CheckForRoaming\n");
-	/* put all roaming candidates into RoamTab, and sort in RSSI order */
-	BssTableInit(pRoamTab);
-
-	for (i = 0; i < ScanTab->BssNr; i++) {
-		pBss = &ScanTab->BssEntry[i];
-
-		if (pBss->bHasMDIE == FALSE)
-			continue;	/* skip legacy AP */
-
-		if (pApEntry && MAC_ADDR_EQUAL(pBss->Bssid, pApEntry->Addr))
-			continue;	 /* skip current AP */
-
-		if (!FT_MDID_EQU(pBss->FT_MDIE.MdId, pAd->StaCfg[0].Dot11RCommInfo.MdIeInfo.MdId))
-			continue;	 /* skip different MDID */
-
-		if ((pBss->Rssi <= -85) && (pBss->Channel == wdev->channel))
-			continue;	/* skip RSSI too weak at the same channel */
-
-		if ((pBss->Channel != wdev->channel) &&
-			(pBss->FT_MDIE.FtCapPlc.field.FtOverDs == FALSE))
-			continue;	/* skip AP in different channel without supporting FtOverDs */
-
-		max_rssi = RTMPMaxRssi(pAd, pAd->StaCfg[0].RssiSample.LastRssi[0],
-							   pAd->StaCfg[0].RssiSample.LastRssi[1],
-							   pAd->StaCfg[0].RssiSample.LastRssi[2]);
-
-		if (pBss->Rssi < (max_rssi + RSSI_DELTA))
-			continue;	/* skip AP without better RSSI */
-
-		if ((pBss->AKMMap != wdev->SecConfig.AKMMap) ||
-			(pBss->PairwiseCipher != wdev->SecConfig.PairwiseCipher))
-			continue;	 /* skip different Security Setting */
-
-		MTWF_DBG(pAd, DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_INFO, "max_rssi = %d, pBss->Rssi = %d\n", max_rssi, pBss->Rssi);
-		/* AP passing all above rules is put into roaming candidate table */
-		/* fix memory leak when trigger scan continuously */
-		BssEntryCopy(pRoamTab, &pRoamTab->BssEntry[pRoamTab->BssNr], pBss);
-		pRoamTab->BssNr += 1;
-	}
-
-	MTWF_DBG(pAd, DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_INFO, "<== FT_CheckForRoaming (BssNr=%d)\n", pRoamTab->BssNr);
-
-	if (pRoamTab->BssNr > 0) {
-		/* check CntlMachine.CurrState to avoid collision with NDIS SetOID request */
-		if (cntl_idle(wdev)) {
-			pAd->RalinkCounters.PoorCQIRoamingCount++;
-			MTWF_DBG(pAd, DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_INFO, "MMCHK - Roaming attempt #%ld\n", pAd->RalinkCounters.PoorCQIRoamingCount);
-			return TRUE;
-		}
-	}
-
-	return FALSE;
-}
-
-BOOLEAN	FT_GetMDIE(
-	IN  PNDIS_802_11_VARIABLE_IEs	pVIE,
-	IN  USHORT						LengthVIE,
-	OUT FT_MDIE_INFO * pMdIeInfo)
-{
-	PEID_STRUCT     pEid;
-	USHORT          Length = 0;
-
-	pEid = (PEID_STRUCT) pVIE;
-	pMdIeInfo->Len = 0;
-
-	while ((Length + 2 + (USHORT)pEid->Len) <= LengthVIE) {
-		switch (pEid->Eid) {
-		case IE_FT_MDIE:
-			if (parse_md_ie(pEid)) {
-				NdisMoveMemory(&pMdIeInfo->MdId[0], &pEid->Octet[0], FT_MDID_LEN);
-				pMdIeInfo->FtCapPlc.word = pEid->Octet[FT_MDID_LEN];
-				pMdIeInfo->Len = pEid->Len;
-				return TRUE;
-			}
-		}
-
-		Length = Length + 2 + pEid->Len;  /* Eid[1] + Len[1]+ content[Len] */
-		pEid = (PEID_STRUCT)((UCHAR *)pEid + 2 + pEid->Len);
-	}
-
-	return FALSE;
-}
-
-
-BOOLEAN FT_ExtractGTKSubIe(
-	IN	PRTMP_ADAPTER		pAd,
-	IN	PMAC_TABLE_ENTRY	pEntry,
-	IN	PFT_FTIE_INFO		pFtInfo)
-{
-	PFT_GTK_KEY_INFO	pKeyInfo;
-	UCHAR				gtk_len;
-	UINT				unwrap_len = 0;
-	PUINT8				pData;
-	UINT8				data_offset = 0;
-	UINT8				key_p[64] = { 0 };
-
-	if (pFtInfo->GtkLen < 11) {
-		MTWF_DBG(pAd, DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_ERROR, "The length is invalid\n");
-		return FALSE;
-	}
-
-	pData = pFtInfo->GtkSubIE;
-	/* Extract the Key Info field */
-	pKeyInfo = (PFT_GTK_KEY_INFO)pData;
-	pKeyInfo->word = cpu2le16(pKeyInfo->word);
-	pEntry->SecConfig.PairwiseKeyId = pKeyInfo->field.KeyId;
-	MTWF_DBG(pAd, DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_INFO, "key idx(%d)\n", pEntry->SecConfig.PairwiseKeyId);
-	data_offset += sizeof(FT_GTK_KEY_INFO);
-
-	/* Extract the Key Length field */
-	gtk_len = *(pData + data_offset);
-	data_offset += 1;
-	/* Extract the RSC field */
-	data_offset += 8;
-	/* Decrypt the Key field by AES Key UNWRAP */
-	AES_Key_Unwrap(pData + data_offset, pFtInfo->GtkLen - data_offset,
-				   &pEntry->SecConfig.PTK[LEN_PTK_KCK], LEN_PTK_KEK,
-				   key_p, &unwrap_len);
-
-	/* Compare the GTK length */
-	if (unwrap_len != gtk_len) {
-		MTWF_DBG(pAd, DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_ERROR, "The GTK length is unmatched\n");
-		return FALSE;
-	}
-
-	/* set key material, TxMic and RxMic */
-	NdisZeroMemory(pAd->StaCfg[0].GTK, MAX_LEN_GTK);
-	NdisMoveMemory(pAd->StaCfg[0].GTK, key_p, gtk_len);
-	return TRUE;
-}
-
-/*
-========================================================================
-Routine Description:
-
-Arguments:
-
-Return Value:
-
-Note:
-
-========================================================================
-*/
-VOID FT_ConstructAuthReqInRsn(
-	IN	PRTMP_ADAPTER	pAd,
-	IN	PUCHAR			pFrameBuf,
-	OUT PULONG			pFrameLen)
-{
-	UINT8	FtIeLen = 0;
-	FT_MIC_CTR_FIELD FtMicCtr;
-	UINT8	ft_mic[16];
-	UINT8	anonce[32];
-	/* Insert RSNIE[PMKR0Name] */
-	WPAInsertRSNIE(pFrameBuf + (*pFrameLen),
-				   pFrameLen,
-				   pAd->StaCfg[0].RSN_IE,
-				   pAd->StaCfg[0].RSNIE_Len,
-				   pAd->StaCfg[0].Dot11RCommInfo.PMKR0Name,
-				   LEN_PMK_NAME);
-	/*	Insert FTIE[SNonce, R0KH-ID]
-		R0KH-ID: Optional parameter - Sub-EID(1 byte)+Len(1 byte)+Data(variable bytes) */
-	FtIeLen = sizeof(FT_FTIE) + 2 + pAd->StaCfg[0].Dot11RCommInfo.R0khIdLen;
-	FtMicCtr.word = 0;
-	GenRandom(pAd, pAd->CurrentAddress, pAd->StaCfg[0].MlmeAux.FtIeInfo.SNonce);
-	NdisZeroMemory(ft_mic, 16);
-	NdisZeroMemory(anonce, 32);
-	FT_InsertFTIE(pFrameBuf + (*pFrameLen),
-				  pFrameLen,
-				  FtIeLen,
-				  FtMicCtr,
-				  ft_mic,
-				  anonce,
-				  &pAd->StaCfg[0].MlmeAux.FtIeInfo.SNonce[0]);
-	FT_FTIE_InsertKhIdSubIE(pFrameBuf + (*pFrameLen),
-							pFrameLen,
-							FT_R0KH_ID,
-							&pAd->StaCfg[0].Dot11RCommInfo.R0khId[0],
-							pAd->StaCfg[0].Dot11RCommInfo.R0khIdLen);
-}
-
-#endif /* CONFIG_STA_SUPPORT */
 
 /*
 	========================================================================
@@ -2910,7 +2388,7 @@ VOID FT_DerivePMKR0(
 	OUT	PUINT8	pmkr0_name)
 {
 	const char label_name[] = "FT-R0N";
-	UCHAR	R0KeyData[96] = { 0 };
+	UCHAR	R0KeyData[96];
 	UCHAR	PmkR0NameSalt[20];
 	UCHAR	temp_result[64];
 	UCHAR   context[128];
@@ -2925,12 +2403,12 @@ VOID FT_DerivePMKR0(
 	/* R0KHlength(1 byte) */
 	/* R0KH-ID(5~48 bytes) */
 	/* S0KH-ID(6 bytes) */
-	hex_dump_with_cat_and_lvl("xxkey", (PUCHAR)xxkey, xxkey_len, DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_DEBUG);
-	hex_dump_with_cat_and_lvl("label", (PUCHAR)label_name, sizeof(label_name), DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_DEBUG);
-	hex_dump_with_cat_and_lvl("ssid", (PUCHAR)ssid, ssid_len, DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_DEBUG);
-	hex_dump_with_cat_and_lvl("mdis", (PUCHAR)mdid, 2, DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_DEBUG);
-	hex_dump_with_cat_and_lvl("r0khid", (PUCHAR)r0khid, r0khid_len, DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_DEBUG);
-	hex_dump_with_cat_and_lvl("s0khid", (PUCHAR)s0khid, MAC_ADDR_LEN, DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_DEBUG);
+	hex_dump("xxkey", (PUCHAR)xxkey, xxkey_len);
+	hex_dump("label", (PUCHAR)label_name, sizeof(label_name));
+	hex_dump("ssid", (PUCHAR)ssid, ssid_len);
+	hex_dump("mdis", (PUCHAR)mdid, 2);
+	hex_dump("r0khid", (PUCHAR)r0khid, r0khid_len);
+	hex_dump("s0khid", (PUCHAR)s0khid, MAC_ADDR_LEN);
 	/* Initial the related context */
 	NdisZeroMemory(temp_result, 64);
 	NdisZeroMemory(context, 128);
@@ -2954,7 +2432,7 @@ VOID FT_DerivePMKR0(
 	NdisMoveMemory(&context[c_len], s0khid, MAC_ADDR_LEN);
 	c_len += MAC_ADDR_LEN;
 	/* Calculate a 48-bytes key material through FT-KDF */
-	KDF_256(xxkey, xxkey_len, (PUINT8)"FT-R0", 5, context, c_len, R0KeyData, 48);
+	KDF(xxkey, xxkey_len, (PUINT8)"FT-R0", 5, context, c_len, R0KeyData, 48);
 	/* PMK-R0 key shall be computed as the first 256 bits (bits 0-255) */
 	/* of the R0-Key-Data. The latter 128 bits of R0-Key-Data shall */
 	/* be used as the PMK-R0Name-Salt to generate the PMKR0Name. */
@@ -2975,8 +2453,8 @@ VOID FT_DerivePMKR0(
 	c_len += LEN_PMK_NAME;
 	RT_SHA256(context, c_len, temp_result);
 	NdisMoveMemory(pmkr0_name, temp_result, LEN_PMK_NAME);
-	hex_dump_with_cat_and_lvl("PMK-R0", (UCHAR *)pmkr0, LEN_PMK, DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_INFO);
-	hex_dump_with_cat_and_lvl("PMK-R0-Name", (UCHAR *)pmkr0_name, LEN_PMK_NAME, DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_INFO);
+	hex_dump("PMK-R0", (UCHAR *)pmkr0, LEN_PMK);
+	hex_dump("PMK-R0-Name", (UCHAR *)pmkr0_name, LEN_PMK_NAME);
 }
 
 /*
@@ -3028,7 +2506,7 @@ VOID FT_DerivePMKR1Name(
 	/* derive PMK-R1-Name */
 	RT_SHA256(context, c_len, temp_result);
 	NdisMoveMemory(pmkr1_name, temp_result, LEN_PMK_NAME);
-	hex_dump_with_cat_and_lvl("PMK-R1-Name", (UCHAR *)pmkr1_name, LEN_PMK_NAME, DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_INFO);
+	hex_dump("PMK-R1-Name", (UCHAR *)pmkr1_name, LEN_PMK_NAME);
 }
 
 /*
@@ -3064,13 +2542,13 @@ VOID FT_DerivePMKR1(
 	/* =========================== */
 	/*		PMK-R1 derivation */
 	/* =========================== */
-	MTWF_DBG(NULL, DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_INFO, "%s:\n", __func__);
-	hex_dump_with_cat_and_lvl("pmkr0", pmkr0, 32, DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_DEBUG);
-	hex_dump_with_cat_and_lvl("pmkr0_name", pmkr0_name, LEN_PMK_NAME, DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_DEBUG);
-	hex_dump_with_cat_and_lvl("r1khid", r1khid, MAC_ADDR_LEN, DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_DEBUG);
-	hex_dump_with_cat_and_lvl("s1khid", s1khid, MAC_ADDR_LEN, DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_DEBUG);
-	hex_dump_with_cat_and_lvl("pmkr1", pmkr1, 32, DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_DEBUG);
-	hex_dump_with_cat_and_lvl("pmkr1_name", pmkr1_name, 16, DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_DEBUG);
+	MTWF_LOG(DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_TRACE, ("%s:\n", __func__));
+	hex_dump("pmkr0", pmkr0, 32);
+	hex_dump("pmkr0_name", pmkr0_name, LEN_PMK_NAME);
+	hex_dump("r1khid", r1khid, MAC_ADDR_LEN);
+	hex_dump("s1khid", s1khid, MAC_ADDR_LEN);
+	hex_dump("pmkr1", pmkr1, 32);
+	hex_dump("pmkr1_name", pmkr1_name, 16);
 	/* construct the concatenated context for PMK-R1 */
 	/* R1KH-ID(6 bytes) */
 	/* S1KH-ID(6 bytes) */
@@ -3085,7 +2563,7 @@ VOID FT_DerivePMKR1(
 	NdisMoveMemory(&context[c_len], s1khid, MAC_ADDR_LEN);
 	c_len += MAC_ADDR_LEN;
 	/* Calculate a 32-bytes key material through FT-KDF */
-	KDF_256(pmkr0, LEN_PMK, (PUINT8)"FT-R1", 5, context, c_len, temp_result, 32);
+	KDF(pmkr0, LEN_PMK, (PUINT8)"FT-R1", 5, context, c_len, temp_result, 32);
 	NdisMoveMemory(pmkr1, temp_result, LEN_PMK);
 	/* =============================== */
 	/*		PMK-R1-Name derivation */
@@ -3094,8 +2572,8 @@ VOID FT_DerivePMKR1(
 					   r1khid,
 					   s1khid,
 					   pmkr1_name);
-	hex_dump_with_cat_and_lvl("PMK-R1", (UCHAR *)pmkr1, LEN_PMK, DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_INFO);
-	hex_dump_with_cat_and_lvl("PMK-R1-Name", (UCHAR *)pmkr1_name, LEN_PMK_NAME, DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_INFO);
+	hex_dump("PMK-R1", (UCHAR *)pmkr1, LEN_PMK);
+	hex_dump("PMK-R1-Name", (UCHAR *)pmkr1_name, LEN_PMK_NAME);
 }
 
 /*
@@ -3158,7 +2636,7 @@ VOID FT_DerivePTK(
 	NdisMoveMemory(&context[c_len], sta_mac, MAC_ADDR_LEN);
 	c_len += MAC_ADDR_LEN;
 	/* Calculate a key material through FT-KDF */
-	KDF_256(pmkr1,
+	KDF(pmkr1,
 		LEN_PMK,
 		(PUINT8)"FT-PTK",
 		6,
@@ -3197,8 +2675,8 @@ VOID FT_DerivePTK(
 	NdisMoveMemory(ptk_name, temp_result, LEN_PMK_NAME);
 	/*hex_dump("ANonce", (UCHAR *)a_nonce, LEN_NONCE); */
 	/*hex_dump("SNonce", (UCHAR *)s_nonce, LEN_NONCE); */
-	hex_dump_with_cat_and_lvl("PTK", (UCHAR *)ptk, key_len, DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_INFO);
-	hex_dump_with_cat_and_lvl("PTK-Name", (UCHAR *)ptk_name, LEN_PMK_NAME, DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_INFO);
+	hex_dump("PTK", (UCHAR *)ptk, key_len);
+	hex_dump("PTK-Name", (UCHAR *)ptk_name, LEN_PMK_NAME);
 }
 
 
@@ -3242,8 +2720,6 @@ VOID	FT_CalculateMIC(
 	IN	UINT8		ftie_len,
 	IN	PUINT8		ric,
 	IN	UINT8		ric_len,
-	IN	PUINT8		rsnxe,
-	IN	UINT8		rsnxe_len,
 	OUT PUINT8		mic)
 {
 	UCHAR   *OutBuffer;
@@ -3251,13 +2727,13 @@ VOID	FT_CalculateMIC(
 	ULONG	TmpLen = 0;
 	UINT	mlen = AES_KEY128_LENGTH;
 
-	MTWF_DBG(NULL, DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_INFO, "%s\n", __func__);
+	MTWF_LOG(DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_TRACE, ("%s\n", __func__));
 	NdisZeroMemory(mic, mlen);
 	/* allocate memory for MIC calculation */
 	os_alloc_mem(NULL, (PUCHAR *)&OutBuffer, 512);
 
 	if (OutBuffer == NULL) {
-		MTWF_DBG(NULL, DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_ERROR, "!!!FT_CalculateMIC: no memory!!!\n");
+		MTWF_LOG(DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_ERROR, ("!!!FT_CalculateMIC: no memory!!!\n"));
 		return;
 	}
 
@@ -3286,7 +2762,7 @@ VOID	FT_CalculateMIC(
 	}
 
 	/* concatenate FTIE */
-	if (ftie != NULL && ftie_len != 0) {
+	if (ftie != 0) {
 		/* The MIC field of the FTIE set to 0 */
 		NdisZeroMemory(ftie + 4, 16);
 		MakeOutgoingFrame(OutBuffer + FrameLen,		&TmpLen,
@@ -3296,17 +2772,9 @@ VOID	FT_CalculateMIC(
 	}
 
 	/* concatenate RIC-Request/Response if present */
-	if (ric != NULL && ric_len != 0) {
+	if (ric != 0) {
 		MakeOutgoingFrame(OutBuffer + FrameLen,     &TmpLen,
 						  ric_len,					ric,
-						  END_OF_ARGS);
-		FrameLen += TmpLen;
-	}
-
-	/* concatenate RIC-Request/Response if present */
-	if (rsnxe != NULL &&  rsnxe_len != 0) {
-		MakeOutgoingFrame(OutBuffer + FrameLen,     &TmpLen,
-						  rsnxe_len,				rsnxe,
 						  END_OF_ARGS);
 		FrameLen += TmpLen;
 	}
@@ -3335,7 +2803,7 @@ void FT_rtmp_read_parameters_from_file(
 	RTMP_STRING *pBuffer)
 {
 	INT Loop;
-	INT n;
+
 	/* FtSupport */
 	if (RTMPGetKeyParameter("FtSupport", tmpbuf, 32, pBuffer, TRUE)) {
 		RTMP_STRING *macptr;
@@ -3345,39 +2813,13 @@ void FT_rtmp_read_parameters_from_file(
 				break;
 
 			if (os_str_tol(macptr, 0, 10) != 0) /*Enable */
-				pAd->ApCfg.MBSSID[PF_TO_BSS_IDX(pAd, Loop)].wdev.FtCfg.FtCapFlag.Dot11rFtEnable = TRUE;
+				pAd->ApCfg.MBSSID[Loop].wdev.FtCfg.FtCapFlag.Dot11rFtEnable = TRUE;
 			else /*Disable */
-				pAd->ApCfg.MBSSID[PF_TO_BSS_IDX(pAd, Loop)].wdev.FtCfg.FtCapFlag.Dot11rFtEnable = FALSE;
+				pAd->ApCfg.MBSSID[Loop].wdev.FtCfg.FtCapFlag.Dot11rFtEnable = FALSE;
 
-			MTWF_DBG(pAd, DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_INFO, "I/F(ra%d) Dot11rFtEnable=%d\n",
-					 Loop, pAd->ApCfg.MBSSID[PF_TO_BSS_IDX(pAd, Loop)].wdev.FtCfg.FtCapFlag.Dot11rFtEnable);
+			MTWF_LOG(DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_TRACE, ("I/F(ra%d) Dot11rFtEnable=%d\n",
+					 Loop, pAd->ApCfg.MBSSID[Loop].wdev.FtCfg.FtCapFlag.Dot11rFtEnable));
 		}
-	} else {
-		Loop = 0;
-		while (Loop < MAX_MBSSID_NUM(pAd))
-			pAd->ApCfg.MBSSID[PF_TO_BSS_IDX(pAd, Loop++)].wdev.FtCfg.FtCapFlag.Dot11rFtEnable = FALSE;
-	}
-
-	/* FtOnly */
-	if (RTMPGetKeyParameter("FtOnly", tmpbuf, 32, pBuffer, TRUE)) {
-		RTMP_STRING *macptr;
-
-		for (Loop = 0, macptr = rstrtok(tmpbuf, ";"); macptr; macptr = rstrtok(NULL, ";"), Loop++) {
-			if (Loop >= MAX_MBSSID_NUM(pAd))
-				break;
-
-			if (os_str_tol(macptr, 0, 10) != 0) /*Enable */
-				pAd->ApCfg.MBSSID[PF_TO_BSS_IDX(pAd, Loop)].wdev.SecConfig.ft_only = TRUE;
-			else /*Disable */
-				pAd->ApCfg.MBSSID[PF_TO_BSS_IDX(pAd, Loop)].wdev.SecConfig.ft_only = FALSE;
-
-			MTWF_DBG(pAd, DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_INFO, "I/F(ra%d) ft_only=%d\n",
-					 Loop, pAd->ApCfg.MBSSID[PF_TO_BSS_IDX(pAd, Loop)].wdev.SecConfig.ft_only);
-		}
-	} else {
-		Loop = 0;
-		while (Loop < MAX_MBSSID_NUM(pAd))
-			pAd->ApCfg.MBSSID[PF_TO_BSS_IDX(pAd, Loop++)].wdev.SecConfig.ft_only = FALSE;
 	}
 
 	/* FtRic */
@@ -3389,17 +2831,13 @@ void FT_rtmp_read_parameters_from_file(
 				break;
 
 			if (os_str_tol(macptr, 0, 10) != 0) /*Enable */
-				pAd->ApCfg.MBSSID[PF_TO_BSS_IDX(pAd, Loop)].wdev.FtCfg.FtCapFlag.RsrReqCap = TRUE;
+				pAd->ApCfg.MBSSID[Loop].wdev.FtCfg.FtCapFlag.RsrReqCap = TRUE;
 			else /*Disable */
-				pAd->ApCfg.MBSSID[PF_TO_BSS_IDX(pAd, Loop)].wdev.FtCfg.FtCapFlag.RsrReqCap = FALSE;
+				pAd->ApCfg.MBSSID[Loop].wdev.FtCfg.FtCapFlag.RsrReqCap = FALSE;
 
-			MTWF_DBG(pAd, DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_INFO, "I/F(ra%d) Dot11rFtRic=%d\n",
-					 Loop, pAd->ApCfg.MBSSID[PF_TO_BSS_IDX(pAd, Loop)].wdev.FtCfg.FtCapFlag.RsrReqCap);
+			MTWF_LOG(DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_TRACE, ("I/F(ra%d) Dot11rFtRic=%d\n",
+					 Loop, pAd->ApCfg.MBSSID[Loop].wdev.FtCfg.FtCapFlag.RsrReqCap));
 		}
-	} else {
-		Loop = 0;
-		while (Loop < MAX_MBSSID_NUM(pAd))
-			pAd->ApCfg.MBSSID[PF_TO_BSS_IDX(pAd, Loop++)].wdev.FtCfg.FtCapFlag.RsrReqCap = FALSE;
 	}
 
 	/* FtOtd */
@@ -3411,17 +2849,13 @@ void FT_rtmp_read_parameters_from_file(
 				break;
 
 			if (os_str_tol(macptr, 0, 10) != 0) /*Enable */
-				pAd->ApCfg.MBSSID[PF_TO_BSS_IDX(pAd, Loop)].wdev.FtCfg.FtCapFlag.FtOverDs = TRUE;
+				pAd->ApCfg.MBSSID[Loop].wdev.FtCfg.FtCapFlag.FtOverDs = TRUE;
 			else /*Disable */
-				pAd->ApCfg.MBSSID[PF_TO_BSS_IDX(pAd, Loop)].wdev.FtCfg.FtCapFlag.FtOverDs = FALSE;
+				pAd->ApCfg.MBSSID[Loop].wdev.FtCfg.FtCapFlag.FtOverDs = FALSE;
 
-			MTWF_DBG(pAd, DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_INFO, "I/F(ra%d) Dot11rFtOtd=%d\n",
-					 Loop, pAd->ApCfg.MBSSID[PF_TO_BSS_IDX(pAd, Loop)].wdev.FtCfg.FtCapFlag.FtOverDs);
+			MTWF_LOG(DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_TRACE, ("I/F(ra%d) Dot11rFtOtd=%d\n",
+					 Loop, pAd->ApCfg.MBSSID[Loop].wdev.FtCfg.FtCapFlag.FtOverDs));
 		}
-	} else {
-		Loop = 0;
-		while (Loop < MAX_MBSSID_NUM(pAd))
-			pAd->ApCfg.MBSSID[PF_TO_BSS_IDX(pAd, Loop++)].wdev.FtCfg.FtCapFlag.FtOverDs = FALSE;
 	}
 
 	for (Loop = 0; Loop < MAX_MBSSID_NUM(pAd); Loop++) {
@@ -3431,18 +2865,14 @@ void FT_rtmp_read_parameters_from_file(
 			FtMdId shall be a value of two octets.
 		*/
 		NdisZeroMemory(tok_str, sizeof(tok_str));
-		n = snprintf(tok_str, sizeof(tok_str), "FtMdId%d", Loop + 1);
-		if (n < 0 || n >= sizeof(tok_str)) {
-			MTWF_DBG(pAd, DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_ERROR,
-				 "%s:%d snprintf Error\n", __func__, __LINE__);
-		}
+		snprintf(tok_str, sizeof(tok_str), "FtMdId%d", Loop + 1);
 
 		if (RTMPGetKeyParameter(tok_str, tmpbuf, 32, pBuffer, FALSE)) {
 
 			RTMP_STRING	 *value = NULL, *mode = NULL;
 			PFT_CFG pFtCfg;
 
-			pFtCfg = &pAd->ApCfg.MBSSID[PF_TO_BSS_IDX(pAd, Loop)].wdev.FtCfg;
+			pFtCfg = &pAd->ApCfg.MBSSID[Loop].wdev.FtCfg;
 
 			value = rstrtok(tmpbuf, ":");
 			if (value)
@@ -3454,17 +2884,17 @@ void FT_rtmp_read_parameters_from_file(
 				hex_value = simple_strtol(value, 0, 16);
 				NdisMoveMemory(pFtCfg->FtMdId, &hex_value, FT_MDID_LEN);
 
-				MTWF_DBG(pAd, DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_ERROR, "Invalid interface number (%s)(%04x).\n",
-					value, hex_value);
+				MTWF_LOG(DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_ERROR, ("%s: Invalid interface number (%s)(%04x).\n",
+					__func__, value, hex_value));
 			} else
 
 			{
 				if (value && strlen(value) == FT_MDID_LEN) {
 					NdisMoveMemory(pFtCfg->FtMdId, value, FT_MDID_LEN);
-					MTWF_DBG(pAd, DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_INFO, "FtMdid(%d)=%c%c\n", Loop,
-											pFtCfg->FtMdId[0], pFtCfg->FtMdId[1]);
+					MTWF_LOG(DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_TRACE, ("%s::FtMdid(%d)=%c%c\n", __func__, Loop,
+											pFtCfg->FtMdId[0], pFtCfg->FtMdId[1]));
 				} else {
-					MTWF_DBG(pAd, DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_INFO, "Invalid MdId=%s\n", value);
+					MTWF_LOG(DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_TRACE, ("%s: Invalid MdId=%s\n", __func__, value));
 				}
 			}
 		}
@@ -3474,20 +2904,17 @@ void FT_rtmp_read_parameters_from_file(
 			FtR0khId shall be in string of 1 ~ 48 octets.
 		*/
 		NdisZeroMemory(tok_str, sizeof(tok_str));
-		n = snprintf(tok_str, sizeof(tok_str), "FtR0khId%d", Loop + 1);
-		if (n < 0 || n >= sizeof(tok_str)) {
-			MTWF_DBG(pAd, DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_ERROR,
-				 "%s:%d snprintf Error\n", __func__, __LINE__);
-		}
+		snprintf(tok_str, sizeof(tok_str), "FtR0khId%d", Loop + 1);
+
 		if (RTMPGetKeyParameter(tok_str, tmpbuf, FT_ROKH_ID_LEN + 1, pBuffer, FALSE)) {
 			if (strlen(tmpbuf) <= FT_ROKH_ID_LEN) {
-				NdisMoveMemory(pAd->ApCfg.MBSSID[PF_TO_BSS_IDX(pAd, Loop)].wdev.FtCfg.FtR0khId, tmpbuf, strlen(tmpbuf));
-				pAd->ApCfg.MBSSID[PF_TO_BSS_IDX(pAd, Loop)].wdev.FtCfg.FtR0khId[strlen(tmpbuf)] = '\0';
-				MTWF_DBG(pAd, DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_INFO, "FtR0khId(%d)=%s\n", Loop,
-						 pAd->ApCfg.MBSSID[PF_TO_BSS_IDX(pAd, Loop)].wdev.FtCfg.FtR0khId);
+				NdisMoveMemory(pAd->ApCfg.MBSSID[Loop].wdev.FtCfg.FtR0khId, tmpbuf, strlen(tmpbuf));
+				pAd->ApCfg.MBSSID[Loop].wdev.FtCfg.FtR0khId[strlen(tmpbuf)] = '\0';
+				MTWF_LOG(DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_TRACE, ("%s::FtR0khId(%d)=%s\n", __func__, Loop,
+						 pAd->ApCfg.MBSSID[Loop].wdev.FtCfg.FtR0khId));
 			} else {
-				MTWF_DBG(pAd, DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_INFO, "Invalid R0khId(%d)=%s Len=%d\n",
-						 Loop, tmpbuf, (INT)strlen(tmpbuf));
+				MTWF_LOG(DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_TRACE, ("%s: Invalid R0khId(%d)=%s Len=%d\n",
+						 __func__, Loop, tmpbuf, (INT)strlen(tmpbuf)));
 			}
 		}
 	}
@@ -3502,13 +2929,13 @@ INT Set_FT_Enable(RTMP_ADAPTER *pAd, RTMP_STRING *arg)
 
 	Value = (UINT) os_str_tol(arg, 0, 10);
 
-	if (apidx > pAd->ApCfg.BssidNum || apidx < 0) {
-		MTWF_DBG(pAd, DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_ERROR, "Invalid interface number (%d).\n",
-				apidx);
+	if (apidx > pAd->ApCfg.BssidNum) {
+		MTWF_LOG(DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_ERROR, ("%s: Invalid interface number (%d).\n",
+				 __func__, apidx));
 		return TRUE;
 	}
 
-	pFtCfg = &pAd->ApCfg.MBSSID[apidx].wdev.FtCfg;
+	pFtCfg = &pAd->ApCfg.MBSSID[pObj->ioctl_if].wdev.FtCfg;
 	pFtCfg->FtCapFlag.Dot11rFtEnable = (Value == 0 ? FALSE : TRUE);
 	return TRUE;
 }
@@ -3520,13 +2947,13 @@ INT Set_FT_Mdid(RTMP_ADAPTER *pAd, RTMP_STRING *arg)
 	PFT_CFG pFtCfg;
 	RTMP_STRING	 *value, *mode = NULL;
 
-	if (apidx > pAd->ApCfg.BssidNum || apidx < 0) {
-		MTWF_DBG(pAd, DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_ERROR, "Invalid interface number (%d).\n",
-				apidx);
+	if (apidx > pAd->ApCfg.BssidNum) {
+		MTWF_LOG(DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_ERROR, ("%s: Invalid interface number (%d).\n",
+				 __func__, apidx));
 		return TRUE;
 	}
 
-	pFtCfg = &pAd->ApCfg.MBSSID[apidx].wdev.FtCfg;
+	pFtCfg = &pAd->ApCfg.MBSSID[pObj->ioctl_if].wdev.FtCfg;
 	NdisMoveMemory(pFtCfg->FtMdId, arg, FT_MDID_LEN);
 
 /* #ifdef WH_EZ_SETUP */
@@ -3543,14 +2970,10 @@ INT Set_FT_Mdid(RTMP_ADAPTER *pAd, RTMP_STRING *arg)
 		hex_value = simple_strtol(value, 0, 16);
 		NdisMoveMemory(pFtCfg->FtMdId, &hex_value, FT_MDID_LEN);
 
-		MTWF_DBG(pAd, DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_ERROR, "Invalid interface number (%s)(%04x).\n",
-				value, hex_value);
-	} else {
-		if (value)
-			NdisMoveMemory(pFtCfg->FtMdId, value, FT_MDID_LEN);
-		else
-			MTWF_DBG(pAd, DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_ERROR, "Invalid value.\n");
-	}
+		MTWF_LOG(DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_ERROR, ("%s: Invalid interface number (%s)(%04x).\n",
+			__func__, value, hex_value));
+	} else if (value)
+		NdisMoveMemory(pFtCfg->FtMdId, value, FT_MDID_LEN);
 
 	return TRUE;
 }
@@ -3561,20 +2984,21 @@ INT Set_FT_R0khid(RTMP_ADAPTER *pAd, RTMP_STRING *arg)
 	INT apidx = pObj->ioctl_if;
 	PFT_CFG pFtCfg;
 
-	if (apidx > pAd->ApCfg.BssidNum || apidx < 0) {
-		MTWF_DBG(pAd, DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_ERROR, "Invalid interface number (%d).\n",
-				apidx);
+	if (apidx > pAd->ApCfg.BssidNum) {
+		MTWF_LOG(DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_ERROR, ("%s: Invalid interface number (%d).\n",
+				 __func__, apidx));
 		return TRUE;
 	}
 
 	if (strlen(arg) > FT_ROKH_ID_LEN) {
-		MTWF_DBG(pAd, DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_ERROR, "Invalid R0KHID Length (%d).\n",
-				(INT)strlen(arg));
-		MTWF_DBG(pAd, DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_ERROR, "The length shall be in range from 1 to 48 octects.\n");
+		MTWF_LOG(DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_ERROR, ("%s: Invalid R0KHID Length (%d).\n",
+				 __func__, (INT)strlen(arg)));
+		MTWF_LOG(DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_ERROR, ("%s: The length shall be in range from 1 to 48 octects.\n",
+				 __func__));
 		return TRUE;
 	}
 
-	pFtCfg = &pAd->ApCfg.MBSSID[apidx].wdev.FtCfg;
+	pFtCfg = &pAd->ApCfg.MBSSID[pObj->ioctl_if].wdev.FtCfg;
 	NdisMoveMemory(pFtCfg->FtR0khId, arg, strlen(arg));
 	pFtCfg->FtR0khIdLen = strlen(arg);
 	return TRUE;
@@ -3589,13 +3013,13 @@ INT Set_FT_RIC(RTMP_ADAPTER *pAd, RTMP_STRING *arg)
 
 	Value = (UINT) os_str_tol(arg, 0, 10);
 
-	if (apidx > pAd->ApCfg.BssidNum || apidx < 0) {
-		MTWF_DBG(pAd, DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_ERROR, "Invalid interface number (%d).\n",
-				apidx);
+	if (apidx > pAd->ApCfg.BssidNum) {
+		MTWF_LOG(DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_ERROR, ("%s: Invalid interface number (%d).\n",
+				 __func__, apidx));
 		return TRUE;
 	}
 
-	pFtCfg = &pAd->ApCfg.MBSSID[apidx].wdev.FtCfg;
+	pFtCfg = &pAd->ApCfg.MBSSID[pObj->ioctl_if].wdev.FtCfg;
 	pFtCfg->FtCapFlag.RsrReqCap = (Value == 0 ? FALSE : TRUE);
 	return TRUE;
 }
@@ -3609,13 +3033,13 @@ INT Set_FT_OTD(RTMP_ADAPTER *pAd, RTMP_STRING *arg)
 
 	Value = (UINT) os_str_tol(arg, 0, 10);
 
-	if (apidx > pAd->ApCfg.BssidNum || apidx < 0) {
-		MTWF_DBG(pAd, DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_ERROR, "Invalid interface number (%d).\n",
-				apidx);
+	if (apidx > pAd->ApCfg.BssidNum) {
+		MTWF_LOG(DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_ERROR, ("%s: Invalid interface number (%d).\n",
+				 __func__, apidx));
 		return TRUE;
 	}
 
-	pFtCfg = &pAd->ApCfg.MBSSID[apidx].wdev.FtCfg;
+	pFtCfg = &pAd->ApCfg.MBSSID[pObj->ioctl_if].wdev.FtCfg;
 	pFtCfg->FtCapFlag.FtOverDs = (Value == 0 ? FALSE : TRUE);
 	return TRUE;
 }
@@ -3629,42 +3053,42 @@ INT	Show_FTConfig_Proc(RTMP_ADAPTER *pAd, RTMP_STRING *arg)
 	ULONG Now;
 	PFT_R1HK_ENTRY pEntry;
 
-	if (apidx >= pAd->ApCfg.BssidNum || apidx < 0)
+	if (apidx >= pAd->ApCfg.BssidNum)
 		return -1;
 
-	pFtCfg = &pAd->ApCfg.MBSSID[apidx].wdev.FtCfg;
-	MTWF_PRINT("MDID=%c%c\n", pFtCfg->FtMdId[0], pFtCfg->FtMdId[1]);
-	MTWF_PRINT("R0KHID=%s, Len=%d\n", pFtCfg->FtR0khId, pFtCfg->FtR0khIdLen);
-	MTWF_PRINT("FT Enable=%d\n", pFtCfg->FtCapFlag.Dot11rFtEnable);
-	MTWF_PRINT("FT RIC=%d\n", pFtCfg->FtCapFlag.RsrReqCap);
-	MTWF_PRINT("FT OTD=%d\n", pFtCfg->FtCapFlag.FtOverDs);
+	pFtCfg = &pAd->ApCfg.MBSSID[pObj->ioctl_if].wdev.FtCfg;
+	MTWF_LOG(DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_OFF, ("MDID=%c%c\n", pFtCfg->FtMdId[0], pFtCfg->FtMdId[1]));
+	MTWF_LOG(DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_OFF, ("R0KHID=%s, Len=%d\n", pFtCfg->FtR0khId, pFtCfg->FtR0khIdLen));
+	MTWF_LOG(DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_OFF, ("FT Enable=%d\n", pFtCfg->FtCapFlag.Dot11rFtEnable));
+	MTWF_LOG(DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_OFF, ("FT RIC=%d\n", pFtCfg->FtCapFlag.RsrReqCap));
+	MTWF_LOG(DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_OFF, ("FT OTD=%d\n", pFtCfg->FtCapFlag.FtOverDs));
 
 	NdisGetSystemUpTime(&Now);
-	MTWF_PRINT("\nPMKID Cache INFO: (now: %ld)\n", Now);
+	MTWF_LOG(DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_OFF, ("\nPMKID Cache INFO: (now: %ld)\n", Now));
 	for (i = 0; i < MAX_PMKID_COUNT; i++) {
 		PAP_BSSID_INFO pBssInfo = &pAd->ApCfg.PMKIDCache.BSSIDInfo[i];
 
 		if ((pBssInfo->Valid) && (pBssInfo->Mbssidx == apidx)) {
-			MTWF_PRINT("IDX: %d, "MACSTR", %ld\n",
-				i, MAC2STR(pBssInfo->MAC), pBssInfo->RefreshTime);
-			MTWF_PRINT("PMKID:");
+			MTWF_LOG(DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_OFF, ("IDX: %d, %02x:%02x:%02x:%02x:%02x:%02x, %ld\n",
+				i, PRINT_MAC(pBssInfo->MAC), pBssInfo->RefreshTime));
+			MTWF_LOG(DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_OFF, ("PMKID:"));
 			for (j = 0; j < 16 ; j++)
-				MTWF_PRINT("%02x", pBssInfo->PMKID[j]);
-			MTWF_PRINT("\nPMK:");
+				MTWF_LOG(DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_OFF, ("%02x", pBssInfo->PMKID[j]));
+			MTWF_LOG(DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_OFF, ("\nPMK:"));
 			for (j = 0; j < 32 ; j++)
-				MTWF_PRINT("%02x", pBssInfo->PMK[j]);
-			MTWF_PRINT("\n");
+				MTWF_LOG(DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_OFF, ("%02x", pBssInfo->PMK[j]));
+			MTWF_LOG(DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_OFF, ("\n"));
 		}
 	}
 
-	MTWF_PRINT("\nFT_R1KH_ENTRY Cache INFO:\n");
+	MTWF_LOG(DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_OFF, ("\nFT_R1KH_ENTRY Cache INFO:\n"));
 	for (i = 0; i < FT_R1KH_ENTRY_HASH_TABLE_SIZE; i++) {
 		pEntry = (PFT_R1HK_ENTRY)pAd->ApCfg.FtTab.FT_R1khEntryTab[i].pHead;
 		while (pEntry != NULL) {
-			MTWF_PRINT("ADDR:"MACSTR"\n",
-				MAC2STR(pEntry->StaMac));
-			MTWF_PRINT("ReAssocDeaLine: %u, KeyTime:%d, AKMAP: 0x%x\n",
-				pEntry->RassocDeadline, pEntry->KeyLifeTime, pEntry->AKMMap);
+			MTWF_LOG(DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_OFF, ("ADDR: %02x:%02x:%02x:%02x:%02x:%02x\n",
+				PRINT_MAC(pEntry->StaMac)));
+			MTWF_LOG(DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_OFF, ("ReAssocDeaLine: %u, KeyTime:%d, AKMAP: 0x%x\n",
+				pEntry->RassocDeadline, pEntry->KeyLifeTime, pEntry->AKMMap));
 			hex_dump("R1KHTab-PairwiseCipher", pEntry->PairwisChipher, 4);
 			hex_dump("R1KHTab-AKM", pEntry->AkmSuite, 4);
 
@@ -3679,11 +3103,11 @@ INT	Show_FTConfig_Proc(RTMP_ADAPTER *pAd, RTMP_STRING *arg)
 
 	}
 
-	MTWF_PRINT("R0KHID(bin)=\n");
+	MTWF_LOG(DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_OFF, ("R0KHID(bin)=\n"));
 	for (i = 0; i < pFtCfg->FtR0khIdLen; i++) {
-		MTWF_PRINT("%02x:", pFtCfg->FtR0khId[i]);
+		MTWF_LOG(DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_OFF, ("%02x:", pFtCfg->FtR0khId[i]));
 	}
-	MTWF_PRINT("\n");
+	MTWF_LOG(DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_OFF, ("\n"));
 
 	return TRUE;
 }

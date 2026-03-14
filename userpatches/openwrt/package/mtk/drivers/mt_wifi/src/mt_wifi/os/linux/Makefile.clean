@@ -2,7 +2,6 @@ include $(RT28xx_OS_DIR)/linux/config.mk
 
 RT28xx_RPATH = ../..
 RT28xx_EMBED_RPATH=../../embedded
-SERV_DIR = ../../../wlan_service
 
 PHONY := clean install uninstall
 
@@ -46,10 +45,6 @@ clean:
 	rm -f $(RT28xx_EMBED_RPATH)/hif/.*.cmd .*.flags .*.d
 	rm -f $(RT28xx_EMBED_RPATH)/hw_ctrl/*.o
 	rm -f $(RT28xx_EMBED_RPATH)/hw_ctrl/.*.cmd .*.flags .*.d
-	rm -f $(RT28xx_EMBED_RPATH)/fsm/*.o
-	rm -f $(RT28xx_EMBED_RPATH)/fsm/.*.cmd .*.flags .*.d
-	rm -f $(RT28xx_EMBED_RPATH)/wlan_config/*.o
-	rm -f $(RT28xx_EMBED_RPATH)/wlan_config/.*.cmd .*.flags .*.d
 	rm -f $(RT28xx_EMBED_RPATH)/hw_ctrl/hdev/*.o
 	rm -f $(RT28xx_EMBED_RPATH)/hw_ctrl/hdev/.*.cmd
 	rm -f $(RT28xx_EMBED_RPATH)/security/*.o
@@ -64,10 +59,6 @@ clean:
 	rm -f $(RT28xx_RPATH)/os/linux/cfg80211/.*.cmd .*.flags .*.d
 	rm -f $(RT28xx_RPATH)/txbf/*.o
 	rm -f $(RT28xx_RPATH)/txbf/.*.cmd .*.flags .*.d
-	rm -f $(SERV_DIR)/agent/*.o
-	rm -f $(SERV_DIR)/service/*.o
-	rm -f $(SERV_DIR)/glue/hal/jedi/*.o
-	rm -f $(SERV_DIR)/glue/osal/jedi/*.o
 ifeq ($(RT28xx_MODE),AP)
 	rm -f $(RT28xx_EMBED_RPATH)/ap/*.o
 	rm -f $(RT28xx_EMBED_RPATH)/ap/.*.cmd .*.flags .*.d

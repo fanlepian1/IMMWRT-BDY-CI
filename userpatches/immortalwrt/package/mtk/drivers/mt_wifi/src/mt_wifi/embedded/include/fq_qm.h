@@ -1,23 +1,30 @@
-/*
- * Copyright (c) [2020], MediaTek Inc. All rights reserved.
- *
- * This software/firmware and related documentation ("MediaTek Software") are
- * protected under relevant copyright laws.
- * The information contained herein is confidential and proprietary to
- * MediaTek Inc. and/or its licensors.
- * Except as otherwise provided in the applicable licensing terms with
- * MediaTek Inc. and/or its licensors, any reproduction, modification, use or
- * disclosure of MediaTek Software, and information contained herein, in whole
- * or in part, shall be strictly prohibited.
-*/
 /***************************************************************************
+ * MediaTek Inc.
+ * 4F, No. 2 Technology 5th Rd.
+ * Science-based Industrial Park
+ * Hsin-chu, Taiwan, R.O.C.
+ *
+ * (c) Copyright 1997-2012, MediaTek, Inc.
+ *
+ * All rights reserved. MediaTek source code is an unpublished work and the
+ * use of a copyright notice does not imply otherwise. This source code
+ * contains confidential trade secret material of MediaTek. Any attemp
+ * or participation in deciphering, decoding, reverse engineering or in any
+ * way altering the source code is stricitly prohibited, unless the prior
+ * written consent of MediaTek Technology, Inc. is obtained.
  ***************************************************************************
 
 */
+#include    "rt_config.h"
 
 #ifndef __FQ_QM_H__
 #define __FQ_QM_H__
 
+#if defined(MT7615)
+#define FQ_PLE_SIZE						4096
+#else
+#define FQ_PLE_SIZE						2048
+#endif
 #define FQ_SCH_DBG_SUPPORT					1
 #define DEFAULT_THMAX						(16)
 #define MAX_VHT_THMAX						(256)
@@ -52,7 +59,7 @@
 
 #define FQ_BITMAP_MASK						(0x1F)
 #define FQ_BITMAP_SHIFT						(5)
-#define FQ_BITMAP_DWORD						((MAX_LEN_OF_MAC_TABLE+31)/(sizeof(UINT32)*8))
+#define FQ_BITMAP_DWORD						(MAX_LEN_OF_MAC_TABLE/(sizeof(UINT32)*8))
 
 #define UMAC_DRR_TABLE_RDATA0           			(PLE_BASE+0x350)
 #define UMAC_AIRTIME_QUANTUM_SETTING0          			(PLE_BASE+0x380)
@@ -74,6 +81,23 @@
 #define UMAC_FORWARD_LINK_STA_ID_OFFSET			2
 #define UMAC_DRR_TABLE_CTRL0_EXE			(1<<31)
 #define UMAC_DRR_TABLE_CTRL0_MODE_MASK			BITS(16, 23)
+
+struct fq_stainfo_type {
+	QUEUE_ENTRY Entry[WMM_NUM_OF_AC];
+	UINT16 macInQLen[WMM_NUM_OF_AC];
+	UINT16 macOutQLen[WMM_NUM_OF_AC];
+	UINT8 wcid;
+	UINT8 kickPktCnt[WMM_NUM_OF_AC];
+	UINT8 thMax[WMM_NUM_OF_AC];
+	UINT16 mpduTime;
+	UINT16 KMAX;
+	UINT32 drop_cnt[WMM_NUM_OF_AC];
+	UINT32 qlen_max_cnt[WMM_NUM_OF_AC];
+	INT32 tx_msdu_cnt;
+	INT32 macQPktLen[WMM_NUM_OF_AC];
+	UINT8 status[WMM_NUM_OF_AC];
+	NDIS_SPIN_LOCK	lock[WMM_NUM_OF_AC];
+};
 
 struct fq_ctrl_type {
 	UINT32 	list_map[WMM_NUM_OF_AC][FQ_BITMAP_DWORD];
@@ -109,14 +133,14 @@ INT set_fq_dbg_listmap(PRTMP_ADAPTER pAd, RTMP_STRING *arg);
 INT set_fq_dbg_linklist(PRTMP_ADAPTER pAd, RTMP_STRING *arg);
 INT show_fq_info(struct _RTMP_ADAPTER *pAd, RTMP_STRING *arg);
 void app_show_fq_dbgmsg(struct _RTMP_ADAPTER *pAd);
-void fq_tx_free_per_packet(struct _RTMP_ADAPTER *pAd, UINT8 ucAC, UINT16 u2WlanIdx, NDIS_PACKET *pkt);
+void fq_tx_free_per_packet(struct _RTMP_ADAPTER *pAd, UINT8 ucAC, UINT8 ucWlanIdx, NDIS_PACKET *pkt);
 void fq_tx_free_event_handler(UINT32 *dataPtr, UINT8 ucMsduIdCnt, UINT8 version, struct _RTMP_ADAPTER *pAd);
-void fp_fair_tx_pkt_deq_func(struct _RTMP_ADAPTER *pAd, UINT8 idx);
-INT fq_clean_list(RTMP_ADAPTER *pAd, UCHAR qidx);
-UINT16 fq_del_list(RTMP_ADAPTER *pAd, struct dequeue_info *info, CHAR deq_qid, UINT32 *tx_quota);
+void fp_fair_tx_pkt_deq_func(struct _RTMP_ADAPTER *pAd);
+INT fq_clean_list(struct _RTMP_ADAPTER *pAd, UCHAR qidx);
+UINT16 fq_del_list(struct _RTMP_ADAPTER *pAd, struct dequeue_info *info, CHAR deq_qid, UINT32 *tx_quota);
 INT fq_init(struct _RTMP_ADAPTER *pAd);
 INT fq_exit(struct _RTMP_ADAPTER *pAd);
-INT fq_update_thMax(struct _RTMP_ADAPTER *pAd, struct _STA_TR_ENTRY *tr_entry, UINT16 wcid,
+INT fq_update_thMax(struct _RTMP_ADAPTER *pAd, struct _STA_TR_ENTRY *tr_entry, UINT8 wcid,
 			INT32 mpduTime, UINT32 dwrr_quantum, UINT32 *Value);
 INT fq_enq_req(struct _RTMP_ADAPTER *pAd, NDIS_PACKET *pkt, UCHAR qidx,
 	struct _STA_TR_ENTRY *tr_entry, struct _QUEUE_HEADER *pPktQueue);

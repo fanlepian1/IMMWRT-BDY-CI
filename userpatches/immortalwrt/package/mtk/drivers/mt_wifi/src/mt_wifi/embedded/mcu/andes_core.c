@@ -1,17 +1,13 @@
 /*
- * Copyright (c) [2020], MediaTek Inc. All rights reserved.
- *
- * This software/firmware and related documentation ("MediaTek Software") are
- * protected under relevant copyright laws.
- * The information contained herein is confidential and proprietary to
- * MediaTek Inc. and/or its licensors.
- * Except as otherwise provided in the applicable licensing terms with
- * MediaTek Inc. and/or its licensors, any reproduction, modification, use or
- * disclosure of MediaTek Software, and information contained herein, in whole
- * or in part, shall be strictly prohibited.
-*/
-/*
  ***************************************************************************
+ * MediaTek Inc.
+ *
+ * All rights reserved. source code is an unpublished work and the
+ * use of a copyright notice does not imply otherwise. This source code
+ * contains confidential trade secret material of MediaTek. Any attemp
+ * or participation in deciphering, decoding, reverse engineering or in any
+ * way altering the source code is stricitly prohibited, unless the prior
+ * written consent of MediaTek, Inc. is obtained.
  ***************************************************************************
 
 	Module Name:
@@ -49,35 +45,27 @@ static void andes_starv_block_init(struct starv_log *ctrl, struct MCU_CTRL *mcu_
 }
 #endif /*DBG_STARVATION*/
 
-struct cmd_msg *AndesAllocCmdMsgGe(RTMP_ADAPTER *ad, unsigned int length, BOOLEAN bOldCmdFmt)
+struct cmd_msg *AndesAllocCmdMsg(RTMP_ADAPTER *ad, unsigned int length)
 {
 	struct cmd_msg *msg = NULL;
 	RTMP_CHIP_CAP *cap = hc_get_chip_cap(ad->hdev_ctrl);
 	struct MCU_CTRL *ctl = &ad->MCUCtrl;
 	PNDIS_PACKET net_pkt = NULL;
-	UINT8 cmd_header_len = cap->cmd_header_len;
-	INT32 AllocateSize = 0;
-
-#ifdef WIFI_UNIFIED_COMMAND
-	if (cap->uni_cmd_support && (bOldCmdFmt == FALSE))
-		cmd_header_len = cap->uni_cmd_header_len;
-#endif /* WIFI_UNIFIED_COMMAND */
-	AllocateSize = cmd_header_len + length + cap->cmd_padding_len;
-
+	INT32 AllocateSize = cap->cmd_header_len + length + cap->cmd_padding_len;
 	net_pkt = RTMP_AllocateFragPacketBuffer(ad, AllocateSize);
 
 	if (!net_pkt) {
-		MTWF_DBG(ad, DBG_CAT_FW, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-				 "can not allocate net_pkt\n");
+		MTWF_LOG(DBG_CAT_FW, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
+				 ("can not allocate net_pkt\n"));
 		goto error0;
 	}
 
-	OS_PKT_RESERVE(net_pkt, cmd_header_len);
+	OS_PKT_RESERVE(net_pkt, cap->cmd_header_len);
 	os_alloc_mem(NULL, (PUCHAR *)&msg, sizeof(*msg));
 
 	if (!msg) {
-		MTWF_DBG(ad, DBG_CAT_FW, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-				 "can not allocate cmd msg\n");
+		MTWF_LOG(DBG_CAT_FW, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
+				 ("can not allocate cmd msg\n"));
 		goto error1;
 	}
 
@@ -94,21 +82,11 @@ error0:
 	return NULL;
 }
 
-struct cmd_msg *AndesAllocCmdMsg(RTMP_ADAPTER *ad, unsigned int length)
-{
-#ifdef WF_RESET_SUPPORT
-	if (ad->wf_reset_in_progress == TRUE)
-		return 0;
-#endif
-
-	return hif_mcu_alloc_msg(ad, length, TRUE);
-}
-
 VOID AndesInitCmdMsg(struct cmd_msg *msg, CMD_ATTRIBUTE attr)
 {
-	MTWF_DBG(NULL, DBG_CAT_FW, DBG_SUBCAT_ALL, DBG_LVL_DEBUG,
-			 "%s:: mcu_dest(%d), cmd_type(0x%x), ExtCmdType(0x%x)\n",
-			  __func__, attr.mcu_dest, attr.type, attr.ext_type);
+	MTWF_LOG(DBG_CAT_FW, DBG_SUBCAT_ALL, DBG_LVL_INFO,
+			 ("%s:: mcu_dest(%d), cmd_type(0x%x), ExtCmdType(0x%x)\n",
+			  __func__, attr.mcu_dest, attr.type, attr.ext_type));
 	SET_CMD_MSG_PORT_QUEUE_ID(msg, GetRealPortQueueID(msg, attr.type));
 	SET_CMD_MSG_MCU_DEST(msg, attr.mcu_dest);
 	SET_CMD_MSG_TYPE(msg, attr.type);
@@ -119,20 +97,10 @@ VOID AndesInitCmdMsg(struct cmd_msg *msg, CMD_ATTRIBUTE attr)
 	if (IS_CMD_MSG_NEED_SYNC_WITH_FW_FLAG_SET(msg))
 		RTMP_OS_INIT_COMPLETION(&msg->ack_done);
 
-	if (IS_CMD_MSG_NEED_RETRY_FLAG_SET(msg))
-		SET_CMD_MSG_RETRY_TIMES(msg, CMD_MSG_RETRANSMIT_TIMES);
-	else
-		SET_CMD_MSG_RETRY_TIMES(msg, 0);
-
+	SET_CMD_MSG_RETRY_TIMES(msg, 0);
 	SET_CMD_MSG_CTRL_RSP_EXPECT_SIZE(msg, attr.ctrl.expect_size);
 	SET_CMD_MSG_RSP_WB_BUF_IN_CALBK(msg, attr.rsp.wb_buf_in_calbk);
 	SET_CMD_MSG_RSP_HANDLER(msg, attr.rsp.handler);
-
-#ifdef WIFI_UNIFIED_COMMAND
-	msg->total_frag = 0;
-	msg->frag_num = 0;
-	msg->seq = 0;
-#endif /* WIFI_UNIFIED_COMMAND */
 }
 
 VOID AndesAppendCmdMsg(struct cmd_msg *msg, char *data, unsigned int len)
@@ -169,16 +137,16 @@ VOID AndesFreeCmdMsg(struct cmd_msg *msg)
 	ad = (RTMP_ADAPTER *)(msg->priv);
 
 	if (!ad) {
-		MTWF_DBG(ad, DBG_CAT_FW, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-				 "pAd is null\n");
+		MTWF_LOG(DBG_CAT_FW, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
+				 ("%s: pAd is null\n", __func__));
 		goto free_memory;
 	}
 
 	ctl = &ad->MCUCtrl;
 
 	if (!ctl) {
-		MTWF_DBG(ad, DBG_CAT_FW, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-				 "MCUCtrl is null\n");
+		MTWF_LOG(DBG_CAT_FW, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
+				 ("%s: MCUCtrl is null\n", __func__));
 		goto free_memory;
 	}
 
@@ -207,16 +175,16 @@ VOID AndesForceFreeCmdMsg(struct cmd_msg *msg)
 	ad = (RTMP_ADAPTER *)(msg->priv);
 
 	if (!ad) {
-		MTWF_DBG(ad, DBG_CAT_FW, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-				 "pAd is null\n");
+		MTWF_LOG(DBG_CAT_FW, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
+				 ("%s: pAd is null\n", __func__));
 		goto free_memory;
 	}
 
 	ctl = &ad->MCUCtrl;
 
 	if (!ctl) {
-		MTWF_DBG(ad, DBG_CAT_FW, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-				 "MCUCtrl is null\n");
+		MTWF_LOG(DBG_CAT_FW, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
+				 ("%s: MCUCtrl is null\n", __func__));
 		goto free_memory;
 	}
 
@@ -266,14 +234,15 @@ VOID AndesIncErrorCount(struct MCU_CTRL *ctl, enum cmd_msg_error_type type)
 			break;
 
 		default:
-			MTWF_DBG(NULL, DBG_CAT_FW, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-					 "unknown cmd_msg_error_type(%d)\n",
-					  type);
+			MTWF_LOG(DBG_CAT_FW, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
+					 ("%s:unknown cmd_msg_error_type(%d)\n",
+					  __func__, type));
 		}
 	}
 }
 
-NDIS_SPIN_LOCK *AndesGetSpinLock(struct MCU_CTRL *ctl, DL_LIST *list)
+
+static NDIS_SPIN_LOCK *AndesGetSpinLock(struct MCU_CTRL *ctl, DL_LIST *list)
 {
 	NDIS_SPIN_LOCK *lock = NULL;
 
@@ -291,21 +260,21 @@ NDIS_SPIN_LOCK *AndesGetSpinLock(struct MCU_CTRL *ctl, DL_LIST *list)
 		lock = &ctl->rx_doneq_lock;
 
 	else {
-		MTWF_DBG(NULL, DBG_CAT_FW, DBG_SUBCAT_ALL, DBG_LVL_DEBUG,
-				 "list pointer = %p\n", list);
-		MTWF_DBG(NULL, DBG_CAT_FW, DBG_SUBCAT_ALL, DBG_LVL_DEBUG,
-				 "txq = %p, rxq = %p, ackq = %p, kickq = %p, tx_doneq = %p, rx_doneq = %p\n",
+		MTWF_LOG(DBG_CAT_FW, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
+				 ("list pointer = %p\n", list));
+		MTWF_LOG(DBG_CAT_FW, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
+				 ("txq = %p, rxq = %p, ackq = %p, kickq = %p, tx_doneq = %p, rx_doneq = %p\n",
 				  &ctl->txq, &ctl->rxq, &ctl->ackq, &ctl->kickq,
-				  &ctl->tx_doneq, &ctl->rx_doneq);
-		MTWF_DBG(NULL, DBG_CAT_FW, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-				 "illegal list\n");
+				  &ctl->tx_doneq, &ctl->rx_doneq));
+		MTWF_LOG(DBG_CAT_FW, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
+				 ("%s:illegal list\n", __func__));
 	}
 
 	return lock;
 }
 
 
-UCHAR AndesGetCmdMsgSeq(struct _RTMP_ADAPTER *ad)
+static inline UCHAR AndesGetCmdMsgSeq(RTMP_ADAPTER *ad)
 {
 	struct MCU_CTRL *ctl = &ad->MCUCtrl;
 	struct cmd_msg *msg;
@@ -317,10 +286,10 @@ get_seq:
 	ctl->cmd_seq >= 0xf ? ctl->cmd_seq = 1 : ctl->cmd_seq++;
 	DlListForEach(msg, &ctl->ackq, struct cmd_msg, list) {
 		if (msg->seq == ctl->cmd_seq) {
-			MTWF_DBG(ad, DBG_CAT_FW, DBG_SUBCAT_ALL, DBG_LVL_INFO,
-					 "command(seq: %d) is still running\n", ctl->cmd_seq);
-			MTWF_DBG(ad, DBG_CAT_FW, DBG_SUBCAT_ALL, DBG_LVL_INFO,
-					 "command response nums = %d\n", GetCmdRspNum(ad));
+			MTWF_LOG(DBG_CAT_FW, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
+					 ("command(seq: %d) is still running\n", ctl->cmd_seq));
+			MTWF_LOG(DBG_CAT_FW, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
+					 ("command response nums = %d\n", GetCmdRspNum(ad)));
 			goto get_seq;
 		}
 	}
@@ -330,7 +299,7 @@ get_seq:
 }
 
 
-VOID _AndesQueueTailCmdMsg(DL_LIST *list, struct cmd_msg *msg, enum cmd_msg_state state)
+static VOID _AndesQueueTailCmdMsg(DL_LIST *list, struct cmd_msg *msg, enum cmd_msg_state state)
 {
 	msg->state = state;
 	DlListAddTail(list, &msg->list);
@@ -394,6 +363,8 @@ UINT32 AndesQueueLen(struct MCU_CTRL *ctl, DL_LIST *list)
 	return qlen;
 }
 
+/*AndesQueueEmpty is uselsess, disable it*/
+
 static VOID AndesQueueInit(struct MCU_CTRL *ctl, DL_LIST *list)
 {
 	unsigned long flags;
@@ -411,7 +382,7 @@ static VOID AndesQueueInit(struct MCU_CTRL *ctl, DL_LIST *list)
 
 VOID _AndesUnlinkCmdMsg(struct cmd_msg *msg, DL_LIST *list)
 {
-	if ((!msg) || (!msg->list.Next) || (!msg->list.Prev))
+	if (!msg)
 		return;
 
 	DlListDel(&msg->list);
@@ -462,9 +433,40 @@ struct cmd_msg *AndesDequeueCmdMsg(struct MCU_CTRL *ctl, DL_LIST *list)
 	return msg;
 }
 
+
+
+#ifdef RTMP_PCI_SUPPORT
+VOID PciKickOutCmdMsgComplete(PNDIS_PACKET net_pkt)
+{
+	struct cmd_msg *msg = CMD_MSG_CB(net_pkt)->msg;
+	RTMP_ADAPTER *ad = (RTMP_ADAPTER *)msg->priv;
+	struct MCU_CTRL *ctl = &ad->MCUCtrl;
+
+	if (!OS_TEST_BIT(MCU_INIT, &ctl->flags))
+		return;
+
+	if (!IS_CMD_MSG_NEED_SYNC_WITH_FW_FLAG_SET(msg)) {
+		AndesUnlinkCmdMsg(msg, &ctl->kickq);
+		MTWF_LOG(DBG_CAT_FW, DBG_SUBCAT_ALL, DBG_LVL_INFO,
+				 ("%s: msg state = %d\n", __func__, msg->state));
+		AndesQueueTailCmdMsg(&ctl->tx_doneq, msg, tx_done);
+	} else  {
+		if (msg->state != tx_done)
+			msg->state = wait_ack;
+	}
+
+	AndesBhSchedule(ad);
+}
+#endif /* RTMP_PCI_SUPPORT */
+
+
+
+
 VOID AndesRxProcessCmdMsg(RTMP_ADAPTER *ad, struct cmd_msg *rx_msg)
 {
-	hif_rx_event_process(ad, rx_msg);
+	RX_BLK RxBlk;
+
+	mt_rx_pkt_process(ad, HIF_RX_IDX1, &RxBlk, rx_msg->net_pkt);
 }
 
 
@@ -475,8 +477,22 @@ VOID AndesCmdMsgBh(unsigned long param)
 	struct cmd_msg *msg = NULL;
 
 	while ((msg = AndesDequeueCmdMsg(ctl, &ctl->rx_doneq))) {
-		AndesRxProcessCmdMsg(ad, msg);
-		AndesFreeCmdMsg(msg);
+		switch (msg->state) {
+		case rx_done:
+			AndesRxProcessCmdMsg(ad, msg);
+			AndesFreeCmdMsg(msg);
+			break;
+
+		case rx_receive_fail:
+			AndesFreeCmdMsg(msg);
+			break;
+
+		default:
+			MTWF_LOG(DBG_CAT_FW, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
+					 ("unknow msg state(%d)\n", msg->state));
+			AndesFreeCmdMsg(msg);
+			break;
+		}
 	}
 
 	while ((msg = AndesDequeueCmdMsg(ctl, &ctl->tx_doneq))) {
@@ -487,19 +503,24 @@ VOID AndesCmdMsgBh(unsigned long param)
 #ifdef DBG_STARVATION
 			starv_dbg_put(&msg->starv);
 #endif /*DBG_STARVATION*/
+			AndesFreeCmdMsg(msg);
 			break;
 
 		default:
-			MTWF_DBG(ad, DBG_CAT_FW, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-					 "unknown msg state(%d)\n", msg->state);
+			MTWF_LOG(DBG_CAT_FW, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
+					 ("unknow msg state(%d)\n", msg->state));
+			AndesFreeCmdMsg(msg);
 			break;
 		}
-		AndesFreeCmdMsg(msg);
 	}
 
-	if (OS_TEST_BIT(MCU_INIT, &ctl->flags))
+	if (OS_TEST_BIT(MCU_INIT, &ctl->flags)) {
 		AndesBhSchedule(ad);
+	}
 }
+
+
+
 
 VOID AndesBhSchedule(RTMP_ADAPTER *ad)
 {
@@ -545,83 +566,130 @@ VOID AndesCleanupCmdMsg(RTMP_ADAPTER *ad, DL_LIST *list)
 		RTMP_SPIN_UNLOCK_IRQRESTORE(lock, &flags);
 }
 
-VOID AndesCtrlInit(RTMP_ADAPTER *ad)
+
+#if defined(RTMP_PCI_SUPPORT) || defined(RTMP_RBUS_SUPPORT)
+static VOID AndesCtrlPciInit(RTMP_ADAPTER *ad)
 {
 	struct MCU_CTRL *ctl = &ad->MCUCtrl;
+
+	RTMP_CLEAR_FLAG(ad, fRTMP_ADAPTER_MCU_SEND_IN_BAND_CMD);
+	ctl->cmd_seq = 0;
+#ifndef WORKQUEUE_BH
+	RTMP_OS_TASKLET_INIT(ad, &ctl->cmd_msg_task, AndesCmdMsgBh, (unsigned long)ad);
+#else
+	tasklet_init(&ctl->cmd_msg_task, AndesCmdMsgBh, (unsigned long)ad);
+#endif
+	NdisAllocateSpinLock(ad, &ctl->txq_lock);
+	AndesQueueInit(ctl, &ctl->txq);
+	MTWF_LOG(DBG_CAT_FW, DBG_SUBCAT_ALL, DBG_LVL_OFF, ("ctl->txq = %p\n", &ctl->txq));
+	NdisAllocateSpinLock(ad, &ctl->rxq_lock);
+	AndesQueueInit(ctl, &ctl->rxq);
+	MTWF_LOG(DBG_CAT_FW, DBG_SUBCAT_ALL, DBG_LVL_OFF, ("ctl->rxq = %p\n", &ctl->rxq));
+	NdisAllocateSpinLock(ad, &ctl->ackq_lock);
+	AndesQueueInit(ctl, &ctl->ackq);
+	MTWF_LOG(DBG_CAT_FW, DBG_SUBCAT_ALL, DBG_LVL_OFF, ("ctl->ackq = %p\n", &ctl->ackq));
+	NdisAllocateSpinLock(ad, &ctl->kickq_lock);
+	AndesQueueInit(ctl, &ctl->kickq);
+	MTWF_LOG(DBG_CAT_FW, DBG_SUBCAT_ALL, DBG_LVL_OFF, ("ctl->kickq = %p\n", &ctl->kickq));
+	NdisAllocateSpinLock(ad, &ctl->tx_doneq_lock);
+	AndesQueueInit(ctl, &ctl->tx_doneq);
+	MTWF_LOG(DBG_CAT_FW, DBG_SUBCAT_ALL, DBG_LVL_OFF, ("ctl->tx_doneq = %p\n", &ctl->tx_doneq));
+	NdisAllocateSpinLock(ad, &ctl->rx_doneq_lock);
+	AndesQueueInit(ctl, &ctl->rx_doneq);
+	MTWF_LOG(DBG_CAT_FW, DBG_SUBCAT_ALL, DBG_LVL_OFF, ("ctl->rx_doneq = %p\n", &ctl->rx_doneq));
+	ctl->tx_kickout_fail_count = 0;
+	ctl->tx_timeout_fail_count = 0;
+	ctl->rx_receive_fail_count = 0;
+	ctl->alloc_cmd_msg = 0;
+	ctl->free_cmd_msg = 0;
+	OS_SET_BIT(MCU_INIT, &ctl->flags);
+	ctl->ad = ad;
+}
+#endif
+
+
+
+
+
+
+VOID AndesCtrlInit(RTMP_ADAPTER *pAd)
+{
+	struct MCU_CTRL *ctl = &pAd->MCUCtrl;
+
 	if (!OS_TEST_BIT(MCU_INIT, &ctl->flags)) {
-		/*general init*/
-		RTMP_CLEAR_FLAG(ad, fRTMP_ADAPTER_MCU_SEND_IN_BAND_CMD);
-		ctl->cmd_seq = 0;
-		RTMP_OS_TASKLET_INIT(ad, &ctl->cmd_msg_task, AndesCmdMsgBh, (unsigned long)ad);
-		NdisAllocateSpinLock(ad, &ctl->txq_lock);
-		AndesQueueInit(ctl, &ctl->txq);
-		NdisAllocateSpinLock(ad, &ctl->rxq_lock);
-		AndesQueueInit(ctl, &ctl->rxq);
-		NdisAllocateSpinLock(ad, &ctl->ackq_lock);
-		AndesQueueInit(ctl, &ctl->ackq);
-		NdisAllocateSpinLock(ad, &ctl->kickq_lock);
-		AndesQueueInit(ctl, &ctl->kickq);
-		NdisAllocateSpinLock(ad, &ctl->tx_doneq_lock);
-		AndesQueueInit(ctl, &ctl->tx_doneq);
-		NdisAllocateSpinLock(ad, &ctl->rx_doneq_lock);
-		AndesQueueInit(ctl, &ctl->rx_doneq);
-		ctl->tx_kickout_fail_count = 0;
-		ctl->tx_timeout_fail_count = 0;
-		ctl->rx_receive_fail_count = 0;
-		ctl->alloc_cmd_msg = 0;
-		ctl->free_cmd_msg = 0;
-		ctl->ad = ad;
-		/*hif specific init*/
-		hif_mcu_init(ad->hdev_ctrl);
-		OS_SET_BIT(MCU_INIT, &ctl->flags);
+#ifdef RTMP_MAC_PCI
+
+		if (IS_PCI_INF(pAd) || IS_RBUS_INF(pAd))
+			AndesCtrlPciInit(pAd);
+
+#endif
 	}
 
 	ctl->power_on = FALSE;
 	ctl->dpd_on = FALSE;
 	ctl->RxStream0 = 0;
 	ctl->RxStream1 = 0;
-	NdisAllocateSpinLock(ad, &ctl->msg_lock);
+	NdisAllocateSpinLock(pAd, &ctl->msg_lock);
 #ifdef DBG_STARVATION
-	andes_starv_block_init(&ad->starv_log_ctrl, ctl);
+	andes_starv_block_init(&pAd->starv_log_ctrl, ctl);
 #endif /*DBG_STARVATION*/
 }
 
-VOID AndesCtrlExit(RTMP_ADAPTER *ad)
+
+
+
+#ifdef RTMP_PCI_SUPPORT
+static VOID AndesCtrlPciExit(RTMP_ADAPTER *ad)
 {
 	struct MCU_CTRL *ctl = &ad->MCUCtrl;
+
+	RTMP_CLEAR_FLAG(ad, fRTMP_ADAPTER_MCU_SEND_IN_BAND_CMD);
+	/*clear andes queue by tasklet*/
+	AndesBhSchedule(ad);
+	OS_CLEAR_BIT(MCU_INIT, &ctl->flags);
+	RTMP_OS_TASKLET_KILL(&ctl->cmd_msg_task);
+	AndesCleanupCmdMsg(ad, &ctl->txq);
+	NdisFreeSpinLock(&ctl->txq_lock);
+	AndesCleanupCmdMsg(ad, &ctl->ackq);
+	NdisFreeSpinLock(&ctl->ackq_lock);
+	AndesCleanupCmdMsg(ad, &ctl->rxq);
+	NdisFreeSpinLock(&ctl->rxq_lock);
+	AndesCleanupCmdMsg(ad, &ctl->kickq);
+	NdisFreeSpinLock(&ctl->kickq_lock);
+	AndesCleanupCmdMsg(ad, &ctl->tx_doneq);
+	NdisFreeSpinLock(&ctl->tx_doneq_lock);
+	AndesCleanupCmdMsg(ad, &ctl->rx_doneq);
+	NdisFreeSpinLock(&ctl->rx_doneq_lock);
+	MTWF_LOG(DBG_CAT_FW, DBG_SUBCAT_ALL, DBG_LVL_OFF, ("tx_kickout_fail_count = %ld\n", ctl->tx_kickout_fail_count));
+	MTWF_LOG(DBG_CAT_FW, DBG_SUBCAT_ALL, DBG_LVL_OFF, ("tx_timeout_fail_count = %ld\n", ctl->tx_timeout_fail_count));
+	MTWF_LOG(DBG_CAT_FW, DBG_SUBCAT_ALL, DBG_LVL_OFF, ("rx_receive_fail_count = %ld\n", ctl->rx_receive_fail_count));
+	MTWF_LOG(DBG_CAT_FW, DBG_SUBCAT_ALL, DBG_LVL_OFF, ("alloc_cmd_msg = %ld\n", ctl->alloc_cmd_msg));
+	MTWF_LOG(DBG_CAT_FW, DBG_SUBCAT_ALL, DBG_LVL_OFF, ("free_cmd_msg = %ld\n", ctl->free_cmd_msg));
+}
+#endif
+
+
+
+VOID AndesCtrlExit(RTMP_ADAPTER *pAd)
+{
+	struct MCU_CTRL *ctl = &pAd->MCUCtrl;
 
 	if (OS_TEST_BIT(MCU_INIT, &ctl->flags)) {
 #ifdef DBG_STARVATION
 		unregister_starv_block(&ctl->block);
 #endif /*DBG_STARVATION*/
-		/*hif specific*/
-		hif_mcu_exit(ad->hdev_ctrl);
-		/*generic setting*/
-		AndesBhSchedule(ad);
-		OS_CLEAR_BIT(MCU_INIT, &ctl->flags);
-		RTMP_OS_TASKLET_KILL(&ctl->cmd_msg_task);
-		AndesCleanupCmdMsg(ad, &ctl->txq);
-		NdisFreeSpinLock(&ctl->txq_lock);
-		AndesCleanupCmdMsg(ad, &ctl->ackq);
-		NdisFreeSpinLock(&ctl->ackq_lock);
-		AndesCleanupCmdMsg(ad, &ctl->rxq);
-		NdisFreeSpinLock(&ctl->rxq_lock);
-		AndesCleanupCmdMsg(ad, &ctl->kickq);
-		NdisFreeSpinLock(&ctl->kickq_lock);
-		AndesCleanupCmdMsg(ad, &ctl->tx_doneq);
-		NdisFreeSpinLock(&ctl->tx_doneq_lock);
-		AndesCleanupCmdMsg(ad, &ctl->rx_doneq);
-		NdisFreeSpinLock(&ctl->rx_doneq_lock);
-		MTWF_DBG(ad, DBG_CAT_FW, DBG_SUBCAT_ALL, DBG_LVL_INFO, "tx_kickout_fail_count = %ld\n", ctl->tx_kickout_fail_count);
-		MTWF_DBG(ad, DBG_CAT_FW, DBG_SUBCAT_ALL, DBG_LVL_INFO, "tx_timeout_fail_count = %ld\n", ctl->tx_timeout_fail_count);
-		MTWF_DBG(ad, DBG_CAT_FW, DBG_SUBCAT_ALL, DBG_LVL_INFO, "rx_receive_fail_count = %ld\n", ctl->rx_receive_fail_count);
-		MTWF_DBG(ad, DBG_CAT_FW, DBG_SUBCAT_ALL, DBG_LVL_INFO, "alloc_cmd_msg = %ld\n", ctl->alloc_cmd_msg);
-		MTWF_DBG(ad, DBG_CAT_FW, DBG_SUBCAT_ALL, DBG_LVL_INFO, "free_cmd_msg = %ld\n", ctl->free_cmd_msg);
+#ifdef RTMP_PCI_SUPPORT
+
+		if (IS_PCI_INF(pAd) || IS_RBUS_INF(pAd))
+			AndesCtrlPciExit(pAd);
+
+#endif
 	}
 
 	ctl->power_on = FALSE;
 	ctl->dpd_on = FALSE;
 }
+
 
 static INT32 AndesDequeueAndKickOutCmdMsgs(RTMP_ADAPTER *ad)
 {
@@ -630,7 +698,6 @@ static INT32 AndesDequeueAndKickOutCmdMsgs(RTMP_ADAPTER *ad)
 	struct MCU_CTRL *ctl = &ad->MCUCtrl;
 	int ret = NDIS_STATUS_SUCCESS;
 	struct _RTMP_CHIP_OP *chip_ops = hc_get_chip_ops(ad->hdev_ctrl);
-	RTMP_ARCH_OP *arch_ops = hc_get_arch_ops(ad->hdev_ctrl);
 
 	while ((msg = AndesDequeueCmdMsg(ctl, &ctl->txq)) != NULL) {
 		if (!RTMP_TEST_FLAG(ad, fRTMP_ADAPTER_MCU_SEND_IN_BAND_CMD)     ||
@@ -638,57 +705,39 @@ static INT32 AndesDequeueAndKickOutCmdMsgs(RTMP_ADAPTER *ad)
 			RTMP_TEST_FLAG(ad, fRTMP_ADAPTER_SUSPEND)) {
 			if (!IS_CMD_MSG_NEED_SYNC_WITH_FW_FLAG_SET(msg))
 				AndesForceFreeCmdMsg(msg);
-			else if ((msg->retry_times > 1) && (NULL != msg->net_pkt) && (NULL == msg->retry_pkt)) {
-				OS_PKT_COPY(RTPKT_TO_OSPKT(msg->net_pkt), msg->retry_pkt);
-				RTMPFreeNdisPacket(ad, msg->net_pkt);
-				msg->net_pkt = NULL;
-			}
-			MTWF_DBG(ad, DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_WARN,
-				"skip msg for flag=%lx\n", ad->Flags);
+
 			continue;
 		}
 
 		net_pkt = (VOID *)msg->net_pkt;
 
 		if (msg->state != tx_retransmit) {
-#ifdef WIFI_UNIFIED_COMMAND
-			if (IS_CMD_MSG_UNI_CMD_FLAG_SET(msg)) {
-				if (arch_ops->fill_uni_cmd_header != NULL)
-					arch_ops->fill_uni_cmd_header(ad, msg, net_pkt);
-			} else
-#endif /* WIFI_UNIFIED_COMMAND */
-			{
-				if (IS_CMD_MSG_NEED_SYNC_WITH_FW_FLAG_SET(msg))
-					msg->seq = AndesGetCmdMsgSeq(ad);
-				else
-					msg->seq = 0;
-				if (arch_ops->fill_cmd_header != NULL)
-					arch_ops->fill_cmd_header(ad, msg, net_pkt);
-			}
+			if (IS_CMD_MSG_NEED_SYNC_WITH_FW_FLAG_SET(msg))
+				msg->seq = AndesGetCmdMsgSeq(ad);
+			else
+				msg->seq = 0;
+
+			if (chip_ops->andes_fill_cmd_header != NULL)
+				chip_ops->andes_fill_cmd_header(msg, net_pkt);
 		}
 
 		if (msg->retry_times > 1) {
-			OS_PKT_COPY(RTPKT_TO_OSPKT(net_pkt), msg->retry_pkt);
-			if (msg->retry_pkt == NULL) {
-				msg->retry_times = 0;
-				MTWF_DBG(ad, DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_ERROR, "Allocate memory failed!\n");
-			}
+			OS_PKT_CLONE(ad, net_pkt, msg->retry_pkt, MEM_ALLOC_FLAG);
 		}
 
-		if (chip_ops->kick_out_cmd_msg != NULL)
-			ret = chip_ops->kick_out_cmd_msg(ad, msg);
+#if defined(RTMP_PCI_SUPPORT) || defined(RTMP_RBUS_SUPPORT)
+
+		if (chip_ops->pci_kick_out_cmd_msg != NULL)
+			ret = chip_ops->pci_kick_out_cmd_msg(ad, msg);
+
+#endif
 
 		if (ret) {
-			MTWF_DBG(ad, DBG_CAT_FW, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-					 "kick out msg fail\n");
+			MTWF_LOG(DBG_CAT_FW, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
+					 ("kick out msg fail\n"));
 
-			if (ret == NDIS_STATUS_FAILURE) {
-				if (msg->retry_pkt) {
-					RTMPFreeNdisPacket(ad, msg->retry_pkt);
-					msg->retry_pkt = NULL;
-				}
+			if (ret == NDIS_STATUS_FAILURE)
 				AndesForceFreeCmdMsg(msg);
-			}
 
 			break;
 		}
@@ -698,7 +747,9 @@ static INT32 AndesDequeueAndKickOutCmdMsgs(RTMP_ADAPTER *ad)
 	return ret;
 }
 
-static INT32 AndesWaitForCompleteTimeout(struct cmd_msg *msg, ULONG timeout)
+
+
+static ULONG AndesWaitForCompleteTimeout(struct cmd_msg *msg, ULONG timeout)
 {
 	ULONG ret = 0;
 	ULONG expire = timeout ?
@@ -707,41 +758,25 @@ static INT32 AndesWaitForCompleteTimeout(struct cmd_msg *msg, ULONG timeout)
 	return ret;
 }
 
-#ifdef WF_RESET_SUPPORT
-#ifdef CONFIG_CONNINFRA_SUPPORT
-enum consys_drv_type {
-        CONNDRV_TYPE_BT = 0,
-        CONNDRV_TYPE_FM = 1,
-        CONNDRV_TYPE_GPS = 2,
-        CONNDRV_TYPE_WIFI = 3,
-        CONNDRV_TYPE_CONNINFRA = 4,
-        CONNDRV_TYPE_MAX
-};
-int conninfra_pwr_on(enum consys_drv_type drv_type);
-int conninfra_pwr_off(enum consys_drv_type drv_type);
-#endif /* CONFIG_CONNINFRA_SUPPORT */
-#endif
 
 INT32 AndesSendCmdMsg(PRTMP_ADAPTER ad, struct cmd_msg *msg)
 {
 	struct MCU_CTRL *ctl = &ad->MCUCtrl;
 	BOOLEAN is_cmd_need_wait = IS_CMD_MSG_NEED_SYNC_WITH_FW_FLAG_SET(msg);
 	int ret = NDIS_STATUS_SUCCESS;
-	static BOOLEAN is_dump_stack = FALSE;
-#ifdef CONFIG_AP_SUPPORT
-	int exp_type = 0;
+#ifdef CONFIG_RECOVERY_ON_INTERRUPT_MISS
+#ifdef INTELP6_SUPPORT
+	struct _RTMP_CHIP_OP *ops = hc_get_chip_ops(ad->hdev_ctrl);
+#endif
 #endif
 
 	if (in_interrupt() && IS_CMD_MSG_NEED_SYNC_WITH_FW_FLAG_SET(msg)) {
-		MTWF_DBG(ad, DBG_CAT_FW, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-				 "BUG: called from invalid context\n");
-		MTWF_DBG(ad, DBG_CAT_FW, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-				 "Command type = %x, Extension command type = %x\n",
-				  msg->attr.type, msg->attr.ext_type);
-		if (!is_dump_stack) {
-			dump_stack();
-			is_dump_stack = TRUE;
-		}
+		MTWF_LOG(DBG_CAT_FW, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
+				 ("BUG: %s is called from invalid context\n",
+				  __func__));
+		MTWF_LOG(DBG_CAT_FW, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
+				 ("%s: Command type = %x, Extension command type = %x\n",
+				  __func__, msg->attr.type, msg->attr.ext_type));
 		AndesForceFreeCmdMsg(msg);
 		return NDIS_STATUS_FAILURE;
 	}
@@ -750,44 +785,26 @@ INT32 AndesSendCmdMsg(PRTMP_ADAPTER ad, struct cmd_msg *msg)
 		RTMP_TEST_FLAG(ad, fRTMP_ADAPTER_NIC_NOT_EXIST)         ||
 		RTMP_TEST_FLAG(ad, fRTMP_ADAPTER_SUSPEND)) {
 		if (!RTMP_TEST_FLAG(ad, fRTMP_ADAPTER_MCU_SEND_IN_BAND_CMD)) {
-			MTWF_DBG(ad, DBG_CAT_FW, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-					 "Could not send in band command due to diablefRTMP_ADAPTER_MCU_SEND_IN_BAND_CMD\n");
+			MTWF_LOG(DBG_CAT_FW, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
+					 ("%s: Could not send in band command due to diablefRTMP_ADAPTER_MCU_SEND_IN_BAND_CMD\n",
+					  __func__));
 		} else if (RTMP_TEST_FLAG(ad, fRTMP_ADAPTER_NIC_NOT_EXIST)) {
-			MTWF_DBG(ad, DBG_CAT_FW, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-					 "Could not send in band command due to fRTMP_ADAPTER_NIC_NOT_EXIST\n");
+			MTWF_LOG(DBG_CAT_FW, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
+					 ("%s: Could not send in band command due to fRTMP_ADAPTER_NIC_NOT_EXIST\n",
+					  __func__));
 		} else if (RTMP_TEST_FLAG(ad, fRTMP_ADAPTER_SUSPEND)) {
-			MTWF_DBG(ad, DBG_CAT_FW, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-					 "Could not send in band command due to fRTMP_ADAPTER_SUSPEND\n");
+			MTWF_LOG(DBG_CAT_FW, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
+					 ("%s: Could not send in band command due to fRTMP_ADAPTER_SUSPEND\n",
+					  __func__));
 		}
 
-		MTWF_DBG(ad, DBG_CAT_FW, DBG_SUBCAT_ALL, DBG_LVL_WARN,
-			"Command type = %x, Extension command type = %x\n",
-				  msg->attr.type, msg->attr.ext_type);
+		MTWF_LOG(DBG_CAT_FW, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
+				 ("%s: Command type = %x, Extension command type = %x\n",
+				  __func__, msg->attr.type, msg->attr.ext_type));
 
 		AndesForceFreeCmdMsg(msg);
 		return NDIS_STATUS_FAILURE;
 	}
-
-#ifdef ERR_RECOVERY
-	/* prohibit to sned fw commnad during SER period */
-	if (IsStopingPdma(&ad->ErrRecoveryCtl)) {
-		MTWF_DBG(ad, DBG_CAT_HW, CATHW_SER, DBG_LVL_INFO,
-			"(SER Period): Command type = %x, Extension command type = %x\n",
-			 msg->attr.type, msg->attr.ext_type);
-		AndesForceFreeCmdMsg(msg);
-		return NDIS_STATUS_FAILURE;
-	}
-#endif /* ERR_RECOVERY */
-
-#ifdef WIFI_MODULE_DVT
-	if (mdvt_block_command(ad, msg) == TRUE) {
-		MTWF_DBG(ad, DBG_CAT_FW, DBG_SUBCAT_ALL, DBG_LVL_WARN,
-			"MDVT Block,Command type = %x, Extension command type = %x\n",
-			 msg->attr.type, msg->attr.ext_type);
-		AndesForceFreeCmdMsg(msg);
-		return NDIS_STATUS_FAILURE;
-	}
-#endif
 
 #ifdef DBG_STARVATION
 	starv_dbg_init(&ctl->block, &msg->starv);
@@ -795,13 +812,9 @@ INT32 AndesSendCmdMsg(PRTMP_ADAPTER ad, struct cmd_msg *msg)
 #endif /*DBG_STARVATION*/
 	AndesQueueTailCmdMsg(&ctl->txq, msg, tx_start);
 retransmit:
+
 	if (AndesDequeueAndKickOutCmdMsgs(ad) != NDIS_STATUS_SUCCESS)
 		goto bailout;
-
-#ifdef WF_RESET_SUPPORT
-	if(ad->wf_reset_in_progress == TRUE)
-		goto bailout;
-#endif
 
 	/* Wait for response */
 	if (is_cmd_need_wait) {
@@ -813,187 +826,80 @@ retransmit:
 		if (!OS_TEST_BIT(MCU_INIT, &ctl->flags)) {
 			/*If need wait, clean up will trigger complete for here to free msg*/
 			AndesFreeCmdMsg(msg);
-			MTWF_DBG(ad, DBG_CAT_HW, DBG_SUBCAT_ALL, DBG_LVL_WARN,
-				"fail for MCU_INIT\n");
 			goto bailout;
 		}
 
 		if (!IsComplete) {
-			P_FWCMD_TIMEOUT_RECORD pToRec = NULL;
-			BOOLEAN bDump = TRUE;
-
 			ret = NDIS_STATUS_FAILURE;
-
-			/* record timeout info */
-			pToRec = &ad->FwCmdTimeoutRecord[ad->FwCmdTimeoutCnt % FW_CMD_TO_RECORD_CNT];
-			NdisGetSystemUpTime(&pToRec->timestamp);
-			pToRec->type = 		msg->attr.type;
-			pToRec->ext_type = 	msg->attr.ext_type;
-			pToRec->seq = 		msg->seq;
-			pToRec->state = 	msg->state;
-			ad->FwCmdTimeoutCnt++;
-#ifdef WF_RESET_SUPPORT
-			ad->FwCmdTimeoutcheckCnt++;
-#endif
-			/* check timeout print count */
-			if ((ad->FwCmdTimeoutCnt > ad->FwCmdTimeoutPrintCnt) &&
-				(ad->FwCmdTimeoutPrintCnt != 0))
-				bDump = FALSE;
-
-#ifdef ERR_RECOVERY
-			/* check timeout (possibly) caused by SER */
-			{
-				UINT32 Highpart = 0;
-				UINT32 Lowpart = 0;
-
-				/* extra timeout allowance 3 sec for cmd timeout */
-				#define SER_TIMEOUT_ALLOWANCE 3000
-
-				AsicGetTsfTime(ad, &Highpart, &Lowpart, HW_BSSID_0);
-				if ((Lowpart - ad->HwCtrl.ser_times[SER_TIME_ID_T0]) <
-					 ((CMD_MSG_TIMEOUT + SER_TIMEOUT_ALLOWANCE) * 1000)) {
-					MTWF_DBG(ad, DBG_CAT_HW, CATHW_SER, DBG_LVL_INFO,
-							  "FWCmdTimeout(SER Period): command (%x), ext_cmd_type (%x), seq(%d), delta(%dus)\n",
-							  msg->attr.type, msg->attr.ext_type,
-							  msg->seq,
-							  Lowpart - ad->HwCtrl.ser_times[SER_TIME_ID_T0]);
-					bDump = FALSE;
-				}
-			}
-#endif
-
-			if (bDump) {
-				MTWF_DBG(ad, DBG_CAT_FW, DBG_SUBCAT_ALL, DBG_LVL_WARN,
-						 "FWCmdTimeout: command (%x), ext_cmd_type (%x), seq(%d), timeout(%dms)\n",
-						  msg->attr.type, msg->attr.ext_type,
-						  msg->seq,
-						  (msg->attr.ctrl.wait_ms_time == 0) ?
-						  CMD_MSG_TIMEOUT : msg->attr.ctrl.wait_ms_time);
-				MTWF_DBG(ad, DBG_CAT_FW, DBG_SUBCAT_ALL, DBG_LVL_WARN,
-						 "pAd->Flags  = 0x%.8lx\n", ad->Flags);
-				MTWF_DBG(ad, DBG_CAT_FW, DBG_SUBCAT_ALL, DBG_LVL_WARN,
-						 "txq qlen = %d\n", AndesQueueLen(ctl, &ctl->txq));
-				MTWF_DBG(ad, DBG_CAT_FW, DBG_SUBCAT_ALL, DBG_LVL_WARN,
-						 "rxq qlen = %d\n", AndesQueueLen(ctl, &ctl->rxq));
-				MTWF_DBG(ad, DBG_CAT_FW, DBG_SUBCAT_ALL, DBG_LVL_WARN,
-						 "kickq qlen = %d\n", AndesQueueLen(ctl, &ctl->kickq));
-				MTWF_DBG(ad, DBG_CAT_FW, DBG_SUBCAT_ALL, DBG_LVL_WARN,
-						 "ackq qlen = %d\n", AndesQueueLen(ctl, &ctl->ackq));
-				MTWF_DBG(ad, DBG_CAT_FW, DBG_SUBCAT_ALL, DBG_LVL_WARN,
-						 "tx_doneq.qlen = %d\n", AndesQueueLen(ctl, &ctl->tx_doneq));
-				MTWF_DBG(ad, DBG_CAT_FW, DBG_SUBCAT_ALL, DBG_LVL_WARN,
-						 "rx_done qlen = %d\n", AndesQueueLen(ctl, &ctl->rx_doneq));
-			}
+			MTWF_LOG(DBG_CAT_FW, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
+					 ("FWCmdTimeout: command (%x), ext_cmd_type (%x), seq(%d), timeout(%dms)\n",
+					  msg->attr.type, msg->attr.ext_type,
+					  msg->seq,
+					  (msg->attr.ctrl.wait_ms_time == 0) ?
+					  CMD_MSG_TIMEOUT : msg->attr.ctrl.wait_ms_time));
+			MTWF_LOG(DBG_CAT_FW, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
+					 ("pAd->Flags  = 0x%.8lx\n", ad->Flags));
+			MTWF_LOG(DBG_CAT_FW, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
+					 ("txq qlen = %d\n", AndesQueueLen(ctl, &ctl->txq)));
+			MTWF_LOG(DBG_CAT_FW, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
+					 ("rxq qlen = %d\n", AndesQueueLen(ctl, &ctl->rxq)));
+			MTWF_LOG(DBG_CAT_FW, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
+					 ("kickq qlen = %d\n", AndesQueueLen(ctl, &ctl->kickq)));
+			MTWF_LOG(DBG_CAT_FW, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
+					 ("ackq qlen = %d\n", AndesQueueLen(ctl, &ctl->ackq)));
+			MTWF_LOG(DBG_CAT_FW, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
+					 ("tx_doneq.qlen = %d\n", AndesQueueLen(ctl, &ctl->tx_doneq)));
+			MTWF_LOG(DBG_CAT_FW, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
+					 ("rx_done qlen = %d\n", AndesQueueLen(ctl, &ctl->rx_doneq)));
 
 			if (msg->state == wait_cmd_out_and_ack) {
-				/*unlink acq recycle msg*/
-				hif_mcu_unlink_ackq(msg);
+				AndesUnlinkCmdMsg(msg, &ctl->ackq);
 			} else if (msg->state == wait_ack)
 				AndesUnlinkCmdMsg(msg, &ctl->ackq);
 
+			MTWF_LOG(DBG_CAT_FW, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
+					 ("%s: msg state = %d\n", __func__, msg->state));
 			AndesIncErrorCount(ctl, error_tx_timeout_fail);
 			state = tx_timeout_fail;
 
 			if (msg->retry_times > 0)
 				msg->retry_times--;
 
-			if (bDump) {
-				MTWF_DBG(ad, DBG_CAT_FW, DBG_SUBCAT_ALL, DBG_LVL_WARN,
-						 "msg state = %d\n", msg->state);
-				MTWF_DBG(ad, DBG_CAT_FW, DBG_SUBCAT_ALL, DBG_LVL_WARN,
-						 "msg->retry_times = %d\n", msg->retry_times);
-				MTWF_DBG(ad, DBG_CAT_FW, DBG_SUBCAT_ALL, DBG_LVL_WARN,
-						 "FwCmdTimeoutCnt  = %d\n", ad->FwCmdTimeoutCnt);
-
-#ifdef CONFIG_AP_SUPPORT
-				/* FW status check and core_dump to file */
-#if defined(MT7915) || defined(MT7986) || defined(MT7916) || defined(MT7981)
-				if (IS_MT7915(ad) || IS_MT7986(ad) || IS_MT7916(ad) || IS_MT7981(ad))
-					exp_type = ChkExceptionType(ad);
-#endif
-
-				if (ad->FwCmdTimeoutCnt < FW_CMD_TO_DBG_INFO_PRINT_CNT) {
-					if (exp_type == 0) {
-						MTWF_PRINT("FW is normal\n");
-						Show_FwDbgInfo_Proc(ad, NULL);
-						show_trinfo_proc(ad, NULL);
-					} else {
-						MTWF_PRINT("FW is exception\n\n\n\n");
-						Show_FwDbgInfo_Proc(ad, NULL);
-						show_trinfo_proc(ad, NULL);
-
-						RtmpusecDelay(5000);
-						if (ad->bIsBeenDumped == FALSE) {
-							ad->bIsBeenDumped = TRUE;
-							Show_CoreDump_Proc(ad, NULL);
-						}
-
-#ifdef WF_RESET_SUPPORT
-						RTMP_CHIP_OP *chip_op = hc_get_chip_ops(ad->hdev_ctrl);
-#ifdef CONFIG_CONNINFRA_SUPPORT
-						conninfra_pwr_off(CONNDRV_TYPE_WIFI);
-						mdelay(15);
-						conninfra_pwr_on(CONNDRV_TYPE_WIFI);
-						mdelay(15);
-#endif /* CONFIG_CONNINFRA_SUPPORT */
-						if (IS_MT7916(ad)) {
-							UINT32 macVal;
-							RTMP_IO_READ32(ad->hdev_ctrl, 0x70002600, &macVal);
-							macVal |= 0x1;
-							RTMP_IO_WRITE32(ad->hdev_ctrl, 0x70002600, macVal);
-							mdelay(15);
-							macVal &= 0xfffffffe;
-							RTMP_IO_WRITE32(ad->hdev_ctrl, 0x70002600, macVal);
-							mdelay(15);
-						}
-
-						ad->wf_reset_wm_count++;
-						if (chip_op->do_wifi_reset)
-							chip_op->do_wifi_reset(ad);
-#endif
-
-
-					}
-				}
-#endif /* CONFIG_AP_SUPPORT */
-
-				ASSERT(FALSE);
-#ifdef WF_RESET_SUPPORT
-				struct _RTMP_CHIP_OP *ops = hc_get_chip_ops(ad->hdev_ctrl);
-
-				if (ops->heart_beat_check)
-					ops->heart_beat_check(ad);
-#endif
-
-				if (ad->FwCmdTimeoutCnt == ad->FwCmdTimeoutPrintCnt) {
-					struct _RTMP_CHIP_OP *ops = hc_get_chip_ops(ad->hdev_ctrl);
-					UCHAR BandIdx;
-
-					if (ops->hw_auto_debug_trigger) {
-						for (BandIdx = 0; BandIdx < DBDC_BAND_NUM; BandIdx++)
-							ops->hw_auto_debug_trigger(ad, BandIdx, ENUM_AHDBUG_L1_WFDMA, 0);
-					}
-
-					MTWF_DBG(ad, DBG_CAT_FW, DBG_SUBCAT_ALL, DBG_LVL_WARN,
-							 "!!! FWCmdTimeout stop dumping... !!!\n");
-				}
+			MTWF_LOG(DBG_CAT_FW, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
+					 ("msg->retry_times = %d\n", msg->retry_times));
+#ifdef CONFIG_RECOVERY_ON_INTERRUPT_MISS
+#ifdef INTELP6_SUPPORT
+			/* To many continuous soft reboot on puma6 plateform make HW to go in unstabe state and
+			 * driver fails to communicate with FW
+			*/
+			ad->ErrRecoveryCheck++;
+			if (ops->heart_beat_check)
+				ops->heart_beat_check(ad);
+			if (RTMP_TEST_FLAG(ad, fRTMP_ADAPTER_INTERRUPT_ACTIVE)) {
+				MTWF_LOG(DBG_CAT_HIF, CATHIF_PCI, DBG_LVL_OFF, ("Disabling interrupt\n"));
+				RTMP_ASIC_INTERRUPT_DISABLE(ad);
 			}
+			MTWF_LOG(DBG_CAT_HIF, CATHIF_PCI, DBG_LVL_OFF, ("Enabling interrupt\n"));
+			RTMP_ASIC_INTERRUPT_ENABLE(ad);
+#else
+			ASSERT(FALSE);
+#endif
+#else
+			ASSERT(FALSE);
+#endif
 		} else {
 			if (msg->state == tx_kickout_fail) {
 				state = tx_kickout_fail;
 				msg->retry_times--;
 			} else {
 				if (msg->state == wait_cmd_out_and_ack) {
-					hif_mcu_unlink_ackq(msg);
+					AndesUnlinkCmdMsg(msg, &ctl->ackq);
 				} else if (msg->state == wait_ack)
 					AndesUnlinkCmdMsg(msg, &ctl->ackq);
 
 				state = tx_done;
 				msg->retry_times = 0;
 			}
-#ifdef WF_RESET_SUPPORT
-			ad->FwCmdTimeoutcheckCnt = 0;
-#endif
 		}
 
 		if (is_cmd_need_wait && (msg->retry_times > 0)) {
@@ -1012,11 +918,17 @@ retransmit:
 				ret = msg->cmd_return_status;
 			}
 
-			MTWF_DBG(NULL, DBG_CAT_FW, DBG_SUBCAT_ALL, DBG_LVL_DEBUG,
-					 "%s: msg state = %d\n", __func__, state);
+			MTWF_LOG(DBG_CAT_FW, DBG_SUBCAT_ALL, DBG_LVL_INFO,
+					 ("%s: msg state = %d\n", __func__, state));
 			/* msg will be free after enqueuing to tx_doneq. So msg is not able to pass FW's response to caller. */
 			AndesQueueTailCmdMsg(&ctl->tx_doneq, msg, state);
 		}
+#ifdef CONFIG_RECOVERY_ON_INTERRUPT_MISS
+#ifdef INTELP6_SUPPORT
+		if (IsComplete)
+			ad->ErrRecoveryCheck = 0;
+#endif
+#endif
 	}
 bailout:
 	return ret;
@@ -1030,56 +942,3 @@ INT32 MtCmdSendMsg(PRTMP_ADAPTER ad, struct cmd_msg *msg)
 	return ret;
 }
 
-
-/*export function*/
-/*
-*
-*/
-INT register_fw_cmd_notifier(struct _RTMP_ADAPTER *ad, struct notify_entry *ne)
-{
-	INT ret;
-
-	ret = mt_notify_chain_register(&ad->MCUCtrl.fw_cmd_notify_head, ne);
-
-	return ret;
-}
-EXPORT_SYMBOL(register_fw_cmd_notifier);
-/*
-*
-*/
-INT unregister_fw_cmd_notifier(struct _RTMP_ADAPTER *ad, struct notify_entry *ne)
-{
-	INT ret;
-
-	ret = mt_notify_chain_unregister(&ad->MCUCtrl.fw_cmd_notify_head, ne);
-	return ret;
-}
-EXPORT_SYMBOL(unregister_fw_cmd_notifier);
-
-/*
-*
-*/
-INT call_fw_cmd_notifieriers(INT val, struct _RTMP_ADAPTER *ad, void *msg)
-{
-	INT ret;
-	struct fw_cmd_notify_info info;
-	PACKET_INFO pkt_info;
-	UCHAR *msg_buf;
-	UINT32 msg_len;
-
-	if (!msg) {
-		MTWF_DBG(ad, DBG_CAT_FW, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-				 "msg is null (val=0x%x)\n", val);
-		return NOTIFY_STAT_FAILURE;
-	}
-
-	RTMP_QueryPacketInfo(msg, &pkt_info, &msg_buf, &msg_len);
-
-	info.msg = msg_buf;
-	info.msg_len = msg_len;
-	info.ad = ad;
-
-	/*traversal caller for traffic notify chain*/
-	ret = mt_notify_call_chain(&ad->MCUCtrl.fw_cmd_notify_head, val, &info);
-	return ret;
-}

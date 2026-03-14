@@ -1,20 +1,69 @@
-name: ImmortalWrt-g16
+name: ImmortalWrt-g68
 
 on:
-  workflow_dispatch:
   schedule:
-    - cron: 0 20 * * *
+    - cron: '0 20 * * *'
 
+  workflow_dispatch:
+
+    inputs:
+
+      BOARD:
+        description: '设备型号'
+        required: true
+        default: 'g16-plus'
+        type: choice
+        options:
+          - g68-plus
+          - g18-pro
+          - g16-plus
+          
+      SYSTEM:
+        description: '系统分支'
+        required: true
+        default: 'immortalwrt'
+        type: choice
+        options:
+          - openwrt
+          - immortalwrt
+          - istoreos
+          - lede
+        
+      BRANCH:
+        description: '系统版本 (带 .y 匹配最新 tag)'
+        required: true
+        default: 'openwrt-24.10'
+        type: choice
+        options:
+          - main
+          - openwrt-24.10
+          - v24.10.0
+          - v24.10.1
+          - v24.10.2
+          - v24.10.3
+          - v24.10.4
+          - v24.10.y
+          - openwrt-25.12
+          - v25.12.0
+          - v25.12.1
+          - v25.12.2
+          - v25.12.3
+          - v25.12.4
+          - v25.12.y
+          
 env:
-  REPO_URL: https://github.com/zhoufuli/immortalwrt-rk356x
-  REPO_BRANCH: main
-  CONFIG_FILE: configs/g16-plus-docker.config
-  DIY_SCRIPT: diy-mini.sh
+  BOARD: ${{ inputs.BOARD || 'g16-plus'}}
+  SYSTEM: ${{ inputs.SYSTEM || 'immortalwrt'}}
+  REPO_BRANCH: ${{ inputs.BRANCH || 'openwrt-24.10'}}
+  REPO_URL: https://github.com/immortalwrt/immortalwrt
+  CONFIG_FILE: userpatches/${{ inputs.SYSTEM || 'immortalwrt'}}/defconfig/${{ inputs.BOARD || 'g16-plus'}}_mtk_wifi.config
+  DIY_P1_SH: scripts/${{ inputs.SYSTEM || 'immortalwrt'}}/diy-part1.sh
+  DIY_P2_SH: scripts/${{ inputs.SYSTEM || 'immortalwrt'}}/diy-part2.sh
   CLASH_KERNEL: arm64
   CACHE_TOOLCHAIN: true
   UPLOAD_BIN_DIR: false
   FIRMWARE_RELEASE: true
-  FIRMWARE_TAG: immortalwrt-g16
+  FIRMWARE_TAG: ${{ inputs.SYSTEM || 'immortalwrt'}}-${{ inputs.BOARD || 'g16-plus'}}
   TZ: Asia/Shanghai
   GITHUB_TOKEN: ${{ secrets.ACCESS_TOKEN }}
 
@@ -31,23 +80,29 @@ jobs:
       DEVICE_SUBTARGET: ${{ steps.variable.outputs.DEVICE_SUBTARGET }}
 
     steps:
-    - name: Merge Disks
+    - name: 最大化磁盘空间
       uses: easimon/maximize-build-space@master
       with:
         swap-size-mb: 1024
         temp-reserve-mb: 100
-        root-reserve-mb: 1024
+        root-reserve-mb: 2048
+        remove-dotnet: 'true'
+        remove-android: 'true'
+        remove-haskell: 'true'
+        remove-codeql: 'true'
+        remove-docker-images: 'true'
 
-    - name: Checkout
-      uses: actions/checkout@main
+    - name: 检出代码
+      uses: actions/checkout@v4
 
-    - name: Create a Working Directory
+    - name: 创建工作目录
       run: |
         mkdir -p ${GITHUB_WORKSPACE}/workdir
         chmod 755 ${GITHUB_WORKSPACE}/workdir
+        sudo chown $USER:$GROUPS ${GITHUB_WORKSPACE}/workdir
         echo "WORKDIR=$PWD" >> $GITHUB_ENV
 
-    - name: Check Server Performance
+    - name: 检查服务器性能
       run: |
         echo "警告⚠"
         echo "分配的服务器性能有限，若选择的插件过多，务必注意CPU性能！"
@@ -62,30 +117,80 @@ jobs:
         echo "--------------------------硬盘信息--------------------------"
         echo "硬盘数量: $(ls /dev/sd* | grep -v [1-9] | wc -l)" && df -hT
 
-    - name: Initialization Environment
+    - name: 判断要使用的  版本
+      id: version_selector
+      run: |
+        USER_CHOICE="$REPO_BRANCH"
+        REPO_BRANCH=""
+
+        # 判断用户选择的是否是动态版本 (以 .y 结尾)
+        if [[ "$USER_CHOICE" == *.y ]]; then
+          # 移除 .y 后缀，得到版本前缀, e.g., "v24.10"
+          VERSION_PREFIX=$(echo "$USER_CHOICE" | sed 's/\.y$//')
+          echo "用户选择了动态版本，开始查找前缀为 ${VERSION_PREFIX} 的最新 tag..."
+
+        # 从远程仓库获取所有 tags，并按版本号逆序排序
+          ALL_TAGS=$(git ls-remote --tags --sort='-v:refname' $REPO_URL)
+
+          # 查找最新的稳定版 tag
+          # 使用 sed 's/.*\///;s/\^{}$//' 来移除前缀和可能存在的 ^{} 后缀
+          LATEST_STABLE_TAG=$(echo "${ALL_TAGS}" | grep "refs/tags/${VERSION_PREFIX}" | grep -v "trunk" | head -n 1 | sed 's/.*\///;s/\^{}$//')
+          
+        if [[ -n "$LATEST_STABLE_TAG" ]]; then
+          REPO_BRANCH="$LATEST_STABLE_TAG"
+          echo "找到最新的稳定版 tag: ${REPO_BRANCH}"
+        else
+          # 如果找不到任何稳定版 tag，则直接报错并退出
+          echo "::error:: 无法为前缀 ${VERSION_PREFIX} 找到任何匹配的稳定版 tag！"
+          exit 1
+        fi
+        else
+          # 如果用户选择的是一个固定版本 (如 24.10.1 或 main)，直接使用
+          REPO_BRANCH="$USER_CHOICE"
+          echo "用户选择了固定版本: ${REPO_BRANCH}"
+        fi
+
+        # 将最终确定的版本号输出到 GITHUB_ENV，供后续步骤使用
+        echo "最终选择的版本是: ${REPO_BRANCH}"
+        echo "REPO_BRANCH=${REPO_BRANCH}" >> $GITHUB_ENV
+
+    - name: 初始化环境
       env:
         DEBIAN_FRONTEND: noninteractive
       run: |
         df -hT
-        # docker rmi $(docker images -q)
-        sudo rm -rf /usr/share/dotnet /etc/apt/sources.list.d /usr/local/lib/android $AGENT_TOOLSDIRECTORY
-        sudo -E apt-get -y purge azure-cli ghc* zulu* llvm* firefox google* dotnet* powershell openjdk* mongodb* moby* || true
-        sudo -E apt-get -y update
-        sudo -E apt-get -y install $(curl -fsSL is.gd/depends_ubuntu_2204)
-        sudo -E systemctl daemon-reload
-        sudo -E apt-get -y autoremove --purge
-        sudo -E apt-get -y clean
+        echo "------------------------------- 清理Docker镜像和软件 -------------------------------"
+        docker image prune -a -f || true
+        sudo -E apt-get -qq update
+        # 只保留必要的清理，其余由第一步 Action 完成
+        sudo -E apt-get -qq purge azure-cli google* php* mongodb* powershell firefox
+        sudo -E apt-get -qq autoremove --purge
+        sudo -E apt-get -qq clean
+        echo "------------------------------- 安装依赖 -------------------------------"
+        # 安装编译 OpenWrt 必需的最小依赖集
+        sudo -E apt-get -y install build-essential clang flex bison g++ gawk gcc-multilib g++-multilib \
+          gettext git libncurses-dev libssl-dev python3-distutils python3-pyelftools rsync unzip zlib1g-dev llvm
+        
+        # 官方初始化脚本
+        sudo bash -c 'bash <(curl -s https://build-scripts.immortalwrt.org/init_build_environment.sh)'
+        
         sudo timedatectl set-timezone "$TZ"
 
-    - name: Clone Source Code
+    - name: 克隆源代码-${{ env.SYSTEM }}-${{ env.REPO_BRANCH }}
       working-directory: ${{ env.WORKDIR }}/workdir
       id: clone
       run: |
-        #df -hT $GITHUB_WORKSPACE
-        df -hT
-        git clone $REPO_URL -b $REPO_BRANCH openwrt
+        df -hT $GITHUB_WORKSPACE
+        git clone -q --single-branch --depth=1 --branch=${{ env.REPO_BRANCH }} $REPO_URL openwrt
+        # git clone $REPO_URL -b ${{ env.REPO_BRANCH }} openwrt
         cd openwrt
         echo "OPENWRT_PATH=$PWD" >> $GITHUB_ENV
+
+    - name: 设置源代码变量
+      # working-directory: ${{ env.WORKDIR }}/workdir
+      id: setenv
+      run: |
+        cd $OPENWRT_PATH
         COMMIT_AUTHOR=$(git show -s --date=short --format="作者: %an")
         echo "COMMIT_AUTHOR=$COMMIT_AUTHOR" >> $GITHUB_ENV
         echo "COMMIT_AUTHOR=$COMMIT_AUTHOR" >> $GITHUB_OUTPUT
@@ -99,84 +204,126 @@ jobs:
         echo "COMMIT_HASH=$COMMIT_HASH" >> $GITHUB_ENV
         echo "COMMIT_HASH=$COMMIT_HASH" >> $GITHUB_OUTPUT
 
-    - name: Generate Variables
+    - name: 生成变量
       id: variable
       run: |
-        df -hT
-        cp $CONFIG_FILE $OPENWRT_PATH/.config
+        # df -hT
+        # 复制 .config 文件到源码根目录
+        # cp $CONFIG_FILE $OPENWRT_PATH/.config
+        # [ -e $CONFIG_FILE ] && mv $CONFIG_FILE $OPENWRT_PATH/.config
         cd $OPENWRT_PATH
-        make defconfig > /dev/null 2>&1
+        # make defconfig > /dev/null 2>&1
+        
+        # 源码链接
         SOURCE_REPO="$(echo $REPO_URL | awk -F '/' '{print $(NF)}')"
         echo "SOURCE_REPO=$SOURCE_REPO" >> $GITHUB_ENV
-        DEVICE_TARGET=$(cat .config | grep CONFIG_TARGET_BOARD | awk -F '"' '{print $2}')
+        
+        # 读取 CPU 信息
+        DEVICE_TARGET=$(cat $CONFIG_FILE | grep CONFIG_TARGET_BOARD | awk -F '"' '{print $2}')
         echo "DEVICE_TARGET=$DEVICE_TARGET" >> $GITHUB_ENV
         echo "DEVICE_TARGET=$DEVICE_TARGET" >> $GITHUB_OUTPUT
-        DEVICE_SUBTARGET=$(cat .config | grep CONFIG_TARGET_SUBTARGET | awk -F '"' '{print $2}')
+        
+        # 读取 CPU 架构
+        DEVICE_SUBTARGET=$(cat $CONFIG_FILE | grep CONFIG_TARGET_SUBTARGET | awk -F '"' '{print $2}')
         echo "DEVICE_SUBTARGET=$DEVICE_SUBTARGET" >> $GITHUB_ENV
         echo "DEVICE_SUBTARGET=$DEVICE_SUBTARGET" >> $GITHUB_OUTPUT
 
-    - name: Cache Toolchain
+    - name: 显示变量
+      run: env
+
+    - name: 缓存工具链
       if: env.CACHE_TOOLCHAIN == 'true'
       uses: HiGarfield/cachewrtbuild@main
       with:
+        # 检查是否缓存 ccache
         ccache: false
         mixkey: ${{ env.SOURCE_REPO }}-${{ env.REPO_BRANCH }}-${{ env.DEVICE_TARGET }}-${{ env.DEVICE_SUBTARGET }}
         prefix: ${{ env.OPENWRT_PATH }}
 
-    - name: Install Feeds
+    - name: 加载自定义 feeds
       run: |
-        df -hT
+        chmod +x $DIY_P1_SH
         cd $OPENWRT_PATH
-        ./scripts/feeds update -a
-        ./scripts/feeds install -a
+        $GITHUB_WORKSPACE/$DIY_P1_SH
 
-    - name: Load Custom Configuration
+    - name: 更新 feeds
+      run: cd $OPENWRT_PATH && ./scripts/feeds update -a
+
+    - name: 安装 feeds
+      run: cd $OPENWRT_PATH && ./scripts/feeds install -a
+
+    - name: 加载自定义配置
       run: |
         df -hT
-        [ -e files ] && mv files $OPENWRT_PATH/files
-        [ -e $CONFIG_FILE ] && mv $CONFIG_FILE $OPENWRT_PATH/.config
-        chmod +x $GITHUB_WORKSPACE/scripts/*.sh
-        chmod +x $DIY_SCRIPT
+        # 确保当前目录可写
+        sudo chmod -R +w ./
+        # 复制自定义机型配置文件到源码根目录
+        chmod -R 775 $GITHUB_WORKSPACE/userpatches/$SYSTEM/
+        rsync -av --progress $GITHUB_WORKSPACE/userpatches/$SYSTEM/ $OPENWRT_PATH/
+        # cp --preserve=all -r $GITHUB_WORKSPACE/userpatches/$SYSTEM/* $OPENWRT_PATH/
+        
+        # 复制
+        # [ -e files ] && mv files $OPENWRT_PATH/files
+        
+        # 加载自定义配置
+        chmod +x $DIY_P2_SH
         cd $OPENWRT_PATH
-        $GITHUB_WORKSPACE/$DIY_SCRIPT
-        $GITHUB_WORKSPACE/scripts/preset-clash-core.sh $CLASH_KERNEL
+        $GITHUB_WORKSPACE/$DIY_P2_SH
+        
+        # 加载通用自定义脚本
+        chmod +x $GITHUB_WORKSPACE/scripts/*.sh
+        # 下载 clash core
+        # $GITHUB_WORKSPACE/scripts/preset-clash-core.sh $CLASH_KERNEL
+        # 下载 adguard core
         # $GITHUB_WORKSPACE/scripts/preset-adguard-core.sh $CLASH_KERNEL
 
-    - name: Download DL Package
+    - name: 加载配置文件
+      id: load-config
       run: |
-        df -hT
+        # cd $OPENWRT_PATH
+        
+        [ -e $CONFIG_FILE ] && mv $CONFIG_FILE $OPENWRT_PATH/.config
+
+    - name: 进行编译配置
+      id: make-compile-config
+      run: |
+        cd $OPENWRT_PATH
+        make defconfig
+
+    - name: 下载软件包
+      id: package
+      run: |
         cd $OPENWRT_PATH
         make defconfig
         make download -j8
         find dl -size -1024c -exec ls -l {} \;
         find dl -size -1024c -exec rm -f {} \;
 
-    - name: Compile Firmware
+    - name: 编译固件
       id: compile
       run: |
-        df -hT
         cd $OPENWRT_PATH
         mkdir -p files/etc/uci-defaults
         cp $GITHUB_WORKSPACE/scripts/init-settings.sh files/etc/uci-defaults/99-init-settings
         echo -e "$(nproc) thread compile"
-        make -j$(nproc) || make -j1 || make -j1 V=s
+        make -j$(nproc) V=s || make -j1 V=s || make -j1 V=s
         echo "status=success" >> $GITHUB_OUTPUT
         echo "DATE=$(date +"%Y-%m-%d %H:%M:%S")" >> $GITHUB_ENV
         echo "TAG_DATE=$(date +"%Y.%m.%d-%H.%M")" >> $GITHUB_ENV
         echo "FILE_DATE=$(date +"%Y.%m.%d")" >> $GITHUB_ENV
 
-    - name: Check Space Usage
+    - name: 检查空间使用情况
       if: (!cancelled())
       run: df -hT
 
-    - name: Upload Bin Directory
-      if: steps.compile.outputs.status == 'success' && env.UPLOAD_BIN_DIR == 'true'
+    - name: 上传固件
       uses: actions/upload-artifact@main
+      if: steps.compile.outputs.status == 'success' && env.UPLOAD_BIN_DIR == 'true'
       with:
         name: ${{ env.SOURCE_REPO }}-bin-${{ env.DEVICE_TARGET }}-${{ env.DEVICE_SUBTARGET }}-${{ env.FILE_DATE }}
         path: ${{ env.OPENWRT_PATH }}/bin
 
-    - name: Organize Files
+    - name: 整理文件
       if: steps.compile.outputs.status == 'success'
       run: |
         cd $OPENWRT_PATH/bin/targets/*/*
@@ -188,14 +335,14 @@ jobs:
         echo "KERNEL=$(cat *.manifest | grep ^kernel | cut -d- -f2 | tr -d ' ')" >> $GITHUB_ENV
         echo "FIRMWARE_PATH=$PWD" >> $GITHUB_ENV
 
-    - name: Upload Firmware To Artifact
+    - name: 将固件上传到 Artifact
       if: steps.compile.outputs.status == 'success' && env.FIRMWARE_RELEASE != 'true'
       uses: actions/upload-artifact@main
       with:
         name: ${{ env.SOURCE_REPO }}-firmware-${{ env.DEVICE_TARGET }}-${{ env.DEVICE_SUBTARGET }}-${{ env.FILE_DATE }}
         path: ${{ env.FIRMWARE_PATH }}
 
-    - name: Upload Firmware To Release
+    - name: 上传发布固件
       if: steps.compile.outputs.status == 'success' && env.FIRMWARE_RELEASE == 'true'
       uses: ncipollo/release-action@v1
       with:
@@ -211,8 +358,8 @@ jobs:
           - ⚽ 固件源码: ${{ env.REPO_URL }}
           - 💝 源码分支: ${{ env.REPO_BRANCH }}
           - 🚀 内核版本: ${{ env.KERNEL }}
-          - 🌐 默认地址: 192.168.1.1
-          - 🔑 默认密码: password
+          - 🌐 默认地址: 10.0.0.1
+          - 🔑 默认密码: 
           ### 🧊 固件版本
           - 固件编译前最后一次➦[主源码](${{ env.REPO_URL }})更新记录
           - ${{ env.COMMIT_AUTHOR }}

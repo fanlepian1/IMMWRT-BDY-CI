@@ -1,16 +1,15 @@
-/*
- * Copyright (c) [2020], MediaTek Inc. All rights reserved.
- *
- * This software/firmware and related documentation ("MediaTek Software") are
- * protected under relevant copyright laws.
- * The information contained herein is confidential and proprietary to
- * MediaTek Inc. and/or its licensors.
- * Except as otherwise provided in the applicable licensing terms with
- * MediaTek Inc. and/or its licensors, any reproduction, modification, use or
- * disclosure of MediaTek Software, and information contained herein, in whole
- * or in part, shall be strictly prohibited.
-*/
 /****************************************************************************
+ * Ralink Tech Inc.
+ * Taiwan, R.O.C.
+ *
+ * (c) Copyright 2002, Ralink Technology, Inc.
+ *
+ * All rights reserved. Ralink's source code is an unpublished work and the
+ * use of a copyright notice does not imply otherwise. This source code
+ * contains confidential trade secret material of Ralink Tech. Any attemp
+ * or participation in deciphering, decoding, reverse engineering or in any
+ * way altering the source code is stricitly prohibited, unless the prior
+ * written consent of Ralink Technology, Inc. is obtained.
  ***************************************************************************/
 
 /****************************************************************************
@@ -34,7 +33,7 @@
 #include "security/dot11w_pmf.h"
 
 #define	NORMAL_FRAME                    0
-#define	ERROR_FRAME                     1 /* no used */
+#define	ERROR_FRAME                     1
 #define	NOT_ROBUST_GROUP_FRAME		2
 #define	NOT_ROBUST_UNICAST_FRAME	3
 #define	UNICAST_ROBUST_FRAME		4
@@ -90,35 +89,6 @@ typedef struct GNU_PACKED _PMF_CFG {
 	USHORT TransactionID;
 } PMF_CFG, *PPMF_CFG;
 
-#ifdef BCN_PROTECTION_SUPPORT
-struct bcn_protection_cfg {
-	UCHAR desired_bcn_prot_en;
-	UCHAR bcn_prot_en;
-	UINT32 bigtk_cipher;         /* redundant? it should align with igtk_cipher */
-	UINT8 bigtk_key_idx;			/* It shall be 6 or 7*/
-	UCHAR bigtk[2][LEN_MAX_BIGTK];
-	UCHAR bipn[2][LEN_WPA_TSC]; /* firmware maintain, request from firmware */
-};
-
-enum {
-	BCN_PROT_EN_OFF = 0,
-	BCN_PROT_EN_SW_MODE = 1,
-	BCN_PROT_EN_HW_MODE = 2,
-};
-
-struct bcn_prot_test_ctrl {
-	UCHAR omn_ie_en;
-	UCHAR csa_ie_en;
-	UCHAR mm_ie_en;
-	UCHAR ht_opt_ie_en;
-	UCHAR channel;
-	UCHAR bw;
-	UCHAR switch_cnt;
-	UCHAR omn_nss;
-	UCHAR ht_opt_bw;
-	UCHAR ht_opt_nss;
-};
-#endif
 
 #endif /* __PMF_CMM_H__ */
 #endif /* DOT11W_PMF_SUPPORT */

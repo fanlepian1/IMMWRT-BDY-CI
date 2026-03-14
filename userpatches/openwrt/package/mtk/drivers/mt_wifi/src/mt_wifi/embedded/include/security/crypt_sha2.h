@@ -1,16 +1,15 @@
-/*
- * Copyright (c) [2020], MediaTek Inc. All rights reserved.
- *
- * This software/firmware and related documentation ("MediaTek Software") are
- * protected under relevant copyright laws.
- * The information contained herein is confidential and proprietary to
- * MediaTek Inc. and/or its licensors.
- * Except as otherwise provided in the applicable licensing terms with
- * MediaTek Inc. and/or its licensors, any reproduction, modification, use or
- * disclosure of MediaTek Software, and information contained herein, in whole
- * or in part, shall be strictly prohibited.
-*/
 /****************************************************************************
+ * Ralink Tech Inc.
+ * Taiwan, R.O.C.
+ *
+ * (c) Copyright 2002, Ralink Technology, Inc.
+ *
+ * All rights reserved. Ralink's source code is an unpublished work and the
+ * use of a copyright notice does not imply otherwise. This source code
+ * contains confidential trade secret material of Ralink Tech. Any attemp
+ * or participation in deciphering, decoding, reverse engineering or in any
+ * way altering the source code is stricitly prohibited, unless the prior
+ * written consent of Ralink Technology, Inc. is obtained.
  ***************************************************************************/
 
 /****************************************************************************
@@ -46,7 +45,6 @@
 #define SHA1_SUPPORT
 #define SHA256_SUPPORT
 #define SHA384_SUPPORT
-#define SHA512_SUPPORT
 
 #ifdef SHA1_SUPPORT
 #define SHA1_BLOCK_SIZE    64	/* 512 bits = 64 bytes */
@@ -139,36 +137,11 @@ VOID rt_sha384_vector(
 	OUT UINT8 *digestmessage);
 #endif /* SHA384_SUPPORT */
 
-#ifdef SHA512_SUPPORT
+/*#ifdef SHA512_SUPPORT*/
+/*FIXME: wrape it by SHA512_SUPPORT */
 #define SHA512_BLOCK_SIZE   128	/* 1024 bits = 128 bytes */
 #define SHA512_DIGEST_SIZE  64	/* 384 bits = 64 bytes */
-typedef struct _SHA512_CTX_STRUC {
-	UINT64 HashValue[8];	/* 8 = (SHA512_DIGEST_SIZE / 64) */
-	UINT64 MessageLen;	/* total size */
-	UINT8 Block[SHA512_BLOCK_SIZE];
-	UINT BlockLen;
-} SHA512_CTX_STRUC;
-VOID RT_SHA512_Init(
-	IN SHA512_CTX_STRUC * pSHA_CTX);
-VOID RT_SHA512_Hash(
-	IN SHA512_CTX_STRUC * pSHA_CTX);
-VOID RT_SHA512_Append(
-	IN SHA512_CTX_STRUC * pSHA_CTX,
-	IN const UINT8 Message[],
-	IN UINT MessageLen);
-VOID RT_SHA512_End(
-	IN SHA512_CTX_STRUC * pSHA_CTX,
-	OUT UINT8 DigestMessage[]);
-VOID RT_SHA512(
-	IN const UINT8 Message[],
-	IN UINT MessageLen,
-	OUT UINT8 DigestMessage[]);
-VOID rt_sha512_vector(
-	IN UCHAR num,
-	IN const unsigned char **message,
-	IN UINT *messageLen,
-	OUT UINT8 *digestmessage);
-#endif
+/*#endif*/
 
 
 #endif /* __CRYPT_SHA2_H__ */

@@ -1,17 +1,18 @@
 /*
- * Copyright (c) [2020], MediaTek Inc. All rights reserved.
- *
- * This software/firmware and related documentation ("MediaTek Software") are
- * protected under relevant copyright laws.
- * The information contained herein is confidential and proprietary to
- * MediaTek Inc. and/or its licensors.
- * Except as otherwise provided in the applicable licensing terms with
- * MediaTek Inc. and/or its licensors, any reproduction, modification, use or
- * disclosure of MediaTek Software, and information contained herein, in whole
- * or in part, shall be strictly prohibited.
-*/
-/*
  ***************************************************************************
+ * Ralink Tech Inc.
+ * 4F, No. 2 Technology	5th	Rd.
+ * Science-based Industrial	Park
+ * Hsin-chu, Taiwan, R.O.C.
+ *
+ * (c) Copyright 2002-2006, Ralink Technology, Inc.
+ *
+ * All rights reserved.	Ralink's source	code is	an unpublished work	and	the
+ * use of a	copyright notice does not imply	otherwise. This	source code
+ * contains	confidential trade secret material of Ralink Tech. Any attemp
+ * or participation	in deciphering,	decoding, reverse engineering or in	any
+ * way altering	the	source code	is stricitly prohibited, unless	the	prior
+ * written consent of Ralink Technology, Inc. is obtained.
  ***************************************************************************
 
 	Module Name:
@@ -98,27 +99,27 @@ BOOLEAN	WscPassXmlDeclare(
 {
 	RTMP_STRING *ptr;
 
-	MTWF_DBG(NULL, DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_INFO,
-		"======> WscPassXmlDeclare\n");
+	MTWF_LOG(DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_TRACE,
+		("======> WscPassXmlDeclare\n"));
 
 	ptr = rtstrstr(*pXmlData, (RTMP_STRING *)XML_DECLARE_START);
 	if (ptr == NULL) {
-		MTWF_DBG(NULL, DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_INFO,
-			"WscPassXmlDeclare: missing XML Declare <?xml\n");
+		MTWF_LOG(DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_TRACE,
+			("WscPassXmlDeclare: missing XML Declare <?xml\n"));
 		return FALSE;
 	}
 
 	ptr = rtstrstr(*pXmlData, (RTMP_STRING *)XML_DECLARE_END);
 	if (ptr == NULL) {
-		MTWF_DBG(NULL, DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_INFO,
-			"XML syntax error: missing XML Declare ?>\n");
+		MTWF_LOG(DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_TRACE,
+			("XML syntax error: missing XML Declare ?>\n"));
 		return FALSE;
 	}
 
 	(*pXmlData) = ptr + strlen(XML_DECLARE_END);
 
-	MTWF_DBG(NULL, DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_INFO,
-		"<====== WscPassXmlDeclare\n");
+	MTWF_LOG(DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_TRACE,
+		("<====== WscPassXmlDeclare\n"));
 
 	return TRUE;
 }
@@ -132,8 +133,8 @@ BOOLEAN WscGetXmlSSID(
 
 	ptr = rtstrstr(pBuffer, (RTMP_STRING *)XML_SSID_START);
 	if (ptr == NULL) {
-		MTWF_DBG(NULL, DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_INFO,
-			"WscGetXmlSSID: missing <ssid\n");
+		MTWF_LOG(DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_TRACE,
+			("WscGetXmlSSID: missing <ssid\n"));
 		return FALSE;
 	}
 
@@ -145,8 +146,8 @@ BOOLEAN WscGetXmlSSID(
 
 	ptr = rtstrstr(pBuffer, (RTMP_STRING *)XML_SSID_END);
 	if (ptr == NULL) {
-		MTWF_DBG(NULL, DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_INFO,
-			"WscGetXmlSSID: missing </ssid>\n");
+		MTWF_LOG(DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_TRACE,
+			("WscGetXmlSSID: missing </ssid>\n"));
 		return FALSE;
 	}
 
@@ -174,8 +175,8 @@ BOOLEAN WscGetXmlAuth(
 	*pAuthType = 0;
 	ptr = rtstrstr(pBuffer, (RTMP_STRING *)XML_AUTH_START);
 	if (ptr == NULL) {
-		MTWF_DBG(NULL, DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_INFO,
-			"WscGetXmlAuth: missing %s\n", XML_AUTH_START);
+		MTWF_LOG(DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_TRACE,
+			("WscGetXmlAuth: missing %s\n", XML_AUTH_START));
 		return FALSE;
 	}
 
@@ -183,8 +184,8 @@ BOOLEAN WscGetXmlAuth(
 
 	ptr = rtstrstr(pBuffer, (RTMP_STRING *)XML_AUTH_END);
 	if (ptr == NULL) {
-		MTWF_DBG(NULL, DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_INFO,
-			"WscGetXmlAuth: missing %s\n", XML_AUTH_END);
+		MTWF_LOG(DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_TRACE,
+			("WscGetXmlAuth: missing %s\n", XML_AUTH_END));
 		return FALSE;
 	}
 
@@ -216,8 +217,8 @@ BOOLEAN WscGetXmlEncr(
 	*pEncrType = 0;
 	ptr = rtstrstr(pBuffer, (RTMP_STRING *)XML_ENCR_START);
 	if (ptr == NULL) {
-		MTWF_DBG(NULL, DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_INFO,
-			"WscGetXmlEncr: missing %s\n", XML_ENCR_START);
+		MTWF_LOG(DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_TRACE,
+			("WscGetXmlEncr: missing %s\n", XML_ENCR_START));
 		return FALSE;
 	}
 
@@ -225,8 +226,8 @@ BOOLEAN WscGetXmlEncr(
 
 	ptr = rtstrstr(pBuffer, (RTMP_STRING *)XML_ENCR_END);
 	if (ptr == NULL) {
-		MTWF_DBG(NULL, DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_INFO,
-			"WscGetXmlEncr: missing %s\n", XML_ENCR_END);
+		MTWF_LOG(DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_TRACE,
+			("WscGetXmlEncr: missing %s\n", XML_ENCR_END));
 		return FALSE;
 	}
 
@@ -257,8 +258,8 @@ BOOLEAN WscGetXmlKey(
 
 	ptr = rtstrstr(pBuffer, (RTMP_STRING *)XML_KEY_START);
 	if (ptr == NULL) {
-		MTWF_DBG(NULL, DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_INFO,
-			"WscGetXmlKey: missing %s\n", XML_KEY_START);
+		MTWF_LOG(DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_TRACE,
+			("WscGetXmlKey: missing %s\n", XML_KEY_START));
 		return FALSE;
 	}
 
@@ -270,8 +271,8 @@ BOOLEAN WscGetXmlKey(
 
 	ptr = rtstrstr(pBuffer, (RTMP_STRING *)XML_KEY_END);
 	if (ptr == NULL) {
-		MTWF_DBG(NULL, DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_INFO,
-			"WscGetXmlKey: missing %s\n", XML_KEY_END);
+		MTWF_LOG(DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_TRACE,
+			("WscGetXmlKey: missing %s\n", XML_KEY_END));
 		return FALSE;
 	}
 
@@ -296,8 +297,8 @@ BOOLEAN WscGetXmlKeyIndex(
 	*pKeyIndex = 1;
 	ptr = rtstrstr(pBuffer, (RTMP_STRING *)XML_KEY_INDEX_START);
 	if (ptr == NULL) {
-		MTWF_DBG(NULL, DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_INFO,
-			"WscGetXmlKeyIndex: missing %s\n", XML_KEY_INDEX_START);
+		MTWF_LOG(DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_TRACE,
+			("WscGetXmlKeyIndex: missing %s\n", XML_KEY_INDEX_START));
 		return FALSE;
 	}
 
@@ -305,8 +306,8 @@ BOOLEAN WscGetXmlKeyIndex(
 
 	ptr = rtstrstr(pBuffer, (RTMP_STRING *)XML_KEY_INDEX_END);
 	if (ptr == NULL) {
-		MTWF_DBG(NULL, DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_INFO,
-			"WscGetXmlKeyIndex: missing %s\n", XML_KEY_INDEX_END);
+		MTWF_LOG(DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_TRACE,
+			("WscGetXmlKeyIndex: missing %s\n", XML_KEY_INDEX_END));
 		return FALSE;
 	}
 
@@ -327,13 +328,12 @@ BOOLEAN	WscReadProfileFromUfdFile(
 	RTMP_OS_FD file_r;
 	ssize_t rv, fileLen = 0;
 	RTMP_STRING *pXmlData = NULL;
-	RTMP_STRING *ptmpXmlData = NULL;
 	BOOLEAN RV = TRUE;
 	char tempStr[64] = {0};
 
 	if (pUfdFileName == NULL) {
-		MTWF_DBG(pAd, DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_INFO,
-			"--> %s: pUfdFileName is NULL\n", __func__);
+		MTWF_LOG(DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_TRACE,
+			("--> %s: pUfdFileName is NULL\n", __func__));
 		return FALSE;
 	}
 
@@ -341,10 +341,9 @@ BOOLEAN	WscReadProfileFromUfdFile(
 
 	file_r = RtmpOSFileOpen(pUfdFileName, O_RDONLY, 0);
 	if (IS_FILE_OPEN_ERR(file_r)) {
-		MTWF_DBG(pAd, DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_INFO,
-			"--> %s: Error opening file %s\n",
-			__func__, pUfdFileName);
-		RtmpOSFSInfoChange(&osFSInfo, FALSE);
+		MTWF_LOG(DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_TRACE,
+			("--> %s: Error opening file %s\n",
+			__func__, pUfdFileName));
 		return FALSE;
 	}
 
@@ -355,9 +354,9 @@ BOOLEAN	WscReadProfileFromUfdFile(
 	if (pXmlData == NULL) {
 		RtmpOSFileClose(file_r);
 		RtmpOSFSInfoChange(&osFSInfo, FALSE);
-		MTWF_DBG(pAd, DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_INFO,
-			"pXmlData mem alloc fail. (fileLen = %d)\n",
-			(int)fileLen);
+		MTWF_LOG(DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_TRACE,
+			("pXmlData mem alloc fail. (fileLen = %d)\n",
+			(int)fileLen));
 		return FALSE;
 	}
 	RTMPZeroMemory(pXmlData, fileLen+1);
@@ -365,42 +364,41 @@ BOOLEAN	WscReadProfileFromUfdFile(
 	rv = RtmpOSFileRead(file_r, (RTMP_STRING *)pXmlData, fileLen);
 	RtmpOSFileClose(file_r);
 	if (rv != fileLen) {
-		MTWF_DBG(pAd, DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_INFO,
-			"RtmpOSFileRead fail, fileLen = %d\n",
-			(int)fileLen);
+		MTWF_LOG(DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_TRACE,
+			("RtmpOSFileRead fail, fileLen = %d\n",
+			(int)fileLen));
 		RtmpOSFSInfoChange(&osFSInfo, FALSE);
 		goto ReadErr;
 	}
 
 	RtmpOSFSInfoChange(&osFSInfo, FALSE);
 
-	MTWF_DBG(pAd, DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_INFO,
-		"WscReadProfileFromUfdFile\n");
-	ptmpXmlData = pXmlData;
-	if (WscPassXmlDeclare(&ptmpXmlData)) {
-		if (WscGetXmlSSID(ptmpXmlData, &pCredential->SSID)) {
-			MTWF_DBG(pAd, DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_INFO,
-				"SSID = %s(%d)\n",
+	MTWF_LOG(DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_TRACE,
+		("WscReadProfileFromUfdFile\n"));
+	if (WscPassXmlDeclare(&pXmlData)) {
+		if (WscGetXmlSSID(pXmlData, &pCredential->SSID)) {
+			MTWF_LOG(DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_TRACE,
+				("SSID = %s(%d)\n",
 				pCredential->SSID.Ssid,
-				pCredential->SSID.SsidLength);
+				pCredential->SSID.SsidLength));
 		} else {
 			RV = FALSE;
 			goto FreeXmlData;
 		}
 
-		if (WscGetXmlAuth(ptmpXmlData, &pCredential->AuthType)) {
-			MTWF_DBG(pAd, DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_INFO,
-				"Credential.AuthType = 0x%04x\n",
-				pCredential->AuthType);
+		if (WscGetXmlAuth(pXmlData, &pCredential->AuthType)) {
+			MTWF_LOG(DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_TRACE,
+				("Credential.AuthType = 0x%04x\n",
+				pCredential->AuthType));
 		} else {
 			RV = FALSE;
 			goto FreeXmlData;
 		}
 
-		if (WscGetXmlEncr(ptmpXmlData, &pCredential->EncrType)) {
-			MTWF_DBG(pAd, DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_INFO,
-				"Credential.EncrType = 0x%04x\n",
-				pCredential->EncrType);
+		if (WscGetXmlEncr(pXmlData, &pCredential->EncrType)) {
+			MTWF_LOG(DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_TRACE,
+				("Credential.EncrType = 0x%04x\n",
+				pCredential->EncrType));
 		} else {
 			RV = FALSE;
 			goto FreeXmlData;
@@ -408,11 +406,11 @@ BOOLEAN	WscReadProfileFromUfdFile(
 
 		pCredential->KeyLength = 0;
 		RTMPZeroMemory(pCredential->Key, 64);
-		if (WscGetXmlKey(ptmpXmlData, pCredential->Key,
+		if (WscGetXmlKey(pXmlData, pCredential->Key,
 			&pCredential->KeyLength)) {
-			MTWF_DBG(pAd, DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_INFO,
-				"Credential.Key = %s (%d)\n",
-				pCredential->Key, pCredential->KeyLength);
+			MTWF_LOG(DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_TRACE,
+				("Credential.Key = %s (%d)\n",
+				pCredential->Key, pCredential->KeyLength));
 		} else {
 			RV = FALSE;
 			goto FreeXmlData;
@@ -422,14 +420,14 @@ BOOLEAN	WscReadProfileFromUfdFile(
 		*	If we cannot find keyIndex in .wfc file,
 		*	use default value 1.
 		*/
-		if (WscGetXmlKeyIndex(ptmpXmlData, &pCredential->KeyIndex)) {
-			MTWF_DBG(pAd, DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_INFO,
-				"pCredential->KeyIndex = %d\n",
-				pCredential->KeyIndex);
+		if (WscGetXmlKeyIndex(pXmlData, &pCredential->KeyIndex)) {
+			MTWF_LOG(DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_TRACE,
+				("pCredential->KeyIndex = %d\n",
+				pCredential->KeyIndex));
 		}
 
-		MTWF_DBG(pAd, DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_INFO,
-			"WscReadProfileFromUfdFile OK\n");
+		MTWF_LOG(DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_TRACE,
+			("WscReadProfileFromUfdFile OK\n"));
 
 		WscWriteConfToPortCfg(pAd,
 		&pAd->ApCfg.MBSSID[ApIdx].wdev.WscControl,
@@ -469,8 +467,8 @@ BOOLEAN	WscWriteProfileToUfdFile(
 	UCHAR Guid_Str[UUID_LEN_STR];
 
 	if (pUfdFileName == NULL) {
-		MTWF_DBG(pAd, DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_INFO,
-			"--> %s: pUfdFileName is NULL\n", __func__);
+		MTWF_LOG(DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_TRACE,
+			("--> %s: pUfdFileName is NULL\n", __func__));
 		return FALSE;
 	}
 
@@ -478,10 +476,9 @@ BOOLEAN	WscWriteProfileToUfdFile(
 
 	file_w = RtmpOSFileOpen(pUfdFileName, O_WRONLY|O_TRUNC|O_CREAT, 0);
 	if (IS_FILE_OPEN_ERR(file_w)) {
-		MTWF_DBG(pAd, DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_INFO,
-			"--> %s: Error opening file %s\n",
-			__func__, pUfdFileName);
-		RtmpOSFSInfoChange(&osFSInfo, FALSE);
+		MTWF_LOG(DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_TRACE,
+			("--> %s: Error opening file %s\n",
+			__func__, pUfdFileName));
 		return FALSE;
 	}
 
@@ -524,8 +521,8 @@ BOOLEAN	WscWriteProfileToUfdFile(
 		}
 		pXmlTemplate = offset + strlen(XML_AUTH_MARK);
 		if (bFound == FALSE) {
-			MTWF_DBG(pAd, DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_INFO,
-				"--> %s: Unknow Auth Type(=%x)\n", __func__, pCredential->AuthType);
+			MTWF_LOG(DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_TRACE,
+				("--> %s: Unknow Auth Type(=%x)\n", __func__, pCredential->AuthType));
 			bRtn = FALSE;
 			goto out;
 		}
@@ -545,9 +542,9 @@ BOOLEAN	WscWriteProfileToUfdFile(
 		}
 		pXmlTemplate = offset + strlen(XML_ENCR_MARK);
 		if (bFound == FALSE) {
-			MTWF_DBG(pAd, DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_INFO,
-				"--> %s: Unknow Encr Type(=%x)\n",
-				__func__, pCredential->EncrType);
+			MTWF_LOG(DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_TRACE,
+				("--> %s: Unknow Encr Type(=%x)\n",
+				__func__, pCredential->EncrType));
 			bRtn = FALSE;
 			goto out;
 		}

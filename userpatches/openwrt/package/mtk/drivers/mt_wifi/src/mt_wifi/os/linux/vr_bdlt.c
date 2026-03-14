@@ -49,7 +49,7 @@ EXPORT_SYMBOL(pToUpperLayerPktSent);
  */
 VOID replace_upper_layer_packet_destination(VOID *pXiDestination)
 {
-	MTWF_DBG(NULL, DBG_CAT_INIT, DBG_SUBCAT_ALL, DBG_LVL_INFO, "ralink broad light> replace_upper_layer_packet_destination\n");
+	MTWF_LOG(DBG_CAT_INIT, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("ralink broad light> replace_upper_layer_packet_destination\n"));
 	pToUpperLayerPktSent = pXiDestination;
 } /* End of replace_upper_layer_packet_destination */
 EXPORT_SYMBOL(replace_upper_layer_packet_destination);

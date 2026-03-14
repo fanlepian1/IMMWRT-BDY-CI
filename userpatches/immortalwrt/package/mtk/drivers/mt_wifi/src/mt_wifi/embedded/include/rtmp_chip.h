@@ -1,17 +1,18 @@
 /*
- * Copyright (c) [2020], MediaTek Inc. All rights reserved.
- *
- * This software/firmware and related documentation ("MediaTek Software") are
- * protected under relevant copyright laws.
- * The information contained herein is confidential and proprietary to
- * MediaTek Inc. and/or its licensors.
- * Except as otherwise provided in the applicable licensing terms with
- * MediaTek Inc. and/or its licensors, any reproduction, modification, use or
- * disclosure of MediaTek Software, and information contained herein, in whole
- * or in part, shall be strictly prohibited.
-*/
-/*
  ***************************************************************************
+ * Ralink Tech Inc.
+ * 4F, No. 2 Technology	5th	Rd.
+ * Science-based Industrial	Park
+ * Hsin-chu, Taiwan, R.O.C.
+ *
+ * (c) Copyright 2002-2004, Ralink Technology, Inc.
+ *
+ * All rights reserved.	Ralink's source	code is	an unpublished work	and	the
+ * use of a	copyright notice does not imply	otherwise. This	source code
+ * contains	confidential trade secret material of Ralink Tech. Any attemp
+ * or participation	in deciphering,	decoding, reverse engineering or in	any
+ * way altering	the	source code	is stricitly prohibited, unless	the	prior
+ * written consent of Ralink Technology, Inc. is obtained.
  ***************************************************************************
 
 	Module Name:
@@ -34,36 +35,20 @@
 #include "hif/hif.h"
 #include "mac/mac.h"
 #include "mcu/mcu.h"
-#ifdef MT7915_MT7916_COEXIST_COMPATIBLE
-#include "chip/common.h"
-#else
-#if defined(MT7986) || defined(MT7916) || defined(MT7981)
-#include "chip/common.h"
-#endif
-#endif
 
 
 
 
 
+#ifdef MT7615
+#include "chip/mt7615.h"
+#endif /* MT7615 */
+
+#ifdef MT7622
+#include "chip/mt7622.h"
+#endif /* MT7622 */
 
 
-
-
-
-
-
-#ifdef MT7986
-#include "chip/mt7986.h"
-#endif
-
-#ifdef MT7916
-#include "chip/mt7916.h"
-#endif
-
-#ifdef MT7981
-#include "chip/mt7981.h"
-#endif
 
 #include "hw_ctrl/hw_init.h"
 
@@ -152,7 +137,7 @@
 #define MT7622_FW_VER_E2		0x10		/* MT7622 FW Ver E2	0x8A10, use E2 RAM IMAGE */
 
 #define IS_MT7622_FW_VER_E1(_pAd)		(((_pAd)->FWVersion & 0xff) == MT7622_FW_VER_E1)
-#define IS_MT7622_FW_VER_E2(_pAd)		(((_pAd)->FWVersion & 0xff) >= MT7622_FW_VER_E2)
+#define IS_MT7622_FW_VER_E2(_pAd)		(((_pAd)->FWVersion & 0xff) == MT7622_FW_VER_E2)
 
 /* P18 Firmware Version */
 #define P18_FW_VER_E1		0x00		/* P18 FW Ver E1	0x8A00, use E1 RAM IMAGE */
@@ -161,48 +146,9 @@
 
 /* MT7663 Firmware Version */
 #define MT7663_FW_VER_E1		0x00		/* MT7663 FW Ver E1	0x8A00, use E1 RAM IMAGE */
-#define MT7663_FW_VER_E2		0x01		/* MT7663 FW Ver E2	0x8A01, use E2 RAM IMAGE */
 
 #define IS_MT7663_FW_VER_E1(_pAd)		(((_pAd)->FWVersion & 0xff) == MT7663_FW_VER_E1)
-#define IS_MT7663_FW_VER_E2(_pAd)		(((_pAd)->FWVersion & 0xff) == MT7663_FW_VER_E2)
 
-/* AXE Firmware Version */
-#define AXE_FW_VER_E1		0x00		/* AXE FW Ver E1	0x8A00, use E1 RAM IMAGE */
-
-#define IS_AXE_FW_VER_E1(_pAd)		(((_pAd)->FWVersion & 0xff) == AXE_FW_VER_E1)
-
-/* MT7626 Firmware Version */
-#define MT7626_FW_VER_E1		0x00		/* MT7626 FW Ver E1	0x8A00, use E1 RAM IMAGE */
-
-#define IS_MT7626_FW_VER_E1(_pAd)		(((_pAd)->FWVersion & 0xff) == MT7626_FW_VER_E1)
-
-#define MT7626_FW_VER_E2		0x01		/* MT7626 FW Ver E1	0x8A01, use E1 RAM IMAGE */
-
-#define IS_MT7626_FW_VER_E2(_pAd)		(((_pAd)->FWVersion & 0xff) >= MT7626_FW_VER_E2)
-
-
-/* MT7915 Firmware Version */
-#define MT7915_FW_VER_E1		0x00		/* MT7915 FW Ver E1	0x8A00 */
-#define MT7915_FW_VER_E2		0x01		/* MT7915 FW Ver E2	0x8A01 */
-
-
-#define IS_MT7915_FW_VER_E1(_pAd)		(((_pAd)->FWVersion & 0xff) == MT7915_FW_VER_E1)
-#define IS_MT7915_FW_VER_E2(_pAd)		(((_pAd)->FWVersion & 0xff) == MT7915_FW_VER_E2)
-
-/* MT7986 Firmware Version */
-#define MT7986_FW_VER_E1		0x00		/* MT7986 FW Ver E1	0x8A00 */
-
-/* MT7916 Firmware Version */
-#define MT7916_FW_VER_E1		0x00		/* MT7916 FW Ver E1	0x8A00 */
-
-#define IS_MT7986_FW_VER_E1(_pAd)		(((_pAd)->FWVersion & 0xff) == MT7986_FW_VER_E1)
-
-#define IS_MT7916_FW_VER_E1(_pAd)		(((_pAd)->FWVersion & 0xff) == MT7916_FW_VER_E1)
-
-/* MT7981 Firmware Version */
-#define MT7981_FW_VER_E1		0x00		/* MT7981 FW Ver E1	0x8A00 */
-
-#define IS_MT7981_FW_VER_E1(_pAd)		(((_pAd)->FWVersion & 0xff) == MT7981_FW_VER_E1)
 
 #define IS_MT7628(_pAd)		(((_pAd)->ChipID & 0x0000ffff) == 0x00007628)
 
@@ -219,36 +165,6 @@
 
 #define IS_P18(_pAd)		(((_pAd)->ChipID & 0x0000ffff) == 0x00006632) /* 0x6632 is for FPGA release v10 */
 #define IS_MT7663(_pAd)		(((_pAd)->ChipID & 0x0000ffff) == 0x00007663)
-
-#define IS_AXE(_pAd)		(((_pAd)->ChipID & 0x0000ffff) == 0x00006867)
-#define IS_MT7626(_pAd)		((((_pAd)->ChipID & 0x0000ffff) == 0x00007626))
-#define IS_MT7915(_pAd)		(((_pAd)->ChipID & 0x0000ffff) == 0x00007915)
-
-#define IS_MT7915_6E(_pAd)	((((_pAd)->ChipID & 0x0000ffff) == 0x00007915) \
-							&& ((_pAd)->Wifi6gCap == 1))
-
-#define IS_MT7986(_pAd)		((((_pAd)->ChipID & 0x0000ffff) == 0x00007986) || \
-							(((_pAd)->ChipID & 0x0000ffff) == 0x00000789))
-
-#define IS_MT7916(_pAd)		((((_pAd)->ChipID & 0x0000ffff) == 0x00007906))
-
-#define IS_MT7981(_pAd)		((((_pAd)->ChipID & 0x0000ffff) == 0x00007981) || \
-							(((_pAd)->ChipID & 0x0000ffff) == 0x00000790))
-
-#define MT7915E1 0x0000
-#define MT7915E2 0x0010
-
-#define MT7916E1 0x0000
-#define MT7916E2 0x0002
-
-#define MT7986E1 0x0000
-#define MT7986E2 0x0001
-
-#define IS_SUPPORT_ATE_TX_BY_TIME(_pAd) \
-	(IS_MT7622(_pAd) || IS_MT7615(_pAd) || IS_MT7663(_pAd) || IS_P18(_pAd) || \
-	 IS_AXE(_pAd) || IS_MT7915(_pAd) || IS_MT7986(_pAd) || IS_MT7916(_pAd) || \
-	 IS_MT7981(_pAd))
-
 /* RT3592BC8 (WiFi + BT) */
 #define RT_REV_LT(_pAd, _chip, _rev)\
 	(IS_##_chip(_pAd) && (((_pAd)->MACVersion & 0x0000FFFF) < (_rev)))
@@ -262,17 +178,14 @@
 #define MT_REV_GTE(_pAd, _chip, _rev)\
 	(IS_##_chip(_pAd) && (((_pAd)->ChipID & 0x0000FFFF) >= (_rev)))
 
-#define MT_REV_ET(_pAd, _chip, _rev)\
-	(IS_##_chip(_pAd) && (((_pAd)->ChipID & 0x0000FFFF) == (_rev)))
-
 #define MTK_REV_LT(_pAd, _chip, _rev)\
 	(IS_##_chip(_pAd) && (((_pAd)->HWVersion & 0x000000ff) < (_rev)))
 
+#define MT_REV_ET(_pAd, _chip, _rev)\
+	(IS_##_chip(_pAd) && (((_pAd)->ChipID & 0x0000FFFF) == (_rev)))
+
 #define MTK_REV_GTE(_pAd, _chip, _rev)\
 	(IS_##_chip(_pAd) && (((_pAd)->HWVersion & 0x000000ff) >= (_rev)))
-
-#define MTK_REV_ET(_pAd, _chip, _rev)\
-	(IS_##_chip(_pAd) && (((_pAd)->HWVersion & 0x000000ff) == (_rev)))
 
 /* Dual-band NIC (RF/BBP/MAC are in the same chip.) */
 
@@ -464,127 +377,6 @@ typedef union _EEPROM_ANTENNA_STRUC {
 } EEPROM_ANTENNA_STRUC, *PEEPROM_ANTENNA_STRUC;
 #endif
 
-/* rxv double data word low/high cycle */
-#define RXV_DDW0_L     0
-#define RXV_DDW0_H     1
-#define RXV_DDW1_L     2
-#define RXV_DDW1_H     3
-#define RXV_DDW2_L     4
-#define RXV_DDW2_H     5
-#define RXV_DDW3_L     6
-#define RXV_DDW3_H     7
-#define RXV_DDW4_L     8
-#define RXV_DDW4_H     9
-#define RXV_DDW5_L     10
-#define RXV_DDW5_H     11
-#define RXV_DDW6_L     12
-#define RXV_DDW6_H     13
-#define RXV_DDW7_L     14
-#define RXV_DDW7_H     15
-#define RXV_DDW8_L     16
-#define RXV_DDW8_H     17
-#define RXV_DDW9_L     18
-#define RXV_DDW9_H     19
-#define RXV_DDW10_L    20
-#define RXV_DDW10_H    21
-
-#define MUM_VHT_4MU_GRP_NUM 5
-
-#define TSSI_CAL_2G_SIZE  (9 * 4)
-#define TSSI_CAL_5G_SIZE  (48 * 4)
-#define DNL_CAL_SIZE      (158 * 4)
-#define RXGAIN_CAL_SIZE      (120 * 4)
-
-#define TSSI_CAL_2G_EEPROM_OFST  0x308
-#define TSSI_CAL_5G_EEPROM_OFST  0x380
-#define TX_DNL_CAL_EEPROM_OFST   0xAFC
-
-/* RF LOCKDOWN */
-#define COUNTRY_CODE_BYTE0_EEPROME_OFFSET   0x5C
-#define COUNTRY_CODE_BYTE1_EEPROME_OFFSET   0x5D
-#define COUNTRY_REGION_2G_EEPROME_OFFSET    0x5E
-#define COUNTRY_REGION_5G_EEPROME_OFFSET    0x5F
-#define COUNTRY_REGION_VALIDATION_MASK      BIT(7)
-#define COUNTRY_REGION_VALIDATION_OFFSET    7
-#define COUNTRY_REGION_CONTENT_MASK         BITS(0, 6)
-#define RF_LOCKDOWN_EEPROME_BLOCK_OFFSET    0x50
-#define RF_LOCKDOWN_EEPROME_COLUMN_OFFSET   0xB
-#define RF_LOCKDOWN_EEPROME_OFFSET          0x5B
-#define RF_LOCKDOWN_EEPROME_MASK            BIT(7)
-#define RF_LOCKDOWN_EEPROME_SHIFT           7
-#define RF_LOCKDOWN_EEPROME_SKU_TBL_OFFSET  0x5B
-#define RF_LOCKDOWN_EEPROME_SKU_TBL_MASK    BITS(0, 6)
-#define RF_LOCKDOWN_EEPROME_SKU_TBL_SHIFT   0
-#define RF_VALIDATION_NUMBER                10
-
-/** Tx Power Rate Column Offset */
-#define TXPOWER_RATE_CCK_OFFSET     (0)
-#define TXPOWER_RATE_OFDM_OFFSET    (TXPOWER_RATE_CCK_OFFSET  + MODULATION_SYSTEM_CCK_NUM)
-#define TXPOWER_RATE_HT20_OFFSET    (TXPOWER_RATE_OFDM_OFFSET + MODULATION_SYSTEM_OFDM_NUM)
-#define TXPOWER_RATE_HT40_OFFSET    (TXPOWER_RATE_HT20_OFFSET + MODULATION_SYSTEM_HT20_NUM)
-#define TXPOWER_RATE_VHT20_OFFSET   (TXPOWER_RATE_HT40_OFFSET + MODULATION_SYSTEM_HT40_NUM)
-#define TXPOWER_RATE_VHT40_OFFSET   (TXPOWER_RATE_VHT20_OFFSET + MODULATION_SYSTEM_VHT20_NUM)
-#define TXPOWER_RATE_VHT80_OFFSET   (TXPOWER_RATE_VHT40_OFFSET + MODULATION_SYSTEM_VHT40_NUM)
-#define TXPOWER_RATE_VHT160_OFFSET  (TXPOWER_RATE_VHT80_OFFSET + MODULATION_SYSTEM_VHT80_NUM)
-#define TXPOWER_RATE_LEG_RATE_NUM   (TXPOWER_RATE_VHT160_OFFSET + MODULATION_SYSTEM_VHT160_NUM)
-#define TXPOWER_RATE_HE26_OFFSET    (TXPOWER_RATE_LEG_RATE_NUM)
-#define TXPOWER_RATE_HE52_OFFSET    (TXPOWER_RATE_HE26_OFFSET + MODULATION_SYSTEM_HE26_NUM)
-#define TXPOWER_RATE_HE106_OFFSET   (TXPOWER_RATE_HE52_OFFSET + MODULATION_SYSTEM_HE52_NUM)
-#define TXPOWER_RATE_HE242_OFFSET   (TXPOWER_RATE_HE106_OFFSET + MODULATION_SYSTEM_HE106_NUM)
-#define TXPOWER_RATE_HE484_OFFSET   (TXPOWER_RATE_HE242_OFFSET + MODULATION_SYSTEM_HE242_NUM)
-#define TXPOWER_RATE_HE996_OFFSET   (TXPOWER_RATE_HE484_OFFSET + MODULATION_SYSTEM_HE484_NUM)
-#define TXPOWER_RATE_HE996X2_OFFSET (TXPOWER_RATE_HE996_OFFSET + MODULATION_SYSTEM_HE996_NUM)
-#define TXPOWER_RATE_NUM            (TXPOWER_RATE_HE996X2_OFFSET + MODULATION_SYSTEM_HE996X2_NUM)
-
-
-#if defined(PRE_CAL_MT7986_SUPPORT) || defined(PRE_CAL_MT7916_SUPPORT) || \
-	defined(PRE_CAL_MT7981_SUPPORT) || defined(PRE_CAL_MT7915_SUPPORT)
-
-#ifdef RTMP_FLASH_SUPPORT
-enum PRECAL_INDICATION_BIT_OFFSET {
-	GROUP_PRECAL_INDN_BIT = 0,
-	DPD5G_PRECAL_INDN_BIT,
-	DPD2G_PRECAL_INDN_BIT,
-	DPD6G_PRECAL_INDN_BIT,
-};
-#endif
-
-enum {
-    GBAND = 0,
-    ABAND = 1,
-};
-
-/* Length limitation from Host to Firmware */
-#define PRE_CAL_SET_MAX_CR_NUM   256
-#define PRE_CAL_SET_MAX_LENGTH   (PRE_CAL_SET_MAX_CR_NUM * 4)
-
-#endif
-
-#if defined(CONFIG_WLAN_SERVICE)
-enum {
-	RX_FE_LOSS_2G = 0,
-	RX_FE_LOSS_5G_LB,
-	RX_FE_LOSS_5G_MB,
-	RX_FE_LOSS_5G_HB,
-	RX_FE_LOSS_6G_LB1 = 4,
-	RX_FE_LOSS_6G_LB2,
-	RX_FE_LOSS_6G_HB1,
-	RX_FE_LOSS_5G_HB2,
-	RX_FE_LOSS_MAX_NUM,
-};
-
-struct _rx_fe_loss_ee_def {
-	UINT16 ee_of[RX_FE_LOSS_MAX_NUM * 4];
-};
-#endif
-
-struct BUS_DEBUG_INFO {
-	PCHAR  reg_name;
-	UINT32 reg_address;
-};
-
-
-
 struct RF_BANK_OFFSET {
 	UINT8 RFBankIndex;
 	UINT16 RFStart;
@@ -599,11 +391,24 @@ struct RF_INDEX_OFFSET {
 
 
 struct _RSSI_SAMPLE;
-union _EXT_CMD_EFUSE_BUFFER_MODE_T;
+struct _EXT_CMD_EFUSE_BUFFER_MODE_T;
+
+VOID AsicInitTxRxRing(struct _RTMP_ADAPTER *pAd);
 
 int RtmpChipOpsHook(VOID *pCB);
+VOID RtmpChipBcnInit(struct _RTMP_ADAPTER *pAd);
+#ifdef MT_MAC
+VOID mt_bcn_buf_init(struct _RTMP_ADAPTER *pAd);
+VOID mt_chip_bcn_parameter_init(struct _RTMP_ADAPTER *pAd);
+#endif /* MT_MAC */
 
 UINT8 NICGetBandSupported(struct _RTMP_ADAPTER *pAd);
+
+VOID RtmpChipWriteHighMemory(
+	IN	struct _RTMP_ADAPTER *pAd,
+	IN	USHORT			Offset,
+	IN	UINT32			Value,
+	IN	UINT8			Unit);
 
 VOID RtmpChipWriteMemory(
 	IN	struct _RTMP_ADAPTER *pAd,
@@ -621,41 +426,60 @@ VOID NetDevNickNameInit(IN struct _RTMP_ADAPTER *pAd);
 struct greenap_ctrl;
 struct greenap_on_off_ctrl;
 VOID greenap_init(
-	struct _RTMP_ADAPTER *ad);
+	struct greenap_ctrl *greenap);
+VOID greenap_exit(
+	struct _RTMP_ADAPTER *pAd,
+	struct wifi_dev *wdev,
+	struct greenap_ctrl *greenap);
 VOID greenap_show(
-	struct _RTMP_ADAPTER *ad);
+	struct _RTMP_ADAPTER *pAd,
+	struct greenap_ctrl *greenap);
 BOOLEAN greenap_check_when_if_down_up(
-	struct _RTMP_ADAPTER *ad);
-BOOLEAN greenap_check_when_ap_bss_change(
-	struct _RTMP_ADAPTER *ad);
+	struct _RTMP_ADAPTER *pAd);
+VOID greenap_check_peer_connection_status(
+	struct _RTMP_ADAPTER *pAd,
+	UINT8 band_idx,
+	BOOLEAN previous_greenap_active,
+	BOOLEAN greenap_allow);
 VOID greenap_check_peer_connection_at_link_up_down(
-	struct _RTMP_ADAPTER *ad,
-	struct wifi_dev *wdev);
+	struct _RTMP_ADAPTER *pAd,
+	struct wifi_dev *wdev,
+	struct greenap_ctrl *greenap);
+BOOLEAN greenap_get_suspend_status(
+	struct greenap_ctrl *greenap);
 VOID greenap_suspend(
-	struct _RTMP_ADAPTER *ad,
+	struct _RTMP_ADAPTER *pAd,
+	struct greenap_ctrl *greenap,
 	UINT32 reason);
 VOID greenap_resume(
-	struct _RTMP_ADAPTER *ad,
+	struct _RTMP_ADAPTER *pAd,
+	struct greenap_ctrl *greenap,
 	UINT32 reason);
+VOID greenap_check_allow_status(
+	struct _RTMP_ADAPTER *pAd,
+	struct greenap_ctrl *greenap);
+BOOLEAN greenap_get_allow_status(
+	struct greenap_ctrl *greenap);
 VOID greenap_set_capability(
-	struct _RTMP_ADAPTER *ad,
+	struct greenap_ctrl *greenap,
 	BOOLEAN greenap_cap);
 BOOLEAN greenap_get_capability(
-	struct _RTMP_ADAPTER *ad);
+	struct greenap_ctrl *greenap);
 VOID greenap_proc(
-	struct _RTMP_ADAPTER *ad,
+	struct _RTMP_ADAPTER *pAd,
+	struct greenap_ctrl *greenap,
 	BOOLEAN greenap_cap_on);
 
 VOID enable_greenap(
-	struct _RTMP_ADAPTER *ad,
+	struct _RTMP_ADAPTER *pAd,
 	struct greenap_on_off_ctrl *greenap_on_off);
 VOID disable_greenap(
-	struct _RTMP_ADAPTER *ad,
+	struct _RTMP_ADAPTER *pAd,
 	struct greenap_on_off_ctrl *greenap_on_off);
-VOID EnableAPMIMOPSv2(struct _RTMP_ADAPTER *ad, struct greenap_on_off_ctrl *greenap_on_off);
-VOID DisableAPMIMOPSv2(struct _RTMP_ADAPTER *ad, struct greenap_on_off_ctrl *greenap_on_off);
-VOID EnableAPMIMOPSv1(struct _RTMP_ADAPTER *ad, struct greenap_on_off_ctrl *greenap_on_off);
-VOID DisableAPMIMOPSv1(struct _RTMP_ADAPTER *ad, struct greenap_on_off_ctrl *greenap_on_off);
+VOID EnableAPMIMOPSv2(struct _RTMP_ADAPTER *pAd, struct greenap_on_off_ctrl *greenap_on_off);
+VOID DisableAPMIMOPSv2(struct _RTMP_ADAPTER *pAd, struct greenap_on_off_ctrl *greenap_on_off);
+VOID EnableAPMIMOPSv1(struct _RTMP_ADAPTER *pAd, struct greenap_on_off_ctrl *greenap_on_off);
+VOID DisableAPMIMOPSv1(struct _RTMP_ADAPTER *pAd, struct greenap_on_off_ctrl *greenap_on_off);
 #endif /* GREENAP_SUPPORT */
 
 /* global variable */
@@ -670,6 +494,8 @@ INT AsicGetMacVersion(struct _RTMP_ADAPTER *pAd);
 
 INT WaitForAsicReady(struct _RTMP_ADAPTER *pAd);
 
+INT AsicWaitMacTxRxIdle(struct _RTMP_ADAPTER *pAd);
+
 #define ASIC_MAC_TX			1
 #define ASIC_MAC_RX			2
 #define ASIC_MAC_TXRX		3
@@ -679,9 +505,22 @@ INT WaitForAsicReady(struct _RTMP_ADAPTER *pAd);
 
 INT AsicSetMacTxRx(struct _RTMP_ADAPTER *pAd, INT32 txrx, BOOLEAN enable);
 
+enum {
+	PDMA_TX,
+	PDMA_RX,
+	PDMA_TX_RX,
+};
+
+INT AsicSetWPDMA(struct _RTMP_ADAPTER *pAd, INT32 TxRx, BOOLEAN enable);
+BOOLEAN AsicWaitPDMAIdle(struct _RTMP_ADAPTER *pAd, INT round, INT wait_us);
+BOOLEAN AsicResetWPDMA(struct _RTMP_ADAPTER *pAd);
+
 INT AsicSetMacWD(struct _RTMP_ADAPTER *pAd);
 
 INT AsicReadAggCnt(struct _RTMP_ADAPTER *pAd, ULONG *aggCnt, int cnt_len);
+
+INT AsicTOPInit(struct _RTMP_ADAPTER *pAd);
+
 #ifdef MT_MAC
 INT rt28xx_read16(struct _RTMP_ADAPTER *pAd, USHORT, USHORT *);
 #endif /* MT_MAC */

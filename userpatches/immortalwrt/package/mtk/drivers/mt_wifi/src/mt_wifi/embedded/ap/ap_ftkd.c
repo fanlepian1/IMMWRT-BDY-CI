@@ -1,16 +1,15 @@
-/*
- * Copyright (c) [2020], MediaTek Inc. All rights reserved.
- *
- * This software/firmware and related documentation ("MediaTek Software") are
- * protected under relevant copyright laws.
- * The information contained herein is confidential and proprietary to
- * MediaTek Inc. and/or its licensors.
- * Except as otherwise provided in the applicable licensing terms with
- * MediaTek Inc. and/or its licensors, any reproduction, modification, use or
- * disclosure of MediaTek Software, and information contained herein, in whole
- * or in part, shall be strictly prohibited.
-*/
 /****************************************************************************
+ * Ralink Tech Inc.
+ * Taiwan, R.O.C.
+ *
+ * (c) Copyright 2002, Ralink Technology, Inc.
+ *
+ * All rights reserved. Ralink's source code is an unpublished work and the
+ * use of a copyright notice does not imply otherwise. This source code
+ * contains confidential trade secret material of Ralink Tech. Any attemp
+ * or participation in deciphering, decoding, reverse engineering or in any
+ * way altering the source code is stricitly prohibited, unless the prior
+ * written consent of Ralink Technology, Inc. is obtained.
  ***************************************************************************/
 
 /****************************************************************************
@@ -149,12 +148,12 @@ VOID TYPE_FUNC FT_KDP_Init(
 	if (pAd->ApCfg.FtTab.FlgIsFtKdpInit == 1)
 		return;
 
-	MTWF_DBG(pAd, DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_INFO, "ap_ftkd> Initialize FT KDP Module...\n");
+	MTWF_LOG(DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_ERROR, ("ap_ftkd> Initialize FT KDP Module...\n"));
 	/* allocate control block */
 	FT_MEM_ALLOC(pAd, &pAd->ApCfg.FtTab.pFT_KDP_Ctrl_BK, sizeof(FT_KDP_CTRL_BLOCK));
 
 	if (pAd->ApCfg.FtTab.pFT_KDP_Ctrl_BK == NULL) {
-		MTWF_DBG(pAd, DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_ERROR, "ap_ftkd> Allocate control block fail!\n");
+		MTWF_LOG(DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_ERROR, ("ap_ftkd> Allocate control block fail!\n"));
 		return;
 	}
 
@@ -205,17 +204,13 @@ VOID TYPE_FUNC FT_KDP_Release(
 	if (pAd->ApCfg.FtTab.FlgIsFtKdpInit == 0)
 		return;
 
-	MTWF_DBG(pAd, DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_INFO, "ap_ftkd> Release FT KDP Module...\n");
+	MTWF_LOG(DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_ERROR, ("ap_ftkd> Release FT KDP Module...\n"));
 #ifndef FT_KDP_FUNC_SOCK_COMM
 	/* free event list */
 	FT_KDP_EVT_LIST_EMPTY(pAd, &(FT_KDP_CB->EventList));
 #endif /* FT_KDP_FUNC_SOCK_COMM */
 #ifdef FT_KDP_FUNC_R0KH_IP_RECORD
 	/* free all R0KH information */
-	if (!FT_KDP_CB) {
-		MTWF_DBG(pAd, DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_WARN, "FT_KDP_CB is Null, return!!!\n");
-		return;
-	}
 	pInfoHead = FT_KDP_CB->R0KH_InfoHead;
 
 	while (pInfoHead != NULL) {
@@ -292,8 +287,8 @@ VOID TYPE_FUNC FT_KDP_EventInform(
 	FT_KDP_EVT_HEADER EvtHdr;
 
 	if (pAd->ApCfg.FtTab.FlgIsFtKdpInit == 0) {
-		MTWF_DBG(pAd, DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_ERROR,
-				 "ap_ftkd> FT KDP is not init!\n");
+		MTWF_LOG(DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
+				 ("ap_ftkd> %s: FT KDP is not init!\n", __func__));
 		return;
 	}
 
@@ -306,7 +301,7 @@ VOID TYPE_FUNC FT_KDP_EventInform(
 	FT_KDP_EVT_LIST_SIZE_GET(pAd, &FT_KDP_CB->EventList, Size);
 
 	if (Size > FT_KDP_EVENT_MAX) {
-		MTWF_DBG(pAd, DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_INFO, "ap_ftkd> Queued Events are too much!\n");
+		MTWF_LOG(DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("ap_ftkd> Queued Events are too much!\n"));
 		return;
 	}
 
@@ -316,11 +311,10 @@ VOID TYPE_FUNC FT_KDP_EventInform(
 	FT_MEM_ALLOC(pAd, &pFtKdp, sizeof(FT_KDP_SIGNAL));
 
 	if (pFtKdp == NULL) {
-		MTWF_DBG(pAd, DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_INFO, "ap_ftkd> Allocate signal content fail!\n");
+		MTWF_LOG(DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("ap_ftkd> Allocate signal content fail!\n"));
 		return;
 	}
 
-	NdisZeroMemory(pFtKdp, sizeof(FT_KDP_SIGNAL));
 	pFtKdp->Sig = EventId;
 
 	/* handle different event */
@@ -377,9 +371,14 @@ VOID TYPE_FUNC FT_KDP_EventInform(
 		pEvtReAssoc = (FT_KDP_EVT_REASSOC *)pEvent;
 		pFtKdp->Sequence = pEvtReAssoc->SeqNum;
 		NdisMoveMemory(pFtKdp->MacAddr, pEvtReAssoc->MacAddr, MAC_ADDR_LEN);
-			MTWF_DBG(pAd, DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_INFO,
-					 "ap_ftkd> The previous AP showed in Reassoc is ="MACSTR"\n",
-					 MAC2STR(pEvtReAssoc->OldApMacAddr));
+			MTWF_LOG(DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_TRACE,
+			("ap_ftkd> The previous AP showed in Reassoc is =%02x:%02x:%02x:%02x:%02x:%02x\n",
+					 pEvtReAssoc->OldApMacAddr[0],
+					 pEvtReAssoc->OldApMacAddr[1],
+					 pEvtReAssoc->OldApMacAddr[2],
+					 pEvtReAssoc->OldApMacAddr[3],
+					 pEvtReAssoc->OldApMacAddr[4],
+					 pEvtReAssoc->OldApMacAddr[5]));
 
 		/* try to get the IP of old AP */
 		if (FT_KDP_R0KH_InfoGet(pAd, NULL,
@@ -387,10 +386,10 @@ VOID TYPE_FUNC FT_KDP_EventInform(
 								&PeerIP) == FALSE) {
 		}
 
-			MTWF_DBG(pAd, DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_INFO,
-				"ap_ftkd> Send Move notify to Peer IP = %d.%d.%d.%d!\n",
+			MTWF_LOG(DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_TRACE,
+				("ap_ftkd> Send Move notify to Peer IP = %d.%d.%d.%d!\n",
 				(UINT)(htonl(PeerIP) >> 24) & 0xFF, (UINT)(htonl(PeerIP) >> 16) & 0xFF,
-				(UINT)(htonl(PeerIP) >> 8) & 0xFF, (UINT) (htonl(PeerIP) & 0xFF));
+				(UINT)(htonl(PeerIP) >> 8) & 0xFF, (UINT) (htonl(PeerIP) & 0xFF)));
 	}
 	break;
 
@@ -420,7 +419,7 @@ VOID TYPE_FUNC FT_KDP_EventInform(
 		FT_KDP_EVT_ACTION *pActionCB = (FT_KDP_EVT_ACTION *)pCB;
 
 		if (pCB == NULL) {
-			MTWF_DBG(pAd, DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_ERROR, "ap_ftkd> pCB == NULL!\n");
+			MTWF_LOG(DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_ERROR, ("ap_ftkd> pCB == NULL!\n"));
 			FT_MEM_FREE(pAd, pFtKdp);
 			return;
 		}
@@ -462,8 +461,8 @@ VOID TYPE_FUNC FT_KDP_EventInform(
 
 	default:
 		/* error event */
-		MTWF_DBG(pAd, DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_INFO,
-				 "ap_ftkd> Signal is not supported %d!\n", EventId);
+		MTWF_LOG(DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_TRACE,
+				 ("ap_ftkd> Signal is not supported %d!\n", EventId));
 		FT_MEM_FREE(pAd, pFtKdp);
 		return;
 	}
@@ -478,9 +477,9 @@ VOID TYPE_FUNC FT_KDP_EventInform(
 					   pEvent, EventLen);
 	}
 
-	MTWF_DBG(pAd, DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_INFO,
-			 "ap_ftkd> Event ID = %d, EventLen = %d (%d, %d)\n",
-			  EventId, EventLen, FT_KDP_MemAllocNum, FT_KDP_MemFreeNum);
+	MTWF_LOG(DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_TRACE,
+			 ("ap_ftkd> Event ID = %d, EventLen = %d (%d, %d)\n",
+			  EventId, EventLen, FT_KDP_MemAllocNum, FT_KDP_MemFreeNum));
 #ifndef FT_KDP_FUNC_SOCK_COMM
 	/* insert to the event queue */
 	FT_KDP_EVT_LIST_INSERT_TAIL(pAd, &FT_KDP_CB->EventList, pFtKdp);
@@ -496,9 +495,9 @@ VOID TYPE_FUNC FT_KDP_EventInform(
 			Note: in VxWorks, we can not send any signal to same task
 			which issues a ioctl path.
 		*/
-		MTWF_DBG(pAd, DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_INFO,
-				  "ap_ftkd> Send signal to ft kdp daemon... (EventLen = %d)\n",
-				  EventLen);
+		MTWF_LOG(DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_TRACE,
+				 ("ap_ftkd> Send signal to ft kdp daemon... (EventLen = %d)\n",
+				  EventLen));
 		SendSignalToDaemon(SIGUSR2, pObj->IappPid, pObj->IappPid_nr);
 	} /* End of if */
 
@@ -546,14 +545,14 @@ VOID TYPE_FUNC FT_KDP_EventInform(
 			FrameLen = RT_SIGNAL_STRUC_HDR_SIZE+sizeof(FT_KDP_EVT_HEADER)+EventLen;
 			NdisMoveMemory(OS_PKT_TAIL_BUF_EXTEND(RTPKT_TO_OSPKT(pPktComm), FrameLen),
 						   pFtKdp, FrameLen);
-			MTWF_DBG(pAd, DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_INFO,
-					  "ap_ftkd> Send a command (MBSS%d, Frame Len%d) to IAPP daemon.\n",
-					  ApIdx, FrameLen);
+			MTWF_LOG(DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_TRACE,
+					 ("ap_ftkd> Send a command (MBSS%d, Frame Len%d) to IAPP daemon.\n",
+					  ApIdx, FrameLen));
 			/* pass this packet to upper layer */
 			announce_802_3_packet(pAd, pPktComm, OPMODE_AP);
 		} else {
-			MTWF_DBG(pAd, DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_INFO,
-					 "ap_ftkd> Allocate signal to ft kdp daemon fail!\n");
+			MTWF_LOG(DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_TRACE,
+					 ("ap_ftkd> Allocate signal to ft kdp daemon fail!\n"));
 		}
 	}
 #endif
@@ -589,8 +588,8 @@ VOID TYPE_FUNC FT_KDP_EventGet(
 	UCHAR Size;
 
 	if (pAd->ApCfg.FtTab.FlgIsFtKdpInit == 0) {
-		MTWF_DBG(pAd, DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_ERROR,
-				 "ap_ftkd> FT KDP is not init!\n");
+		MTWF_LOG(DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
+				 ("ap_ftkd> %s: FT KDP is not init!\n", __func__));
 		return;
 	}
 
@@ -642,13 +641,13 @@ BOOLEAN TYPE_FUNC FT_KDP_KeyRequestToUs(
 	UINT32 ApIdx = BSS0;
 	MAC_TABLE_ENTRY *pEntry = NULL;
 
-	MTWF_DBG(pAd, DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_INFO,
-			 "ap_ftkd>  Key Req from Peer IP = %d.%d.%d.%d!\n",
-			  (htonl(PeerIP) >> 24) & 0xFF, (htonl(PeerIP) >> 16) & 0xFF, (htonl(PeerIP) >> 8) & 0xFF, (htonl(PeerIP) & 0xFF));
+	MTWF_LOG(DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_TRACE,
+			 ("ap_ftkd> Key Req from Peer IP = %d.%d.%d.%d!\n",
+			  (htonl(PeerIP) >> 24) & 0xFF, (htonl(PeerIP) >> 16) & 0xFF, (htonl(PeerIP) >> 8) & 0xFF, (htonl(PeerIP) & 0xFF)));
 
 	if (pAd->ApCfg.FtTab.FlgIsFtKdpInit == 0) {
-		MTWF_DBG(pAd, DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_ERROR,
-				 "ap_ftkd> FT KDP is not init!\n");
+		MTWF_LOG(DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
+				 ("ap_ftkd> %s: FT KDP is not init!\n", __func__));
 		return FALSE;
 	}
 
@@ -657,14 +656,14 @@ BOOLEAN TYPE_FUNC FT_KDP_KeyRequestToUs(
 
 	/* sanity check for R0KHID */
 #ifdef FT_KDP_DEBUG
-	MTWF_DBG(pAd, DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_INFO,
-			  "ap_ftkd> Key Req: R0KH-ID = 0x%02x:%02x:%02x:%02x:%02x:%02x!\n",
+	MTWF_LOG(DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_TRACE,
+			 ("ap_ftkd> Key Req: R0KH-ID = 0x%02x:%02x:%02x:%02x:%02x:%02x!\n",
 			  pEvtKeyReq->KeyInfo.R0KHID[0],
 			  pEvtKeyReq->KeyInfo.R0KHID[1],
 			  pEvtKeyReq->KeyInfo.R0KHID[2],
 			  pEvtKeyReq->KeyInfo.R0KHID[3],
 			  pEvtKeyReq->KeyInfo.R0KHID[4],
-			  pEvtKeyReq->KeyInfo.R0KHID[5]);
+			  pEvtKeyReq->KeyInfo.R0KHID[5]));
 #endif /* FT_KDP_DEBUG */
 
 	for (IDR0KH = 0; IDR0KH < FT_KDP_R0KHID_MAX_SIZE; IDR0KH++) {
@@ -680,17 +679,22 @@ BOOLEAN TYPE_FUNC FT_KDP_KeyRequestToUs(
 		(pEvtKeyReq->OUI[1] == FT_KDP_ELM_PRI_OUI_1) &&
 		(pEvtKeyReq->OUI[2] == FT_KDP_ELM_PRI_OUI_2)) {
 #ifdef FT_KDP_DEBUG
-		MTWF_DBG(pAd, DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_INFO,
-				  "ap_ftkd> Key Req: Station MAC = "MACSTR"!\n",
-				  MAC2STR(pEvtKeyReq->MacAddr));
-		MTWF_DBG(pAd, DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_INFO,
-				  "ap_ftkd> Key Req: R1KH-ID = 0x%02x:%02x:%02x:%02x:%02x:%02x!\n",
+		MTWF_LOG(DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_TRACE,
+				 ("ap_ftkd> Key Req: Station MAC = 0x%02x:%02x:%02x:%02x:%02x:%02x!\n",
+				  pEvtKeyReq->MacAddr[0],
+				  pEvtKeyReq->MacAddr[1],
+				  pEvtKeyReq->MacAddr[2],
+				  pEvtKeyReq->MacAddr[3],
+				  pEvtKeyReq->MacAddr[4],
+				  pEvtKeyReq->MacAddr[5]));
+		MTWF_LOG(DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_TRACE,
+				 ("ap_ftkd> Key Req: R1KH-ID = 0x%02x:%02x:%02x:%02x:%02x:%02x!\n",
 				  pEvtKeyReq->KeyInfo.R1KHID[0],
 				  pEvtKeyReq->KeyInfo.R1KHID[1],
 				  pEvtKeyReq->KeyInfo.R1KHID[2],
 				  pEvtKeyReq->KeyInfo.R1KHID[3],
 				  pEvtKeyReq->KeyInfo.R1KHID[4],
-				  pEvtKeyReq->KeyInfo.R1KHID[5]);
+				  pEvtKeyReq->KeyInfo.R1KHID[5]));
 #endif /* FT_KDP_DEBUG */
 
 		pEntry = MacTableLookup(pAd, pEvtKeyReq->MacAddr);
@@ -704,20 +708,17 @@ BOOLEAN TYPE_FUNC FT_KDP_KeyRequestToUs(
 		if (FT_QueryKeyInfoForKDP(pAd, ApIdx, pEvtKeyReq) == FALSE)
 			return FALSE;
 
-		hex_dump_with_cat_and_lvl("FT_KDP_KeyRequestToUs r0 name", pEvtKeyReq->KeyInfo.PMKR0Name,
-					FT_KDP_WPA_NAME_MAX_SIZE, DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_WARN);
-
 		/* response the requested PMK-R1 Key to the R1KH */
-		MTWF_DBG(pAd, DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_INFO,
-				  "ap_ftkd> Key Rsp to Peer IP = %d.%d.%d.%d!\n",
-				  (htonl(PeerIP) >> 24) & 0xFF, (htonl(PeerIP) >> 16) & 0xFF, (htonl(PeerIP) >> 8) & 0xFF, (htonl(PeerIP) & 0xFF));
+		MTWF_LOG(DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_TRACE,
+				 ("ap_ftkd> Key Rsp to Peer IP = %d.%d.%d.%d!\n",
+				  (htonl(PeerIP) >> 24) & 0xFF, (htonl(PeerIP) >> 16) & 0xFF, (htonl(PeerIP) >> 8) & 0xFF, (htonl(PeerIP) & 0xFF)));
 		FT_KDP_EventInform(pAd, ApIdx, FT_KDP_SIG_KEY_RSP_AUTO,
 						   (VOID *)pEvtKeyReq, sizeof(FT_KDP_EVT_KEY_ELM),
 						   PeerIP, NULL);
 		return TRUE;
 	}
 
-	MTWF_DBG(pAd, DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_INFO, "ap_ftkd> Key Req format incorrect!\n");
+	MTWF_LOG(DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("ap_ftkd> Key Req format incorrect!\n"));
 #endif /* FT_KDP_EMPTY */
 	return FALSE;
 }
@@ -751,11 +752,9 @@ VOID TYPE_FUNC FT_KDP_KeyResponseToUs(
 	FT_KDP_EVT_KEY_ELM *pEvtKeyRsp;
 	UCHAR *pNonce;
 
-	MTWF_DBG(pAd, DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_INFO, "ap_ftkd> \n");
-
 	if (pAd->ApCfg.FtTab.FlgIsFtKdpInit == 0) {
-		MTWF_DBG(pAd, DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_ERROR,
-				 "ap_ftkd> FT KDP is not init!\n");
+		MTWF_LOG(DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
+				 ("ap_ftkd> %s: FT KDP is not init!\n", __func__));
 		return;
 	}
 
@@ -764,9 +763,9 @@ VOID TYPE_FUNC FT_KDP_KeyResponseToUs(
 	pNonce = pData;
 	pEvtKeyRsp = (FT_KDP_EVT_KEY_ELM *)(pNonce + FT_NONCE_SIZE);
 #ifdef FT_KDP_DEBUG
-	MTWF_DBG(pAd, DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_INFO,
-			  "ap_ftkd> Key Rsp from Peer IP = %d.%d.%d.%d!\n",
-			  (htonl(PeerIP) >> 24) & 0xFF, (htonl(PeerIP) >> 16) & 0xFF, (htonl(PeerIP) >> 8) & 0xFF, (htonl(PeerIP) & 0xFF));
+	MTWF_LOG(DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_TRACE,
+			 ("ap_ftkd> Key Rsp from Peer IP = %d.%d.%d.%d!\n",
+			  (htonl(PeerIP) >> 24) & 0xFF, (htonl(PeerIP) >> 16) & 0xFF, (htonl(PeerIP) >> 8) & 0xFF, (htonl(PeerIP) & 0xFF)));
 #endif /* FT_KDP_DEBUG */
 
 	/* check if the response format is correct */
@@ -777,18 +776,23 @@ VOID TYPE_FUNC FT_KDP_KeyResponseToUs(
 		PFT_R1HK_ENTRY	pR1hkEntry;
 		BOOLEAN			bUpdateR1kh = FALSE;
 #ifdef FT_KDP_DEBUG
-		MTWF_DBG(pAd, DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_INFO,
-				  "ap_ftkd> Key Rsp: Station MAC = "MACSTR"!\n",
-				  MAC2STR(pEvtKeyRsp->MacAddr));
-		MTWF_DBG(pAd, DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_INFO,
-				  "ap_ftkd> Key Rsp: R1KH-ID = 0x%02x:%02x:%02x:%02x:%02x:%02x!\n",
+		MTWF_LOG(DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_TRACE,
+				 ("ap_ftkd> Key Rsp: Station MAC = 0x%02x:%02x:%02x:%02x:%02x:%02x!\n",
+				  pEvtKeyRsp->MacAddr[0],
+				  pEvtKeyRsp->MacAddr[1],
+				  pEvtKeyRsp->MacAddr[2],
+				  pEvtKeyRsp->MacAddr[3],
+				  pEvtKeyRsp->MacAddr[4],
+				  pEvtKeyRsp->MacAddr[5]));
+		MTWF_LOG(DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_TRACE,
+				 ("ap_ftkd> Key Rsp: R1KH-ID = 0x%02x:%02x:%02x:%02x:%02x:%02x!\n",
 				  pEvtKeyRsp->KeyInfo.R1KHID[0],
 				  pEvtKeyRsp->KeyInfo.R1KHID[1],
 				  pEvtKeyRsp->KeyInfo.R1KHID[2],
 				  pEvtKeyRsp->KeyInfo.R1KHID[3],
 				  pEvtKeyRsp->KeyInfo.R1KHID[4],
-				  pEvtKeyRsp->KeyInfo.R1KHID[5]);
-		MTWF_DBG(pAd, DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_INFO, "MacAddr");
+				  pEvtKeyRsp->KeyInfo.R1KHID[5]));
+		MTWF_LOG(DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("MacAddr"));
 		hex_dump("PMKR1Name", pEvtKeyRsp->PMKR1Name, FT_KDP_WPA_NAME_MAX_SIZE);
 		hex_dump("R0KH_MAC", pEvtKeyRsp->R0KH_MAC, ETH_ALEN);
 		hex_dump("AKM Suite", pEvtKeyRsp->AkmSuite, 4);
@@ -812,9 +816,6 @@ VOID TYPE_FUNC FT_KDP_KeyResponseToUs(
 
 			pEntry = MacTableLookup(pAd, pEvtKeyRsp->MacAddr);
 
-			hex_dump_with_cat_and_lvl("FT_KDP_KeyResponseToUs r0 name", pEvtKeyRsp->KeyInfo.PMKR0Name,
-					FT_KDP_WPA_NAME_MAX_SIZE, DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_WARN);
-
 			/* assign the PMK-R1 key to FT kernel */
 			FT_R1khEntryInsert(pAd,
 							   pEvtKeyRsp->KeyInfo.PMKR0Name,
@@ -834,9 +835,9 @@ VOID TYPE_FUNC FT_KDP_KeyResponseToUs(
 				|| (pEntry->FT_R1kh_CacheMiss_Hard > 0)
 #endif /*R1KH_HARD_RETRY */
 				)) {
-				MTWF_DBG(pAd, DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_INFO,
-					" - Reset FT_R1kh_CacheMiss_Times to Zero (Wcid%d, value:%d), time=%ld\n",
-					pEntry->wcid, pEntry->FT_R1kh_CacheMiss_Times, (jiffies * 1000) / OS_HZ);
+				MTWF_LOG(DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_OFF,
+					("%s - Reset FT_R1kh_CacheMiss_Times to Zero (Wcid%d, value:%d), time=%ld\n",
+					__func__, pEntry->wcid, pEntry->FT_R1kh_CacheMiss_Times, (jiffies * 1000) / OS_HZ));
 				pEntry->FT_R1kh_CacheMiss_Times = 0;
 
 #ifdef R1KH_HARD_RETRY	/* yiwei no give up! */
@@ -856,7 +857,7 @@ VOID TYPE_FUNC FT_KDP_KeyResponseToUs(
 							PeerIP);
 #endif /* FT_KDP_FUNC_R0KH_IP_RECORD */
 	} else
-		MTWF_DBG(pAd, DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_INFO, "ap_ftkd> Key Rsp format incorrect!\n");
+		MTWF_LOG(DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("ap_ftkd> Key Rsp format incorrect!\n"));
 
 #endif /* FT_KDP_EMPTY */
 }
@@ -889,23 +890,11 @@ VOID TYPE_FUNC FT_KDP_StationInform(
 	UCHAR *pData;
 	FT_KDP_EVT_KEY_ELM EvtKeyReq, *pEvtKeyReq;
 	UCHAR StaMac[ETH_ALEN];
-	POS_COOKIE pObj = (POS_COOKIE) pAd->OS_Cookie;
-	UCHAR ApIdx = pObj->ioctl_if;
-	struct wifi_dev *wdev = NULL;
-
-	MTWF_DBG(pAd, DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_INFO, "ap_ftkd> %s()\n", __func__);
-
-	wdev = &pAd->ApCfg.MBSSID[ApIdx].wdev;
-
-	if (!wdev) {
-		MTWF_DBG(pAd, DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_ERROR,
-				 "wdev == NULL!\n");
-		return;
-	}
+	UINT32 IdBssNum;
 
 	if (pAd->ApCfg.FtTab.FlgIsFtKdpInit == 0) {
-		MTWF_DBG(pAd, DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_ERROR,
-				 "ap_ftkd> FT KDP is not init!\n");
+		MTWF_LOG(DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
+				 ("ap_ftkd> %s: FT KDP is not init!\n", __func__));
 		return;
 	}
 
@@ -914,10 +903,14 @@ VOID TYPE_FUNC FT_KDP_StationInform(
 #ifndef FT_KDP_FUNC_TEST
 
 	/* check if we are in security mode; if not, return */
-	if (!IS_AKM_OPEN(pAd->ApCfg.MBSSID[ApIdx].wdev.SecConfig.AKMMap)) {
-		MTWF_DBG(pAd, DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_INFO, "ap_ftkd> BSS ["MACSTR"] is open mode!\n",
-			MAC2STR(pAd->ApCfg.MBSSID[ApIdx].wdev.bssid));
-		return; /* this BSS are open mode */
+	for (IdBssNum = 0; IdBssNum < pAd->ApCfg.BssidNum; IdBssNum++) {
+		if (!IS_AKM_OPEN(pAd->ApCfg.MBSSID[IdBssNum].wdev.SecConfig.AKMMap))
+			break;
+	}
+
+	if (IdBssNum == pAd->ApCfg.BssidNum) {
+		MTWF_LOG(DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("ap_ftkd> All BSS are open mode!\n"));
+		return; /* all BSS are open mode */
 	}
 
 #endif
@@ -925,9 +918,9 @@ VOID TYPE_FUNC FT_KDP_StationInform(
 	NdisZeroMemory(&EvtKeyReq, sizeof(FT_KDP_EVT_KEY_ELM));
 	pEvtKeyReq = &EvtKeyReq;
 #ifdef FT_KDP_DEBUG
-	MTWF_DBG(pAd, DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_INFO,
-			  "ap_ftkd> Station Inform from Peer IP = %d.%d.%d.%d!\n",
-			  (htonl(PeerIP) >> 24) & 0xFF, (htonl(PeerIP) >> 16) & 0xFF, (htonl(PeerIP) >> 8) & 0xFF, (htonl(PeerIP) & 0xFF));
+	MTWF_LOG(DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_TRACE,
+			 ("ap_ftkd> Station Inform from Peer IP = %d.%d.%d.%d!\n",
+			  (htonl(PeerIP) >> 24) & 0xFF, (htonl(PeerIP) >> 16) & 0xFF, (htonl(PeerIP) >> 8) & 0xFF, (htonl(PeerIP) & 0xFF)));
 #endif
 	/* make up request content */
 	pEvtKeyReq->ElmId = FT_KDP_ELM_ID_PRI;
@@ -939,24 +932,26 @@ VOID TYPE_FUNC FT_KDP_StationInform(
 	NdisMoveMemory(pEvtKeyReq->KeyInfo.S1KHID, StaMac, FT_KDP_S1KHID_MAX_SIZE);
 	/* request PMK-R1 Key (our R1KH vs. the station) from the R0KH */
 #ifdef FT_KDP_DEBUG
-	MTWF_DBG(pAd, DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_INFO,
-			  "ap_ftkd> Send Key Req to Peer IP = %d.%d.%d.%d!\n",
-			  (htonl(PeerIP) >> 24) & 0xFF, (htonl(PeerIP) >> 16) & 0xFF, (htonl(PeerIP) >> 8) & 0xFF, (htonl(PeerIP) & 0xFF));
+	MTWF_LOG(DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_TRACE,
+			 ("ap_ftkd> Send Key Req to Peer IP = %d.%d.%d.%d!\n",
+			  (htonl(PeerIP) >> 24) & 0xFF, (htonl(PeerIP) >> 16) & 0xFF, (htonl(PeerIP) >> 8) & 0xFF, (htonl(PeerIP) & 0xFF)));
 #endif /* FT_KDP_DEBUG */
 
+	for (IdBssNum = 0; IdBssNum < pAd->ApCfg.BssidNum; IdBssNum++) {
 #ifndef FT_KDP_FUNC_TEST
 
-	if (!IS_AKM_OPEN(pAd->ApCfg.MBSSID[ApIdx].wdev.SecConfig.AKMMap))
+		if (!IS_AKM_OPEN(pAd->ApCfg.MBSSID[IdBssNum].wdev.SecConfig.AKMMap))
 #endif /* FT_KDP_FUNC_TEST */
-	{
-		/* copy our MAC address to be the R1KHID */
-		/* different MAC for different BSS in MBSS mode */
-		NdisMoveMemory(pEvtKeyReq->KeyInfo.R1KHID,
-						pAd->ApCfg.MBSSID[ApIdx].wdev.bssid,
-						FT_KDP_R1KHID_MAX_SIZE);
-		FT_KDP_EventInform(pAd, ApIdx, FT_KDP_SIG_KEY_REQ_AUTO,
-						(VOID *)pEvtKeyReq, sizeof(FT_KDP_EVT_KEY_ELM),
-						PeerIP, NULL);
+		{
+			/* copy our MAC address to be the R1KHID */
+			/* different MAC for different BSS in MBSS mode */
+			NdisMoveMemory(pEvtKeyReq->KeyInfo.R1KHID,
+						   pAd->ApCfg.MBSSID[IdBssNum].wdev.bssid,
+						   FT_KDP_R1KHID_MAX_SIZE);
+			FT_KDP_EventInform(pAd, IdBssNum, FT_KDP_SIG_KEY_REQ_AUTO,
+							   (VOID *)pEvtKeyReq, sizeof(FT_KDP_EVT_KEY_ELM),
+							   PeerIP, NULL);
+		}
 	}
 
 #endif /* FT_KDP_EMPTY */
@@ -990,11 +985,11 @@ VOID TYPE_FUNC FT_KDP_CryptKeySet(
 	IN	INT32				KeyLen)
 {
 #ifndef FT_KDP_EMPTY
-	UCHAR KeyMaterial[40] = {0};
+	UCHAR KeyMaterial[40];
 
-	if (pAd->ApCfg.FtTab.FlgIsFtKdpInit == 0 || FT_KDP_CB == NULL) {
-		MTWF_DBG(pAd, DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_ERROR,
-				 "ap_ftkd> FT KDP is not init!\n");
+	if (pAd->ApCfg.FtTab.FlgIsFtKdpInit == 0) {
+		MTWF_LOG(DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
+				 ("ap_ftkd> %s: FT KDP is not init!\n", __func__));
 		return;
 	}
 
@@ -1043,8 +1038,8 @@ VOID TYPE_FUNC FT_KDP_DataEncrypt(
 	UINT   OutputLen = 0;
 
 	if (pAd->ApCfg.FtTab.FlgIsFtKdpInit == 0) {
-		MTWF_DBG(pAd, DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_ERROR,
-				 "ap_ftkd> FT KDP is not init!\n");
+		MTWF_LOG(DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
+				 ("ap_ftkd> %s: FT KDP is not init!\n", __func__));
 		return;
 	}
 
@@ -1052,7 +1047,7 @@ VOID TYPE_FUNC FT_KDP_DataEncrypt(
 	FT_MEM_ALLOC(pAd, &pOutputBuf, *pDataLen + FT_KDP_KEY_ENCRYPTION_EXTEND);
 
 	if (pOutputBuf == NULL) {
-		MTWF_DBG(pAd, DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_ERROR, "ap_ftkd> Allocate encryption buffer fail!\n");
+		MTWF_LOG(DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_ERROR, ("ap_ftkd> Allocate encryption buffer fail!\n"));
 		return;
 	}
 
@@ -1093,13 +1088,13 @@ VOID TYPE_FUNC FT_KDP_DataDecrypt(
 	UINT   OutputLen = 0;
 
 	if (pAd->ApCfg.FtTab.FlgIsFtKdpInit == 0) {
-		MTWF_DBG(pAd, DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_ERROR,
-				 "ap_ftkd> FT KDP is not init!\n");
+		MTWF_LOG(DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
+				 ("ap_ftkd> %s: FT KDP is not init!\n", __func__));
 		return;
 	}
 
 	if ((*pDataLen) <= FT_KDP_KEY_ENCRYPTION_EXTEND) {
-		MTWF_DBG(pAd, DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_ERROR, "ap_ftkd> Decryption length is too small!\n");
+		MTWF_LOG(DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_ERROR, ("ap_ftkd>Decryption length is too small!\n"));
 		return;
 	}
 
@@ -1107,7 +1102,7 @@ VOID TYPE_FUNC FT_KDP_DataDecrypt(
 	FT_MEM_ALLOC(pAd, &pOutputBuf, *pDataLen);
 
 	if (pOutputBuf == NULL) {
-		MTWF_DBG(pAd, DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_ERROR, "ap_ftkd> Allocate decryption buffer fail!\n");
+		MTWF_LOG(DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_ERROR, ("ap_ftkd> Allocate decryption buffer fail!\n"));
 		return;
 	}
 
@@ -1152,8 +1147,8 @@ BOOLEAN TYPE_FUNC FT_KDP_R0KH_InfoAdd(
 	BOOLEAN FlgIsSameRecordFound;
 
 	if (pAd->ApCfg.FtTab.FlgIsFtKdpInit == 0) {
-		MTWF_DBG(pAd, DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_ERROR,
-				 "ap_ftkd> FT KDP is not init!\n");
+		MTWF_LOG(DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
+				 ("ap_ftkd> %s: FT KDP is not init!\n", __func__));
 		return FALSE;
 	}
 
@@ -1187,7 +1182,7 @@ BOOLEAN TYPE_FUNC FT_KDP_R0KH_InfoAdd(
 
 		if (pInfo == NULL) {
 			RTMP_SEM_UNLOCK(&(pAd->ApCfg.FtTab.FT_KdpLock));
-			MTWF_DBG(pAd, DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_ERROR, "ap_ftkd> Allocate R0KH INFO fail!\n");
+			MTWF_LOG(DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_ERROR, ("ap_ftkd> Allocate R0KH INFO fail!\n"));
 			return FALSE;
 		}
 
@@ -1249,8 +1244,8 @@ VOID TYPE_FUNC FT_KDP_R0KH_InfoDel(
 	ULONG TimeOldest;
 
 	if (pAd->ApCfg.FtTab.FlgIsFtKdpInit == 0) {
-		MTWF_DBG(pAd, DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_ERROR,
-				 "ap_ftkd> FT KDP is not init!\n");
+		MTWF_LOG(DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
+				 ("ap_ftkd> %s: FT KDP is not init!\n", __func__));
 		return;
 	}
 
@@ -1364,8 +1359,8 @@ static BOOLEAN TYPE_FUNC FT_KDP_R0KH_InfoGet(
 	FT_KDP_R0KH_INFO *pInfo;
 
 	if (pAd->ApCfg.FtTab.FlgIsFtKdpInit == 0) {
-		MTWF_DBG(pAd, DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_ERROR,
-				 "ap_ftkd> FT KDP is not init!\n");
+		MTWF_LOG(DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
+				 ("ap_ftkd> %s: FT KDP is not init!\n", __func__));
 		return FALSE;
 	}
 
@@ -1431,8 +1426,8 @@ VOID TYPE_FUNC FT_KDP_InfoBroadcast(
 	UINT32 IdBssNum;
 
 	if (pAd->ApCfg.FtTab.FlgIsFtKdpInit == 0) {
-		MTWF_DBG(pAd, DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_ERROR,
-				 "ap_ftkd> FT KDP is not init!\n");
+		MTWF_LOG(DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
+				 ("ap_ftkd> %s: FT KDP is not init!\n", __func__));
 		return;
 	}
 
@@ -1478,17 +1473,17 @@ VOID TYPE_FUNC FT_KDP_NeighborReportHandle(
 	UINT32 IdBssNum;
 
 	if (pAd->ApCfg.FtTab.FlgIsFtKdpInit == 0) {
-		MTWF_DBG(pAd, DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_ERROR,
-				 "ap_ftkd> FT KDP is not init!\n");
+		MTWF_LOG(DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
+				 ("ap_ftkd> %s: FT KDP is not init!\n", __func__));
 		return;
 	}
 
 	/* init */
 	IAPP_DAEMON_CMD_PARSE(pInfo, InfoLen, PeerIP, pData, DataLen);
 #ifdef FT_KDP_DEBUG
-	MTWF_DBG(pAd, DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_INFO,
-			  "ap_ftkd> Neighbor Report from Peer IP = %d.%d.%d.%d!\n",
-			  (htonl(PeerIP) >> 24) & 0xFF, (htonl(PeerIP) >> 16) & 0xFF, (htonl(PeerIP) >> 8) & 0xFF, (htonl(PeerIP) & 0xFF));
+	MTWF_LOG(DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_TRACE,
+			 ("ap_ftkd> Neighbor Report from Peer IP = %d.%d.%d.%d!\n",
+			  (htonl(PeerIP) >> 24) & 0xFF, (htonl(PeerIP) >> 16) & 0xFF, (htonl(PeerIP) >> 8) & 0xFF, (htonl(PeerIP) & 0xFF)));
 #endif /* FT_KDP_DEBUG */
 	/* yet implememnt */
 #endif /* FT_KDP_EMPTY */
@@ -1525,8 +1520,8 @@ VOID TYPE_FUNC FT_KDP_NeighborRequestHandle(
 	RTMP_STRING *pSSID;
 
 	if (pAd->ApCfg.FtTab.FlgIsFtKdpInit == 0) {
-		MTWF_DBG(pAd, DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_ERROR,
-				 "ap_ftkd> FT KDP is not init!\n");
+		MTWF_LOG(DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
+				 ("ap_ftkd> %s: FT KDP is not init!\n", __func__));
 		return;
 	}
 
@@ -1537,9 +1532,9 @@ VOID TYPE_FUNC FT_KDP_NeighborRequestHandle(
 	pSSID[SsidLen] = 0x00;
 	IdBssNum = BSS0;
 #ifdef FT_KDP_DEBUG
-	MTWF_DBG(pAd, DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_INFO,
-			  "ap_ftkd> Neighbor Request from Peer IP = %d.%d.%d.%d, SSID = %s\n",
-			  (htonl(PeerIP) >> 24) & 0xFF, (htonl(PeerIP) >> 16) & 0xFF, (htonl(PeerIP) >> 8) & 0xFF, (htonl(PeerIP) & 0xFF), pSSID);
+	MTWF_LOG(DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_TRACE,
+			 ("ap_ftkd> Neighbor Request from Peer IP = %d.%d.%d.%d, SSID = %s\n",
+			  (htonl(PeerIP) >> 24) & 0xFF, (htonl(PeerIP) >> 16) & 0xFF, (htonl(PeerIP) >> 8) & 0xFF, (htonl(PeerIP) & 0xFF), pSSID));
 #endif /* FT_KDP_DEBUG */
 	/* check if the requested SSID is for us */
 	/* 11k yet implememnt */
@@ -1577,17 +1572,17 @@ VOID TYPE_FUNC FT_KDP_NeighborResponseHandle(
 	UCHAR *pData;
 
 	if (pAd->ApCfg.FtTab.FlgIsFtKdpInit == 0) {
-		MTWF_DBG(pAd, DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_ERROR,
-				 "ap_ftkd> FT KDP is not init!\n");
+		MTWF_LOG(DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
+				 ("ap_ftkd> %s: FT KDP is not init!\n", __func__));
 		return;
 	}
 
 	/* init */
 	IAPP_DAEMON_CMD_PARSE(pInfo, InfoLen, PeerIP, pData, DataLen);
 #ifdef FT_KDP_DEBUG
-	MTWF_DBG(pAd, DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_INFO,
-			 "ap_ftkd> Neighbor Response from Peer IP = %d.%d.%d.%d\n",
-			  (htonl(PeerIP) >> 24) & 0xFF, (htonl(PeerIP) >> 16) & 0xFF, (htonl(PeerIP) >> 8) & 0xFF, (htonl(PeerIP) & 0xFF));
+	MTWF_LOG(DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_TRACE,
+			 ("ap_ftkd> Neighbor Response from Peer IP = %d.%d.%d.%d\n",
+			  (htonl(PeerIP) >> 24) & 0xFF, (htonl(PeerIP) >> 16) & 0xFF, (htonl(PeerIP) >> 8) & 0xFF, (htonl(PeerIP) & 0xFF)));
 #endif /* FT_KDP_DEBUG */
 	/* 11k yet implememnt */
 	/*	11K_ResponseHandle(pData, DataLen); */
@@ -1620,8 +1615,8 @@ VOID TYPE_FUNC FT_RRB_ActionHandle(
 #ifndef FT_KDP_EMPTY
 
 	if (pAd->ApCfg.FtTab.FlgIsFtKdpInit == 0) {
-		MTWF_DBG(pAd, DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_ERROR,
-				 "ap_ftkd> FT KDP is not init!\n");
+		MTWF_LOG(DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
+				 ("ap_ftkd> %s: FT KDP is not init!\n", __func__));
 		return;
 	}
 

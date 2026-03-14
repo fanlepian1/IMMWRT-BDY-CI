@@ -1,16 +1,15 @@
-/*
- * Copyright (c) [2020], MediaTek Inc. All rights reserved.
- *
- * This software/firmware and related documentation ("MediaTek Software") are
- * protected under relevant copyright laws.
- * The information contained herein is confidential and proprietary to
- * MediaTek Inc. and/or its licensors.
- * Except as otherwise provided in the applicable licensing terms with
- * MediaTek Inc. and/or its licensors, any reproduction, modification, use or
- * disclosure of MediaTek Software, and information contained herein, in whole
- * or in part, shall be strictly prohibited.
-*/
 /****************************************************************************
+ * Ralink Tech Inc.
+ * Taiwan, R.O.C.
+ *
+ * (c) Copyright 2002, Ralink Technology, Inc.
+ *
+ * All rights reserved. Ralink's source code is an unpublished work and the
+ * use of a copyright notice does not imply otherwise. This source code
+ * contains confidential trade secret material of Ralink Tech. Any attemp
+ * or participation in deciphering, decoding, reverse engineering or in any
+ * way altering the source code is stricitly prohibited, unless the prior
+ * written consent of Ralink Technology, Inc. is obtained.
  ***************************************************************************/
 
 /****************************************************************************
@@ -367,20 +366,20 @@ VOID RT_AES_Encrypt(
 	 * 1. Check if block size is 16 bytes(128 bits) and if key length is 16, 24, or 32 bytes(128, 192, or 256 bits)
 	 */
 	if (PlainBlockSize != AES_BLOCK_SIZES) {
-		MTWF_DBG(NULL, DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_ERROR, "RT_AES_Encrypt: plain block size is %d bytes, it must be %d bytes(128 bits).\n",
-				 PlainBlockSize, AES_BLOCK_SIZES);
+		MTWF_LOG(DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_ERROR, ("RT_AES_Encrypt: plain block size is %d bytes, it must be %d bytes(128 bits).\n",
+				 PlainBlockSize, AES_BLOCK_SIZES));
 		return;
 	}
 
 	if ((KeyLength != AES_KEY128_LENGTH) && (KeyLength != AES_KEY192_LENGTH) && (KeyLength != AES_KEY256_LENGTH)) {
-		MTWF_DBG(NULL, DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_ERROR, "RT_AES_Encrypt: key length is %d bytes, it must be %d, %d, or %d bytes(128, 192, or 256 bits).\n",
-				 KeyLength, AES_KEY128_LENGTH, AES_KEY192_LENGTH, AES_KEY256_LENGTH);
+		MTWF_LOG(DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_ERROR, ("RT_AES_Encrypt: key length is %d bytes, it must be %d, %d, or %d bytes(128, 192, or 256 bits).\n",
+				 KeyLength, AES_KEY128_LENGTH, AES_KEY192_LENGTH, AES_KEY256_LENGTH));
 		return;
 	}
 
 	if (*CipherBlockSize < AES_BLOCK_SIZES) {
-		MTWF_DBG(NULL, DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_ERROR, "RT_AES_Encrypt: cipher block size is %d bytes, it must be %d bytes(128 bits).\n",
-				 *CipherBlockSize, AES_BLOCK_SIZES);
+		MTWF_LOG(DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_ERROR, ("RT_AES_Encrypt: cipher block size is %d bytes, it must be %d bytes(128 bits).\n",
+				 *CipherBlockSize, AES_BLOCK_SIZES));
 		return;
 	}
 
@@ -388,7 +387,7 @@ VOID RT_AES_Encrypt(
 	os_alloc_mem(NULL, (UCHAR **)&paes_ctx, sizeof(AES_CTX_STRUC));
 
 	if (paes_ctx == NULL) {
-		MTWF_DBG(NULL, DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_ERROR, "Allocate memory fail!!!\n");
+		MTWF_LOG(DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_ERROR, ("%s: Allocate memory fail!!!\n", __func__));
 		return;
 	}
 
@@ -555,20 +554,20 @@ VOID RT_AES_Decrypt(
 	 * 1. Check if block size is 16 bytes(128 bits) and if key length is 16, 24, or 32 bytes(128, 192, or 256 bits)
 	 */
 	if (*PlainBlockSize < AES_BLOCK_SIZES) {
-		MTWF_DBG(NULL, DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_ERROR, "RT_AES_Decrypt: plain block size is %d bytes, it must be %d bytes(128 bits).\n",
-				 *PlainBlockSize, AES_BLOCK_SIZES);
+		MTWF_LOG(DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_ERROR, ("RT_AES_Decrypt: plain block size is %d bytes, it must be %d bytes(128 bits).\n",
+				 *PlainBlockSize, AES_BLOCK_SIZES));
 		return;
 	}
 
 	if ((KeyLength != AES_KEY128_LENGTH) && (KeyLength != AES_KEY192_LENGTH) && (KeyLength != AES_KEY256_LENGTH)) {
-		MTWF_DBG(NULL, DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_ERROR, "RT_AES_Decrypt: key length is %d bytes, it must be %d, %d, or %d bytes(128, 192, or 256 bits).\n",
-				 KeyLength, AES_KEY128_LENGTH, AES_KEY192_LENGTH, AES_KEY256_LENGTH);
+		MTWF_LOG(DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_ERROR, ("RT_AES_Decrypt: key length is %d bytes, it must be %d, %d, or %d bytes(128, 192, or 256 bits).\n",
+				 KeyLength, AES_KEY128_LENGTH, AES_KEY192_LENGTH, AES_KEY256_LENGTH));
 		return;
 	}
 
 	if (CipherBlockSize != AES_BLOCK_SIZES) {
-		MTWF_DBG(NULL, DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_ERROR, "RT_AES_Decrypt: cipher block size is %d bytes, it must be %d bytes(128 bits).\n",
-				 CipherBlockSize, AES_BLOCK_SIZES);
+		MTWF_LOG(DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_ERROR, ("RT_AES_Decrypt: cipher block size is %d bytes, it must be %d bytes(128 bits).\n",
+				 CipherBlockSize, AES_BLOCK_SIZES));
 		return;
 	}
 
@@ -576,7 +575,7 @@ VOID RT_AES_Decrypt(
 	os_alloc_mem(NULL, (UCHAR **)&paes_ctx, sizeof(AES_CTX_STRUC));
 
 	if (paes_ctx == NULL) {
-		MTWF_DBG(NULL, DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_ERROR, "Allocate memory fail!!!\n");
+		MTWF_LOG(DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_ERROR, ("%s: Allocate memory fail!!!\n", __func__));
 		return;
 	}
 
@@ -866,9 +865,8 @@ INT AES_CCM_Encrypt(
 	OUT UINT8 CipherText[],
 	INOUT UINT *CipherTextLength)
 {
-	UINT8 Block_MAC[AES_BLOCK_SIZES] = {0};
-	UINT8 Block_CTR[AES_BLOCK_SIZES];
-	UINT8 Block_CTR_Cipher[AES_BLOCK_SIZES] = {0};
+	UINT8 Block_MAC[AES_BLOCK_SIZES];
+	UINT8 Block_CTR[AES_BLOCK_SIZES], Block_CTR_Cipher[AES_BLOCK_SIZES];
 	UINT  Cipher_Index = 0;
 	UINT Temp_Value = 0, Temp_Index = 0, Temp_Length = 0, Copy_Length = 0;
 
@@ -880,23 +878,23 @@ INT AES_CCM_Encrypt(
 	 *    - CipherTextLength > PlainTextLength + MACLength
 	 */
 	if (KeyLength != AES_KEY128_LENGTH) {
-		MTWF_DBG(NULL, DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_ERROR, "AES_CCM_Encrypt: The key length must be %d bytes\n", AES_KEY128_LENGTH);
+		MTWF_LOG(DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_ERROR, ("AES_CCM_Encrypt: The key length must be %d bytes\n", AES_KEY128_LENGTH));
 		return -1;
 	}
 
 	if ((NonceLength < 7) || (NonceLength > 13)) {
-		MTWF_DBG(NULL, DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_ERROR, "AES_CCM_Encrypt: A valid nonce length is 7-13 bytes\n");
+		MTWF_LOG(DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_ERROR, ("AES_CCM_Encrypt: A valid nonce length is 7-13 bytes\n"));
 		return -2;
 	}
 
 	if ((MACLength != 4) && (MACLength != 6) && (MACLength != 8) && (MACLength != 10)
 		&& (MACLength != 12) && (MACLength != 14) && (MACLength != 16)) {
-		MTWF_DBG(NULL, DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_ERROR, "AES_CCM_Encrypt: The MAC length  must be 4, 6, 8, 10, 12, 14, or 16 bytes\n");
+		MTWF_LOG(DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_ERROR, ("AES_CCM_Encrypt: The MAC length  must be 4, 6, 8, 10, 12, 14, or 16 bytes\n"));
 		return -3;
 	}
 
 	if (*CipherTextLength < (PlainTextLength + MACLength)) {
-		MTWF_DBG(NULL, DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_ERROR, "AES_CCM_Encrypt: The CipherTextLength is not enough.\n");
+		MTWF_LOG(DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_ERROR, ("AES_CCM_Encrypt: The CipherTextLength is not enough.\n"));
 		return -4;
 	}
 
@@ -992,8 +990,7 @@ INT AES_CCM_Decrypt(
 	OUT UINT8 PlainText[],
 	INOUT UINT *PlainTextLength)
 {
-	UINT8 Block_MAC[AES_BLOCK_SIZES] = {0};
-	UINT8 Block_MAC_From_Cipher[AES_BLOCK_SIZES];
+	UINT8 Block_MAC[AES_BLOCK_SIZES], Block_MAC_From_Cipher[AES_BLOCK_SIZES];
 	UINT8 Block_CTR[AES_BLOCK_SIZES], Block_CTR_Cipher[AES_BLOCK_SIZES];
 	UINT  Block_Index = 0, Cipher_Index = 0;
 	UINT Temp_Value = 0, Temp_Index = 0, Temp_Length = 0, Copy_Length = 0;
@@ -1004,23 +1001,23 @@ INT AES_CCM_Decrypt(
 	 *    - Nonce length range is form 7 to 13 bytes
 	 */
 	if (KeyLength != AES_KEY128_LENGTH) {
-		MTWF_DBG(NULL, DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_ERROR, "AES_CCM_Decrypt: The key length must be %d bytes\n", AES_KEY128_LENGTH);
+		MTWF_LOG(DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_ERROR, ("AES_CCM_Decrypt: The key length must be %d bytes\n", AES_KEY128_LENGTH));
 		return -1;
 	}
 
 	if ((NonceLength < 7) || (NonceLength > 13)) {
-		MTWF_DBG(NULL, DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_ERROR, "AES_CCM_Decrypt: A valid nonce length is 7-13 bytes\n");
+		MTWF_LOG(DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_ERROR, ("AES_CCM_Decrypt: A valid nonce length is 7-13 bytes\n"));
 		return -2;
 	}
 
 	if ((MACLength != 4) && (MACLength != 6) && (MACLength != 8) && (MACLength != 10)
 		&& (MACLength != 12) && (MACLength != 14) && (MACLength != 16)) {
-		MTWF_DBG(NULL, DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_ERROR, "AES_CCM_Decrypt: The MAC length  must be 4, 6, 8, 10, 12, 14, or 16 bytes\n");
+		MTWF_LOG(DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_ERROR, ("AES_CCM_Decrypt: The MAC length  must be 4, 6, 8, 10, 12, 14, or 16 bytes\n"));
 		return -3;
 	}
 
 	if (*PlainTextLength < (CipherTextLength - MACLength)) {
-		MTWF_DBG(NULL, DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_ERROR, "AES_CCM_Decrypt: The PlainTextLength is not enough.\n");
+		MTWF_LOG(DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_ERROR, ("AES_CCM_Decrypt: The PlainTextLength is not enough.\n"));
 		return -4;
 	}
 
@@ -1074,7 +1071,7 @@ INT AES_CCM_Decrypt(
 	 * 6. Check the MIC
 	 */
 	if (NdisCmpMemory(Block_MAC_From_Cipher, Block_MAC, MACLength) != 0) {
-		MTWF_DBG(NULL, DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_ERROR, "AES_CCM_Decrypt: The MIC does not match.\n");
+		MTWF_LOG(DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_ERROR, ("AES_CCM_Decrypt: The MIC does not match.\n"));
 		return -5;
 	}
 
@@ -1118,10 +1115,9 @@ VOID AES_CMAC_GenerateSubKey(
 	UINT  SubKey1_Length = 0;
 	INT   Index = 0;
 
-	if ((KeyLength != AES_KEY128_LENGTH) && (KeyLength != AES_KEY192_LENGTH) && (KeyLength != AES_KEY256_LENGTH)) {
-		MTWF_DBG(NULL, DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-				"AES_CMAC_GenerateSubKey: key length is %d bytes, it must be %d, %d, or %d bytes(128, 192, or 256 bits).\n",
-				 KeyLength, AES_KEY128_LENGTH, AES_KEY192_LENGTH, AES_KEY256_LENGTH);
+	if (KeyLength != AES_KEY128_LENGTH) {
+		MTWF_LOG(DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_ERROR, ("AES_CMAC_GenerateSubKey: key length is %d bytes, it must be %d bytes(128 bits).\n",
+				 KeyLength, AES_KEY128_LENGTH));
 		return;
 	}
 
@@ -1206,15 +1202,14 @@ VOID AES_CMAC(
 	UINT X_Length;
 
 	if (*MACTextLength < AES_MAC_LENGTH) {
-		MTWF_DBG(NULL, DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_ERROR, "AES_CMAC: MAC text length is less than %d bytes).\n",
-				 AES_MAC_LENGTH);
+		MTWF_LOG(DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_ERROR, ("AES_CMAC: MAC text length is less than %d bytes).\n",
+				 AES_MAC_LENGTH));
 		return;
 	}
 
-	if ((KeyLength != AES_KEY128_LENGTH) && (KeyLength != AES_KEY192_LENGTH) && (KeyLength != AES_KEY256_LENGTH)) {
-		MTWF_DBG(NULL, DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-				"AES_CMAC: key length is %d bytes, it must be %d, %d, or %d bytes(128, 192, or 256 bits).\n",
-				 KeyLength, AES_KEY128_LENGTH, AES_KEY192_LENGTH, AES_KEY256_LENGTH);
+	if (KeyLength != AES_KEY128_LENGTH) {
+		MTWF_LOG(DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_ERROR, ("AES_CMAC: key length is %d bytes, it must be %d bytes(128 bits).\n",
+				 KeyLength, AES_KEY128_LENGTH));
 		return;
 	}
 
@@ -1307,20 +1302,20 @@ VOID AES_CBC_Encrypt(
 	PaddingSize = ((UINT) AES_BLOCK_SIZES) - (PlainTextLength % ((UINT)AES_BLOCK_SIZES));
 
 	if (*CipherTextLength < (PlainTextLength + PaddingSize)) {
-		MTWF_DBG(NULL, DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_ERROR, "AES_CBC_Encrypt: cipher text length is %d bytes < (plain text length %d bytes + padding size %d bytes).\n",
-				 *CipherTextLength, PlainTextLength, PaddingSize);
+		MTWF_LOG(DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_ERROR, ("AES_CBC_Encrypt: cipher text length is %d bytes < (plain text length %d bytes + padding size %d bytes).\n",
+				 *CipherTextLength, PlainTextLength, PaddingSize));
 		return;
 	}
 
 	if ((KeyLength != AES_KEY128_LENGTH) && (KeyLength != AES_KEY192_LENGTH) && (KeyLength != AES_KEY256_LENGTH)) {
-		MTWF_DBG(NULL, DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_ERROR, "AES_CBC_Encrypt: key length is %d bytes, it must be %d, %d, or %d bytes(128, 192, or 256 bits).\n",
-				 KeyLength, AES_KEY128_LENGTH, AES_KEY192_LENGTH, AES_KEY256_LENGTH);
+		MTWF_LOG(DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_ERROR, ("AES_CBC_Encrypt: key length is %d bytes, it must be %d, %d, or %d bytes(128, 192, or 256 bits).\n",
+				 KeyLength, AES_KEY128_LENGTH, AES_KEY192_LENGTH, AES_KEY256_LENGTH));
 		return;
 	}
 
 	if (IVLength != AES_CBC_IV_LENGTH) {
-		MTWF_DBG(NULL, DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_ERROR, "AES_CBC_Encrypt: IV length is %d bytes, it must be %d bytes(128bits).\n",
-				 IVLength, AES_CBC_IV_LENGTH);
+		MTWF_LOG(DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_ERROR, ("AES_CBC_Encrypt: IV length is %d bytes, it must be %d bytes(128bits).\n",
+				 IVLength, AES_CBC_IV_LENGTH));
 		return;
 	}
 
@@ -1351,9 +1346,7 @@ VOID AES_CBC_Encrypt(
 		CipherBlockStart += CipherBlockSize;
 	}
 
-	NdisMoveMemory(Block, (&PlainText[0] + PlainBlockStart),
-			(PlainTextLength - PlainBlockStart) > AES_BLOCK_SIZES ?
-			AES_BLOCK_SIZES : (PlainTextLength - PlainBlockStart));
+	NdisMoveMemory(Block, (&PlainText[0] + PlainBlockStart), (PlainTextLength - PlainBlockStart));
 	NdisFillMemory((Block + (((UINT) AES_BLOCK_SIZES) - PaddingSize)), PaddingSize, (UINT8) PaddingSize);
 
 	if (CipherBlockStart == 0) {
@@ -1413,20 +1406,20 @@ VOID AES_CBC_Decrypt(
 	 *    - IV length must be 16 bytes(128 bits)
 	 */
 	if ((CipherTextLength % AES_BLOCK_SIZES) != 0) {
-		MTWF_DBG(NULL, DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_ERROR, "AES_CBC_Decrypt: cipher text length is %d bytes, it can't be divided with no remainder by block size(%d).\n",
-				 CipherTextLength, AES_BLOCK_SIZES);
+		MTWF_LOG(DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_ERROR, ("AES_CBC_Decrypt: cipher text length is %d bytes, it can't be divided with no remainder by block size(%d).\n",
+				 CipherTextLength, AES_BLOCK_SIZES));
 		return;
 	}
 
 	if ((KeyLength != AES_KEY128_LENGTH) && (KeyLength != AES_KEY192_LENGTH) && (KeyLength != AES_KEY256_LENGTH)) {
-		MTWF_DBG(NULL, DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_ERROR, "AES_CBC_Decrypt: key length is %d bytes, it must be %d, %d, or %d bytes(128, 192, or 256 bits).\n",
-				 KeyLength, AES_KEY128_LENGTH, AES_KEY192_LENGTH, AES_KEY256_LENGTH);
+		MTWF_LOG(DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_ERROR, ("AES_CBC_Decrypt: key length is %d bytes, it must be %d, %d, or %d bytes(128, 192, or 256 bits).\n",
+				 KeyLength, AES_KEY128_LENGTH, AES_KEY192_LENGTH, AES_KEY256_LENGTH));
 		return;
 	}
 
 	if (IVLength != AES_CBC_IV_LENGTH) {
-		MTWF_DBG(NULL, DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_ERROR, "AES_CBC_Decrypt: IV length is %d bytes, it must be %d bytes(128bits).\n",
-				 IVLength, AES_CBC_IV_LENGTH);
+		MTWF_LOG(DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_ERROR, ("AES_CBC_Decrypt: IV length is %d bytes, it must be %d bytes(128bits).\n",
+				 IVLength, AES_CBC_IV_LENGTH));
 		return;
 	}
 
@@ -1492,8 +1485,7 @@ INT AES_Key_Wrap(
 	OUT UINT8 CipherText[],
 	OUT UINT *CipherTextLength)
 {
-	UINT8 IV[8], Block_Input[16];
-	UINT8 Block_B[16] = {0};
+	UINT8 IV[8], Block_B[16], Block_Input[16];
 	UINT8 *pResult;
 	UINT  Temp_Length = 0, Number_Of_Block = 0;
 	INT   Index_i = 0, Index_j = 0;
@@ -1502,15 +1494,15 @@ INT AES_Key_Wrap(
 	 * 0. Check input parameter
 	 */
 	if ((KeyLength != AES_KEY128_LENGTH) && (KeyLength != AES_KEY192_LENGTH) && (KeyLength != AES_KEY256_LENGTH)) {
-		MTWF_DBG(NULL, DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_ERROR, "AES_Key_Wrap: key length is %d bytes, it must be %d, %d, or %d bytes(128, 192, or 256 bits).\n",
-				 KeyLength, AES_KEY128_LENGTH, AES_KEY192_LENGTH, AES_KEY256_LENGTH);
+		MTWF_LOG(DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_ERROR, ("AES_Key_Wrap: key length is %d bytes, it must be %d, %d, or %d bytes(128, 192, or 256 bits).\n",
+				 KeyLength, AES_KEY128_LENGTH, AES_KEY192_LENGTH, AES_KEY256_LENGTH));
 		return -1;
 	}
 
 	os_alloc_mem(NULL, (UCHAR **)&pResult, sizeof(UINT8)*PlainTextLength);
 
 	if (pResult == NULL) {
-		MTWF_DBG(NULL, DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_ERROR, "AES_Key_Wrap: allocate %zu bytes memory failure.\n", sizeof(UINT8)*PlainTextLength);
+		MTWF_LOG(DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_ERROR, ("AES_Key_Wrap: allocate %zu bytes memory failure.\n", sizeof(UINT8)*PlainTextLength));
 		return -2;
 	}
 
@@ -1577,8 +1569,7 @@ INT AES_Key_Unwrap(
 	OUT UINT8 PlainText[],
 	OUT UINT *PlainTextLength)
 {
-	UINT8 IV[8], Block_Input[16];
-	UINT8 Block_B[16] = {0};
+	UINT8 IV[8], Block_B[16], Block_Input[16];
 	UINT8 *pResult;
 	UINT  Temp_Length = 0, Number_Of_Block = 0, PlainLength;
 	INT   Index_i = 0, Index_j = 0;
@@ -1588,21 +1579,15 @@ INT AES_Key_Unwrap(
 	PlainLength = CipherTextLength - AES_KEY_WRAP_IV_LENGTH;
 
 	if ((KeyLength != AES_KEY128_LENGTH) && (KeyLength != AES_KEY192_LENGTH) && (KeyLength != AES_KEY256_LENGTH)) {
-		MTWF_DBG(NULL, DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_ERROR, "AES_Key_Unwrap: key length is %d bytes, it must be %d, %d, or %d bytes(128, 192, or 256 bits).\n",
-				 KeyLength, AES_KEY128_LENGTH, AES_KEY192_LENGTH, AES_KEY256_LENGTH);
-		return -1;
-	}
-
-	if ((CipherTextLength < AES_KEY_WRAP_BLOCK_SIZE) || 
-	    (CipherTextLength % AES_KEY_WRAP_BLOCK_SIZE)) {
-		 MTWF_DBG(NULL, DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_ERROR, "CipherTextLength %d is invalid\n", CipherTextLength);
+		MTWF_LOG(DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_ERROR, ("AES_Key_Unwrap: key length is %d bytes, it must be %d, %d, or %d bytes(128, 192, or 256 bits).\n",
+				 KeyLength, AES_KEY128_LENGTH, AES_KEY192_LENGTH, AES_KEY256_LENGTH));
 		return -1;
 	}
 
 	os_alloc_mem(NULL, (UCHAR **)&pResult, sizeof(UINT8)*PlainLength);
 
 	if (pResult == NULL) {
-		MTWF_DBG(NULL, DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_ERROR, "AES_Key_Unwrap: allocate %zu bytes memory failure.\n", sizeof(UINT8)*PlainLength);
+		MTWF_LOG(DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_ERROR, ("AES_Key_Unwrap: allocate %zu bytes memory failure.\n", sizeof(UINT8)*PlainLength));
 		return -2;
 	}
 
@@ -1628,14 +1613,6 @@ INT AES_Key_Unwrap(
 		}
 	}
 
-	/* Just verify that the IV matches with the default IV from RFC 3394. */
-	for (Index_i = 0; Index_i < AES_KEY_WRAP_IV_LENGTH; Index_i++) {
-		if (IV[Index_i] != Default_IV[Index_i]) {
-			os_free_mem(pResult);
-			return -1;
-		}
-	}
-
 	/*
 	 * 3. Output the results
 	 */
@@ -1646,244 +1623,3 @@ INT AES_Key_Unwrap(
 }
 
 
-
-static void dbl(UINT8 *pad)
-{
-	int i, carry;
-
-	carry = pad[0] & BIT(7);
-	for (i = 0; i < AES_BLOCK_SIZES - 1; i++)
-		pad[i] = (pad[i] << 1) | (pad[i + 1] >> 7);
-	pad[AES_BLOCK_SIZES - 1] <<= 1;
-	if (carry)
-		pad[AES_BLOCK_SIZES - 1] ^= 0x87;
-}
-
-
-static void xor(UINT8 *a, const UINT8 *b)
-{
-	int i;
-
-	for (i = 0; i < AES_BLOCK_SIZES; i++)
-		*a++ ^= *b++;
-}
-
-
-static void xorend(UINT8 *a, int alen, const UINT8 *b, int blen)
-{
-	int i;
-
-	if (alen < blen)
-		return;
-
-	for (i = 0; i < blen; i++)
-		a[alen - blen + i] ^= b[i];
-}
-
-
-static void pad_block(UINT8 *pad, const UINT8 *addr, UINT32 len)
-{
-	NdisZeroMemory(pad, AES_BLOCK_SIZES);
-	os_move_mem(pad, (VOID *)addr, len);
-
-	if (len < AES_BLOCK_SIZES)
-		pad[len] = BIT(7);
-}
-
-
-VOID aes_ctr_encrypt(
-	UINT8 *key,
-	UINT32 key_len,
-	UINT8 *nonce,
-	UINT8 *data,
-	UINT32 data_len)
-{
-	int i;
-	UINT32 j;
-	UINT32 len;
-	UINT32 remain_len = data_len;
-	UINT8 *pos = data;
-	UINT8 ctr[AES_BLOCK_SIZES];
-	UINT8 tmp[AES_BLOCK_SIZES] = {0};
-	UINT32 aes_encrypt_len;
-
-	os_move_mem(ctr, nonce, AES_BLOCK_SIZES);
-
-	while (remain_len > 0) {
-		/* Xi = AES(K2, Q+i) */
-		aes_encrypt_len = AES_BLOCK_SIZES;
-		RT_AES_Encrypt(ctr, AES_BLOCK_SIZES, key, key_len, tmp, &aes_encrypt_len);
-
-		/* X = leftmost(X0 || ... || Xm-1, len(P)) */
-		len = (remain_len < AES_BLOCK_SIZES) ? remain_len : AES_BLOCK_SIZES;
-		for (j = 0; j < len; j++)
-			pos[j] ^= tmp[j];
-		pos += len;
-		remain_len -= len;
-
-		/* counter = counter + 1 */
-		for (i = AES_BLOCK_SIZES - 1; i >= 0; i--) {
-			ctr[i]++;
-			if (ctr[i])
-				break;
-		}
-	}
-}
-
-
-static VOID aes_s2v(
-	UINT8 *key,
-	UINT32 key_len,
-	UINT32 num_elem,
-	UINT8 *addr[],
-	UINT32 *len,
-	UINT8 *mac)
-{
-	UINT8 tmp[AES_BLOCK_SIZES] = {0};
-	UINT8 tmp2[AES_BLOCK_SIZES] = {0};
-	UINT8 zero[AES_BLOCK_SIZES] = {0};
-	UINT8 *buf = NULL;
-	UINT32 i;
-	UINT mac_len = AES_BLOCK_SIZES;
-
-	/* if n = 0 then return V = AES-CMAC(K, <one>) */
-	if (num_elem == 0) {
-		tmp[AES_BLOCK_SIZES - 1] = 1;
-		AES_CMAC(tmp, sizeof(tmp), key, key_len, mac, &mac_len);
-		return;
-	}
-
-	/* D = AES-CMAC(K, <zero>) */
-	AES_CMAC(zero, sizeof(zero), key, key_len, tmp, &mac_len);
-
-	/* S1~Sn-1, D = dbl(D) xor AES-CMAC(K, Si) */
-	for (i = 0; i < num_elem - 1; i++) {
-		AES_CMAC(addr[i], len[i], key, key_len, tmp2, &mac_len);
-		dbl(tmp);
-		xor(tmp, tmp2);
-	}
-
-	/* Sn */
-	if (len[i] >= AES_BLOCK_SIZES) {
-		/* if len(Sn) >= 128 then T = Sn xorend D */
-		os_alloc_mem(NULL, (UCHAR **) &buf, len[i]);
-
-		os_move_mem(buf, addr[i], len[i]);
-		xorend(buf, len[i], tmp, AES_BLOCK_SIZES);
-
-		AES_CMAC(buf, len[i], key, key_len, mac, &mac_len);
-		os_free_mem(buf);
-	} else {
-		/* T = dbl(D) xor pad(Sn) */
-		dbl(tmp);
-		pad_block(tmp2, addr[i], len[i]);
-		xor(tmp, tmp2);
-
-		AES_CMAC(tmp, sizeof(tmp), key, key_len, mac, &mac_len);
-	}
-}
-
-
-VOID aes_siv_encrypt(
-	UINT8 *key,
-	UINT32 key_len,
-	UINT8 *plain_text,
-	UINT32 plain_text_len,
-	UINT32 num_elem,
-	UINT8 *addr[],
-	UINT32 *len,
-	UINT8 *output)
-{
-	UINT8 *_addr[6];
-	UINT32 _len[6];
-	UINT8 *k1;
-	UINT8 *k2;
-	UINT8 v[AES_BLOCK_SIZES] = {0};
-	UINT32 i;
-	UINT8 *cipher_text;
-
-	/* SIV-encrypt takes as input a key K of length 256, 384, or 512 bits */
-	if (num_elem > ARRAY_SIZE(_addr) - 1 ||
-	    (key_len != 32 && key_len != 48 && key_len != 64)) {
-		MTWF_DBG(NULL, DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-			"wrong input, num_elem = %d, key_len = %d\n", num_elem, key_len);
-		return;
-	}
-	/* K1 = leftmost(K, len(K)/2), K2 = rightmost(K, len(K)/2)*/
-	k1 = key;
-	k2 = key + key_len / 2;
-
-	/* V = S2V(K1, AD1, ..., ADn, P) */
-	for (i = 0; i < num_elem; i++) {
-		_addr[i] = addr[i];
-		_len[i] = len[i];
-	}
-	_addr[num_elem] = plain_text;
-	_len[num_elem] = plain_text_len;
-
-	aes_s2v(k1, key_len / 2, num_elem + 1, _addr, _len, v);
-
-	cipher_text = output + AES_BLOCK_SIZES;
-
-	os_move_mem(output, v, AES_BLOCK_SIZES);
-	os_move_mem(cipher_text, plain_text, plain_text_len);
-
-	/* Before beginning counter mode, the 31st and 63rd bits (where the rightmost bit is the 0th bit) of the counter are cleared. */
-	v[8] &= ~BIT(7);
-	v[12] &= ~BIT(7);
-
-	aes_ctr_encrypt(k2, key_len / 2, v, cipher_text, plain_text_len);
-}
-
-
-UCHAR aes_siv_decrypt(
-	UINT8 *key,
-	UINT32 key_len,
-	UINT8 *iv_crypt,
-	UINT32 iv_c_len,
-	UINT32 num_elem,
-	UINT8 *addr[],
-	UINT32 *len,
-	UINT8 *output)
-{
-	UINT8 *_addr[6];
-	UINT32 _len[6];
-	UINT8 *k1;
-	UINT8 *k2;
-	UINT32 crypt_len;
-	UINT32 i;
-	UINT8 iv[AES_BLOCK_SIZES];
-	UINT8 check[AES_BLOCK_SIZES] = {0};
-
-	if (iv_c_len < AES_BLOCK_SIZES || num_elem > ARRAY_SIZE(_addr) - 1 ||
-	    (key_len != 32 && key_len != 48 && key_len != 64)) {
-		MTWF_DBG(NULL, DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-			"wrong input, num_elem = %d, key_len = %d\n", num_elem, key_len);
-		return FALSE;
-	}
-	crypt_len = iv_c_len - AES_BLOCK_SIZES;
-	k1 = key;
-	k2 = key + key_len / 2;
-
-	os_move_mem(iv, iv_crypt, AES_BLOCK_SIZES);
-	os_move_mem(output, iv_crypt + AES_BLOCK_SIZES, crypt_len);
-
-	iv[8] &= ~BIT(7);
-	iv[12] &= ~BIT(7);
-
-	aes_ctr_encrypt(k2, key_len / 2, iv, output, crypt_len);
-
-	for (i = 0; i < num_elem; i++) {
-		_addr[i] = addr[i];
-		_len[i] = len[i];
-	}
-	_addr[num_elem] = output;
-	_len[num_elem] = crypt_len;
-
-	aes_s2v(k1, key_len / 2, num_elem + 1, _addr, _len, check);
-
-	if (NdisCmpMemory(check, iv_crypt, AES_BLOCK_SIZES) != 0)
-		return FALSE;
-
-	return TRUE;
-}

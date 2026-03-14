@@ -89,51 +89,6 @@ config DOT11_VHT_AC
 	depends on DOT11_N_SUPPORT
 	default y
 
-config DOT11_HE_AX
-	bool "802.11AX support"
-	depends on WIFI_DRIVER
-	depends on DOT11_VHT_AC
-	depends on CHIP_AXE || CHIP_MT7915 || CHIP_MT7986 || CHIP_MT7916 || CHIP_MT7981
-	default y
-
-config CFG_SUPPORT_FALCON_MURU
-	bool "MURU support"
-	depends on WIFI_DRIVER
-	depends on DOT11_VHT_AC
-	depends on CHIP_AXE || CHIP_MT7915 || CHIP_MT7986 || CHIP_MT7916 || CHIP_MT7981
-	default y
-
-config CFG_SUPPORT_FALCON_TXCMD_DBG
-	bool "TXCMD DBG support"
-	depends on WIFI_DRIVER
-	depends on DOT11_VHT_AC
-	depends on CHIP_AXE || CHIP_MT7915 || CHIP_MT7986 || CHIP_MT7916 || CHIP_MT7981
-	default y
-
-config CFG_SUPPORT_FALCON_SR
-	bool "SR(Spatial Reuse) support"
-	depends on WIFI_DRIVER
-	depends on CHIP_MT7915 || CHIP_MT7986 || CHIP_MT7916 || CHIP_MT7981
-	default y
-
-config CFG_SUPPORT_FALCON_PP
-        bool "PP(Preamble Puncture) support"
-        depends on WIFI_DRIVER
-        depends on CHIP_MT7915 || CHIP_MT7986 || CHIP_MT7916 || CHIP_MT7981
-        default y
-
-config SINGLE_SKU
-        bool "SKU(Single Sku) support"
-        depends on WIFI_DRIVER
-        default y
-
-config WIFI_TWT_SUPPORT
-	bool "TWT(Target Wake Time) support"
-	depends on WIFI_DRIVER
-	depends on DOT11_HE_AX
-	depends on CHIP_AXE || CHIP_MT7915 || CHIP_MT7986 || CHIP_MT7916 || CHIP_MT7981
-	default y
-
 config G_BAND_256QAM_SUPPORT
     bool "2.4G 256QAM support"
 	depends on WIFI_DRIVER
@@ -151,11 +106,6 @@ config TPC_SUPPORT
 	depends on WIFI_DRIVER
 	default y
 
-config THERMAL_PROTECT_SUPPORT
-    bool "Thermal Protect Support"
-    depends on WIFI_DRIVER
-    default n
-
 config ICAP_SUPPORT
 	bool "ICAP Support"
 	depends on WIFI_DRIVER
@@ -172,30 +122,20 @@ config BACKGROUND_SCAN_SUPPORT
 	bool "Background Scan Support"
 	depends on WIFI_DRIVER
 	default y
-
+	
 config SMART_CARRIER_SENSE_SUPPORT
 	bool "Smart Carrier Sense Support"
 	depends on WIFI_DRIVER
 	default y
-
-config SCS_FW_OFFLOAD
-        bool "Smart Carrier Sense Offload Support"
-        depends on WIFI_DRIVER && SMART_CARRIER_SENSE_SUPPORT
-        default y
-
-config DYNAMIC_WMM_SUPPORT
-	bool "Dynamic WMM Feature"
-	depends on WIFI_DRIVER
-	default y
-
+	
 config MT_DFS_SUPPORT
-        bool "Dynamic Frequency Selection Support"
+        bool "Dynamic Frequency Selection Support"	
         depends on WIFI_DRIVER
         default y
 
 config DBDC_MODE
         bool "dbdc mode support"
-        depends on CHIP_MT7626 || CHIP_MT7615E || CHIP_MT7915 || CHIP_MT7986 || CHIP_MT7916 || CHIP_MT7981
+        depends on CHIP_MT7615E
         default y
 
 config MULTI_PROFILE_SUPPORT
@@ -206,14 +146,9 @@ config MULTI_PROFILE_SUPPORT
 config DEFAULT_5G_PROFILE
     bool "5G default profile for DBDC"
     depends on DBDC_MODE
-    #depends on MULTI_PROFILE_SUPPORT
-    default y
+    depends on MULTI_PROFILE_SUPPORT
+    default n
 
-config OFFCHANNEL_SCAN_FEATURE
-	bool "Channel Quality Monitor"
-	depends on WIFI_DRIVER
-	depends on MT_AP_SUPPORT
-	default n
 #config WFA_VHT_R2_PF
 #    bool "WFA VHT R2 Plugfest"
 #    depends on DOT11_VHT_AC
@@ -221,12 +156,12 @@ config OFFCHANNEL_SCAN_FEATURE
 
 config HDR_TRANS_TX_SUPPORT
     bool "Tx Header Translation"
-    depends on CHIP_MT7626 || CHIP_MT7615E || CHIP_MT7622 || CHIP_MT7663U || CHIP_AXE || CHIP_MT7915 || CHIP_MT7986 || CHIP_MT7916 || CHIP_MT7981
+    depends on CHIP_MT7615E || CHIP_MT7622
     default y
 
 config HDR_TRANS_RX_SUPPORT
     bool "Rx Header Translation"
-    depends on CHIP_MT7626 || CHIP_MT7615E || CHIP_MT7622 || CHIP_MT7663U || CHIP_AXE || CHIP_MT7915 || CHIP_MT7986 || CHIP_MT7916 || CHIP_MT7981
+    depends on CHIP_MT7615E || CHIP_MT7622
     default y
 
 config WSC_INCLUDED
@@ -265,21 +200,10 @@ config FAST_NAT_SUPPORT
 
 config WHNAT_SUPPORT
 	tristate "Wifi Hardware NAT support"
-	depends on CHIP_MT7615E || CHIP_MT7915 || CHIP_MT7986 || CHIP_MT7916 || CHIP_MT7981
+	depends on CHIP_MT7615E
 	depends on WLAN_HOOK
 	depends on FAST_NAT_SUPPORT
 	default n
-
-config WIFI_SYSDVT
-	bool "Wifi DVT framework"
-	depends on MT_MAC
-	default n
-
-config WIFI_DBG_TXCMD
-	bool "Wifi dbg_txcmd framework"
-	depends on WIFI_DRIVER
-	depends on MT_MAC
-	default y
 
 #config LLTD_SUPPORT
 #	bool "LLTD (Link Layer Topology Discovery Protocol)"
@@ -324,6 +248,14 @@ config IGMP_SNOOP_SUPPORT
 	depends on WIFI_DRIVER
 	depends on MT_AP_SUPPORT
 	default y
+
+#config BLOCK_NET_IF
+#	bool "NETIF Block"
+#	depends on WIFI_DRIVER
+#	depends on MT_AP_SUPPORT
+#	default n
+#	help
+#	Support Net interface block while Tx-Sw queue full
 
 #config RATE_ADAPTION
 #	bool "New Rate Adaptation support"
@@ -379,6 +311,11 @@ config RLM_CAL_CACHE_SUPPORT
 	depends on WIFI_DRIVER
 	default y
 
+config RF_LOCKDOWN_SUPPORT
+	bool "RF Lockdown Support"
+	depends on WIFI_DRIVER
+	default n	
+	
 #config LED_CONTROL_SUPPORT
 #	bool "LED Support"
 #	depends on WIFI_DRIVER
@@ -388,14 +325,7 @@ config RLM_CAL_CACHE_SUPPORT
 config ATE_SUPPORT
 	bool "ATE/QA Support"
 	depends on WIFI_DRIVER
-	default y
-
-config WLAN_SERVICE
-	bool "Wlan Service Library Support"
-	depends on WIFI_DRIVER
-	depends on ATE_SUPPORT
-	depends on CHIP_MT7915 || CHIP_MT7986 || CHIP_MT7916 || CHIP_MT7981
-	default y
+	default y	
 
 #config MEMORY_OPTIMIZATION
 #	bool "Memory Optimization"
@@ -583,30 +513,9 @@ if WIFI_MT_MAC
 	config CHIP_MT7622
 		bool
 		default n
-	config CHIP_MT7626
-		bool
-		default n
-	config CHIP_MT7663U
-		bool
-		default n
-	config CHIP_AXE
-		bool
-		default n
-	config CHIP_MT7915
-		bool
-		default n
-	config CHIP_MT7986
-		bool
-		default n
-	config CHIP_MT7916
-		bool
-		default n
-	config CHIP_MT7981
-		bool
-		default n
 endif
 
-if CHIP_MT7615E || CHIP_MT7622 || CHIP_MT7626 || CHIP_AXE || CHIP_MT7915 || CHIP_MT7986 || CHIP_MT7916 || CHIP_MT7981
+if CHIP_MT7615E
 	config MT_MAC
 		bool
 		default y
@@ -616,9 +525,5 @@ if CHIP_MT7615E || CHIP_MT7622 || CHIP_MT7626 || CHIP_AXE || CHIP_MT7915 || CHIP
 		select DOT11_VHT_AC
 		select HDR_TRANS_TX_SUPPORT
 		select HDR_TRANS_RX_SUPPORT
-endif
+endif	
 
-config CTXD_MEM_CPY_SUPPORT
-	bool "Cascade TXD support"
-	depends on WIFI_DRIVER
-	default n

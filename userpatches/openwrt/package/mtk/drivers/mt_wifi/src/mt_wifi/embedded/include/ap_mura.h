@@ -1,17 +1,18 @@
 /*
- * Copyright (c) [2020], MediaTek Inc. All rights reserved.
- *
- * This software/firmware and related documentation ("MediaTek Software") are
- * protected under relevant copyright laws.
- * The information contained herein is confidential and proprietary to
- * MediaTek Inc. and/or its licensors.
- * Except as otherwise provided in the applicable licensing terms with
- * MediaTek Inc. and/or its licensors, any reproduction, modification, use or
- * disclosure of MediaTek Software, and information contained herein, in whole
- * or in part, shall be strictly prohibited.
-*/
-/*
  ***************************************************************************
+ * Ralink Tech Inc.
+ * 4F, No. 2 Technology 5th Rd.
+ * Science-based Industrial Park
+ * Hsin-chu, Taiwan, R.O.C.
+ *
+ * (c) Copyright 2002, Ralink Technology, Inc.
+ *
+ * All rights reserved. Ralink's source code is an unpublished work and the
+ * use of a copyright notice does not imply otherwise. This source code
+ * contains confidential trade secret material of Ralink Tech. Any attemp
+ * or participation in deciphering, decoding, reverse engineering or in any
+ * way altering the source code is stricitly prohibited, unless the prior
+ * written consent of Ralink Technology, Inc. is obtained.
  ***************************************************************************
 
     Module Name:
@@ -59,7 +60,6 @@ enum {
 	MURA_DISABLE_CN3_CN4,
 	MURA_PFID_STAT,
 	MURA_ENABLE_MU_HWSW_PATCH,
-	MURA_HW_FALLBACK_CONFIG,
 	MURA_MOBILITY_CTRL,
 	MURA_MOBILITY_INTERVAL_CTRL,
 	MURA_MOBILITY_SNR_CTRL,
@@ -307,12 +307,6 @@ typedef struct _CMD_SET_SND_PARAMS {
 	UINT_8       ucSoundingPeriodStep;
 } CMD_SET_SND_PARAMS, *P_CMD_SET_SND_PARAMS;
 
-typedef struct _CMD_SET_MURA_HWFB {
-	BOOLEAN fgUpConfig;
-	BOOLEAN fgDownConfig;
-	UINT_16 u2Reserved;
-} CMD_SET_MURA_HWFB, *P_CMD_SET_MURA_HWFB;
-
 typedef struct _CMD_SET_PLATFORM_TYPE {
 	UINT_8       ucPlatformType;
 	UINT_8       ucReserved[3];
@@ -400,9 +394,7 @@ typedef struct _EVENT_SHOW_ALGORITHM_STATE {
 	UINT_16                 au2SuccSounding[MAX_MURA_NUM];
 	UINT_16                 au2FailSounding[MAX_MURA_NUM];
 	UINT_8                  aucSoundingFailRate[MAX_MURA_NUM];
-#ifdef MURA_DMCS_INTR_CNT_SUPPORT
-	UINT_32			au4DmcsIntrCnt[MAX_MURA_NUM];
-#endif
+
 	/* MU-RGA Timing */
 	UINT_32                 u4CalculateSoundingEnd;
 	UINT_32                 u4CalculateSoundingStart;
@@ -488,16 +480,6 @@ INT SetMuraTestAlgorithmInit(RTMP_ADAPTER *pAd, RTMP_STRING *arg);
 INT SetMuraFixedRateProc(RTMP_ADAPTER *pAd, RTMP_STRING *arg);
 INT SetMuraFixedGroupRateProc(RTMP_ADAPTER *pAd, RTMP_STRING *arg);
 INT SetMuraFixedSndParamProc(RTMP_ADAPTER *pAd, RTMP_STRING *arg);
-
-/** @brief Config MU HW Up/Down fallback
- *
- *  Set MU HW Up/Down fallback configurations
- *
- *  @param pAd: pointer to adapter
- *  @param arg: pointer to argument
- *  @return Int.
- */
-INT SetMuraHwFallbackProc(RTMP_ADAPTER *pAd, RTMP_STRING *arg);
 INT SetMuraPlatformTypeProc(RTMP_ADAPTER *pAd);
 INT SetMuraMobilityCtrlProc(RTMP_ADAPTER *pAd, RTMP_STRING *arg);
 INT SetMuraMobilityIntervalCtrlProc(RTMP_ADAPTER *pAd, RTMP_STRING *arg);

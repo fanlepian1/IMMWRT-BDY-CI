@@ -1,16 +1,15 @@
-/*
- * Copyright (c) [2020], MediaTek Inc. All rights reserved.
- *
- * This software/firmware and related documentation ("MediaTek Software") are
- * protected under relevant copyright laws.
- * The information contained herein is confidential and proprietary to
- * MediaTek Inc. and/or its licensors.
- * Except as otherwise provided in the applicable licensing terms with
- * MediaTek Inc. and/or its licensors, any reproduction, modification, use or
- * disclosure of MediaTek Software, and information contained herein, in whole
- * or in part, shall be strictly prohibited.
-*/
 /****************************************************************************
+ * Ralink Tech Inc.
+ * Taiwan, R.O.C.
+ *
+ * (c) Copyright 2002, Ralink Technology, Inc.
+ *
+ * All rights reserved. Ralink's source code is an unpublished work and the
+ * use of a copyright notice does not imply otherwise. This source code
+ * contains confidential trade secret material of Ralink Tech. Any attemp
+ * or participation in deciphering, decoding, reverse engineering or in any
+ * way altering the source code is stricitly prohibited, unless the prior
+ * written consent of Ralink Technology, Inc. is obtained.
  ***************************************************************************/
 
 /****************************************************************************
@@ -140,11 +139,13 @@ static VOID QBSS_LoadAlarm(
 			MAC_TABLE *pMacTable;
 			UINT32 StaId;
 
-			MTWF_DBG(pAd, DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_INFO, "qbss> Alarm! Change to 20 bw...\n");
+			MTWF_LOG(DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("qbss> Alarm! Change to 20 bw...\n"));
 			/* disassociate stations without D3 2040Coexistence function */
 			pMacTable = &pAd->MacTab;
 
-			for (StaId = 0; VALID_UCAST_ENTRY_WCID(pAd, StaId); StaId++) {
+			/*TODO: Carter, check StaId why start from 1.*/
+
+			for (StaId = 1; VALID_UCAST_ENTRY_WCID(pAd, StaId); StaId++) {
 				MAC_TABLE_ENTRY *pEntry = &pMacTable->Content[StaId];
 				BOOLEAN bDisconnectSta = FALSE;
 
@@ -170,7 +171,7 @@ static VOID QBSS_LoadAlarm(
 						NStatus = MlmeAllocateMemory(pAd, &pOutBuffer);
 
 						if (NStatus != NDIS_STATUS_SUCCESS) {
-							MTWF_DBG(pAd, DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_INFO, " MlmeAllocateMemory fail  ..\n");
+							MTWF_LOG(DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_TRACE, (" MlmeAllocateMemory fail  ..\n"));
 							/*NdisReleaseSpinLock(&pAd->MacTabLock); */
 							continue;
 						}
@@ -187,12 +188,8 @@ static VOID QBSS_LoadAlarm(
 						MiniportMMRequest(pAd, 0, pOutBuffer, FrameLen);
 						MlmeFreeMemory(pOutBuffer);
 					}
-					MTWF_DBG(pAd, DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_INFO, "qbss> Alarm! Deauth the station "MACSTR"\n",
-							 MAC2STR(pEntry->Addr));
-#ifdef MAP_R2
-					if (IS_MAP_ENABLE(pAd) && IS_MAP_R2_ENABLE(pAd))
-						wapp_handle_sta_disassoc(pAd, pEntry->wcid, REASON_DEAUTH_STA_LEAVING);
-#endif
+					MTWF_LOG(DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("qbss> Alarm! Deauth the station %02x:%02x:%02x:%02x:%02x:%02x\n",
+							 PRINT_MAC(pEntry->Addr)));
 					mac_entry_delete(pAd, pEntry);
 					continue;
 				}
@@ -208,7 +205,7 @@ static VOID QBSS_LoadAlarm(
 #endif /* DOT11_N_SUPPORT */
 		{
 			/* we are in 20MHz bandwidth so try to switch channel */
-			MTWF_DBG(pAd, DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_INFO, "qbss> Alarm! Switch channel...\n");
+			MTWF_LOG(DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("qbss> Alarm! Switch channel...\n"));
 			/* send command to switch channel */
 			RTEnqueueInternalCmd(pAd, CMDTHREAD_CHAN_RESCAN, (VOID *)&i, sizeof(UCHAR));
 		}
@@ -264,7 +261,7 @@ Note:
 VOID QBSS_LoadInit(RTMP_ADAPTER *pAd)
 {
 	UINT32 IdBss;
-	QLOAD_CTRL *pQloadCtrl;
+	QLOAD_CTRL *pQloadCtrl = HcGetQloadCtrl(pAd);
 
 	/* check whether any BSS enables WMM feature */
 	for (IdBss = 0; IdBss < pAd->ApCfg.BssidNum; IdBss++) {
@@ -273,7 +270,10 @@ VOID QBSS_LoadInit(RTMP_ADAPTER *pAd)
 			|| (IS_RRM_ENABLE(&pAd->ApCfg.MBSSID[IdBss].wdev))
 #endif /* DOT11K_RRM_SUPPORT */
 			) {
-			pQloadCtrl = (struct _QLOAD_CTRL *) HcGetQloadCtrlByRf(pAd, wmode_2_rfic(pAd->ApCfg.MBSSID[IdBss].wdev.PhyMode));
+			if (pAd->ApCfg.MBSSID[IdBss].wdev.channel > 14)
+				pQloadCtrl = HcGetQloadCtrlByRf(pAd, RFIC_5GHZ);
+			else
+				pQloadCtrl = HcGetQloadCtrlByRf(pAd, RFIC_24GHZ);
 			if (!pQloadCtrl)
 				continue;
 			if (pQloadCtrl->FlgQloadEnable)
@@ -287,7 +287,6 @@ VOID QBSS_LoadInit(RTMP_ADAPTER *pAd)
 			AsicSetChBusyStat(pAd, pQloadCtrl->FlgQloadEnable);
 
 			pQloadCtrl->QloadChanUtilTotal = 0;
-			pQloadCtrl->QloadChanUtilTotalCcaNavTx = 0;
 			pQloadCtrl->QloadUpTimeLast = 0;
 
 #ifdef QLOAD_FUNC_BUSY_TIME_STATS
@@ -334,7 +333,7 @@ VOID QBSS_LoadAlarmReset(
 	pQloadCtrl->QloadAlarmDuration = 0;
 	pQloadCtrl->QloadAlarmNumber = 0;
 	pQloadCtrl->FlgQloadAlarmIsSuspended = FALSE;
-	QBSS_LoadAlarmBusyTimeThresholdReset(pAd, pAd->CommonCfg.BeaconPeriod[DBDC_BAND0]);
+	QBSS_LoadAlarmBusyTimeThresholdReset(pAd, pAd->CommonCfg.BeaconPeriod);
 #endif /* QLOAD_FUNC_BUSY_TIME_ALARM */
 }
 
@@ -525,7 +524,7 @@ Note:
 	function is using.
 ========================================================================
 */
-UINT32 QBSS_LoadElementAppend(RTMP_ADAPTER *pAd, UINT8 *pBeaconBuf, QLOAD_CTRL *pQloadCtrl, UCHAR apidx)
+UINT32 QBSS_LoadElementAppend(RTMP_ADAPTER *pAd, UINT8 *pBeaconBuf, QLOAD_CTRL *pQloadCtrl)
 {
 	struct _ELM_QBSS_LOAD load, *pLoad = &load;
 	ULONG ElmLen;
@@ -537,8 +536,8 @@ UINT32 QBSS_LoadElementAppend(RTMP_ADAPTER *pAd, UINT8 *pBeaconBuf, QLOAD_CTRL *
 	/* init */
 	pLoad->ElementId = ELM_QBSS_LOAD_ID;
 	pLoad->Length = ELM_QBSS_LOAD_LEN;
-	pLoad->StationCount = le2cpu16(pAd->ApCfg.MBSSID[apidx].StaCount);
-	pLoad->ChanUtil = pQloadCtrl->QloadChanUtilCcaNavTx;
+	pLoad->StationCount = le2cpu16(MacTableAssocStaNumGet(pAd));
+	pLoad->ChanUtil = pQloadCtrl->QloadChanUtil;
 	/* because no ACM is supported, the available bandwidth is 1 sec */
 	pLoad->AvalAdmCap = le2cpu16(0x7a12); /* 0x7a12 * 32us = 1 second */
 	/* copy the element to the frame */
@@ -548,30 +547,6 @@ UINT32 QBSS_LoadElementAppend(RTMP_ADAPTER *pAd, UINT8 *pBeaconBuf, QLOAD_CTRL *
 	return ElmLen;
 }
 
-VOID update_ap_qload_to_bcn(RTMP_ADAPTER *pAd)
-{
-		ULONG UpTime;
-		UINT BssIdx;
-		struct wifi_dev *wdev = NULL;
-		BSS_STRUCT *pMbss = NULL;
-		QLOAD_CTRL *pQloadCtrl = HcGetQloadCtrl(pAd);
-		NdisGetSystemUpTime(&UpTime);
-		QBSS_LoadUpdate(pAd, UpTime);
-		if ((pAd->Mlme.OneSecPeriodicRound % pQloadCtrl->QloadChanUtilBeaconInt) == 0) {
-			for (BssIdx = 0; BssIdx < pAd->ApCfg.BssidNum; BssIdx++) {
-				wdev = &pAd->ApCfg.MBSSID[BssIdx].wdev;
-
-				pMbss = wdev->func_dev;
-
-				if (pMbss) {
-					if (wdev->bAllowBeaconing)
-						UpdateBeaconHandler(pAd, wdev, BCN_UPDATE_IE_CHG);
-				}
-			}
-		}
-
-	return;
-}
 
 /*
 ========================================================================
@@ -600,35 +575,30 @@ VOID QBSS_LoadUpdate(
 	IN		RTMP_ADAPTER	*pAd,
 	IN		ULONG			UpTime)
 {
-	UINT32 ChanUtilNu, ChanUtilNuCcaNavTx, ChanUtilDe;
+	UINT32 ChanUtilNu, ChanUtilDe;
 	UINT32 BusyTime = 0;
-	UINT32 BusyTimeCcaNavTx = 0;
 	UINT32 BusyTimeId;
-	UINT32 TimePeriod = pAd->CommonCfg.BeaconPeriod[DBDC_BAND0];
+	UINT32 TimePeriod = pAd->CommonCfg.BeaconPeriod;
 #ifdef QLOAD_FUNC_BUSY_TIME_ALARM
 	BOOLEAN FlgIsBusyOverThreshold = FALSE;
 	BOOLEAN FlgIsAlarmNeeded = FALSE;
 #endif /* QLOAD_FUNC_BUSY_TIME_ALARM */
-#ifdef OCE_SUPPORT
-	BOOLEAN SameChanUtil = TRUE;
-#endif /* OCE_SUPPORT */
 	QLOAD_CTRL *pQloadCtrl = HcGetQloadCtrl(pAd);
-	UINT8 UpdateBands, i = 0;
-#if defined(ACS_CTCC_SUPPORT) || defined(OCE_SUPPORT)
+	UINT8 UpdateBands = 1, i = 0;
+#ifdef ACS_CTCC_SUPPORT
 	struct wifi_dev *wdev = NULL;
 	UCHAR band_idx = 0;
 	AUTO_CH_CTRL *auto_ch_ctrl = NULL;
-
 	wdev = &pAd->ApCfg.MBSSID[MAIN_MBSSID].wdev;
 	band_idx = HcGetBandByWdev(wdev);
 	auto_ch_ctrl = HcGetAutoChCtrlbyBandIdx(pAd, band_idx);
-#endif /* ACS_CTCC_SUPPORT OCE_SUPPORT*/
+#endif
 
-	UpdateBands = (pAd->CommonCfg.dbdc_mode == 0) ? 1 : DBDC_BAND_NUM;
+	UpdateBands = (pAd->CommonCfg.dbdc_mode == 0)?1:2;
 
 	for (i = 0; i < UpdateBands; i++) {
 		if (pAd->CommonCfg.dbdc_mode != 0) {
-			USHORT PhyMode = HcGetRadioPhyModeByBandIdx(pAd, i);
+			UCHAR PhyMode = HcGetRadioPhyModeByBandIdx(pAd, i);
 			UINT32 RfIC = (WMODE_CAP_5G(PhyMode)) ? RFIC_5GHZ : RFIC_24GHZ;
 			pQloadCtrl = HcGetQloadCtrlByRf(pAd, RfIC);
 			if (!pQloadCtrl)
@@ -671,20 +641,17 @@ VOID QBSS_LoadUpdate(
 			if ((oper.ext_cha != 0) &&
 				(oper.ht_bw != 0)
 #ifdef OFFCHANNEL_SCAN_FEATURE
-				&& (!scan_in_run_state(pAd, NULL)) && (pAd->ScanCtrl[i].state == OFFCHANNEL_SCAN_INVALID)
+				&& (!ApScanRunning(pAd, NULL)) && (pAd->ScanCtrl.state == OFFCHANNEL_SCAN_INVALID)
 #endif
 				) {
 				/* in 20MHz, no need to check busy time of secondary channel */
 #ifdef ACS_CTCC_SUPPORT
-				if (auto_ch_ctrl->AutoChSelCtrl.AutoChScanStatMachine.CurrState == AUTO_CH_SEL_SCAN_IDLE)
+			if (auto_ch_ctrl->AutoChSelCtrl.AutoChScanStatMachine.CurrState == AUTO_CH_SEL_SCAN_IDLE)
 #endif
-					/* BusyTimeCcaNavTx will be covered by OneSecMibBucket.ChannelBusyTimeCcaNavTx[i] below.
-					BusyTimeCcaNavTx = AsicGetChBusyCnt(pAd, wdev->DevInfo.BandIdx);
-					*/
-				BusyTimeCcaNavTx = pAd->OneSecMibBucket.ChannelBusyTimeCcaNavTx[i];
-				pQloadCtrl->QloadLatestChannelBusyTimeSec = BusyTimeCcaNavTx;
+				BusyTime = AsicGetChBusyCnt(pAd, 1);
+				pQloadCtrl->QloadLatestChannelBusyTimeSec = BusyTime;
 #ifdef QLOAD_FUNC_BUSY_TIME_STATS
-				BusyTimeId = BusyTimeCcaNavTx >> 10; /* translate us to ms */
+				BusyTimeId = BusyTime >> 10; /* translate us to ms */
 				/* ex:95ms, 95*20/100 = 19 */
 				BusyTimeId = (BusyTimeId*QLOAD_BUSY_INTERVALS)/TimePeriod;
 
@@ -699,7 +666,7 @@ VOID QBSS_LoadUpdate(
 					(pQloadCtrl->QloadAlarmBusyTimeThreshold > 0)) {
 					/* Alarm is not suspended and is enabled */
 					if ((pQloadCtrl->QloadBusyTimeThreshold != 0) &&
-						(BusyTimeCcaNavTx >= pQloadCtrl->QloadBusyTimeThreshold))
+						(BusyTime >= pQloadCtrl->QloadBusyTimeThreshold))
 						FlgIsBusyOverThreshold = TRUE;
 				}
 
@@ -711,14 +678,10 @@ VOID QBSS_LoadUpdate(
 		/* do busy time statistics for primary channel */
 		/* BusyTime = AsicGetChBusyCnt(pAd, 0); */
 		/* update BusyTime from  OneSecMibBucket[i] */
-		if (i < DBDC_BAND_NUM)
-			BusyTime = pAd->OneSecMibBucket.ChannelBusyTime[i];
-		if (i < DBDC_BAND_NUM)
-			BusyTimeCcaNavTx = pAd->OneSecMibBucket.ChannelBusyTimeCcaNavTx[i];
-
-		pQloadCtrl->QloadLatestChannelBusyTimePri = BusyTimeCcaNavTx;
+		BusyTime = pAd->OneSecMibBucket.ChannelBusyTime[i];
+		pQloadCtrl->QloadLatestChannelBusyTimePri = BusyTime;
 #ifdef QLOAD_FUNC_BUSY_TIME_STATS
-		BusyTimeId = BusyTimeCcaNavTx >> 10; /* translate us to ms */
+		BusyTimeId = BusyTime >> 10; /* translate us to ms */
 		/* ex:95ms, 95*20/100 = 19 */
 		BusyTimeId = (BusyTimeId*QLOAD_BUSY_INTERVALS)/TimePeriod;
 
@@ -733,49 +696,28 @@ VOID QBSS_LoadUpdate(
 			(pQloadCtrl->QloadAlarmBusyTimeThreshold > 0)) {
 			/* Alarm is not suspended and is enabled */
 			if ((pQloadCtrl->QloadBusyTimeThreshold != 0) &&
-				(BusyTimeCcaNavTx >= pQloadCtrl->QloadBusyTimeThreshold))
+				(BusyTime >= pQloadCtrl->QloadBusyTimeThreshold))
 				FlgIsBusyOverThreshold = TRUE;
 		}
 
 #endif /* QLOAD_FUNC_BUSY_TIME_ALARM */
 		/* accumulate channel busy time for primary channel */
 		pQloadCtrl->QloadChanUtilTotal += BusyTime;
-		pQloadCtrl->QloadChanUtilTotalCcaNavTx += BusyTimeCcaNavTx;
 
 		/* update new channel utilization for primary channel */
 		if (++pQloadCtrl->QloadChanUtilBeaconCnt >= pQloadCtrl->QloadChanUtilBeaconInt) {
 			ChanUtilNu = pQloadCtrl->QloadChanUtilTotal;
 			ChanUtilNu *= 255;
-			ChanUtilNuCcaNavTx = pQloadCtrl->QloadChanUtilTotalCcaNavTx;
-			ChanUtilNuCcaNavTx *= 255;
 			ChanUtilDe = pQloadCtrl->QloadChanUtilBeaconInt;
 			ChanUtilDe *= 1000000; /* sec to us */
-#ifdef OCE_SUPPORT
-			if (IS_OCE_ENABLE(wdev)) {
-				if (pQloadCtrl->QloadChanUtilCcaNavTx == (UINT8)(ChanUtilNuCcaNavTx/ChanUtilDe))
-					SameChanUtil = TRUE;
-				else
-					SameChanUtil = FALSE;
-				}
-#endif /* OCE_SUPPORT */
-
 			pQloadCtrl->QloadChanUtil = (UINT8)(ChanUtilNu/ChanUtilDe);
-			pQloadCtrl->QloadChanUtilCcaNavTx = (UINT8)(ChanUtilNuCcaNavTx/ChanUtilDe);
 
 			if ((ChanUtilNu/ChanUtilDe) >= 255)
 				pQloadCtrl->QloadChanUtil = 255;
-			if ((ChanUtilNuCcaNavTx/ChanUtilDe) >= 255)
-				pQloadCtrl->QloadChanUtilCcaNavTx = 255;
 
 			/* re-accumulate channel busy time */
 			pQloadCtrl->QloadChanUtilBeaconCnt = 0;
 			pQloadCtrl->QloadChanUtilTotal = 0;
-			pQloadCtrl->QloadChanUtilTotalCcaNavTx = 0;
-#ifdef OCE_SUPPORT
-			if (IS_OCE_ENABLE(wdev) && (!SameChanUtil))
-				UpdateBeaconHandler(pAd, wdev, BCN_UPDATE_IE_CHG);
-#endif /* OCE_SUPPORT */
-
 		}
 
 #ifdef QLOAD_FUNC_BUSY_TIME_ALARM
@@ -843,9 +785,16 @@ Return Value:
 Note:
 ========================================================================
 */
-VOID QBSS_LoadStatusClear(struct wifi_dev *wdev)
+VOID QBSS_LoadStatusClear(
+	IN		RTMP_ADAPTER	*pAd,
+	IN		UCHAR			Channel)
 {
-	QLOAD_CTRL *pQloadCtrl = (struct _QLOAD_CTRL *) hc_get_qload_by_wdev(wdev);
+	QLOAD_CTRL *pQloadCtrl = HcGetQloadCtrl(pAd);
+
+	if (pAd->CommonCfg.dbdc_mode == 0)
+		pQloadCtrl = HcGetQloadCtrl(pAd);
+	else
+		pQloadCtrl = (Channel > 14) ? HcGetQloadCtrlByRf(pAd, RFIC_5GHZ) : HcGetQloadCtrlByRf(pAd, RFIC_24GHZ);
 
 	if (pQloadCtrl) {
 #ifdef QLOAD_FUNC_BUSY_TIME_STATS
@@ -856,7 +805,6 @@ VOID QBSS_LoadStatusClear(struct wifi_dev *wdev)
 #ifdef QLOAD_FUNC_BUSY_TIME_ALARM
 		/* clear alarm function variables */
 		pQloadCtrl->QloadChanUtilTotal = 0;
-		pQloadCtrl->QloadChanUtilTotalCcaNavTx = 0;
 		pQloadCtrl->FlgQloadAlarm = FALSE;
 		pQloadCtrl->QloadAlarmBusyNum = 0;
 #endif /* QLOAD_FUNC_BUSY_TIME_ALARM */
@@ -886,29 +834,29 @@ INT Show_QoSLoad_Proc(RTMP_ADAPTER *pAd, RTMP_STRING *arg)
 	UINT32 Time;
 	QLOAD_CTRL *pQloadCtrl = HcGetQloadCtrl(pAd);
 
-	Time = pAd->CommonCfg.BeaconPeriod[DBDC_BAND0] / QLOAD_BUSY_INTERVALS;
-	MTWF_PRINT("\n\tPrimary Busy Time\tTimes\n");
+	Time = pAd->CommonCfg.BeaconPeriod / QLOAD_BUSY_INTERVALS;
+	MTWF_LOG(DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_OFF, ("\n\tPrimary Busy Time\tTimes\n"));
 
 	for (BusyTimeId = 0; BusyTimeId < QLOAD_BUSY_INTERVALS; BusyTimeId++) {
-		MTWF_PRINT("\t%dms ~ %dms\t\t%d\n",
+		MTWF_LOG(DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_OFF, ("\t%dms ~ %dms\t\t%d\n",
 				 BusyTimeId*Time,
 				 (BusyTimeId+1)*Time,
-				 pQloadCtrl->QloadBusyCountPri[BusyTimeId]);
+				 pQloadCtrl->QloadBusyCountPri[BusyTimeId]));
 	}
 
-	MTWF_PRINT("\n\tSecondary Busy Time\tTimes\n");
+	MTWF_LOG(DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_OFF, ("\n\tSecondary Busy Time\tTimes\n"));
 
 	for (BusyTimeId = 0; BusyTimeId < QLOAD_BUSY_INTERVALS; BusyTimeId++) {
-		MTWF_PRINT("\t%dms ~ %dms\t\t%d\n",
+		MTWF_LOG(DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_OFF, ("\t%dms ~ %dms\t\t%d\n",
 				 BusyTimeId*Time,
 				 (BusyTimeId+1)*Time,
-				 pQloadCtrl->QloadBusyCountSec[BusyTimeId]);
+				 pQloadCtrl->QloadBusyCountSec[BusyTimeId]));
 	}
 
 #else
-	MTWF_PRINT("\tBusy time statistics is not included into the driver!\n");
+	MTWF_LOG(DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_OFF, ("\tBusy time statistics is not included into the driver!\n"));
 #endif /* QLOAD_FUNC_BUSY_TIME_STATS */
-	MTWF_PRINT("\n");
+	MTWF_LOG(DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_OFF, ("\n"));
 	return TRUE;
 }
 
@@ -930,15 +878,8 @@ Note:
 */
 INT Set_QloadClr_Proc(RTMP_ADAPTER *pAd, RTMP_STRING *arg)
 {
-	UINT32 i;
-	struct wifi_dev *wdev;
-
-	for (i = 0; i < WDEV_NUM_MAX; i++) {
-		wdev = pAd->wdev_list[i];
-		if (wdev != NULL) {
-			QBSS_LoadStatusClear(wdev);
-		}
-	}
+	QBSS_LoadStatusClear(pAd, 1);
+	QBSS_LoadStatusClear(pAd, 36);
 	return TRUE;
 }
 
@@ -965,7 +906,7 @@ INT Set_QloadAlarmTimeThreshold_Proc(RTMP_ADAPTER *pAd, RTMP_STRING *Arg)
 
 	pQloadCtrl->QloadAlarmBusyTimeThreshold = (UCHAR)os_str_tol(Arg, 0, 10);
 	QBSS_LoadAlarmReset(pAd);
-	pQloadCtrl->QloadTimePeriodLast = pAd->CommonCfg.BeaconPeriod[DBDC_BAND0];
+	pQloadCtrl->QloadTimePeriodLast = pAd->CommonCfg.BeaconPeriod;
 #endif /* QLOAD_FUNC_BUSY_TIME_ALARM */
 	return TRUE;
 }

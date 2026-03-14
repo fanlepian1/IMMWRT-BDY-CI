@@ -1,16 +1,15 @@
-/*
- * Copyright (c) [2020], MediaTek Inc. All rights reserved.
- *
- * This software/firmware and related documentation ("MediaTek Software") are
- * protected under relevant copyright laws.
- * The information contained herein is confidential and proprietary to
- * MediaTek Inc. and/or its licensors.
- * Except as otherwise provided in the applicable licensing terms with
- * MediaTek Inc. and/or its licensors, any reproduction, modification, use or
- * disclosure of MediaTek Software, and information contained herein, in whole
- * or in part, shall be strictly prohibited.
-*/
 /****************************************************************************
+ * Ralink Tech Inc.
+ * Taiwan, R.O.C.
+ *
+ * (c) Copyright 2002, Ralink Technology, Inc.
+ *
+ * All rights reserved. Ralink's source code is an unpublished work and the
+ * use of a copyright notice does not imply otherwise. This source code
+ * contains confidential trade secret material of Ralink Tech. Any attemp
+ * or participation in deciphering, decoding, reverse engineering or in any
+ * way altering the source code is stricitly prohibited, unless the prior
+ * written consent of Ralink Technology, Inc. is obtained.
  ***************************************************************************/
 
 /****************************************************************************
@@ -79,28 +78,28 @@ void DH_PublicKey_Generate(
 	 *    - GValue must be greater than 0 but less than the PValue (no implement)
 	 */
 	if (GValueLength == 0) {
-		MTWF_DBG(NULL, DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_ERROR, "DH_PublicKey_Generate: G length is (%d)\n", GValueLength);
+		MTWF_LOG(DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_ERROR, ("DH_PublicKey_Generate: G length is (%d)\n", GValueLength));
 		return;
 	} /* End of if */
 
 	if (PValueLength == 0) {
-		MTWF_DBG(NULL, DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_ERROR, "DH_PublicKey_Generate: P length is (%d)\n", PValueLength);
+		MTWF_LOG(DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_ERROR, ("DH_PublicKey_Generate: P length is (%d)\n", PValueLength));
 		return;
 	} /* End of if */
 
 	if (PrivateKeyLength == 0) {
-		MTWF_DBG(NULL, DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_ERROR, "DH_PublicKey_Generate: private key length is (%d)\n", PrivateKeyLength);
+		MTWF_LOG(DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_ERROR, ("DH_PublicKey_Generate: private key length is (%d)\n", PrivateKeyLength));
 		return;
 	} /* End of if */
 
 	if (*PublicKeyLength < PValueLength) {
-		MTWF_DBG(NULL, DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_ERROR, "DH_PublicKey_Generate: public key length(%d) must be large or equal than P length(%d)\n",
-				 *PublicKeyLength, PValueLength);
+		MTWF_LOG(DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_ERROR, ("DH_PublicKey_Generate: public key length(%d) must be large or equal than P length(%d)\n",
+				 *PublicKeyLength, PValueLength));
 		return;
 	} /* End of if */
 
 	if (!(PValue[PValueLength - 1] & 0x1)) {
-		MTWF_DBG(NULL, DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_ERROR, "DH_PublicKey_Generate: P value must be odd\n");
+		MTWF_LOG(DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_ERROR, ("DH_PublicKey_Generate: P value must be odd\n"));
 		return;
 	} /* End of if */
 
@@ -177,28 +176,28 @@ void DH_SecretKey_Generate(
 	 *    - PValue must be prime number (no implement)
 	 */
 	if (PublicKeyLength == 0) {
-		MTWF_DBG(NULL, DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_ERROR, "DH_SecretKey_Generate: public key length is (%d)\n", PublicKeyLength);
+		MTWF_LOG(DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_ERROR, ("DH_SecretKey_Generate: public key length is (%d)\n", PublicKeyLength));
 		return;
 	} /* End of if */
 
 	if (PValueLength == 0) {
-		MTWF_DBG(NULL, DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_ERROR, "DH_SecretKey_Generate: P length is (%d)\n", PValueLength);
+		MTWF_LOG(DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_ERROR, ("DH_SecretKey_Generate: P length is (%d)\n", PValueLength));
 		return;
 	} /* End of if */
 
 	if (PrivateKeyLength == 0) {
-		MTWF_DBG(NULL, DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_ERROR, "DH_SecretKey_Generate: private key length is (%d)\n", PrivateKeyLength);
+		MTWF_LOG(DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_ERROR, ("DH_SecretKey_Generate: private key length is (%d)\n", PrivateKeyLength));
 		return;
 	} /* End of if */
 
 	if (*SecretKeyLength < PValueLength) {
-		MTWF_DBG(NULL, DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_ERROR, "DH_SecretKey_Generate: secret key length(%d) must be large or equal than P length(%d)\n",
-				 *SecretKeyLength, PValueLength);
+		MTWF_LOG(DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_ERROR, ("DH_SecretKey_Generate: secret key length(%d) must be large or equal than P length(%d)\n",
+				 *SecretKeyLength, PValueLength));
 		return;
 	} /* End of if */
 
 	if (!(PValue[PValueLength - 1] & 0x1)) {
-		MTWF_DBG(NULL, DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_ERROR, "DH_SecretKey_Generate: P value must be odd\n");
+		MTWF_LOG(DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_ERROR, ("DH_SecretKey_Generate: P value must be odd\n"));
 		return;
 	} /* End of if */
 

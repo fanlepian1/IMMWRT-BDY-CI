@@ -1,16 +1,19 @@
+
 /*
- * Copyright (c) [2020], MediaTek Inc. All rights reserved.
+ ***************************************************************************
+ * Ralink Tech Inc.
+ * 4F, No. 2 Technology 5th Rd.
+ * Science-based Industrial Park
+ * Hsin-chu, Taiwan, R.O.C.
  *
- * This software/firmware and related documentation ("MediaTek Software") are
- * protected under relevant copyright laws.
- * The information contained herein is confidential and proprietary to
- * MediaTek Inc. and/or its licensors.
- * Except as otherwise provided in the applicable licensing terms with
- * MediaTek Inc. and/or its licensors, any reproduction, modification, use or
- * disclosure of MediaTek Software, and information contained herein, in whole
- * or in part, shall be strictly prohibited.
-*/
-/****************************************************************************
+ * (c) Copyright 2002, Ralink Technology, Inc.
+ *
+ * All rights reserved. Ralink's source code is an unpublished work and the
+ * use of a copyright notice does not imply otherwise. This source code
+ * contains confidential trade secret material of Ralink Tech. Any attemp
+ * or participation in deciphering, decoding, reverse engineering or in any
+ * way altering the source code is stricitly prohibited, unless the prior
+ * written consent of Ralink Technology, Inc. is obtained.
  ***************************************************************************
 
     Module Name:
@@ -31,81 +34,21 @@
 
 #define VAILD_KEY_INDEX(_X) ((((_X) >= 0) && ((_X) < 4)) ? (TRUE) : (FALSE))
 
-static RTMP_STRING *WDS_MODE_STR[] = {"Disabled", "Restrict", "Bridge", "Repeater", "Lazy", "Unknown"};
 
-UCHAR *wds_mode_2_str(UCHAR mode)
-{
-	if (mode > WDS_LAZY_MODE)
-		mode = (WDS_LAZY_MODE+1);
-
-	return WDS_MODE_STR[mode];
-}
-
-static inline BOOLEAN is_limited_by_security(struct _RTMP_ADAPTER *ad, struct wifi_dev *wdev)
-{
-	return ((ad->CommonCfg.HT_DisallowTKIP) && IS_INVALID_HT_SECURITY(wdev->SecConfig.PairwiseCipher));
-}
-
-static USHORT get_wds_phymode(struct wifi_dev *wdev, UCHAR op_mode)
-{
-	USHORT wmode = 0;
-
-	switch (op_mode) {
-	case MODE_CCK:
-		wmode = WMODE_B;
-		break;
-
-	case MODE_OFDM:
-		/* should not have WMODE_B, to discuss */
-		wmode = (WMODE_B | WMODE_G | WMODE_A);
-		break;
-
-	case MODE_HTMIX:
-		wmode = (WMODE_B | WMODE_G | WMODE_A | WMODE_GN | WMODE_AN);
-		break;
-
-	case MODE_HTGREENFIELD:
-		wmode = (WMODE_GN | WMODE_AN);
-		break;
-
-	case MODE_VHT:
-		wmode = (WMODE_A | WMODE_AN | WMODE_AC);
-		break;
-
-	case MODE_HE:
-		wmode = (WMODE_G | WMODE_A | WMODE_GN | WMODE_AN | WMODE_AC | WMODE_AX_24G | WMODE_AX_5G);
-		break;
-
-	default:
-		wmode = wdev->PhyMode;
-		break;
-	}
-
-	/* get the intersection between main wdev and peer */
-	wmode &= wdev->PhyMode;
-
-	/* in case the input parameter is illegal, use main wdev phymode */
-	if (!wmode)
-		wmode = wdev->PhyMode;
-
-	return wmode;
-}
-
-BOOLEAN wds_entry_is_valid(
-	struct _RTMP_ADAPTER *ad,
-	UCHAR wds_index)
+BOOLEAN ValidWdsEntry(
+	IN PRTMP_ADAPTER pAd,
+	IN UCHAR WdsIndex)
 {
 	BOOLEAN result = FALSE;
-	struct _RT_802_11_WDS_ENTRY *wds_entry;
-	struct _MAC_TABLE_ENTRY *peer;
+	PMAC_TABLE_ENTRY pMacEntry;
 
-	if (wds_index < MAX_WDS_ENTRY) {
-		wds_entry = &ad->WdsTab.WdsEntry[wds_index];
+	if ((WdsIndex < MAX_WDS_ENTRY) &&
+		(pAd->WdsTab.WdsEntry[WdsIndex].Valid == TRUE)) {
+		if ((pAd->WdsTab.WdsEntry[WdsIndex].MacTabMatchWCID > 0) &&
+			(pAd->WdsTab.WdsEntry[WdsIndex].MacTabMatchWCID < GET_MAX_UCAST_NUM(pAd))) {
+			pMacEntry = &pAd->MacTab.Content[pAd->WdsTab.WdsEntry[WdsIndex].MacTabMatchWCID];
 
-		if (WDS_ENTRY_IS_VALID(wds_entry->flag)) {
-			peer = wds_entry->peer;
-
-			if (peer != NULL && IS_ENTRY_WDS(peer))
+			if (IS_ENTRY_WDS(pMacEntry))
 				result = TRUE;
 		}
 	}
@@ -121,9 +64,8 @@ INT wds_fp_tx_pkt_allowed(
 	UCHAR idx;
 	INT allowed = FALSE;
 	RT_802_11_WDS_ENTRY *wds_entry;
-	UINT16 wcid = WCID_INVALID;
+	UCHAR wcid = RESERVED_WCID;
 	UCHAR frag_nums;
-	struct tx_rx_ctl *tr_ctl = &pAd->tr_ctl;
 
 	if (!wdev)
 		return FALSE;
@@ -131,15 +73,15 @@ INT wds_fp_tx_pkt_allowed(
 	for (idx = 0; idx < MAX_WDS_ENTRY; idx++) {
 		wds_entry = &pAd->WdsTab.WdsEntry[idx];
 
-		if (wds_entry_is_valid(pAd, idx) && (wdev == (&wds_entry->wdev))) {
+		if (ValidWdsEntry(pAd, idx) && (wdev == (&wds_entry->wdev))) {
 			RTMP_SET_PACKET_WDEV(pkt, wdev->wdev_idx);
-			wcid = wds_entry->peer->wcid;
+			wcid = (UCHAR)pAd->WdsTab.WdsEntry[idx].MacTabMatchWCID;
 			allowed = TRUE;
 			break;
 		}
 	}
 
-	if (!IS_WCID_VALID(pAd, wcid))
+	if (!VALID_WCID(wcid))
 		return FALSE;
 
 	RTMP_SET_PACKET_WCID(pkt, wcid);
@@ -148,7 +90,7 @@ INT wds_fp_tx_pkt_allowed(
 
 	/*  ethertype check is not offload to mcu for fragment frame*/
 	if (frag_nums > 1) {
-		if (!RTMPCheckEtherType(pAd, pkt, &tr_ctl->tr_entry[wcid], wdev)) {
+		if (!RTMPCheckEtherType(pAd, pkt, &pAd->MacTab.tr_entry[wcid], wdev)) {
 			return FALSE;
 		}
 	}
@@ -164,9 +106,8 @@ INT wds_tx_pkt_allowed(
 	UCHAR idx;
 	INT allowed = FALSE;
 	RT_802_11_WDS_ENTRY *wds_entry;
-	UINT16 wcid = WCID_INVALID;
+	UCHAR wcid = RESERVED_WCID;
 	UCHAR frag_nums;
-	struct tx_rx_ctl *tr_ctl = &pAd->tr_ctl;
 
 	if (!wdev)
 		return FALSE;
@@ -174,22 +115,22 @@ INT wds_tx_pkt_allowed(
 	for (idx = 0; idx < MAX_WDS_ENTRY; idx++) {
 		wds_entry = &pAd->WdsTab.WdsEntry[idx];
 
-		if (wds_entry_is_valid(pAd, idx) && (wdev == (&wds_entry->wdev))) {
+		if (ValidWdsEntry(pAd, idx) && (wdev == (&wds_entry->wdev))) {
 			RTMP_SET_PACKET_WDEV(pkt, wdev->wdev_idx);
-			wcid = wds_entry->peer->wcid;
+			wcid = (UCHAR)pAd->WdsTab.WdsEntry[idx].MacTabMatchWCID;
 			allowed = TRUE;
 			break;
 		}
 	}
 
-	if (!IS_WCID_VALID(pAd, wcid))
+	if (!VALID_WCID(wcid))
 		return FALSE;
 
 	RTMP_SET_PACKET_WCID(pkt, wcid);
 	frag_nums = get_frag_num(pAd, wdev, pkt);
 	RTMP_SET_PACKET_FRAGMENTS(pkt, frag_nums);
 
-	if (!RTMPCheckEtherType(pAd, pkt, &tr_ctl->tr_entry[wcid], wdev)) {
+	if (!RTMPCheckEtherType(pAd, pkt, &pAd->MacTab.tr_entry[wcid], wdev)) {
 		return FALSE;
 	}
 
@@ -204,72 +145,97 @@ INT wds_rx_foward_handle(RTMP_ADAPTER *pAd, struct wifi_dev *wdev, PNDIS_PACKET 
 	return TRUE;
 }
 
-INT WdsEntryAlloc(RTMP_ADAPTER *pAd, UCHAR band_idx, UCHAR *pAddr)
+/* Since not used */
+INT WdsEntryAlloc(RTMP_ADAPTER *pAd, UCHAR *pAddr)
 {
-	INT i, WdsTabIdx = -1 , start_idx;
+	INT i, WdsTabIdx = -1;
 	RT_802_11_WDS_ENTRY *wds_entry;
 
-	MTWF_DBG(pAd, DBG_CAT_AP, CATAP_WDS, DBG_LVL_INFO,
-			"%s(): "MACSTR", WdsMode = %d\n", __func__, MAC2STR(pAddr), pAd->WdsTab.Mode[band_idx]);
+	MTWF_LOG(DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_INFO,
+			("%s(): %02x-%02x-%02x-%02x-%02x-%02x, WdsMode = %d\n", __func__, PRINT_MAC(pAddr), pAd->WdsTab.Mode));
 	NdisAcquireSpinLock(&pAd->WdsTab.WdsTabLock);
 
-	start_idx = band_idx * MAX_WDS_PER_BAND;
+	for (i = 0; i < MAX_WDS_ENTRY; i++) {
+		MTWF_LOG(DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_OFF, (" Alloc WdsEntry[%d]\n", i));
 
-	for (i = start_idx; i < MAX_WDS_ENTRY ; i++) {
+		if ((pAd->WdsTab.Mode >= WDS_LAZY_MODE) && !WDS_IF_UP_CHECK(pAd, i))
+			continue;
+
 		wds_entry = &pAd->WdsTab.WdsEntry[i];
 
-		if ((pAd->WdsTab.Mode[band_idx] >= WDS_LAZY_MODE)) {
-			if (WDS_IF_UP_CHECK(pAd, band_idx, i) &&
-				!WDS_ENTRY_IS_ASSIGNED(wds_entry->flag) &&
-				(band_idx == HcGetBandByWdev(&wds_entry->wdev))) {
-				WDS_ENTRY_SET_ASSIGNED(wds_entry->flag);
-				COPY_MAC_ADDR(wds_entry->PeerWdsAddr, pAddr);
-				WdsTabIdx = i;
-				break;
-			}
-		} else {
-			if (!WDS_ENTRY_IS_ASSIGNED(wds_entry->flag)) {
-				WDS_ENTRY_SET_ASSIGNED(wds_entry->flag);
-				COPY_MAC_ADDR(wds_entry->PeerWdsAddr, pAddr);
-				WdsTabIdx = i;
-				break;
-			} else if (MAC_ADDR_EQUAL(wds_entry->PeerWdsAddr, pAddr)) {
-				WdsTabIdx = i;
-				break;
-			}
+		if (wds_entry->Valid == FALSE) {
+			wds_entry->Valid = TRUE;
+			pAd->WdsTab.Size++;
+			COPY_MAC_ADDR(wds_entry->PeerWdsAddr, pAddr);
+			WdsTabIdx = i;
+			break;
+		} else if (MAC_ADDR_EQUAL(wds_entry->PeerWdsAddr, pAddr)) {
+			WdsTabIdx = i;
+			break;
 		}
 	}
 
 	NdisReleaseSpinLock(&pAd->WdsTab.WdsTabLock);
 
 	if (i == MAX_WDS_ENTRY)
-		MTWF_DBG(pAd, DBG_CAT_AP, CATAP_WDS, DBG_LVL_INFO, "%s: Unable to allocate WdsEntry.\n", __func__);
-	else
-		MTWF_DBG(pAd, DBG_CAT_AP, CATAP_WDS, DBG_LVL_INFO, "Alloced WdsEntry[%d]\n", i);
+		MTWF_LOG(DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_ERROR, ("%s: Unable to allocate WdsEntry.\n", __func__));
 
 	return WdsTabIdx;
 }
+
 
 VOID WdsEntryDel(RTMP_ADAPTER *pAd, UCHAR *pAddr)
 {
 	INT i;
 	RT_802_11_WDS_ENTRY *wds_entry;
 
-	MTWF_DBG(pAd, DBG_CAT_AP, CATAP_WDS, DBG_LVL_INFO, "%s(): "MACSTR"\n", __func__,
-			 MAC2STR(pAddr));
-
+	MTWF_LOG(DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_OFF, ("%s(): %02x-%02x-%02x-%02x-%02x-%02x\n", __func__,
+			 PRINT_MAC(pAddr)));
+	/* delete one WDS entry */
 	NdisAcquireSpinLock(&pAd->WdsTab.WdsTabLock);
 
 	for (i = 0; i < MAX_WDS_ENTRY; i++) {
 		wds_entry = &pAd->WdsTab.WdsEntry[i];
 
-		if (MAC_ADDR_EQUAL(pAddr, wds_entry->PeerWdsAddr) && WDS_ENTRY_IS_ASSIGNED(wds_entry->flag)) {
-			WDS_ENTRY_SET_FLAG(wds_entry->flag, WDS_ENTRY_IS_INITED(wds_entry->flag));
+		if (MAC_ADDR_EQUAL(pAddr, wds_entry->PeerWdsAddr) && (wds_entry->Valid == TRUE)) {
+			wds_entry->Valid = FALSE;
+			NdisZeroMemory(wds_entry->PeerWdsAddr, MAC_ADDR_LEN);
+			pAd->WdsTab.Size--;
 			break;
 		}
 	}
 
 	NdisReleaseSpinLock(&pAd->WdsTab.WdsTabLock);
+}
+
+
+/*
+	==========================================================================
+	Description:
+		Delete all WDS Entry in pAd->MacTab
+	==========================================================================
+ */
+BOOLEAN MacTableDeleteWDSEntry(
+	IN PRTMP_ADAPTER pAd,
+	IN USHORT wcid)
+{
+	MAC_TABLE_ENTRY *pEntry;
+
+	RETURN_ZERO_IF_PAD_NULL(pAd);
+
+	if (!VALID_UCAST_ENTRY_WCID(pAd, wcid))
+		return FALSE;
+
+	pEntry = &pAd->MacTab.Content[wcid];
+
+	if (!pEntry || !pEntry->wdev) {
+		ASSERT(FALSE);
+		return FALSE;
+	}
+
+	mac_entry_delete(pAd, pEntry);
+
+	return TRUE;
 }
 
 BOOLEAN wds_bss_linkdown(
@@ -290,124 +256,138 @@ BOOLEAN wds_bss_linkdown(
 		return FALSE;
 	}
 
-	/* check wdev is up ready */
-	if (pEntry->wdev->if_up_down_state) {
-		MlmeEnqueueWithWdev(pAd, WDS_STATE_MACHINE, WDS_BSS_LINKDOWN, sizeof(USHORT), &wcid, 0,
-				pEntry->wdev);
-		RTMP_MLME_HANDLER(pAd);
-	} else
-		ap_wds_wdev_linkdown(pAd, pEntry->wdev, wcid);
+	if (wdev_do_linkdown(pEntry->wdev) != TRUE)
+		MTWF_LOG(DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("%s() linkdown fail!!!\n", __func__));
+	
+	mac_entry_delete(pAd, pEntry);
 
 	return TRUE;
 }
 
+/*
+================================================================
+Description : because WDS and CLI share the same WCID table in ASIC.
+WDS entry also insert to pAd->MacTab.content[].
+Also fills the pairwise key.
+Because front MAX_AID_BA entries have direct mapping to BAEntry, which is only used as CLI. So we insert WDS
+from index MAX_AID_BA.
+================================================================
+*/
 MAC_TABLE_ENTRY *MacTableInsertWDSEntry(
 	IN RTMP_ADAPTER *pAd,
 	IN UCHAR *pAddr,
 	UINT WdsTabIdx)
 {
-	struct tx_rx_ctl *tr_ctl = &pAd->tr_ctl;
 	MAC_TABLE_ENTRY *pEntry = NULL;
 	STA_TR_ENTRY *tr_entry;
 	HTTRANSMIT_SETTING HTPhyMode;
 	RT_802_11_WDS_ENTRY *wds_entry;
 	struct wifi_dev *wdev;
-	struct legacy_rate *rate;
-	HT_CAPABILITY_IE *ht_cap = NULL;
-	UCHAR phy_mode;
-	BOOLEAN has_ht_cap = FALSE, has_vht_cap = FALSE;
+	struct dev_rate_info *rate;
+	HT_CAPABILITY_IE *curr_ht_cap;
 #if defined(TXBF_SUPPORT) && defined(VHT_TXBF_SUPPORT)
 	UCHAR ucETxBfCap;
 #endif /* TXBF_SUPPORT && VHT_TXBF_SUPPORT */
-	MTWF_DBG(pAd, DBG_CAT_AP, CATAP_WDS, DBG_LVL_INFO, "%s(): WdsTabIdx = %d, Addr "MACSTR"\n", __func__,
-			 WdsTabIdx, MAC2STR(pAddr));
+	MTWF_LOG(DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_OFF, ("%s(): WdsTabIdx = %d, Addr %02x-%02x-%02x-%02x-%02x-%02x\n", __func__,
+			 WdsTabIdx, PRINT_MAC(pAddr)));
 
 	/* if FULL, return */
 	if (pAd->MacTab.Size >= GET_MAX_UCAST_NUM(pAd))
 		return NULL;
 
-	wds_entry = &pAd->WdsTab.WdsEntry[WdsTabIdx];
-	wdev = &wds_entry->wdev;
 	pEntry = WdsTableLookup(pAd, pAddr, TRUE);
-	if ((pEntry != NULL) && wdev->DevInfo.WdevActive)
+	if (pEntry != NULL)
 		return pEntry;
 
-	rate = &wdev->rate.legacy_rate;
-	phy_mode = wds_entry->phy_mode;
+	wds_entry = &pAd->WdsTab.WdsEntry[WdsTabIdx];
+	wdev = &wds_entry->wdev;
+	rate = &wdev->rate;
+	curr_ht_cap = (HT_CAPABILITY_IE *)wlan_operate_get_ht_cap(wdev);
 
+	/* allocate one WDS entry */
 	do {
 		/* allocate one MAC entry */
 		pEntry = MacTableInsertEntry(pAd, pAddr, wdev, ENTRY_WDS, OPMODE_AP, TRUE);
 
 		if (pEntry) {
-			tr_entry = &tr_ctl->tr_entry[pEntry->wcid];
+			tr_entry = &pAd->MacTab.tr_entry[pEntry->wcid];
 			tr_entry->PortSecured = WPA_802_1X_PORT_SECURED;
 			tr_entry->OmacIdx = wdev->OmacIdx;
-			MTWF_DBG(pAd, DBG_CAT_AP, CATAP_WDS, DBG_LVL_INFO, "  OmacIdx = %d, wcid = %d, phymode = 0x%x\n",
-					 tr_entry->OmacIdx, pEntry->wcid, wds_entry->phy_mode);
-
+			MTWF_LOG(DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_OFF, ("  OmacIdx = %d, wcid = %d, PhyOpMode = %d\n",
+					 tr_entry->OmacIdx, pEntry->wcid, wds_entry->PhyOpMode));
 			/* specific Max Tx Rate for Wds link. */
 			NdisZeroMemory(&HTPhyMode, sizeof(HTTRANSMIT_SETTING));
-			
-			MTWF_DBG(pAd, DBG_CAT_AP, CATAP_WDS, DBG_LVL_INFO, "phy_mode=0x%x\n", phy_mode);
 
-			if (WMODE_EQUAL(phy_mode, WMODE_B)) {
+			switch (wds_entry->PhyOpMode) {
+			case 0xff: /* user doesn't specific a Mode for WDS link. */
+			case MODE_OFDM: /* specific OFDM mode. */
+				HTPhyMode.field.MODE = MODE_OFDM;
+				HTPhyMode.field.MCS = 7;
+				pEntry->RateLen = 8;
+				MTWF_LOG(DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_OFF, ("  MODE_OFDM\n"));
+				break;
+
+			case MODE_CCK:
 				HTPhyMode.field.MODE = MODE_CCK;
 				HTPhyMode.field.MCS = 3;
 				pEntry->RateLen = 4;
-			} else if (WMODE_EQUAL(phy_mode, WMODE_GN | WMODE_AN)) {
-				HTPhyMode.field.MODE = MODE_HTGREENFIELD;
+				MTWF_LOG(DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_OFF, ("  MODE_CCK\n"));
+				break;
+#ifdef DOT11_N_SUPPORT
+
+			case MODE_HTMIX:
 				HTPhyMode.field.MCS = 7;
 				HTPhyMode.field.ShortGI = wdev->HTPhyMode.field.ShortGI;
 				HTPhyMode.field.BW = wdev->HTPhyMode.field.BW;
 				HTPhyMode.field.STBC = wdev->HTPhyMode.field.STBC;
+				HTPhyMode.field.MODE = MODE_HTMIX;
 				pEntry->RateLen = 12;
-			} else if (WMODE_CAP_AX(phy_mode)) {
-				/* to check */
-				HTPhyMode.field.MODE = MODE_HE;
-				HTPhyMode.field.MCS = 11;
+				MTWF_LOG(DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_OFF, ("  MODE_HTMIX\n"));
+				break;
+
+			case MODE_HTGREENFIELD:
+				HTPhyMode.field.MCS = 7;
 				HTPhyMode.field.ShortGI = wdev->HTPhyMode.field.ShortGI;
 				HTPhyMode.field.BW = wdev->HTPhyMode.field.BW;
 				HTPhyMode.field.STBC = wdev->HTPhyMode.field.STBC;
+				HTPhyMode.field.MODE = MODE_HTGREENFIELD;
 				pEntry->RateLen = 12;
-			} else if (WMODE_CAP_AC(phy_mode)) {
-				HTPhyMode.field.MODE = MODE_VHT;
+				MTWF_LOG(DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_OFF, ("  MODE_HTGREENFIELD\n"));
+				break;
+#endif /* DOT11_N_SUPPORT */
+#ifdef DOT11_VHT_AC
+
+			case MODE_VHT:
 				HTPhyMode.field.MCS = 9;
 				HTPhyMode.field.ShortGI = wdev->HTPhyMode.field.ShortGI;
 				HTPhyMode.field.BW = wdev->HTPhyMode.field.BW;
 				HTPhyMode.field.STBC = wdev->HTPhyMode.field.STBC;
+				HTPhyMode.field.MODE = MODE_VHT;
 				pEntry->RateLen = 12;
-			} else if (WMODE_CAP_N(phy_mode)) {
-				HTPhyMode.field.MODE = MODE_HTMIX;
-				HTPhyMode.field.MCS = 7;
-				HTPhyMode.field.ShortGI = wdev->HTPhyMode.field.ShortGI;
-				HTPhyMode.field.BW = wdev->HTPhyMode.field.BW;
-				HTPhyMode.field.STBC = wdev->HTPhyMode.field.STBC;
-				pEntry->RateLen = 12;
-			} else {
-				HTPhyMode.field.MODE = MODE_OFDM;
-				HTPhyMode.field.MCS = 7;
-				pEntry->RateLen = 8;
+				MTWF_LOG(DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_OFF, ("  MODE_VHT\n"));
+				break;
+#endif /* DOT11_VHT_AC */
+
+			default:
+				break;
 			}
 
 			pEntry->MaxHTPhyMode.word = HTPhyMode.word;
 			pEntry->MinHTPhyMode.word = wdev->MinHTPhyMode.word;
 			pEntry->HTPhyMode.word = pEntry->MaxHTPhyMode.word;
-
 #ifdef DOT11_N_SUPPORT
-			if (WMODE_CAP_N(phy_mode)) {
+
+			if (wds_entry->PhyOpMode >= MODE_HTMIX) {
 				if (wdev->DesiredTransmitSetting.field.MCS != MCS_AUTO) {
-					MTWF_DBG(pAd, DBG_CAT_AP, CATAP_WDS, DBG_LVL_INFO, "IF-wds%d : Desired MCS = %d\n", WdsTabIdx,
-							 wdev->DesiredTransmitSetting.field.MCS);
-					set_ht_fixed_mcs(pEntry, wdev->DesiredTransmitSetting.field.MCS, wdev->HTPhyMode.field.MCS);
+					MTWF_LOG(DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_OFF, ("IF-wds%d : Desired MCS = %d\n", WdsTabIdx,
+							 wdev->DesiredTransmitSetting.field.MCS));
+					set_ht_fixed_mcs(pAd, pEntry, wdev->DesiredTransmitSetting.field.MCS, wdev->HTPhyMode.field.MCS);
 				}
 
 				pEntry->MmpsMode = MMPS_DISABLE;
-				ht_cap = (HT_CAPABILITY_IE *)wlan_operate_get_ht_cap(wdev);
-				NdisMoveMemory(&pEntry->HTCapability, ht_cap, sizeof(HT_CAPABILITY_IE));
-				has_ht_cap = TRUE;
-
+				NdisMoveMemory(&pEntry->HTCapability, curr_ht_cap, sizeof(HT_CAPABILITY_IE));
 #ifdef TXBF_SUPPORT
+
 				if (HcIsBfCapSupport(wdev) == FALSE) {
 					UCHAR ucEBfCap;
 
@@ -416,95 +396,60 @@ MAC_TABLE_ENTRY *MacTableInsertWDSEntry(
 					mt_WrapSetETxBFCap(pAd, wdev, &pEntry->HTCapability.TxBFCap);
 					wlan_config_set_etxbf(wdev, ucEBfCap);
 				}
-#endif
 
-				ht_mode_adjust(pAd, pEntry, &pEntry->HTCapability);
+#endif /* TXBF_SUPPORT */
 				set_sta_ht_cap(pAd, pEntry, &pEntry->HTCapability);
 				CLIENT_STATUS_SET_FLAG(pEntry, fCLIENT_STATUS_WMM_CAPABLE);
-
-				MTWF_DBG(pAd, DBG_CAT_AP, CATAP_WDS, DBG_LVL_INFO,
-						"  Cap.MaxRAmpduFactor = %d, Cap.MpduDensity = %d\n",
-						 pEntry->HTCapability.HtCapParm.MaxRAmpduFactor,
-						 pEntry->HTCapability.HtCapParm.MpduDensity);
-			} else
-				NdisZeroMemory(&pEntry->HTCapability, sizeof(HT_CAPABILITY_IE));
-#endif /* DOT11_N_SUPPORT */
-
 #ifdef DOT11_VHT_AC
-			if (WMODE_CAP_AC(phy_mode) && WMODE_CAP_5G(wdev->PhyMode)) {
-				VHT_CAP_IE vht_cap;
-#if defined(TXBF_SUPPORT) && defined(VHT_TXBF_SUPPORT)
-				ucETxBfCap = wlan_config_get_etxbf(wdev);
 
-				if (HcIsBfCapSupport(wdev) == FALSE)
-					wlan_config_set_etxbf(wdev, SUBF_OFF);
-#endif
-				build_vht_cap_ie(pAd, wdev, (UCHAR *)&vht_cap);
+				if (WMODE_CAP_AC(wdev->PhyMode) && (wdev->channel > 14)) {
+					VHT_CAP_IE vht_cap;
 #if defined(TXBF_SUPPORT) && defined(VHT_TXBF_SUPPORT)
-				wlan_config_set_etxbf(wdev, ucETxBfCap);
-#endif
-				vht_mode_adjust(pAd, pEntry, &vht_cap, NULL, NULL, NULL);
-				dot11_vht_mcs_to_internal_mcs(pAd, wdev, &vht_cap, &pEntry->MaxHTPhyMode);
-				set_vht_cap(pAd, pEntry, &vht_cap);
-				MTWF_DBG(pAd, DBG_CAT_AP, CATAP_WDS, DBG_LVL_INFO, "%s(): Peer's PhyCap=>Mode:%s, BW:%s, MCS: 0x%x (Word = 0x%x)\n",
-							__func__,
-							get_phymode_str(pEntry->MaxHTPhyMode.field.MODE),
-							get_bw_str(pEntry->MaxHTPhyMode.field.BW),
-							pEntry->MaxHTPhyMode.field.MCS,
-							pEntry->MaxHTPhyMode.word);
-				NdisMoveMemory(&pEntry->vht_cap_ie, &vht_cap, sizeof(VHT_CAP_IE));
-				has_vht_cap = TRUE;
-				assoc_vht_info_debugshow(pAd, pEntry, &vht_cap, NULL);
-			} else
-				NdisZeroMemory(&pEntry->vht_cap_ie, sizeof(VHT_CAP_IE));
+					ucETxBfCap = wlan_config_get_etxbf(wdev);
 
-			pEntry->force_op_mode = FALSE;
+					if (HcIsBfCapSupport(wdev) == FALSE)
+						wlan_config_set_etxbf(wdev, SUBF_OFF);
+
+#endif /* TXBF_SUPPORT && VHT_TXBF_SUPPORT */
+					build_vht_cap_ie(pAd, wdev, (UCHAR *)&vht_cap);
+#if defined(TXBF_SUPPORT) && defined(VHT_TXBF_SUPPORT)
+					wlan_config_set_etxbf(wdev, ucETxBfCap);
+#endif /* TXBF_SUPPORT && VHT_TXBF_SUPPORT */
+					vht_mode_adjust(pAd, pEntry, &vht_cap, NULL);
+					dot11_vht_mcs_to_internal_mcs(pAd, wdev, &vht_cap, &pEntry->MaxHTPhyMode);
+					set_vht_cap(pAd, pEntry, &vht_cap);
+					MTWF_LOG(DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_OFF, ("%s(): Peer's PhyCap=>Mode:%s, BW:%s, MCS: 0x%x (Word = 0x%x)\n",
+							 __func__,
+							 get_phymode_str(pEntry->MaxHTPhyMode.field.MODE),
+							 get_bw_str(pEntry->MaxHTPhyMode.field.BW),
+							 pEntry->MaxHTPhyMode.field.MCS,
+							 pEntry->MaxHTPhyMode.word));
+					NdisMoveMemory(&pEntry->vht_cap_ie, &vht_cap, sizeof(VHT_CAP_IE));
+					assoc_vht_info_debugshow(pAd, pEntry, &vht_cap, NULL);
+				} else
+					NdisZeroMemory(&pEntry->vht_cap_ie, sizeof(VHT_CAP_IE));
+
+				pEntry->force_op_mode = FALSE;
 #endif /* DOT11_VHT_AC */
-
-#ifdef DOT11_HE_AX
-			if (WMODE_CAP_AX(phy_mode)) {
-				struct he_ies he_ie;
-				int i;
-
-				NdisZeroMemory(&he_ie, sizeof(he_ie));
-				get_own_he_ie(wdev, &he_ie);
-				update_peer_he_params(pEntry, &he_ie);
-				he_mode_adjust(pEntry->wdev, pEntry, NULL);
-				for (i = 0; i < DOT11AX_MAX_STREAM; i++) {
-					if(pEntry->cap.rate.he80_rx_nss_mcs[i] == 3)
-						break ;
-				}
-				if(i != 0) {
-					i = i <= wlan_operate_get_tx_stream(wdev) ? i : wlan_operate_get_tx_stream(wdev);
-					pEntry->MaxHTPhyMode.field.MCS = ((i-1) << 4);
-				} else {
-					MTWF_DBG(pAd, DBG_CAT_AP, CATAP_WDS, DBG_LVL_WARN,
-					"%s(): STA antenna information provided is incorrect", __func__);
-				}
-
-				if(pEntry->cap.rate.he80_rx_nss_mcs[0] == 2)
-					pEntry->MaxHTPhyMode.field.MCS += HE_MCS_11 ;
-				else if(pEntry->cap.rate.he80_rx_nss_mcs[0] == 1)
-					pEntry->MaxHTPhyMode.field.MCS += HE_MCS_9 ;
-				else if(pEntry->cap.rate.he80_rx_nss_mcs[0] == 0)
-					pEntry->MaxHTPhyMode.field.MCS += HE_MCS_7;
-				else
-					MTWF_DBG(pAd, DBG_CAT_AP, CATAP_WDS, DBG_LVL_WARN,
-					"%s(): STA MCS information provided is incorrect", __func__);
 			}
-#endif
+
+#endif /* DOT11_N_SUPPORT */
+			else
+				NdisZeroMemory(&pEntry->HTCapability, sizeof(HT_CAPABILITY_IE));
 
 			RTMPSetSupportMCS(pAd,
 							  OPMODE_AP,
 							  pEntry,
-							  rate,
+							  rate->SupRate,
+							  rate->SupRateLen,
+							  rate->ExtRate,
+							  rate->ExtRateLen,
 #ifdef DOT11_VHT_AC
-							  has_vht_cap,
+							  sizeof(VHT_CAP_IE),
 							  &pEntry->vht_cap_ie,
-#endif
-							  &pEntry->HTCapability,
-							  has_ht_cap);
-
+#endif /* DOT11_VHT_AC */
+							  curr_ht_cap,
+							  sizeof(HT_CAPABILITY_IE));
 			/* for now, we set this by default! */
 			CLIENT_STATUS_SET_FLAG(pEntry, fCLIENT_STATUS_RALINK_CHIPSET);
 
@@ -518,25 +463,39 @@ MAC_TABLE_ENTRY *MacTableInsertWDSEntry(
 				pEntry->bAutoTxRateSwitch = TRUE;
 			}
 
-			wds_entry->peer = pEntry;
+			wds_entry->MacTabMatchWCID = (UCHAR)pEntry->wcid;
 			pEntry->func_tb_idx = WdsTabIdx;
 			pEntry->wdev = wdev;
-			COPY_MAC_ADDR(&wdev->bssid[0], &pEntry->bssid);
+			COPY_MAC_ADDR(&wdev->bssid[0], &pEntry->Addr[0]);
 			/* update per wdev bw */
 			wlan_operate_set_ht_bw(wdev, wdev->MaxHTPhyMode.field.BW, wlan_operate_get_ext_cha(wdev));
 
 			if (wdev_do_linkup(wdev, pEntry) != TRUE)
-				MTWF_DBG(pAd, DBG_CAT_AP, CATAP_WDS, DBG_LVL_WARN, "%s(): linkup fail!!\n", __func__);
+				MTWF_LOG(DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_OFF, ("%s(): linkup fail!!\n", __func__));
 
 			if (wdev_do_conn_act(wdev, pEntry) != TRUE)
-				MTWF_DBG(pAd, DBG_CAT_AP, CATAP_WDS, DBG_LVL_WARN, "%s(): connect fail!!\n", __func__);
+				MTWF_LOG(DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_OFF, ("%s(): connect fail!!\n", __func__));
 
 			AsicUpdateWdsEncryption(pAd, pEntry->wcid);
 
-			MTWF_DBG(pAd, DBG_CAT_AP, CATAP_WDS, DBG_LVL_INFO, "PhyMode = 0x%x, Channel = %d\n",
-					 wdev->PhyMode, wdev->channel);
-			MTWF_DBG(pAd, DBG_CAT_AP, CATAP_WDS, DBG_LVL_INFO, "%s() - allocate entry #%d(link to WCID %d)\n",
-					 __func__, WdsTabIdx, pEntry->wcid);
+			MTWF_LOG(DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_OFF, ("  PhyMode = 0x%x, Channel = %d\n",
+					 wdev->PhyMode, wdev->channel));
+			MTWF_LOG(DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_OFF, ("%s() - allocate entry #%d(link to WCID %d), Total= %d\n",
+					 __func__, WdsTabIdx, wds_entry->MacTabMatchWCID, pAd->WdsTab.Size));
+			MTWF_LOG(DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_OFF,
+					("  Cap.MaxRAmpduFactor = %d, Cap.MpduDensity = %d (%d/%d), pAd = (%d) (%d)\n",
+					 pEntry->HTCapability.HtCapParm.MaxRAmpduFactor,
+					 pEntry->HTCapability.HtCapParm.MpduDensity,
+					 pEntry->MaxRAmpduFactor,
+					 pEntry->MpduDensity,
+					 curr_ht_cap->HtCapParm.MaxRAmpduFactor,
+					 curr_ht_cap->HtCapParm.MpduDensity));
+#ifdef DOT11_VHT_AC
+			MTWF_LOG(DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_OFF,
+					("  DesiredHtPhyInfo HtEn = %d, PreHt = %d, VhtEn = %d, vht_bw = %d\n",
+					 wdev->DesiredHtPhyInfo.bHtEnable, wdev->DesiredHtPhyInfo.bPreNHt,
+					 wdev->DesiredHtPhyInfo.bVhtEnable, wdev->DesiredHtPhyInfo.vht_bw));
+#endif
 			break;
 		}
 	} while (FALSE);
@@ -544,15 +503,15 @@ MAC_TABLE_ENTRY *MacTableInsertWDSEntry(
 	return pEntry;
 }
 
+
 MAC_TABLE_ENTRY *WdsTableLookupByWcid(
 	IN PRTMP_ADAPTER pAd,
-	IN UINT16 wcid,
+	IN UCHAR wcid,
 	IN PUCHAR pAddr,
 	IN BOOLEAN bResetIdelCount)
 {
 	ULONG WdsIndex;
 	MAC_TABLE_ENTRY *pCurEntry = NULL, *pEntry = NULL;
-	struct tx_rx_ctl *tr_ctl = &pAd->tr_ctl;
 
 	RETURN_ZERO_IF_PAD_NULL(pAd);
 
@@ -572,14 +531,14 @@ MAC_TABLE_ENTRY *WdsTableLookupByWcid(
 		if (WdsIndex == 0xff)
 			break;
 
-		if (!WDS_ENTRY_IS_ASSIGNED(pAd->WdsTab.WdsEntry[WdsIndex].flag))
+		if (pAd->WdsTab.WdsEntry[WdsIndex].Valid != TRUE)
 			break;
 
 		if (MAC_ADDR_EQUAL(pCurEntry->Addr, pAddr)) {
 			if (bResetIdelCount) {
 				pCurEntry->NoDataIdleCount = 0;
 				/* TODO: shiang-usw,  remove upper setting becasue we need to migrate to tr_entry! */
-				tr_ctl->tr_entry[pCurEntry->tr_tb_idx].NoDataIdleCount = 0;
+				pAd->MacTab.tr_entry[pCurEntry->tr_tb_idx].NoDataIdleCount = 0;
 			}
 
 			pEntry = pCurEntry;
@@ -592,11 +551,11 @@ MAC_TABLE_ENTRY *WdsTableLookupByWcid(
 	return pEntry;
 }
 
+
 MAC_TABLE_ENTRY *WdsTableLookup(RTMP_ADAPTER *pAd, UCHAR *addr, BOOLEAN bResetIdelCount)
 {
 	USHORT HashIdx;
 	PMAC_TABLE_ENTRY pEntry = NULL;
-	struct tx_rx_ctl *tr_ctl = &pAd->tr_ctl;
 
 	NdisAcquireSpinLock(&pAd->WdsTab.WdsTabLock);
 	NdisAcquireSpinLock(&pAd->MacTabLock);
@@ -608,7 +567,7 @@ MAC_TABLE_ENTRY *WdsTableLookup(RTMP_ADAPTER *pAd, UCHAR *addr, BOOLEAN bResetId
 			if (bResetIdelCount) {
 				pEntry->NoDataIdleCount = 0;
 				/* TODO: shiang-usw,  remove upper setting becasue we need to migrate to tr_entry! */
-				tr_ctl->tr_entry[pEntry->wcid].NoDataIdleCount = 0;
+				pAd->MacTab.tr_entry[pEntry->wcid].NoDataIdleCount = 0;
 			}
 
 			break;
@@ -621,85 +580,63 @@ MAC_TABLE_ENTRY *WdsTableLookup(RTMP_ADAPTER *pAd, UCHAR *addr, BOOLEAN bResetId
 	return pEntry;
 }
 
-struct wifi_dev *wdev_search_by_address_for_WDS(RTMP_ADAPTER *pAd, UCHAR *address)
-{
-	UINT16 Index;
-	struct wifi_dev *wdev;
-	NdisAcquireSpinLock(&pAd->WdevListLock);
-
-	for (Index = 0; Index < MAX_WDS_ENTRY; Index++) {
-		wdev = &pAd->WdsTab.WdsEntry[Index].wdev;
-
-		if (MAC_ADDR_EQUAL(address, wdev->if_addr)) {
-			NdisReleaseSpinLock(&pAd->WdevListLock);
-			return wdev;
-		}
-	}
-
-	NdisReleaseSpinLock(&pAd->WdevListLock);
-	MTWF_DBG(pAd, DBG_CAT_AP, CATAP_WDS, DBG_LVL_INFO, "%s: can not find registered wdev\n", __func__);
-	return NULL;
-}
 
 MAC_TABLE_ENTRY *FindWdsEntry(
 	IN RTMP_ADAPTER *pAd,
 	IN struct _RX_BLK *pRxBlk)
 {
-	MAC_TABLE_ENTRY *pEntry = NULL;
+	MAC_TABLE_ENTRY *pEntry;
 
-	if (pAd->WdsTab.Mode[pRxBlk->band]) {
-		MTWF_DBG(pAd, DBG_CAT_AP, CATAP_WDS, DBG_LVL_INFO, "%s(): Wcid = %d, PhyMode = 0x%x\n", __func__,
-			pRxBlk->wcid, pRxBlk->rx_rate.field.MODE);
-		/* lookup the match wds entry for the incoming packet. */
-		pEntry = WdsTableLookupByWcid(pAd, pRxBlk->wcid, pRxBlk->Addr2, TRUE);
+	MTWF_LOG(DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("%s(): Wcid = %d, PhyMode = 0x%x\n", __func__,
+		 pRxBlk->wcid, pRxBlk->rx_rate.field.MODE));
+	/* lookup the match wds entry for the incoming packet. */
+	pEntry = WdsTableLookupByWcid(pAd, pRxBlk->wcid, pRxBlk->Addr2, TRUE);
 
-		if (pEntry == NULL)
-			pEntry = WdsTableLookup(pAd, pRxBlk->Addr2, TRUE);
+	if (pEntry == NULL)
+		pEntry = WdsTableLookup(pAd, pRxBlk->Addr2, TRUE);
 
-		/*  Report to MLME, add WDS entry */
-		if ((pEntry == NULL) && (pAd->WdsTab.Mode[pRxBlk->band] >= WDS_LAZY_MODE)) {
-			UCHAR *pTmpBuf = pRxBlk->pData - LENGTH_802_11;
-			/*struct wifi_dev *wdev = wdev_search_by_address(pAd, pRxBlk->Addr1);*/
-			struct wifi_dev *wdev = wdev_search_by_address_for_WDS(pAd, pRxBlk->Addr1);
+	/*  Report to MLME, add WDS entry */
+	if ((pEntry == NULL) && (pAd->WdsTab.Mode >= WDS_LAZY_MODE)) {
+		UCHAR *pTmpBuf = pRxBlk->pData - LENGTH_802_11;
+		RXD_BASE_STRUCT *rxd_base = (RXD_BASE_STRUCT *)pRxBlk->rmac_info;
+		struct wifi_dev *wdev = wdev_search_by_address(pAd, pRxBlk->Addr1);
 
-			if (!wdev) {
-				MTWF_DBG(pAd, DBG_CAT_AP, CATAP_WDS, DBG_LVL_ERROR,
-					 "No matched wdev ("MACSTR"), wcid = %d!!!\n",
-					 MAC2STR(pRxBlk->Addr1), pRxBlk->wcid);
-				return NULL;
-			}
-
-			NdisMoveMemory(pTmpBuf, pRxBlk->FC, LENGTH_802_11);
-
-			REPORT_MGMT_FRAME_TO_MLME(pAd, pRxBlk->wcid,
-						  pTmpBuf,
-						  pRxBlk->DataSize + LENGTH_802_11,
-						  pRxBlk->rx_signal.raw_rssi[0],
-						  pRxBlk->rx_signal.raw_rssi[1],
-						  pRxBlk->rx_signal.raw_rssi[2],
-						  pRxBlk->rx_signal.raw_rssi[3],
-						  pRxBlk->channel_freq,
-						  0,
-						  OPMODE_AP,
-						  wdev,
-						  pRxBlk->rx_rate.field.MODE);
-
-			MTWF_DBG(pAd, DBG_CAT_AP, CATAP_WDS, DBG_LVL_INFO,
-				 "!!! report WDS UC DATA (from "MACSTR") to MLME (len=%d) !!!\n",
-				 MAC2STR(pRxBlk->Addr2), pRxBlk->DataSize);
-		} else if (pEntry) {
-			MTWF_DBG(pAd, DBG_CAT_AP, CATAP_WDS, DBG_LVL_INFO,
-				 "%s[band%d]A2("MACSTR") found as wcid:%d!!! (Drop)\n", __func__, pRxBlk->band,
-				 MAC2STR(pRxBlk->Addr2), pEntry->wcid);
+		if (!wdev) {
+			MTWF_LOG(DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
+				 ("%s(): No matched wdev (%02x-%02x-%02x-%02x-%02x-%02x), wcid = %d!!!\n", __func__,
+				 PRINT_MAC(pRxBlk->Addr1), pRxBlk->wcid));
+			return NULL;
 		}
-	} else {
-		MTWF_DBG(pAd, DBG_CAT_AP, CATAP_WDS, DBG_LVL_INFO,
-			 "!!! Recv WDS UC DATA (from "MACSTR") but WDS for band%d is not enabled !!! (Drop)\n",
-			 MAC2STR(pRxBlk->Addr2), pRxBlk->band);
+
+		NdisMoveMemory(pTmpBuf, pRxBlk->FC, LENGTH_802_11);
+
+		REPORT_MGMT_FRAME_TO_MLME(pAd, pRxBlk->wcid,
+					  pTmpBuf,
+					  pRxBlk->DataSize + LENGTH_802_11,
+					  pRxBlk->rx_signal.raw_rssi[0],
+					  pRxBlk->rx_signal.raw_rssi[1],
+					  pRxBlk->rx_signal.raw_rssi[2],
+					  pRxBlk->rx_signal.raw_rssi[3],
+#if defined(CUSTOMER_DCC_FEATURE) || defined(CONFIG_MAP_SUPPORT)
+					  pRxBlk->rx_signal.raw_snr[0],
+					  pRxBlk->rx_signal.raw_snr[1],
+					  pRxBlk->rx_signal.raw_snr[2],
+					  pRxBlk->rx_signal.raw_snr[3],
+#endif
+					  (rxd_base != NULL) ? rxd_base->RxD1.ChFreq : 0,
+					  0,
+					  OPMODE_AP,
+					  wdev,
+					  pRxBlk->rx_rate.field.MODE);
+
+		MTWF_LOG(DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_TRACE,
+			 ("!!! report WDS UC DATA (from %02x-%02x-%02x-%02x-%02x-%02x) to MLME (len=%d) !!!\n",
+			 PRINT_MAC(pRxBlk->Addr2), pRxBlk->DataSize));
 	}
 
 	return pEntry;
 }
+
 
 /*
 	==========================================================================
@@ -708,47 +645,98 @@ MAC_TABLE_ENTRY *FindWdsEntry(
 		1. any WDS client being idle for too long and should be aged-out from MAC table
 	==========================================================================
 */
-VOID WdsTableMaintenance(RTMP_ADAPTER *pAd, UCHAR band_idx)
+VOID WdsTableMaintenance(RTMP_ADAPTER *pAd)
 {
 	UCHAR idx;
-	struct tx_rx_ctl *tr_ctl = &pAd->tr_ctl;
-	struct _MAC_TABLE_ENTRY *peer;
 
-	if (pAd->WdsTab.Mode[band_idx] != WDS_LAZY_MODE)
+	if (pAd->WdsTab.Mode != WDS_LAZY_MODE)
 		return;
 
-	for (idx = 0; idx < MAX_WDS_ENTRY; idx++) {
-		if (wds_entry_is_valid(pAd, idx) == FALSE)
+	for (idx = 0; idx < pAd->WdsTab.Size; idx++) {
+		UCHAR wcid = pAd->WdsTab.WdsEntry[idx].MacTabMatchWCID;
+		PMAC_TABLE_ENTRY pEntry = &pAd->MacTab.Content[wcid];
+
+		MTWF_LOG(DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_INFO, ("%s(): Entry[%d], Type = %d, Wcid = %d, %02x:%02x:%02x:%02x:%02x:%02x\n",
+				 __func__, idx, pEntry->EntryType, wcid, PRINT_MAC(pEntry->Addr)));
+
+		if (!IS_ENTRY_WDS(pEntry))
 			continue;
-
-		peer = pAd->WdsTab.WdsEntry[idx].peer;
-
-		MTWF_DBG(pAd, DBG_CAT_AP, CATAP_WDS, DBG_LVL_INFO, "%s(): Entry[%d], Wcid = %d, "MACSTR"\n",
-				 __func__, idx, peer->wcid, MAC2STR(peer->Addr));
 
 		NdisAcquireSpinLock(&pAd->WdsTab.WdsTabLock);
 		NdisAcquireSpinLock(&pAd->MacTabLock);
-		peer->NoDataIdleCount++;
+		pEntry->NoDataIdleCount++;
 		/* TODO: shiang-usw,  remove upper setting becasue we need to migrate to tr_entry! */
-		tr_ctl->tr_entry[peer->wcid].NoDataIdleCount++;
+		pAd->MacTab.tr_entry[pEntry->wcid].NoDataIdleCount++;
 		NdisReleaseSpinLock(&pAd->MacTabLock);
 		NdisReleaseSpinLock(&pAd->WdsTab.WdsTabLock);
 
 		/* delete those MAC entry that has been idle for a long time */
-		if (peer->NoDataIdleCount >= MAC_TABLE_AGEOUT_TIME) {
-			MTWF_DBG(pAd, DBG_CAT_AP, CATAP_WDS, DBG_LVL_INFO, "ageout "MACSTR" from WDS #%d after %d-sec silence\n",
-					 MAC2STR(peer->Addr), idx, MAC_TABLE_AGEOUT_TIME);
-			WdsEntryDel(pAd, peer->Addr);
-			wds_bss_linkdown(pAd, peer->wcid);
+		if (pEntry->NoDataIdleCount >= MAC_TABLE_AGEOUT_TIME) {
+			MTWF_LOG(DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("ageout %02x:%02x:%02x:%02x:%02x:%02x from WDS #%d after %d-sec silence\n",
+					 PRINT_MAC(pEntry->Addr), idx, MAC_TABLE_AGEOUT_TIME));
+			WdsEntryDel(pAd, pEntry->Addr);
+			wds_bss_linkdown(pAd, pEntry->wcid);
 		}
 	}
 }
 
-#define RALINK_PASSPHRASE	"Ralink"
-VOID AsicUpdateWdsEncryption(RTMP_ADAPTER *pAd, UINT16 wcid)
+VOID AsicUpdateWdsRxWCIDTable(RTMP_ADAPTER *pAd, UINT WdsTabIdx)
 {
-	struct _MAC_TABLE_ENTRY *pEntry = NULL;
-	struct _RT_802_11_WDS_ENTRY *wds_entry;
+	MAC_TABLE_ENTRY *pEntry = NULL;
+	RT_802_11_WDS_ENTRY *wds_entry = &pAd->WdsTab.WdsEntry[WdsTabIdx];
+	UCHAR ApPhyMode = pAd->ApCfg.MBSSID[MAIN_MBSSID].wdev.PhyMode;
+	UINT32 encrypt_mode = wds_entry->wdev.SecConfig.PairwiseCipher;
+
+	MTWF_LOG(DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_OFF, ("%s(): WdsEntry[%d] = %p, WDS_Mode = %d, PhyOpMode = %d\n", __func__,
+			 WdsTabIdx, wds_entry, pAd->WdsTab.Mode, wds_entry->PhyOpMode));
+
+	if (pAd->WdsTab.Mode >= WDS_LAZY_MODE) {
+		wds_entry->PhyOpMode = 0xff;
+
+		if (WMODE_CAP_AC(ApPhyMode))
+			wds_entry->PhyOpMode = MODE_VHT;
+		else if (WMODE_CAP_N(ApPhyMode))
+			wds_entry->PhyOpMode = MODE_HTMIX;
+		else {
+			if (WMODE_EQUAL(ApPhyMode, WMODE_B))
+				wds_entry->PhyOpMode = MODE_CCK;
+			else
+				wds_entry->PhyOpMode = MODE_OFDM;
+		}
+	}
+
+	if (pAd->CommonCfg.HT_DisallowTKIP && IS_INVALID_HT_SECURITY(encrypt_mode)) {
+		wds_entry->PhyOpMode = (wds_entry->PhyOpMode >= MODE_OFDM) ? MODE_OFDM : MODE_CCK;
+		MTWF_LOG(DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_WARN,
+				 ("%s : Use legacy rate in WEP/TKIP encryption mode (wdsidx=%d)\n",
+				  __func__, WdsTabIdx));
+	}
+
+	wds_entry->wdev.PhyMode = WdsPhyOpModeToSuppPhyMode(pAd, wds_entry);
+	MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_OFF, ("  PhyOpMode = %d, PhyMode = 0x%x (ApPhyMode = 0x%x)\n",
+			 wds_entry->PhyOpMode, wds_entry->wdev.PhyMode, ApPhyMode));
+
+	if (wds_entry->Valid != TRUE) {
+		MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_ERROR, ("%s(): Invalid WDS entry!", __func__));
+		return;
+	}
+
+	pEntry = MacTableInsertWDSEntry(pAd, wds_entry->PeerWdsAddr, WdsTabIdx);
+
+	if (!pEntry) {
+		MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_ERROR, ("%s(): can't insert a new WDS entry!", __func__));
+		return;
+	}
+
+	pEntry->SupportRateMode = WdsPhyOpModeToSuppRateMode(pAd, wds_entry);
+	RAInit(pAd, pEntry);
+}
+
+
+#define RALINK_PASSPHRASE	"Ralink"
+VOID AsicUpdateWdsEncryption(RTMP_ADAPTER *pAd, UCHAR wcid)
+{
+	PMAC_TABLE_ENTRY pEntry = NULL;
 	struct wifi_dev *wdev = NULL;
 	struct _SECURITY_CONFIG *pSecConfig = NULL;
 	ASIC_SEC_INFO Info = {0};
@@ -758,15 +746,13 @@ VOID AsicUpdateWdsEncryption(RTMP_ADAPTER *pAd, UINT16 wcid)
 
 	pEntry = &pAd->MacTab.Content[wcid];
 
-	wds_entry = &pAd->WdsTab.WdsEntry[pEntry->func_tb_idx];
-
-	if (!WDS_ENTRY_IS_ASSIGNED(wds_entry->flag))
+	if (pAd->WdsTab.WdsEntry[pEntry->func_tb_idx].Valid != TRUE)
 		return;
 
 	if (!IS_ENTRY_WDS(pEntry))
 		return;
 
-	wdev = &wds_entry->wdev;
+	wdev = &pAd->WdsTab.WdsEntry[pEntry->func_tb_idx].wdev;
 	pSecConfig = &wdev->SecConfig;
 
 	if (pSecConfig->AKMMap == 0x0)
@@ -807,13 +793,12 @@ VOID AsicUpdateWdsEncryption(RTMP_ADAPTER *pAd, UINT16 wcid)
 	}
 }
 
-static USHORT WdsGetPeerSuppPhyModeLegacy(
-	struct wifi_dev *wdev,
+UCHAR WdsGetPeerSuppPhyModeLegacy(
 	IN PUCHAR SupRate,
 	IN UCHAR SupRateLen,
 	IN UCHAR Channel)
 {
-	USHORT PeerPhyModeLegacy = 0;
+	UCHAR PeerPhyModeLegacy = 0;
 	INT i;
 
 	if ((SupRateLen > 0) && (SupRateLen < MAX_LEN_OF_SUPPORTED_RATES)) {
@@ -827,7 +812,7 @@ static USHORT WdsGetPeerSuppPhyModeLegacy(
 					 ((SupRate[i] & 0x7f) == 0x18) || ((SupRate[i] & 0x7f) == 0x24) ||
 					 ((SupRate[i] & 0x7f) == 0x30) || ((SupRate[i] & 0x7f) == 0x48) ||
 					 ((SupRate[i] & 0x7f) == 0x60) || ((SupRate[i] & 0x7f) == 0x6c)) {
-				if (WMODE_CAP_5G(wdev->PhyMode))
+				if (Channel > 14)
 					PeerPhyModeLegacy |= WMODE_A;
 				else
 					PeerPhyModeLegacy |= WMODE_G;
@@ -838,46 +823,37 @@ static USHORT WdsGetPeerSuppPhyModeLegacy(
 	return PeerPhyModeLegacy;
 }
 
-USHORT WdsGetPeerSuppPhyMode(
-	struct wifi_dev *wdev,
+UCHAR WdsGetPeerSuppPhyMode(
 	IN BCN_IE_LIST * ie_list)
 {
-	USHORT PeerPhyMode = 0;
-	struct common_ies *cmm_ies = &ie_list->cmm_ies;
-	struct legacy_rate *rate = &cmm_ies->rate;
+	UCHAR PeerPhyMode = 0;
 #ifdef DOT11_N_SUPPORT
-#ifdef DOT11_HE_AX
-	if (HAS_HE_CAPS_EXIST(cmm_ies->ie_exists)) {
-		if (WMODE_CAP_6G(wdev->PhyMode))
-			PeerPhyMode |= WMODE_AX_6G;
-		else if (WMODE_CAP_5G(wdev->PhyMode))
-			PeerPhyMode |= WMODE_AX_5G;
-		else
-			PeerPhyMode |= WMODE_AX_24G;
-	}
-#endif
-
 #ifdef DOT11_VHT_AC
-	if (HAS_VHT_CAPS_EXIST(cmm_ies->ie_exists) && WMODE_CAP_5G(wdev->PhyMode))
+
+	/* Check VHT capability */
+	if (ie_list->vht_cap_len && ie_list->Channel > 14)
 		PeerPhyMode |= WMODE_AC;
+
 #endif
 
-	if (HAS_HT_CAPS_EXIST(cmm_ies->ie_exists)) {
-		if (WMODE_CAP_5G(wdev->PhyMode))
+	/* Check HT capability */
+	if (ie_list->HtCapabilityLen) {
+		if (ie_list->Channel > 14)
 			PeerPhyMode |= WMODE_AN;
 		else
 			PeerPhyMode |= WMODE_GN;
 	}
-#endif
 
+#endif
 	/* Check OFDM/CCK capability */
-	PeerPhyMode |= WdsGetPeerSuppPhyModeLegacy(wdev, rate->sup_rate, rate->sup_rate_len, ie_list->Channel);
-	MTWF_DBG((struct _RTMP_ADAPTER *)wdev->sys_handle, DBG_CAT_AP, CATAP_WDS, DBG_LVL_DEBUG, "%s(): "MACSTR", PeerPhyMode = 0x%x\n", __func__,
-			 MAC2STR(ie_list->Addr2), PeerPhyMode);
+	PeerPhyMode |= WdsGetPeerSuppPhyModeLegacy(ie_list->SupRate, ie_list->SupRateLen, ie_list->Channel);
+	PeerPhyMode |= WdsGetPeerSuppPhyModeLegacy(ie_list->ExtRate, ie_list->ExtRateLen, ie_list->Channel);
+	MTWF_LOG(DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_INFO, ("%s(): %02x-%02x-%02x-%02x-%02x-%02x, PeerPhyMode = %d\n", __func__,
+			 PRINT_MAC(ie_list->Addr2), PeerPhyMode));
 
 	if (((ie_list->Channel > 0) && (ie_list->Channel <= 14) && WMODE_CAP_5G(PeerPhyMode)) ||
 		((ie_list->Channel > 14) && WMODE_CAP_2G(PeerPhyMode)))
-		MTWF_DBG((struct _RTMP_ADAPTER *)wdev->sys_handle, DBG_CAT_AP, CATAP_WDS, DBG_LVL_WARN, "ERROR!! Wrong PeerPhyMode 0x%x, Channel %d\n", PeerPhyMode, ie_list->Channel);
+		MTWF_LOG(DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_ERROR, ("ERROR!! Wrong PeerPhyMode 0x%x, Channel %d\n", PeerPhyMode, ie_list->Channel));
 
 	return PeerPhyMode;
 }
@@ -887,652 +863,464 @@ VOID WdsPeerBeaconProc(
 	IN PMAC_TABLE_ENTRY pEntry,
 	IN UCHAR MaxSupportedRateIn500Kbps,
 	IN UCHAR MaxSupportedRateLen,
+	IN BOOLEAN bWmmCapable,
 	IN BCN_IE_LIST * ie_list)
 {
-	UCHAR MaxSupportedRate;
-	USHORT PeerPhyMode;
+	UCHAR MaxSupportedRate = RATE_11;
+	UCHAR ApPhyMode, PeerPhyMode;
 	BOOLEAN bRaReInit = FALSE;
 	RT_802_11_WDS_ENTRY *pWdsEntry = NULL;
-	struct wifi_dev *wdev, *main_wdev;
-	USHORT CapabilityInfo = 0, cmm_phy_mode, OriWdevPhyMode;
-	struct _vendor_ie_cap *vendor_ie = NULL;
-	HT_CAPABILITY_IE *ht_cap = NULL;
+	USHORT CapabilityInfo = 0;
+	struct _vendor_ie_cap *pVendorIe = NULL;
+	HT_CAPABILITY_IE *pHtCap = NULL;
+	HT_CAPABILITY_IE *curr_ht_cap;
+	UCHAR HtCapLen = 0;
 #ifdef DOT11_VHT_AC
-	VHT_CAP_IE *vht_cap = NULL;
-#endif
-#ifdef DOT11_HE_AX
-	struct he_cap_ie *he_cap = NULL;
-#endif
-	struct legacy_rate *rate;
+	VHT_CAP_IE *pVhtCap = NULL;
+	UCHAR VhtCapLen = 0;
+#endif /* DOT11_VHT_AC */
+	struct dev_rate_info *rate;
 #ifdef DOT11_N_SUPPORT
 	UCHAR new_bw = HT_BW_20;
 #endif
-	struct common_ies *cmm_ies;
-	struct WIFI_SYS_CTRL wsys;
-	struct _BSS_INFO_ARGUMENT_T *bss = &wsys.BssInfoCtrl;
-	BOOLEAN bReInitPhyMode = FALSE;
-	int i;
 
 	RETURN_IF_PAD_NULL(pAd);
+	ApPhyMode = pAd->ApCfg.MBSSID[MAIN_MBSSID].wdev.PhyMode;
 
 	if (!pEntry) {
-		MTWF_DBG(pAd, DBG_CAT_AP, CATAP_WDS, DBG_LVL_ERROR, "Invalid pEntry!");
+		MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_ERROR, ("%s(): Invalid pEntry!", __func__));
 		return;
 	}
-
-	if (!IS_ENTRY_WDS(pEntry)) {
-		MTWF_DBG(pAd, DBG_CAT_AP, CATAP_WDS, DBG_LVL_ERROR, "Invalid WDS pEntry!");
-		return;
-	}
-
-	wdev = pEntry->wdev;
-	if (wdev == NULL) {
-		MTWF_DBG(pAd, DBG_CAT_AP, CATAP_WDS, DBG_LVL_ERROR, "Invalid wdev!");
-		return;
-	}
-
 	pWdsEntry = &pAd->WdsTab.WdsEntry[pEntry->func_tb_idx];
 
+	if (!pEntry->wdev) {
+		MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_ERROR, ("%s(): Invalid wdev!", __func__));
+		return;
+	}
+
 	if (!pWdsEntry) {
-		MTWF_DBG(pAd, DBG_CAT_AP, CATAP_WDS, DBG_LVL_ERROR, "Invalid WDS entry!");
+		MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_ERROR, ("%s(): Invalid WDS entry!", __func__));
 		return;
 	}
-
-	if (!WDS_ENTRY_IS_VALID(pWdsEntry->flag)) {
-		MTWF_DBG(pAd, DBG_CAT_AP, CATAP_WDS, DBG_LVL_ERROR, "WDS entry not ready!");
-		return;
-	}
-
-#ifdef DBDC_MODE
-	if (pAd->CommonCfg.dbdc_mode && (HcGetBandByWdev(wdev) == DBDC_BAND1)) {
-		main_wdev = &pAd->ApCfg.MBSSID[pAd->ApCfg.BssidNumPerBand[DBDC_BAND0]].wdev;
-	} else
-#endif	/* DBDC_MODE */
-		main_wdev = &pAd->ApCfg.MBSSID[MAIN_MBSSID].wdev;
 
 	if (ie_list) {
-		cmm_ies = &ie_list->cmm_ies;
 		CapabilityInfo = ie_list->CapabilityInfo;
-		vendor_ie = &ie_list->cmm_ies.vendor_ie;
-		ht_cap = &ie_list->cmm_ies.ht_cap;
+		pVendorIe = &ie_list->vendor_ie;
+		pHtCap = &ie_list->HtCapability;
+		HtCapLen = ie_list->HtCapabilityLen;
 #ifdef DOT11_VHT_AC
-		vht_cap = &ie_list->cmm_ies.vht_cap;
-#endif
-#ifdef DOT11_HE_AX
-		he_cap = &ie_list->cmm_ies.he_caps;
-#endif
+		pVhtCap = &ie_list->vht_cap_ie;
+		VhtCapLen = ie_list->vht_cap_len;
+#endif /* DOT11_VHT_AC */
 	} else {
-		MTWF_DBG(pAd, DBG_CAT_AP, CATAP_WDS, DBG_LVL_ERROR, "Invalid ie_list!");
+		MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_ERROR, ("%s(): Invalid ie_list!", __func__));
 		return;
 	}
 
-	PeerPhyMode = WdsGetPeerSuppPhyMode(wdev, ie_list);
-	cmm_phy_mode = wdev->PhyMode & PeerPhyMode;
-	if (is_limited_by_security(pAd, wdev))
-		cmm_phy_mode &= (WMODE_A | WMODE_B | WMODE_G);
-
+	PeerPhyMode = WdsGetPeerSuppPhyMode(ie_list);
 	MaxSupportedRate = dot11_2_ra_rate(MaxSupportedRateIn500Kbps);
-	MTWF_DBG(pAd, DBG_CAT_AP, CATAP_WDS, DBG_LVL_DEBUG,
-			"%s(): wcid=%d, max supported rate = %d, support caps. = 0x%x, peer phy mode = 0x%x\n", __func__,
-			pEntry->wcid, MaxSupportedRate, cmm_ies->ie_exists, PeerPhyMode);
+	MTWF_LOG(DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("%s(): wcid=%d, MaxSupportedRate = %d, HtCapLen = %d, VhtCapLen = %d\n", __func__,
+			 pEntry->wcid, MaxSupportedRate,
+			 HtCapLen,
+#ifdef DOT11_VHT_AC
+			 VhtCapLen));
+#else
+			 0));
+#endif
 
-	pEntry->MaxSupportedRate = min(pEntry->wdev->rate.MaxTxRate, MaxSupportedRate);
-	pEntry->RateLen = MaxSupportedRateLen;
-
-	/* Update PhyMode if Peer PhyMode gets updated */
-	if ((pWdsEntry->wdev.PhyMode != PeerPhyMode) && (PeerPhyMode != WMODE_INVALID)) {
-			OriWdevPhyMode = pWdsEntry->wdev.PhyMode;
-			bReInitPhyMode = TRUE;
-	}
-
-	if (WMODE_EQUAL(cmm_phy_mode, WMODE_B) && WMODE_CAP(pWdsEntry->phy_mode, WMODE_B)) {
-		pEntry->MaxHTPhyMode.field.MODE = MODE_CCK;
-		pEntry->MaxHTPhyMode.field.MCS = 3;
-		pEntry->MaxHTPhyMode.field.BW = BW_20;
-		pEntry->RateLen = 4;
-	} else if (WMODE_CAP(cmm_phy_mode, WMODE_G | WMODE_A) && WMODE_CAP(pWdsEntry->phy_mode, WMODE_G | WMODE_A)) {
-		pEntry->MaxHTPhyMode.field.MODE = MODE_OFDM;
-		pEntry->MaxHTPhyMode.field.MCS = 7;
-		pEntry->MaxHTPhyMode.field.BW = BW_20;
-		pEntry->RateLen = 8;
-	}
-
-	/* common parts */
-	pEntry->CapabilityInfo = CapabilityInfo;
-	MacTableSetEntryRaCap(pAd, pEntry, vendor_ie);
-	CLIENT_STATUS_CLEAR_FLAG(pEntry, fCLIENT_STATUS_WMM_CAPABLE);
-
+	if (pEntry && IS_ENTRY_WDS(pEntry)) {
 #ifdef DOT11_N_SUPPORT
-	if ((WMODE_CAP_N(cmm_phy_mode) && WMODE_CAP_N(pWdsEntry->phy_mode))
-		&& HAS_HT_CAPS_EXIST(cmm_ies->ie_exists)) {
-		CLIENT_STATUS_SET_FLAG(pEntry, fCLIENT_STATUS_WMM_CAPABLE);
-
-		if (HAS_HT_CAPS_EXIST(cmm_ies->ie_exists)) {
-			/* both ap and peer support BW40 */
-			if (wlan_operate_get_ht_bw(main_wdev) == HT_BW_40 &&
-				ht_cap->HtCapInfo.ChannelWidth == HT_BW_40) {
-				new_bw = HT_BW_40;
-			}
-
-			if (wlan_operate_get_ht_bw(wdev) != new_bw) {
-				MTWF_DBG(pAd, DBG_CAT_AP, CATAP_WDS, DBG_LVL_INFO, "%s(): set new_bw = %d\n", __func__, new_bw);
-				wlan_operate_set_ht_bw(wdev, new_bw, wlan_operate_get_ext_cha(wdev));
-			}
-
-			ht_mode_adjust(pAd, pEntry, ht_cap);
-			pEntry->MaxHTPhyMode.field.MCS = get_ht_max_mcs(&wdev->DesiredHtPhyInfo.MCSSet[0], &ht_cap->MCSSet[0]);
-
-			set_sta_ht_cap(pAd, pEntry, ht_cap);
-			NdisMoveMemory(&pEntry->HTCapability, ht_cap, sizeof(HT_CAPABILITY_IE));
-		}
-	} else {
-		NdisZeroMemory(&pEntry->HTCapability, sizeof(HT_CAPABILITY_IE));
-		pAd->MacTab.fAnyStationIsLegacy = TRUE;
-	}
+		UINT32 encrypt_mode = pEntry->wdev->SecConfig.PairwiseCipher;
 #endif /* DOT11_N_SUPPORT */
+		pEntry->MaxSupportedRate = min(pEntry->wdev->rate.MaxTxRate, MaxSupportedRate);
+		pEntry->RateLen = MaxSupportedRateLen;
 
-#ifdef DOT11_VHT_AC
-	if ((WMODE_CAP_AC(cmm_phy_mode) && WMODE_CAP_AC(pWdsEntry->phy_mode))
-		&& HAS_VHT_CAPS_EXIST(cmm_ies->ie_exists) && WMODE_CAP_5G(wdev->PhyMode)) {
-		RT_PHY_INFO *pDesired_ht_phy = &pEntry->wdev->DesiredHtPhyInfo;
-
-		/* Set desired phy to VHT mode */
-		if (pDesired_ht_phy && !pDesired_ht_phy->bVhtEnable) {
-			pDesired_ht_phy->bVhtEnable = TRUE;
-			rtmp_set_vht(pAd, wdev, pDesired_ht_phy);
-		}
-
-		vht_mode_adjust(pAd, pEntry, vht_cap, NULL, NULL, NULL);
-		dot11_vht_mcs_to_internal_mcs(pAd, wdev, vht_cap, &pEntry->MaxHTPhyMode);
-		set_vht_cap(pAd, pEntry, vht_cap);
-		MTWF_DBG(pAd, DBG_CAT_AP, CATAP_WDS, DBG_LVL_DEBUG, "%s(): Peer's PhyCap=>Mode:%s, BW:%s, MCS: 0x%x (Word = 0x%x)\n", __func__,
-					get_phymode_str(pEntry->MaxHTPhyMode.field.MODE),
-					get_bw_str(pEntry->MaxHTPhyMode.field.BW),
-					pEntry->MaxHTPhyMode.field.MCS,
-					pEntry->MaxHTPhyMode.word);
-		NdisMoveMemory(&pEntry->vht_cap_ie, vht_cap, sizeof(VHT_CAP_IE));
-
-		if (DebugLevel >= DBG_LVL_DEBUG)
-			assoc_vht_info_debugshow(pAd, pEntry, vht_cap, NULL);
-	} else
-		NdisZeroMemory(&pEntry->vht_cap_ie, sizeof(VHT_CAP_IE));
-
-	pEntry->force_op_mode = FALSE;
-#endif /* DOT11_VHT_AC */
-
-	/* Re-Issue BssInfo Cmd for Phy mode Case */
-	if (bReInitPhyMode && (pWdsEntry->wdev.PhyMode != OriWdevPhyMode)) {
-		/* Issue EXT_CMD_ID_BSSINFO_UPDATE to N9 FW with BSS_INFO_BASIC feature to*/
-		/* update Phy Mode configured at the time of Initialization */
-
-		os_zero_mem(&wsys, sizeof(wsys));
-
-		/*prepare bssinfo*/
-		BssInfoArgumentLink(pEntry->wdev->sys_handle, pEntry->wdev, bss);
-		bss->bss_state = pEntry->wdev->bss_info_argument.bss_state;
-
-		/* Overwrite PhyMode for existing BssIndex */
-		bss->ucBssIndex = pEntry->wdev->bss_info_argument.ucBssIndex;
-		bss->peer_wlan_idx = pEntry->wcid;
-		bss->u4BssInfoFeature = BSS_INFO_BASIC_FEATURE;
-		bss->bmc_wlan_idx = pEntry->wcid;
-		wsys.wdev = pEntry->wdev;
-
-		/* Enque BSS Info Update Cmd to N9 */
-		HW_WIFISYS_LINKUP(pEntry->wdev->sys_handle, &wsys);
-	}
-
-#ifdef DOT11_HE_AX
-	if ((WMODE_CAP_AX(cmm_phy_mode) && WMODE_CAP_AX(pWdsEntry->phy_mode))
-		&& HAS_HE_CAPS_EXIST(cmm_ies->ie_exists)) {
-		update_peer_he_caps(pEntry, cmm_ies);
-		update_peer_he_operation(pEntry, cmm_ies);
-		he_mode_adjust(pEntry->wdev, pEntry, NULL);
-		for (i = 0; i < DOT11AX_MAX_STREAM; i++) {
-			if(pEntry->cap.rate.he80_rx_nss_mcs[i] == 3)
-				break ;
-		}
-		if(i != 0) {
-			i = i <= wlan_operate_get_tx_stream(wdev) ? i : wlan_operate_get_tx_stream(wdev);
-			pEntry->MaxHTPhyMode.field.MCS = ((i-1) << 4);
+		/* Set Init PhyMode as OFDM or CCK*/
+		if (((ApPhyMode & WMODE_G) && (PeerPhyMode & WMODE_G)) ||
+			((ApPhyMode & WMODE_A) && (PeerPhyMode & WMODE_A))) {
+			pWdsEntry->PhyOpMode = MODE_OFDM;
+			pEntry->wdev->PhyMode = (PeerPhyMode & WMODE_G) ? WMODE_G : WMODE_A;
+			pEntry->MaxHTPhyMode.field.MODE = MODE_OFDM;
+			pEntry->MaxHTPhyMode.field.MCS = 7;
 		} else {
-			MTWF_DBG(pAd, DBG_CAT_AP, CATAP_WDS, DBG_LVL_WARN,
-			"%s(): STA antenna information provided is incorrect", __func__);
+			pWdsEntry->PhyOpMode = MODE_CCK;
+			pEntry->wdev->PhyMode = WMODE_B;
+			pEntry->MaxHTPhyMode.field.MODE = MODE_CCK;
+			pEntry->MaxHTPhyMode.field.MCS = 3;
 		}
 
-		if(pEntry->cap.rate.he80_rx_nss_mcs[0] == 2)
-			pEntry->MaxHTPhyMode.field.MCS += HE_MCS_11 ;
-		else if(pEntry->cap.rate.he80_rx_nss_mcs[0] == 1)
-			pEntry->MaxHTPhyMode.field.MCS += HE_MCS_9 ;
-		else if(pEntry->cap.rate.he80_rx_nss_mcs[0] == 0)
-			pEntry->MaxHTPhyMode.field.MCS += HE_MCS_7;
-		else
-			MTWF_DBG(pAd, DBG_CAT_AP, CATAP_WDS, DBG_LVL_WARN,
-			"%s(): STA MCS information provided is incorrect", __func__);
-	}
-#endif
+		pEntry->MaxHTPhyMode.field.BW = BW_20;
+		pEntry->MinHTPhyMode.field.BW = BW_20;
+#ifdef DOT11_N_SUPPORT
+		pEntry->HTCapability.MCSSet[0] = 0;
+		pEntry->HTCapability.MCSSet[1] = 0;
+		pEntry->HTCapability.MCSSet[2] = 0;
+		pEntry->HTCapability.MCSSet[3] = 0;
+#endif /* DOT11_N_SUPPORT */
+		CLIENT_STATUS_CLEAR_FLAG(pEntry, fCLIENT_STATUS_WMM_CAPABLE);
+		pEntry->CapabilityInfo = CapabilityInfo;
+		MacTableSetEntryRaCap(pAd, pEntry, pVendorIe);
+#ifdef DOT11_N_SUPPORT
+		curr_ht_cap = (HT_CAPABILITY_IE *)wlan_operate_get_ht_cap(pEntry->wdev);
 
-	rate = &wdev->rate.legacy_rate;
-	RTMPSetSupportMCS(pAd,
-					  OPMODE_AP,
-					  pEntry,
-					  rate,
+		/* If this Entry supports 802.11n, upgrade to HT rate. */
+		if ((HtCapLen != 0)	&& WMODE_CAP_N(ApPhyMode)
+			&& !(pAd->CommonCfg.HT_DisallowTKIP && IS_INVALID_HT_SECURITY(encrypt_mode))) {
+			pWdsEntry->PhyOpMode = MODE_HTMIX;
+			pWdsEntry->wdev.PhyMode = WdsPhyOpModeToSuppPhyMode(pAd, pWdsEntry) & PeerPhyMode;
+
+			if (pEntry->wdev) {
+				/* ap and wds_peer both support BW40 */
+				if (wlan_operate_get_ht_bw(&(pAd->ApCfg.MBSSID[MAIN_MBSSID].wdev)) == HT_BW_40 &&
+					pHtCap->HtCapInfo.ChannelWidth == HT_BW_40) {
+						new_bw = HT_BW_40;
+				}
+
+				if (wlan_operate_get_ht_bw(pEntry->wdev) != new_bw) {
+					MTWF_LOG(DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("%s(): set new_bw = %d\n", __func__, new_bw));
+					wlan_operate_set_ht_bw(pEntry->wdev, new_bw, wlan_operate_get_ext_cha(pEntry->wdev));
+				}
+			}
+
+			ht_mode_adjust(pAd, pEntry, pHtCap);
+			/* find max fixed rate */
+			pEntry->MaxHTPhyMode.field.MCS = get_ht_max_mcs(pAd, &pWdsEntry->wdev.DesiredHtPhyInfo.MCSSet[0],
+											 &pHtCap->MCSSet[0]);
+
+			if ((pEntry->MaxHTPhyMode.field.MCS > pWdsEntry->wdev.HTPhyMode.field.MCS) && (pWdsEntry->wdev.HTPhyMode.field.MCS != MCS_AUTO))
+				pEntry->MaxHTPhyMode.field.MCS = pWdsEntry->wdev.HTPhyMode.field.MCS;
+
+			pEntry->MaxHTPhyMode.field.STBC = (pHtCap->HtCapInfo.RxSTBC & (curr_ht_cap->HtCapInfo.RxSTBC));
+			set_sta_ht_cap(pAd, pEntry, pHtCap);
+			NdisMoveMemory(&pEntry->HTCapability, pHtCap, sizeof(HT_CAPABILITY_IE));
+			NdisMoveMemory(curr_ht_cap, pHtCap, sizeof(HT_CAPABILITY_IE));
 #ifdef DOT11_VHT_AC
-					  HAS_VHT_CAPS_EXIST(cmm_ies->ie_exists),
-					  vht_cap,
-#endif
-					  ht_cap,
-					  HAS_HT_CAPS_EXIST(cmm_ies->ie_exists));
+			MTWF_LOG(DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_INFO, ("  vhtCapLen = %d\n", VhtCapLen));
 
-	MTWF_DBG(pAd, DBG_CAT_AP, CATAP_WDS, DBG_LVL_DEBUG, " Mode %d, MCS %d, STBC %d SGI %d, BW %d / MAX Mode %d, MCS %d, STBC %d SGI %d, BW %d\n",
-			 pEntry->HTPhyMode.field.MODE,
-			 pEntry->HTPhyMode.field.MCS,
-			 pEntry->HTPhyMode.field.STBC,
-			 pEntry->HTPhyMode.field.ShortGI,
-			 pEntry->HTPhyMode.field.BW,
-			 pEntry->MaxHTPhyMode.field.MODE,
-			 pEntry->MaxHTPhyMode.field.MCS,
-			 pEntry->MaxHTPhyMode.field.STBC,
-			 pEntry->MaxHTPhyMode.field.ShortGI,
-			 pEntry->MaxHTPhyMode.field.BW);
+			if (WMODE_CAP_AC(ApPhyMode) && (pWdsEntry->wdev.channel > 14) && VhtCapLen) {
+				RT_PHY_INFO *pDesired_ht_phy = &pEntry->wdev->DesiredHtPhyInfo;
 
-	if ((pEntry->HTPhyMode.field.MODE != pEntry->MaxHTPhyMode.field.MODE) ||
-		(pEntry->HTPhyMode.field.STBC != pEntry->MaxHTPhyMode.field.STBC) ||
-		(pEntry->HTPhyMode.field.ShortGI != pEntry->MaxHTPhyMode.field.ShortGI) ||
-		(pEntry->HTPhyMode.field.BW != pEntry->MaxHTPhyMode.field.BW) ||
-		(pEntry->HTPhyMode.field.MCS != pEntry->MaxHTPhyMode.field.MCS)) {
-		pEntry->HTPhyMode.field.MODE = pEntry->MaxHTPhyMode.field.MODE;
-		pEntry->HTPhyMode.field.STBC = pEntry->MaxHTPhyMode.field.STBC;
-		pEntry->HTPhyMode.field.ShortGI = pEntry->MaxHTPhyMode.field.ShortGI;
-		pEntry->HTPhyMode.field.BW = pEntry->MaxHTPhyMode.field.BW;
-		pEntry->HTPhyMode.field.MCS = pEntry->MaxHTPhyMode.field.MCS;
-		MTWF_DBG(pAd, DBG_CAT_AP, CATAP_WDS, DBG_LVL_INFO, " bRaReInit, New Mode %d, MCS %d, STBC %d SGI %d, BW %d\n",
+				pWdsEntry->PhyOpMode = MODE_VHT;
+
+				/* Set desired phy to VHT mode */
+				if (pDesired_ht_phy && !pDesired_ht_phy->bVhtEnable) {
+					pDesired_ht_phy->bVhtEnable = TRUE;
+					rtmp_set_vht(pAd, &pWdsEntry->wdev, pDesired_ht_phy);
+				}
+
+				vht_mode_adjust(pAd, pEntry, pVhtCap, NULL);
+				dot11_vht_mcs_to_internal_mcs(pAd, pEntry->wdev, pVhtCap, &pEntry->MaxHTPhyMode);
+				set_vht_cap(pAd, pEntry, pVhtCap);
+				MTWF_LOG(DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_INFO, ("%s(): Peer's PhyCap=>Mode:%s, BW:%s, MCS: 0x%x (Word = 0x%x)\n",
+						 __func__,
+						 get_phymode_str(pEntry->MaxHTPhyMode.field.MODE),
+						 get_bw_str(pEntry->MaxHTPhyMode.field.BW),
+						 pEntry->MaxHTPhyMode.field.MCS,
+						 pEntry->MaxHTPhyMode.word));
+				NdisMoveMemory(&pEntry->vht_cap_ie, pVhtCap, sizeof(VHT_CAP_IE));
+
+				if (DebugLevel >= DBG_LVL_INFO)
+					assoc_vht_info_debugshow(pAd, pEntry, pVhtCap, NULL);
+			} else
+				NdisZeroMemory(&pEntry->vht_cap_ie, sizeof(VHT_CAP_IE));
+
+			pEntry->force_op_mode = FALSE;
+#endif /* DOT11_VHT_AC */
+		} else {
+			NdisZeroMemory(&pEntry->HTCapability, sizeof(HT_CAPABILITY_IE));
+			pAd->MacTab.fAnyStationIsLegacy = TRUE;
+		}
+
+#endif /* DOT11_N_SUPPORT */
+		pWdsEntry->wdev.PhyMode = WdsPhyOpModeToSuppPhyMode(pAd, pWdsEntry) & PeerPhyMode;
+		rate = &pWdsEntry->wdev.rate;
+		RTMPSetSupportMCS(pAd,
+						  OPMODE_AP,
+						  pEntry,
+						  rate->SupRate,
+						  rate->SupRateLen,
+						  rate->ExtRate,
+						  rate->ExtRateLen,
+#ifdef DOT11_VHT_AC
+						  sizeof(VHT_CAP_IE),
+						  &pEntry->vht_cap_ie,
+#endif /* DOT11_VHT_AC */
+						  curr_ht_cap,
+						  sizeof(HT_CAPABILITY_IE));
+
+		if (bWmmCapable
+#ifdef DOT11_N_SUPPORT
+			|| (pEntry->MaxHTPhyMode.field.MODE >= MODE_HTMIX)
+#endif /* DOT11_N_SUPPORT */
+		   )
+			CLIENT_STATUS_SET_FLAG(pEntry, fCLIENT_STATUS_WMM_CAPABLE);
+		else
+			CLIENT_STATUS_CLEAR_FLAG(pEntry, fCLIENT_STATUS_WMM_CAPABLE);
+
+		MTWF_LOG(DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_INFO, (" Mode %d, MCS %d, STBC %d SGI %d, BW %d / MAX Mode %d, MCS %d, STBC %d SGI %d, BW %d\n",
 				 pEntry->HTPhyMode.field.MODE,
 				 pEntry->HTPhyMode.field.MCS,
 				 pEntry->HTPhyMode.field.STBC,
 				 pEntry->HTPhyMode.field.ShortGI,
-				 pEntry->HTPhyMode.field.BW);
-		bRaReInit = TRUE;
+				 pEntry->HTPhyMode.field.BW,
+				 pEntry->MaxHTPhyMode.field.MODE,
+				 pEntry->MaxHTPhyMode.field.MCS,
+				 pEntry->MaxHTPhyMode.field.STBC,
+				 pEntry->MaxHTPhyMode.field.ShortGI,
+				 pEntry->MaxHTPhyMode.field.BW));
+
+		if ((pEntry->HTPhyMode.field.MODE != pEntry->MaxHTPhyMode.field.MODE) ||
+			(pEntry->HTPhyMode.field.STBC != pEntry->MaxHTPhyMode.field.STBC) ||
+			(pEntry->HTPhyMode.field.ShortGI != pEntry->MaxHTPhyMode.field.ShortGI) ||
+			(pEntry->HTPhyMode.field.BW != pEntry->MaxHTPhyMode.field.BW) ||
+			(pEntry->HTPhyMode.field.MCS != pEntry->MaxHTPhyMode.field.MCS)) {
+			pEntry->HTPhyMode.field.MODE = pEntry->MaxHTPhyMode.field.MODE;
+			pEntry->HTPhyMode.field.STBC = pEntry->MaxHTPhyMode.field.STBC;
+			pEntry->HTPhyMode.field.ShortGI = pEntry->MaxHTPhyMode.field.ShortGI;
+			pEntry->HTPhyMode.field.BW = pEntry->MaxHTPhyMode.field.BW;
+			pEntry->HTPhyMode.field.MCS = pEntry->MaxHTPhyMode.field.MCS;
+			MTWF_LOG(DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_OFF, (" bRaReInit, New Mode %d, MCS %d, STBC %d SGI %d, BW %d\n",
+					 pEntry->HTPhyMode.field.MODE,
+					 pEntry->HTPhyMode.field.MCS,
+					 pEntry->HTPhyMode.field.STBC,
+					 pEntry->HTPhyMode.field.ShortGI,
+					 pEntry->HTPhyMode.field.BW));
+			bRaReInit = TRUE;
+		}
+
+		pEntry->SupportRateMode = WdsPhyOpModeToSuppRateMode(pAd, pWdsEntry);
 	}
 
-	if (bRaReInit && pEntry->bAutoTxRateSwitch == TRUE) {
+	if (bRaReInit) {
 		/* StaRec update */
 		wifi_sys_update_wds(pAd, pEntry);
 		AsicUpdateWdsEncryption(pAd, pEntry->wcid);
 		RAInit(pAd, pEntry);
 	}
-
-	WDS_ENTRY_SET_SYNCED(pWdsEntry->flag);
 }
+
 
 VOID APWdsInitialize(RTMP_ADAPTER *pAd)
 {
 	INT i;
 	RT_802_11_WDS_ENTRY *wds_entry;
 
-	pAd->WdsTab.Mode[DBDC_BAND0] = WDS_DISABLE_MODE;
-#ifdef DBDC_MODE
-	pAd->WdsTab.Mode[DBDC_BAND1] = WDS_DISABLE_MODE;
-#endif
+	pAd->WdsTab.Mode = WDS_DISABLE_MODE;
+	pAd->WdsTab.Size = 0;
 
 	for (i = 0; i < MAX_WDS_ENTRY; i++) {
 		wds_entry = &pAd->WdsTab.WdsEntry[i];
-		wds_entry->phy_mode = 0;
+		wds_entry->PhyOpMode = 0xff;
 		wds_entry->wdev.bAutoTxRateSwitch = TRUE;
 		wds_entry->wdev.DesiredTransmitSetting.field.MCS = MCS_AUTO;
-		WDS_ENTRY_SET_FLAG(wds_entry->flag, WDS_ENTRY_IS_INITED(wds_entry->flag));
-		wds_entry->peer = NULL;
+		wds_entry->Valid = FALSE;
+		wds_entry->MacTabMatchWCID = 0;
 		wds_entry->KeyIdx = 0;
 		NdisZeroMemory(&wds_entry->WdsKey, sizeof(CIPHER_KEY));
 		NdisZeroMemory(&wds_entry->WdsCounter, sizeof(WDS_COUNTER));
 	}
-	NdisAllocateSpinLock(pAd, &pAd->WdsTab.WdsTabLock);
-	MTWF_DBG(pAd, DBG_CAT_AP, CATAP_WDS, DBG_LVL_INFO,
-		 "%s: WdsEntry[0~%d]\n", __func__, MAX_WDS_ENTRY-1);
+	MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_OFF, ("%s():WdsEntry Number=%d\n", __func__, MAX_WDS_ENTRY));
 }
+
 
 INT Show_WdsTable_Proc(RTMP_ADAPTER *pAd, RTMP_STRING *arg)
 {
 	INT	i;
-	struct _RT_802_11_WDS_ENTRY *wds_entry;
-	CHAR *wmode;
+
+	MTWF_LOG(DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_OFF, ("\nWdsEnable=%d\n",
+			 pAd->WdsTab.Mode));
 
 	for (i = 0; i < MAX_WDS_ENTRY; i++) {
-		if(i == 0 || i == MAX_WDS_PER_BAND) {
-			INT band = i ? DBDC_BAND1 : DBDC_BAND0;
-			MTWF_PRINT("\n[band%d]WDS mode:%s count:%d\n############## WDS List ##############\n",
-					band, wds_mode_2_str(pAd->WdsTab.Mode[band]), pAd->WdsTab.wds_num[band]);
-		}
-		wds_entry = &pAd->WdsTab.WdsEntry[i];
-		wmode = wmode_2_str(wds_entry->phy_mode);
-		if (!wmode)
-			continue;
+		MTWF_LOG(DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_OFF, ("IF/WDS%d-%02x:%02x:%02x:%02x:%02x:%02x(%s), OpState=%d, Cipher=%s, KeyId=%d\n", i,
+				 PRINT_MAC(pAd->WdsTab.WdsEntry[i].PeerWdsAddr),
+				 pAd->WdsTab.WdsEntry[i].Valid == 1 ? " Valid " : "Invalid",
+				 wlan_operate_get_state(&pAd->WdsTab.WdsEntry[i].wdev),
+				 GetEncryModeStr(pAd->WdsTab.WdsEntry[i].wdev.SecConfig.PairwiseCipher),
+				 pAd->WdsTab.WdsEntry[i].wdev.SecConfig.PairwiseKeyId));
 
-		if (HcIsRadioAcq(&wds_entry->wdev)) {
-			struct _SECURITY_CONFIG *p_sec_con = &wds_entry->wdev.SecConfig;
-
-			MTWF_PRINT("IF/WDS%d(band%d)-"MACSTR"(%s,%s,%s,%s), OpState=%d \n\t\t\twmode:%s Cipher=%s, KeyId=%d\n",
-				  i, HcGetBandByWdev(&wds_entry->wdev),
-				  MAC2STR(wds_entry->PeerWdsAddr),
-				  WDS_ENTRY_IS_INITED(wds_entry->flag) ? "initialized" : "not initialized",
-				  WDS_ENTRY_IS_ASSIGNED(wds_entry->flag) ? "Assigned" : "Unassigned",
-				  WDS_ENTRY_IS_SYNCED(wds_entry->flag) ? "SYNCED" : "NO SYNC",
-				  WDS_ENTRY_IS_VALID(wds_entry->flag) ? "Valid" : "Invalid",
-				  wlan_operate_get_state(&wds_entry->wdev),
-				  wmode,
-				  GetEncryModeStr(p_sec_con->PairwiseCipher),
-				  wds_entry->wdev.SecConfig.PairwiseKeyId);
-
-			if (!IS_CIPHER_NONE(p_sec_con->PairwiseCipher))  {
-				UCHAR *key_str = NULL;
-
-				if (IS_CIPHER_WEP(p_sec_con->PairwiseCipher))
-					key_str = p_sec_con->WepKey[p_sec_con->PairwiseKeyId].Key;
-				else
-					key_str = p_sec_con->PSK;
-
-				MTWF_PRINT("\t\t\t\tWds Key:%s (%d)\n",
-						  key_str, (UINT32)strlen(key_str));
-			}
-		} else
-			MTWF_PRINT("IF/WDS%d not occupied\n", i);
-
-		os_free_mem(wmode);
+		if (pAd->WdsTab.WdsEntry[i].WdsKey.KeyLen > 0)
+			hex_dump("Wds Key", pAd->WdsTab.WdsEntry[i].WdsKey.Key, pAd->WdsTab.WdsEntry[i].WdsKey.KeyLen);
 	}
 
-	MTWF_PRINT("\n%-19s%-4s%-4s%-4s%-7s%-7s%-7s%-10s%-6s%-6s%-6s%-6s\n",
-			 "MAC", "IDX", "AID", "PSM", "RSSI0", "RSSI1", "RSSI2", "PhMd", "BW", "MCS", "SGI", "STBC");
+	MTWF_LOG(DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_OFF, ("\n%-19s%-4s%-4s%-4s%-7s%-7s%-7s%-10s%-6s%-6s%-6s%-6s\n",
+			 "MAC", "IDX", "AID", "PSM", "RSSI0", "RSSI1", "RSSI2", "PhMd", "BW", "MCS", "SGI", "STBC"));
 
 	for (i = 0; VALID_UCAST_ENTRY_WCID(pAd, i); i++) {
 		PMAC_TABLE_ENTRY pEntry = &pAd->MacTab.Content[i];
 
 		if (IS_ENTRY_WDS(pEntry)) {
-			MTWF_PRINT(""MACSTR"  ", MAC2STR(pEntry->Addr));
-			MTWF_PRINT("%-4d", (int)pEntry->func_tb_idx);
-			MTWF_PRINT("%-4d", (int)pEntry->Aid);
-			MTWF_PRINT("%-4d", (int)pEntry->PsMode);
-			MTWF_PRINT("%-7d", pEntry->RssiSample.AvgRssi[0]);
-			MTWF_PRINT("%-7d", pEntry->RssiSample.AvgRssi[1]);
-			MTWF_PRINT("%-7d", pEntry->RssiSample.AvgRssi[2]);
-			MTWF_PRINT("%-10s", get_phymode_str(pEntry->HTPhyMode.field.MODE));
-			MTWF_PRINT("%-6s", get_bw_str(pEntry->HTPhyMode.field.BW));
+			MTWF_LOG(DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_OFF, ("%02X:%02X:%02X:%02X:%02X:%02X  ", PRINT_MAC(pEntry->Addr)));
+			MTWF_LOG(DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_OFF, ("%-4d", (int)pEntry->func_tb_idx));
+			MTWF_LOG(DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_OFF, ("%-4d", (int)pEntry->Aid));
+			MTWF_LOG(DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_OFF, ("%-4d", (int)pEntry->PsMode));
+			MTWF_LOG(DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_OFF, ("%-7d", pEntry->RssiSample.AvgRssi[0]));
+			MTWF_LOG(DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_OFF, ("%-7d", pEntry->RssiSample.AvgRssi[1]));
+			MTWF_LOG(DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_OFF, ("%-7d", pEntry->RssiSample.AvgRssi[2]));
+			MTWF_LOG(DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_OFF, ("%-10s", get_phymode_str(pEntry->HTPhyMode.field.MODE)));
+			MTWF_LOG(DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_OFF, ("%-6s", get_bw_str(pEntry->HTPhyMode.field.BW)));
 #ifdef DOT11_VHT_AC
 
 			if (pEntry->HTPhyMode.field.MODE == MODE_VHT) {
-				MTWF_PRINT("%dS-M%-2d",
-						 ((pEntry->HTPhyMode.field.MCS>>4) + 1), (pEntry->HTPhyMode.field.MCS & 0xf));
+				MTWF_LOG(DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_OFF, ("%dS-M%-2d",
+						 ((pEntry->HTPhyMode.field.MCS>>4) + 1), (pEntry->HTPhyMode.field.MCS & 0xf)));
 			} else
 #endif /* DOT11_VHT_AC */
-#ifdef DOT11_HE_AX
-			if (pEntry->HTPhyMode.field.MODE == MODE_HE) {
-				MTWF_PRINT("%dS-M%-2d",
-						 ((pEntry->HTPhyMode.field.MCS>>4) + 1), (pEntry->HTPhyMode.field.MCS & 0xf));
-			} else
-#endif	/* DOT11_HE_AX */
-				MTWF_PRINT("%-6d", pEntry->HTPhyMode.field.MCS);
+				MTWF_LOG(DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_OFF, ("%-6d", pEntry->HTPhyMode.field.MCS));
 
-			MTWF_PRINT("%-6d", pEntry->HTPhyMode.field.ShortGI);
-			MTWF_PRINT("%-6d\n", pEntry->HTPhyMode.field.STBC);
-			MTWF_PRINT("%-52s%-10s", "MaxCap:", get_phymode_str(pEntry->MaxHTPhyMode.field.MODE));
-			MTWF_PRINT("%-6s", get_bw_str(pEntry->MaxHTPhyMode.field.BW));
+			MTWF_LOG(DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_OFF, ("%-6d", pEntry->HTPhyMode.field.ShortGI));
+			MTWF_LOG(DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_OFF, ("%-6d\n", pEntry->HTPhyMode.field.STBC));
+			MTWF_LOG(DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_OFF, (" MaxCap:%-10s", get_phymode_str(pEntry->MaxHTPhyMode.field.MODE)));
+			MTWF_LOG(DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_OFF, ("%-6s", get_bw_str(pEntry->MaxHTPhyMode.field.BW)));
 #ifdef DOT11_VHT_AC
 
 			if (pEntry->MaxHTPhyMode.field.MODE == MODE_VHT) {
-				MTWF_PRINT("%dS-M%d",
-						 ((pEntry->MaxHTPhyMode.field.MCS>>4) + 1), (pEntry->MaxHTPhyMode.field.MCS & 0xf));
+				MTWF_LOG(DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_OFF, ("%dS-M%d",
+						 ((pEntry->MaxHTPhyMode.field.MCS>>4) + 1), (pEntry->MaxHTPhyMode.field.MCS & 0xf)));
 			} else
 #endif /* DOT11_VHT_AC */
-#ifdef DOT11_HE_AX
-			if (pEntry->HTPhyMode.field.MODE == MODE_HE) {
-				MTWF_PRINT("%dS-M%-2d",
-						 ((pEntry->HTPhyMode.field.MCS>>4) + 1), (pEntry->HTPhyMode.field.MCS & 0xf));
-			} else
-#endif	/* DOT11_HE_AX */
-				MTWF_PRINT("%-6d", pEntry->MaxHTPhyMode.field.MCS);
+				MTWF_LOG(DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_OFF, ("%-6d", pEntry->MaxHTPhyMode.field.MCS));
 
-			MTWF_PRINT("%-6d", pEntry->MaxHTPhyMode.field.ShortGI);
-			MTWF_PRINT("%-6d\n", pEntry->MaxHTPhyMode.field.STBC);
+			MTWF_LOG(DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_OFF, ("%-6d", pEntry->MaxHTPhyMode.field.ShortGI));
+			MTWF_LOG(DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_OFF, ("%-6d\n", pEntry->MaxHTPhyMode.field.STBC));
 		}
 	}
 
 	return TRUE;
 }
 
-#define TEMP_STR_SIZE 256
-
-INT profile_wds_reg(
-	PRTMP_ADAPTER ad,
-	UCHAR band_idx,
-	RTMP_STRING *buffer)
-{
-	CHAR *str_ptr = NULL;
-	CHAR tmpbuf[TEMP_STR_SIZE] = "";
-	ULONG wds_mode = 0;
-
-	if (buffer == NULL) {
-		MTWF_DBG(ad, DBG_CAT_AP, CATAP_WDS, DBG_LVL_ERROR,
-			 "WDS invalid buffer\n");
-		return NDIS_STATUS_FAILURE;
-	} else
-		MTWF_DBG(ad, DBG_CAT_AP, CATAP_WDS, DBG_LVL_INFO,
-			 "WDS registering.\n");
-
-	ad->WdsTab.wds_num[band_idx] = 0;
-
-	if (RTMPGetKeyParameter("WdsEnable", tmpbuf, TEMP_STR_SIZE, buffer, TRUE) != TRUE) {
-		MTWF_DBG(ad, DBG_CAT_AP, CATAP_WDS, DBG_LVL_ERROR,
-			 "WdsEnable not found(%s)\n", tmpbuf);
-		return NDIS_STATUS_FAILURE;
-	} else {
-		if (kstrtol(tmpbuf, 10, &wds_mode) != 0) {
-			MTWF_DBG(ad, DBG_CAT_AP, CATAP_WDS, DBG_LVL_WARN,
-				 "WdsEnable is unknow(%s)\n", tmpbuf);
-		} else {
-			if (wds_mode >= WDS_LAZY_MODE)
-				ad->WdsTab.wds_num[band_idx] += MAX_WDS_PER_BAND;
-			else if (wds_mode == WDS_DISABLE_MODE)
-				ad->WdsTab.wds_num[band_idx] = 0;
-			else {
-				if (RTMPGetKeyParameter("WdsList", tmpbuf, TEMP_STR_SIZE, buffer, TRUE) != TRUE) {
-					MTWF_DBG(ad, DBG_CAT_AP, CATAP_WDS, DBG_LVL_ERROR,
-						 "WdsList not found(%s)\n", tmpbuf);
-					return NDIS_STATUS_FAILURE;
-				}
-
-				for (str_ptr = rstrtok(tmpbuf, ";");
-					str_ptr; str_ptr = rstrtok(NULL, ";")) {
-					MTWF_DBG(ad, DBG_CAT_AP, CATAP_WDS, DBG_LVL_INFO,
-						 "WdsList(%d):%s\n", ad->WdsTab.wds_num[band_idx], str_ptr);
-					ad->WdsTab.wds_num[band_idx]++;
-				}
-			}
-		}
-	}
-
-	return NDIS_STATUS_SUCCESS;
-}
 
 VOID rtmp_read_wds_from_file(RTMP_ADAPTER *pAd, RTMP_STRING *tmpbuf, RTMP_STRING *buffer)
 {
 	RTMP_STRING *macptr;
 	INT			i = 0, j;
-	UCHAR		op_mode, macAddress[MAC_ADDR_LEN];
+	UCHAR		macAddress[MAC_ADDR_LEN];
 	PRT_802_11_WDS_ENTRY pWdsEntry;
-	struct wifi_dev *wdev, *main_wdev = NULL;
+	struct wifi_dev *wdev;
 
-	if (buffer == NULL) {
-		MTWF_DBG(pAd, DBG_CAT_AP, CATAP_WDS, DBG_LVL_ERROR, "invalid buffer\n");
-		return;
-	}
+	MTWF_LOG(DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("%s(): WDS Profile\n", __func__));
 
-	/*Wds Number */
-	if (RTMPGetKeyParameter("WdsNum", tmpbuf, 10, buffer, TRUE)) {
-		for (i = 0, macptr = rstrtok(tmpbuf, ";");
-		    (macptr && i < DBDC_BAND_NUM);
-		     macptr = rstrtok(NULL, ";"), i++) {
-			pAd->WdsTab.wds_num[i] = os_str_tol(macptr, 0, 10);
-			MTWF_DBG(pAd, DBG_CAT_AP, CATAP_WDS, DBG_LVL_INFO,
-				"wds_num[%d]=%d!\n", i, pAd->WdsTab.wds_num[i]);
-		}
-	}
-#ifdef DBDC_MODE
-	MTWF_DBG(pAd, DBG_CAT_AP, CATAP_WDS, DBG_LVL_INFO, "WDS Number: band[0]=%d, band[1]=%d\n",
-		 pAd->WdsTab.wds_num[DBDC_BAND0], pAd->WdsTab.wds_num[DBDC_BAND1]);
-#else
-	MTWF_DBG(pAd, DBG_CAT_AP, CATAP_WDS, DBG_LVL_INFO, "WDS Number: band[0]=%d\n",
-		 pAd->WdsTab.wds_num[DBDC_BAND0]);
-#endif
+	/*WdsPhyMode */
+	if (RTMPGetKeyParameter("WdsPhyMode", tmpbuf, MAX_PARAM_BUFFER_SIZE, buffer, TRUE)) {
+		for (i = 0, macptr = rstrtok(tmpbuf, ";"); (macptr && i < MAX_WDS_ENTRY); macptr = rstrtok(NULL, ";"), i++) {
+			pWdsEntry = &pAd->WdsTab.WdsEntry[i];
+			wdev = &pWdsEntry->wdev;
 
-	/*WdsEnable */
-	if (RTMPGetKeyParameter("WdsEnable", tmpbuf, 10, buffer, TRUE)) {
-		UCHAR wds_idx = 0;
-		RT_802_11_WDS_ENTRY *pWdsEntry;
+			if (rtstrcasecmp(macptr, "CCK") == TRUE)
+				pWdsEntry->PhyOpMode = MODE_CCK;
+			else if (rtstrcasecmp(macptr, "OFDM") == TRUE)
+				pWdsEntry->PhyOpMode = MODE_OFDM;
 
-		for (i = 0, macptr = rstrtok(tmpbuf, ";"); (macptr && i < DBDC_BAND_NUM); macptr = rstrtok(NULL, ";"), i++) {
-			UINT32 start_idx = MAX_WDS_PER_BAND * i;
-			UINT32 end_idx = MAX_WDS_PER_BAND * (i + 1);
-			switch (os_str_tol(macptr, 0, 10)) {
-			case WDS_BRIDGE_MODE: /* Bridge mode, DisAllow association(stop Beacon generation and Probe Req. */
-				pAd->WdsTab.Mode[i] = WDS_BRIDGE_MODE;
-				break;
+#ifdef DOT11_N_SUPPORT
+			else if (rtstrcasecmp(macptr, "HTMIX") == TRUE)
+				pWdsEntry->PhyOpMode = MODE_HTMIX;
+			else if (rtstrcasecmp(macptr, "GREENFIELD") == TRUE)
+				pWdsEntry->PhyOpMode = MODE_HTGREENFIELD;
 
-			case WDS_RESTRICT_MODE:
-			case WDS_REPEATER_MODE: /* Repeater mode */
-				pAd->WdsTab.Mode[i] = WDS_REPEATER_MODE;
-				break;
+#endif /* DOT11_N_SUPPORT */
+#ifdef DOT11_VHT_AC
+			else if (rtstrcasecmp(macptr, "VHT") == TRUE)
+				pWdsEntry->PhyOpMode = MODE_VHT;
 
-			case WDS_LAZY_MODE: /* Lazy mode, Auto learn wds entry by same SSID, channel, security policy */
-				for (wds_idx = start_idx; wds_idx < end_idx; wds_idx++) {
-					pWdsEntry = &pAd->WdsTab.WdsEntry[wds_idx];
+#endif /* DOT11_VHT_AC */
+			else
+				pWdsEntry->PhyOpMode = 0xff;
 
-					if (WDS_ENTRY_IS_ASSIGNED(pWdsEntry->flag) && (HcGetBandByWdev(&pWdsEntry->wdev) == i))
-						WdsEntryDel(pAd, pWdsEntry->PeerWdsAddr);
-
-					/* When Lazy mode is enabled, the all wds-link shall share the same encryption type and key material */
-					if (wds_idx > start_idx) {
-						os_move_mem(pWdsEntry->wdev.SecConfig.WepKey,
-							    pAd->WdsTab.WdsEntry[start_idx].wdev.SecConfig.WepKey,
-							    sizeof(pWdsEntry->wdev.SecConfig.WepKey));
-						os_move_mem(pWdsEntry->wdev.SecConfig.PSK,
-							    pAd->WdsTab.WdsEntry[start_idx].wdev.SecConfig.PSK,
-							    sizeof(pWdsEntry->wdev.SecConfig.PSK));
-						pWdsEntry->wdev.SecConfig.AKMMap = pAd->WdsTab.WdsEntry[start_idx].wdev.SecConfig.AKMMap;
-						pWdsEntry->wdev.SecConfig.PairwiseCipher = pAd->WdsTab.WdsEntry[start_idx].wdev.SecConfig.PairwiseCipher;
-						pWdsEntry->wdev.SecConfig.PairwiseKeyId = pAd->WdsTab.WdsEntry[start_idx].wdev.SecConfig.PairwiseKeyId;
-					}
-				}
-
-				pAd->WdsTab.Mode[i] = WDS_LAZY_MODE;
-				break;
-
-			case WDS_DISABLE_MODE:	/* Disable mode */
-			default:
-				for (wds_idx = start_idx; wds_idx < end_idx; wds_idx++) {
-					pWdsEntry = &pAd->WdsTab.WdsEntry[wds_idx];
-
-					if (WDS_ENTRY_IS_ASSIGNED(pWdsEntry->flag) && (HcGetBandByWdev(&pWdsEntry->wdev) == i))
-						WdsEntryDel(pAd, pWdsEntry->PeerWdsAddr);
-				}
-				pAd->WdsTab.Mode[i] = WDS_DISABLE_MODE;
-				break;
-			}
-
-			MTWF_DBG(pAd, DBG_CAT_AP, CATAP_WDS, DBG_LVL_INFO, "band%d WDS-Enable mode=%d\n", i, pAd->WdsTab.Mode[i]);
+			wdev->PhyMode = WdsPhyOpModeToSuppPhyMode(pAd, pWdsEntry);
+			MTWF_LOG(DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_OFF, ("If/wds%d - PeerPhyOpMode=%d\n", i, pWdsEntry->PhyOpMode));
 		}
 	}
 
 	/*WdsList */
 	if (RTMPGetKeyParameter("WdsList", tmpbuf, MAX_PARAM_BUFFER_SIZE, buffer, TRUE)) {
-		for (i = 0, macptr = rstrtok(tmpbuf, ";"); (macptr && i < MAX_WDS_ENTRY); macptr = rstrtok(NULL, ";"), i++) {
-			if (strlen(macptr) != 17) /*Mac address acceptable format 01:02:03:04:05:06 length 17 */
-				continue;
+		if (pAd->WdsTab.Mode != WDS_LAZY_MODE) {
+			for (i = 0, macptr = rstrtok(tmpbuf, ";"); (macptr && i < MAX_WDS_ENTRY); macptr = rstrtok(NULL, ";"), i++) {
+				if (strlen(macptr) != 17) /*Mac address acceptable format 01:02:03:04:05:06 length 17 */
+					continue;
 
-			if (strcmp(macptr, "00:00:00:00:00:00") == 0)
-				continue;
+				if (strcmp(macptr, "00:00:00:00:00:00") == 0)
+					continue;
 
-			for (j = 0; j < MAC_ADDR_LEN; j++) {
-				AtoH(macptr, &macAddress[j], 1);
-				macptr = macptr+3;
+				if (i >= MAX_WDS_ENTRY - 1)
+					break;
+
+				for (j = 0; j < MAC_ADDR_LEN; j++) {
+					AtoH(macptr, &macAddress[j], 1);
+					macptr = macptr+3;
+				}
+
+				WdsEntryAlloc(pAd, macAddress);
 			}
-
-			if (i < pAd->WdsTab.wds_num[DBDC_BAND0])
-				WdsEntryAlloc(pAd, DBDC_BAND0, macAddress);
-			else
-				WdsEntryAlloc(pAd, DBDC_BAND1, macAddress);
-		}
-	}
-
-	/*WdsPhyMode */
-	if (RTMPGetKeyParameter("WdsPhyMode", tmpbuf, MAX_PARAM_BUFFER_SIZE, buffer, TRUE)) {
-		for (i = 0, macptr = rstrtok(tmpbuf, ";"); (macptr && i < MAX_WDS_ENTRY); macptr = rstrtok(NULL, ";"), i++) {
-			if(i == pAd->WdsTab.wds_num[DBDC_BAND0])
-				i = MAX_WDS_PER_BAND;
-			pWdsEntry = &pAd->WdsTab.WdsEntry[i];
-#ifdef DBDC_MODE
-			if (pAd->CommonCfg.dbdc_mode && (i >= pAd->WdsTab.wds_num[DBDC_BAND0])) {
-				main_wdev = &pAd->ApCfg.MBSSID[pAd->ApCfg.BssidNumPerBand[DBDC_BAND0]].wdev;
-			} else
-#endif	/* DBDC_MODE */
-				main_wdev = &pAd->ApCfg.MBSSID[MAIN_MBSSID].wdev;
-
-			if (rtstrcasecmp(macptr, "CCK") == TRUE)
-				op_mode = MODE_CCK;
-			else if (rtstrcasecmp(macptr, "OFDM") == TRUE)
-				op_mode = MODE_OFDM;
-
-#ifdef DOT11_N_SUPPORT
-			else if (rtstrcasecmp(macptr, "HTMIX") == TRUE)
-				op_mode = MODE_HTMIX;
-			else if (rtstrcasecmp(macptr, "GREENFIELD") == TRUE)
-				op_mode = MODE_HTGREENFIELD;
-
-#endif /* DOT11_N_SUPPORT */
-#ifdef DOT11_VHT_AC
-			else if (rtstrcasecmp(macptr, "VHT") == TRUE)
-				op_mode = MODE_VHT;
-
-#endif /* DOT11_VHT_AC */
-#ifdef DOT11_HE_AX
-			else if (rtstrcasecmp(macptr, "HE") == TRUE)
-				op_mode = MODE_HE;
-#endif
-			else
-				op_mode = MODE_UNKNOWN;
-
-			pWdsEntry->phy_mode = get_wds_phymode(main_wdev, op_mode);
-			MTWF_DBG(pAd, DBG_CAT_AP, CATAP_WDS, DBG_LVL_INFO, "If/wds%d - PeerPhyMode=0x%x\n", i, pWdsEntry->phy_mode);
 		}
 	}
 
 	/* WdsTxMode */
 	if (RTMPGetKeyParameter("WdsTxMode", tmpbuf, 25, buffer, TRUE)) {
 		for (i = 0, macptr = rstrtok(tmpbuf, ";"); (macptr && i < MAX_WDS_ENTRY); macptr = rstrtok(NULL, ";"), i++) {
-			if(i == pAd->WdsTab.wds_num[DBDC_BAND0])
-				i = MAX_WDS_PER_BAND;
 			wdev = &pAd->WdsTab.WdsEntry[i].wdev;
 			wdev->DesiredTransmitSetting.field.FixedTxMode =
 				RT_CfgSetFixedTxPhyMode(macptr);
-			MTWF_DBG(pAd, DBG_CAT_AP, CATAP_WDS, DBG_LVL_INFO, "I/F(wds%d) Tx Mode = %d\n", i,
-					 wdev->DesiredTransmitSetting.field.FixedTxMode);
+			MTWF_LOG(DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_OFF, ("I/F(wds%d) Tx Mode = %d\n", i,
+					 wdev->DesiredTransmitSetting.field.FixedTxMode));
 		}
 	}
 
 	/* WdsTxMcs */
 	if (RTMPGetKeyParameter("WdsTxMcs", tmpbuf, 50, buffer, TRUE)) {
 		for (i = 0, macptr = rstrtok(tmpbuf, ";"); (macptr && i < MAX_WDS_ENTRY); macptr = rstrtok(NULL, ";"), i++) {
-			if(i == pAd->WdsTab.wds_num[DBDC_BAND0])
-				i = MAX_WDS_PER_BAND;
 			wdev = &pAd->WdsTab.WdsEntry[i].wdev;
 			wdev->DesiredTransmitSetting.field.MCS =
 				RT_CfgSetTxMCSProc(macptr, &wdev->bAutoTxRateSwitch);
 
 			if (wdev->DesiredTransmitSetting.field.MCS == MCS_AUTO)
-				MTWF_DBG(pAd, DBG_CAT_AP, CATAP_WDS, DBG_LVL_INFO, "I/F(wds%d) Tx MCS = AUTO\n", i);
+				MTWF_LOG(DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_OFF, ("I/F(wds%d) Tx MCS = AUTO\n", i));
 			else {
-				MTWF_DBG(pAd, DBG_CAT_AP, CATAP_WDS, DBG_LVL_INFO, "I/F(wds%d) Tx MCS = %d\n", i,
-						 wdev->DesiredTransmitSetting.field.MCS);
+				MTWF_LOG(DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_OFF, ("I/F(wds%d) Tx MCS = %d\n", i,
+						 wdev->DesiredTransmitSetting.field.MCS));
 			}
 		}
+	}
+
+	/*WdsEnable */
+	if (RTMPGetKeyParameter("WdsEnable", tmpbuf, 10, buffer, TRUE)) {
+		RT_802_11_WDS_ENTRY *pWdsEntry;
+
+		switch (os_str_tol(tmpbuf, 0, 10)) {
+		case WDS_BRIDGE_MODE: /* Bridge mode, DisAllow association(stop Beacon generation and Probe Req. */
+			pAd->WdsTab.Mode = WDS_BRIDGE_MODE;
+			break;
+
+		case WDS_RESTRICT_MODE:
+		case WDS_REPEATER_MODE: /* Repeater mode */
+			pAd->WdsTab.Mode = WDS_REPEATER_MODE;
+			break;
+
+		case WDS_LAZY_MODE: /* Lazy mode, Auto learn wds entry by same SSID, channel, security policy */
+			for (i = 0; i < MAX_WDS_ENTRY; i++) {
+				pWdsEntry = &pAd->WdsTab.WdsEntry[i];
+
+				if (pWdsEntry->Valid)
+					WdsEntryDel(pAd, pWdsEntry->PeerWdsAddr);
+
+				/* When Lazy mode is enabled, the all wds-link shall share the same encryption type and key material */
+				if (i > 0) {
+					os_move_mem(pWdsEntry->wdev.SecConfig.PSK, pAd->WdsTab.WdsEntry[0].wdev.SecConfig.PSK, sizeof(pWdsEntry->wdev.SecConfig.PSK));
+					pWdsEntry->wdev.SecConfig.AKMMap = pAd->WdsTab.WdsEntry[0].wdev.SecConfig.AKMMap;
+					pWdsEntry->wdev.SecConfig.PairwiseCipher = pAd->WdsTab.WdsEntry[0].wdev.SecConfig.PairwiseCipher;
+					pWdsEntry->wdev.SecConfig.PairwiseKeyId = pAd->WdsTab.WdsEntry[0].wdev.SecConfig.PairwiseKeyId;
+				}
+			}
+
+			pAd->WdsTab.Mode = WDS_LAZY_MODE;
+			break;
+
+		case WDS_DISABLE_MODE: /* Disable mode */
+		default:
+			APWdsInitialize(pAd);
+			pAd->WdsTab.Mode = WDS_DISABLE_MODE;
+			break;
+		}
+
+		MTWF_LOG(DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_OFF, ("WDS-Enable mode=%d\n", pAd->WdsTab.Mode));
 	}
 
 #ifdef WDS_VLAN_SUPPORT
@@ -1540,11 +1328,9 @@ VOID rtmp_read_wds_from_file(RTMP_ADAPTER *pAd, RTMP_STRING *tmpbuf, RTMP_STRING
 	/* WdsVlan */
 	if (RTMPGetKeyParameter("WDS_VLANID", tmpbuf, MAX_PARAM_BUFFER_SIZE, buffer, TRUE)) {
 		for (i = 0, macptr = rstrtok(tmpbuf, ";"); (macptr && i < MAX_WDS_ENTRY); macptr = rstrtok(NULL, ";"), i++) {
-			if(i == pAd->WdsTab.wds_num[DBDC_BAND0])
-				i = MAX_WDS_PER_BAND;
 			pAd->WdsTab.WdsEntry[i].wdev.VLAN_VID = os_str_tol(macptr, 0, 10);
 			pAd->WdsTab.WdsEntry[i].wdev.VLAN_Priority = 0;
-			MTWF_DBG(pAd, DBG_CAT_AP, CATAP_WDS, DBG_LVL_INFO, "If/wds%d - WdsVlanId=%d\n", i, pAd->WdsTab.WdsEntry[i].wdev.VLAN_VID);
+			MTWF_LOG(DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_OFF, ("If/wds%d - WdsVlanId=%d\n", i, pAd->WdsTab.WdsEntry[i].wdev.VLAN_VID));
 		}
 	}
 
@@ -1553,42 +1339,25 @@ VOID rtmp_read_wds_from_file(RTMP_ADAPTER *pAd, RTMP_STRING *tmpbuf, RTMP_STRING
 
 VOID wds_find_cipher_algorithm(RTMP_ADAPTER *pAd, struct wifi_dev *wdev, TX_BLK *pTxBlk)
 {
-#if defined(SOFT_ENCRYPT) || defined(SW_CONNECT_SUPPORT)
 	MAC_TABLE_ENTRY *pMacEntry = pTxBlk->pMacEntry;
-	pTxBlk->CipherAlg = CIPHER_NONE;
 
 	if (TX_BLK_TEST_FLAG(pTxBlk, fTX_bClearEAPFrame)) {
+		SET_CIPHER_NONE(pTxBlk->CipherAlg);
 		pTxBlk->pKey =  NULL;
 	} else if (pMacEntry) {
-		if (CLIENT_STATUS_TEST_FLAG(pMacEntry, fCLIENT_STATUS_SOFTWARE_ENCRYPT)) {
-			struct _SECURITY_CONFIG *pSecConfig = &wdev->SecConfig;
-			TX_BLK_SET_FLAG(pTxBlk, fTX_bSwEncrypt);
+		struct _SECURITY_CONFIG *pSecConfig = &wdev->SecConfig;
 
-			pTxBlk->CipherAlg = pSecConfig->PairwiseCipher;
-			pTxBlk->KeyIdx =  pSecConfig->PairwiseKeyId;
-
-			if (IS_CIPHER_WEP40(pMacEntry->SecConfig.PairwiseCipher)) {
-				pTxBlk->pKey = (PCIPHER_KEY)&(pMacEntry->SecConfig.WepKey[pSecConfig->PairwiseKeyId]);
-				pTxBlk->CipherAlg = CIPHER_WEP64;
-				inc_iv_byte(pTxBlk->pKey->TxTsc, LEN_WEP_TSC, 1);
-			} else if (IS_CIPHER_WEP104(pMacEntry->SecConfig.PairwiseCipher)) {
-				pTxBlk->pKey = (PCIPHER_KEY)&(pMacEntry->SecConfig.WepKey[pSecConfig->PairwiseKeyId]);
-				pTxBlk->CipherAlg = CIPHER_WEP128;
-				inc_iv_byte(pTxBlk->pKey->TxTsc, LEN_WEP_TSC, 1);
-			} else {
-				pTxBlk->pKey = &(pSecConfig->SwPairwiseKey);
-				pTxBlk->CipherAlg = pMacEntry->SecConfig.SwPairwiseKey.CipherAlg;
-				if (pTxBlk->CipherAlg == CIPHER_AES)
-					inc_iv_byte(pTxBlk->pKey->TxTsc, LEN_WPA_TSC, 1);
-				else if (pTxBlk->CipherAlg == CIPHER_TKIP)
-					inc_iv_byte(pTxBlk->pKey->TxTsc, LEN_WPA_TSC, 1);
-			}
-		}
+		pTxBlk->CipherAlg = pSecConfig->PairwiseCipher;
+		pTxBlk->KeyIdx =  pSecConfig->PairwiseKeyId;
+		if (IS_CIPHER_WEP(pSecConfig->PairwiseCipher))
+			pTxBlk->pKey = pSecConfig->WepKey[pTxBlk->KeyIdx].Key;
+		else
+			pTxBlk->pKey = &pSecConfig->PTK[LEN_PTK_KCK + LEN_PTK_KEK];
 	}
-#else /*  SOFT_ENCRYPT || SW_CONNECT_SUPPORT */
-	pTxBlk->CipherAlg = CIPHER_NONE;
-#endif /* !SOFT_ENCRYPT && !SW_CONNECT_SUPPORT */
 
+	/* For  BMcast pMacEntry is not initial */
+	if (pTxBlk->CipherAlg == 0x0)
+		SET_CIPHER_NONE(pTxBlk->CipherAlg);
 }
 
 static struct wifi_dev_ops wds_wdev_ops = {
@@ -1614,144 +1383,108 @@ static struct wifi_dev_ops wds_wdev_ops = {
 	.ieee_802_11_data_rx = ap_ieee_802_11_data_rx,
 	.find_cipher_algorithm = wds_find_cipher_algorithm,
 	.mac_entry_lookup = mac_entry_lookup,
-	.media_state_connected = media_state_connected,
-	.ioctl = rt28xx_ap_ioctl,
-	.open = wds_inf_open,
-	.close = wds_inf_close,
-	.linkup = wifi_sys_linkup,
-	.linkdown = wifi_sys_linkdown,
-	.conn_act = wifi_sys_conn_act,
-	.disconn_act = wifi_sys_disconn_act,
 };
 
-VOID WDS_Init(RTMP_ADAPTER *pAd, UCHAR band_idx, RTMP_OS_NETDEV_OP_HOOK *pNetDevOps)
+VOID WDS_Init(RTMP_ADAPTER *pAd, RTMP_OS_NETDEV_OP_HOOK *pNetDevOps)
 {
-	INT if_idx = -1, count = 0, netdev_idx = 0;
+	INT index;
 	PNET_DEV pWdsNetDev;
-	struct wifi_dev *wdev, *main_wdev = NULL;
+	struct wifi_dev *wdev;
 	RT_802_11_WDS_ENTRY *wds_entry;
 	RTMP_CHIP_CAP *cap = hc_get_chip_cap(pAd->hdev_ctrl);
 
-	if (band_idx >= DBDC_BAND_NUM)
-		goto error_out;
-
-	if_idx = band_idx * MAX_WDS_PER_BAND;
-	count = pAd->WdsTab.wds_num[band_idx];
-
-	if ((if_idx+count) > MAX_WDS_ENTRY) {
-		MTWF_DBG(pAd, DBG_CAT_ALL, CATAP_WDS, DBG_LVL_ERROR,
-			"Invalid WDS amount of entries(%d, max=%d), try to alloac %d\n",
-			 if_idx+count, MAX_WDS_ENTRY, count);
-		goto error_out;
-	}
-
-	MTWF_DBG(pAd, DBG_CAT_ALL, CATAP_WDS, DBG_LVL_INFO,
-		 "wds_num[%d]=%d, MAX_WDS_ENTRY=%d, if_idx=%d\n",
-		  band_idx, count, MAX_WDS_ENTRY, if_idx);
-
 	/* sanity check to avoid redundant virtual interfaces are created */
-	for (; count ; if_idx++, count-- , netdev_idx++) {
-		wds_entry = &pAd->WdsTab.WdsEntry[if_idx];
-
-#ifdef DBDC_MODE
-		if (pAd->CommonCfg.dbdc_mode && (band_idx > DBDC_BAND0))
-			main_wdev = &pAd->ApCfg.MBSSID[pAd->ApCfg.BssidNumPerBand[DBDC_BAND0]].wdev;
-		else
-#endif	/* DBDC_MODE */
-			main_wdev = &pAd->ApCfg.MBSSID[MAIN_MBSSID].wdev;
-
-		wdev = &wds_entry->wdev;
-		wdev->PhyMode = main_wdev->PhyMode;
-		wdev->sys_handle  = main_wdev->sys_handle;
-		os_move_mem(wdev->if_addr, main_wdev->if_addr, MAC_ADDR_LEN);
-		os_move_mem(wdev->bssid, wdev->if_addr, MAC_ADDR_LEN);
-		os_move_mem(wdev->bss_info_argument.Bssid, wdev->if_addr, MAC_ADDR_LEN);
-
-		if (!WDS_ENTRY_IS_INITED(wds_entry->flag)) {
-			UINT32 MC_RowID = 0, IoctlIF = 0;
-			char *dev_name;
-			INT32 Ret;
-#if defined(MULTI_PROFILE)
-			UCHAR wds_dev_name[IFNAMSIZ] = {"\0"};
-			if (pAd->CommonCfg.dbdc_mode) {
-				multi_profile_wds_devname_req(pAd, wds_dev_name, if_idx);
-				dev_name = wds_dev_name;
-			} else
-#endif	/* DBDC_MODE */
-			{
-				dev_name = get_dev_name_prefix(pAd, INT_WDS);
-				if (dev_name == NULL) {
-					MTWF_DBG(pAd, DBG_CAT_AP, CATAP_WDS, DBG_LVL_ERROR,
-							"Get name prefix fail\n");
-					break;
-				}
-			}
-
-			pWdsNetDev = RtmpOSNetDevCreate(MC_RowID, &IoctlIF, INT_WDS, netdev_idx,
-							sizeof(struct mt_dev_priv), dev_name, TRUE);
-
-
-			if (pWdsNetDev == NULL) {
-				/* allocation fail, exit */
-				MTWF_DBG(pAd, DBG_CAT_AP, CATAP_WDS, DBG_LVL_ERROR, "Allocate network device fail (WDS)...\n");
-				break;
-			}
-
-			NdisZeroMemory(&wds_entry->WdsCounter, sizeof(WDS_COUNTER));
-			Ret = wdev_init(pAd, wdev, WDEV_TYPE_WDS, pWdsNetDev, if_idx, wds_entry, (VOID *)pAd);
-
-			if (Ret == FALSE) {
-				MTWF_DBG(pAd, DBG_CAT_AP, CATAP_WDS, DBG_LVL_ERROR, "Assign wdev idx for %s failed, free net device!\n",
-						 RTMP_OS_NETDEV_GET_DEVNAME(pWdsNetDev));
-				RtmpOSNetDevFree(pWdsNetDev);
-				break;
-			}
-
-			Ret = wdev_ops_register(wdev, WDEV_TYPE_WDS, &wds_wdev_ops,
-									cap->qos.wmm_detect_method);
-
-			if (!Ret) {
-				MTWF_DBG(pAd, DBG_CAT_AP, CATAP_WDS, DBG_LVL_ERROR,
-						 "register wdev_ops %s failed, free net device!\n",
-						  RTMP_OS_NETDEV_GET_DEVNAME(pWdsNetDev));
-				RtmpOSNetDevFree(pWdsNetDev);
-				break;
-			}
-			update_att_from_wdev(wdev, main_wdev);
-			MSDU_FORBID_CLEAR(wdev, MSDU_FORBID_CONNECTION_NOT_READY);
-			wdev->PortSecured = WPA_802_1X_PORT_SECURED;
-			/*update rate info for wdev*/
-			SetCommonHtVht(pAd, wdev);
-			RTMPUpdateRateInfo(wdev->PhyMode, &wdev->rate);
-#ifdef CONFIG_RA_PHY_RATE_SUPPORT
-			rtmpeapupdaterateinfo(wdev->PhyMode, &wdev->rate, &wdev->eap);
-#endif /* CONFIG_RA_PHY_RATE_SUPPORT */
-
-			/* transfor RXBLK Addr1 according this adddress */
-			RTMP_OS_NETDEV_SET_PRIV(pWdsNetDev, pAd);
-			RTMP_OS_NETDEV_SET_WDEV(pWdsNetDev, wdev);
-			pNetDevOps->priv_flags = INT_WDS;
-			pNetDevOps->needProtcted = TRUE;
-			pNetDevOps->wdev = wdev;
-			/* Register this device */
-			RtmpOSNetDevAttach(pAd->OpMode, pWdsNetDev, pNetDevOps);
-			WDS_ENTRY_SET_INITED(wds_entry->flag);
-		} else {
-			update_att_from_wdev(wdev, main_wdev);
-			SetCommonHtVht(pAd, wdev);
-			RTMPUpdateRateInfo(wdev->PhyMode, &wdev->rate);
-#ifdef CONFIG_RA_PHY_RATE_SUPPORT
-			rtmpeapupdaterateinfo(wdev->PhyMode, &wdev->rate, &wdev->eap);
-#endif /* CONFIG_RA_PHY_RATE_SUPPORT */
+	if (pAd->WdsTab.flg_wds_init != FALSE) {
+		for (index = 0; index < MAX_WDS_ENTRY; index++) {
+			wds_entry = &pAd->WdsTab.WdsEntry[index];
+			wdev = &wds_entry->wdev;
+			wdev->PhyMode = WdsPhyOpModeToSuppPhyMode(pAd, wds_entry);
+			update_att_from_wdev(wdev, &pAd->ApCfg.MBSSID[MAIN_MBSSID].wdev);
 		}
+
+		return;
 	}
 
-	MTWF_DBG(pAd, DBG_CAT_AP, CATAP_WDS, DBG_LVL_INFO,
-		 "Total allocated %d WDS(es) for band%d!\n", netdev_idx, band_idx);
+	MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("%s():\n", __func__));
 
-error_out:
-	if (if_idx < 0)
-		MTWF_DBG(pAd, DBG_CAT_AP, CATAP_WDS, DBG_LVL_ERROR, "WDS initialized with invalid band index:%d\n", band_idx);
+	for (index = 0; index < MAX_WDS_ENTRY; index++) {
+		UINT32 MC_RowID = 0, IoctlIF = 0;
+		char *dev_name;
+		INT32 Ret;
+#ifdef MULTIPLE_CARD_SUPPORT
+		MC_RowID = pAd->MC_RowID;
+#endif /* MULTIPLE_CARD_SUPPORT */
+#ifdef HOSTAPD_SUPPORT
+		IoctlIF = pAd->IoctlIF;
+#endif /* HOSTAPD_SUPPORT */
+		dev_name = get_dev_name_prefix(pAd, INT_WDS);
+		pWdsNetDev = RtmpOSNetDevCreate(MC_RowID, &IoctlIF, INT_WDS, index,
+						sizeof(struct mt_dev_priv), dev_name, TRUE);
+#ifdef HOSTAPD_SUPPORT
+		pAd->IoctlIF = IoctlIF;
+#endif /* HOSTAPD_SUPPORT */
+		wds_entry = &pAd->WdsTab.WdsEntry[index];
+		wdev = &wds_entry->wdev;
+
+		if (pWdsNetDev == NULL) {
+			/* allocation fail, exit */
+			MTWF_LOG(DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_ERROR, ("Allocate network device fail (WDS)...\n"));
+			break;
+		}
+
+		MTWF_LOG(DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_OFF, ("The new WDS interface MAC = %02X:%02X:%02X:%02X:%02X:%02X, MacTabMatchWCID = %d\n",
+				 PRINT_MAC(pAd->MacTab.Content[wds_entry->MacTabMatchWCID].Addr), wds_entry->MacTabMatchWCID));
+		NdisZeroMemory(&wds_entry->WdsCounter, sizeof(WDS_COUNTER));
+		Ret = wdev_init(pAd, wdev, WDEV_TYPE_WDS, pWdsNetDev, index, wds_entry, (VOID *)pAd);
+
+		if (Ret == FALSE) {
+			MTWF_LOG(DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_ERROR, ("Assign wdev idx for %s failed, free net device!\n",
+					 RTMP_OS_NETDEV_GET_DEVNAME(pWdsNetDev)));
+			RtmpOSNetDevFree(pWdsNetDev);
+			break;
+		}
+
+		Ret = wdev_ops_register(wdev, WDEV_TYPE_WDS, &wds_wdev_ops,
+								cap->wmm_detect_method);
+
+		if (!Ret) {
+			MTWF_LOG(DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
+					 ("register wdev_ops %s failed, free net device!\n",
+					  RTMP_OS_NETDEV_GET_DEVNAME(pWdsNetDev)));
+			RtmpOSNetDevFree(pWdsNetDev);
+			break;
+		}
+
+		if (pAd->WdsTab.Mode >= WDS_LAZY_MODE)
+			wds_entry->PhyOpMode = 0xff;
+
+		wdev->PhyMode = WdsPhyOpModeToSuppPhyMode(pAd, wds_entry);
+		update_att_from_wdev(wdev, &pAd->ApCfg.MBSSID[MAIN_MBSSID].wdev);
+		MSDU_FORBID_CLEAR(wdev, MSDU_FORBID_CONNECTION_NOT_READY);
+		wdev->PortSecured = WPA_802_1X_PORT_SECURED;
+		/*update rate info for wdev*/
+		SetCommonHtVht(pAd, wdev);
+		RTMPUpdateRateInfo(wdev->PhyMode, &wdev->rate);
+		NdisMoveMemory(&wdev->if_addr[0], &pNetDevOps->devAddr[0], MAC_ADDR_LEN);
+		os_move_mem(wdev->bss_info_argument.Bssid, wdev->if_addr, MAC_ADDR_LEN);
+		RTMP_OS_NETDEV_SET_PRIV(pWdsNetDev, pAd);
+		RTMP_OS_NETDEV_SET_WDEV(pWdsNetDev, wdev);
+		pNetDevOps->priv_flags = INT_WDS;
+		pNetDevOps->needProtcted = TRUE;
+		pNetDevOps->wdev = wdev;
+		/* Register this device */
+		RtmpOSNetDevAttach(pAd->OpMode, pWdsNetDev, pNetDevOps);
+	}
+
+	NdisAllocateSpinLock(pAd, &pAd->WdsTab.WdsTabLock);
+
+	if (index > 0) {
+		NdisAcquireSpinLock(&pAd->WdsTab.WdsTabLock);
+		pAd->WdsTab.flg_wds_init = TRUE;
+		NdisReleaseSpinLock(&pAd->WdsTab.WdsTabLock);
+	}
+
+	MTWF_LOG(DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_OFF, ("Total allocated %d WDS interfaces!\n", index));
 }
 
 
@@ -1760,10 +1493,10 @@ VOID WDS_Remove(RTMP_ADAPTER *pAd)
 	UINT index;
 	struct wifi_dev *wdev;
 
+	MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_OFF, ("%s():\n", __func__));
+
 	for (index = 0; index < MAX_WDS_ENTRY; index++) {
 		wdev = &pAd->WdsTab.WdsEntry[index].wdev;
-		
-		MTWF_DBG(pAd, DBG_CAT_ALL, CATAP_WDS, DBG_LVL_INFO, "%s: index:%d\n", __func__, index);
 
 		if (wdev->if_dev) {
 			RtmpOSNetDevProtect(1);
@@ -1772,13 +1505,10 @@ VOID WDS_Remove(RTMP_ADAPTER *pAd)
 			wdev_deinit(pAd, wdev);
 			RtmpOSNetDevFree(wdev->if_dev);
 			/* Clear it as NULL to prevent latter access error. */
-			WDS_ENTRY_CLEAR_FLAG(pAd->WdsTab.WdsEntry[index].flag);
+			pAd->WdsTab.flg_wds_init = FALSE;
 			wdev->if_dev = NULL;
 		}
 	}
-
-	for (index = DBDC_BAND0 ; index < DBDC_BAND_NUM ; index++)
-		pAd->WdsTab.wds_num[index] = 0;
 }
 
 
@@ -1795,7 +1525,7 @@ BOOLEAN WDS_StatsGet(RTMP_ADAPTER *pAd, RT_CMD_STATS *pStats)
 	}
 
 	if (index >= MAX_WDS_ENTRY) {
-		MTWF_DBG(pAd, DBG_CAT_AP, CATAP_WDS, DBG_LVL_ERROR, "can not find wds I/F\n");
+		MTWF_LOG(DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_ERROR, ("%s(): can not find wds I/F\n", __func__));
 		return FALSE;
 	}
 
@@ -1816,6 +1546,99 @@ BOOLEAN WDS_StatsGet(RTMP_ADAPTER *pAd, RT_CMD_STATS *pStats)
 	return TRUE;
 }
 
+UCHAR WdsPhyOpModeToSuppPhyMode(PRTMP_ADAPTER pAd, PRT_802_11_WDS_ENTRY pWdsEntry)
+{
+	UCHAR ApPhyMode = pAd->ApCfg.MBSSID[MAIN_MBSSID].wdev.PhyMode;
+	UCHAR SupportPhyMode = 0;
+
+	if (pWdsEntry->PhyOpMode == Legacy_CCK)
+		SupportPhyMode = (WMODE_B) & ApPhyMode;
+	else if (pWdsEntry->PhyOpMode == Legacy_OFDM)
+		SupportPhyMode = (WMODE_B | WMODE_G | WMODE_A) & ApPhyMode;
+	else if (pWdsEntry->PhyOpMode == HT_MIXED)
+		SupportPhyMode = (WMODE_B | WMODE_G | WMODE_GN | WMODE_A | WMODE_AN) & ApPhyMode;
+	else if (pWdsEntry->PhyOpMode == HT_GF)
+		SupportPhyMode = (WMODE_GN | WMODE_AN) & ApPhyMode;
+	else if (pWdsEntry->PhyOpMode == VHT)
+		SupportPhyMode = (WMODE_A | WMODE_AN | WMODE_AC) & ApPhyMode;
+	else
+		SupportPhyMode = ApPhyMode;
+
+	MTWF_LOG(DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_INFO, ("%s(): PhyOpMode=%d, SupportPhyMode = 0x%x, ApPhyMode = 0x%x\n", __func__,
+			 pWdsEntry->PhyOpMode,
+			 SupportPhyMode,
+			 ApPhyMode));
+
+	if (SupportPhyMode == 0) {
+		SupportPhyMode = ApPhyMode;
+
+		if (WMODE_CAP_AC(ApPhyMode))
+			pWdsEntry->PhyOpMode = VHT;
+		else if (WMODE_CAP_N(ApPhyMode)) {
+			if (WMODE_HT_ONLY(ApPhyMode))
+				pWdsEntry->PhyOpMode = HT_GF;
+			else
+				pWdsEntry->PhyOpMode = HT_MIXED;
+		} else {
+			if (ApPhyMode & (WMODE_G | WMODE_A))
+				pWdsEntry->PhyOpMode = Legacy_OFDM;
+			else
+				pWdsEntry->PhyOpMode = Legacy_CCK;
+		}
+
+		MTWF_LOG(DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_OFF, ("!!! WARNING !!! No matched PhyMode can be found, align to default 0x%x\n",
+				 ApPhyMode));
+	}
+
+	return SupportPhyMode;
+}
+
+UCHAR WdsPhyOpModeToSuppRateMode(PRTMP_ADAPTER pAd, PRT_802_11_WDS_ENTRY pWdsEntry)
+{
+	UCHAR ApPhyMode = pAd->ApCfg.MBSSID[MAIN_MBSSID].wdev.PhyMode;
+	UCHAR SupportRateMode = 0;
+
+	switch (pWdsEntry->PhyOpMode) {
+	case 0xff: /* user doesn't specific a Mode for WDS link. */
+	case MODE_OFDM: /* specific OFDM mode. */
+		SupportRateMode = SUPPORT_OFDM_MODE;
+
+		if (WMODE_CAP_2G(ApPhyMode))
+			SupportRateMode |= SUPPORT_CCK_MODE;
+
+		break;
+
+	case MODE_CCK:
+		SupportRateMode = SUPPORT_CCK_MODE;
+		break;
+#ifdef DOT11_N_SUPPORT
+
+	case MODE_HTMIX:
+	case MODE_HTGREENFIELD:
+		SupportRateMode = (SUPPORT_HT_MODE | SUPPORT_OFDM_MODE);
+
+		if (ApPhyMode)
+			SupportRateMode |= SUPPORT_CCK_MODE;
+
+		break;
+#endif /* DOT11_N_SUPPORT */
+#ifdef DOT11_VHT_AC
+
+	case MODE_VHT:
+		SupportRateMode = (SUPPORT_VHT_MODE | SUPPORT_HT_MODE | SUPPORT_OFDM_MODE);
+		break;
+#endif /* DOT11_VHT_AC */
+
+	default:
+		break;
+	}
+
+	MTWF_LOG(DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_INFO, ("%s(): PhyOpMode=%d, SupportRateMode = 0x%x, ApPhyMode = 0x%x\n", __func__,
+			 pWdsEntry->PhyOpMode,
+			 SupportRateMode,
+			 ApPhyMode));
+	return SupportRateMode;
+}
 
 /*
 * WDS_Open
@@ -1824,41 +1647,33 @@ INT wds_inf_open(struct wifi_dev *wdev)
 {
 	struct _RTMP_ADAPTER *pAd = NULL;
 	RT_802_11_WDS_ENTRY *wds_entry;
-	struct _MAC_TABLE_ENTRY *peer;
 
 
-	if (wdev) {
-		pAd = (struct _RTMP_ADAPTER *)wdev->sys_handle;
-		wds_entry = &pAd->WdsTab.WdsEntry[wdev->func_idx];
-		if (wifi_sys_open(wdev) != TRUE) {
-			MTWF_DBG(pAd, DBG_CAT_AP, CATAP_WDS, DBG_LVL_ERROR, "open fail!!!\n");
-			return FALSE;
-		}
-
-		MTWF_DBG(pAd, DBG_CAT_AP, CATAP_WDS, DBG_LVL_INFO, "WDS inf up for wds_%x(func_idx) OmacIdx=%d\n",
-			wdev->func_idx, wdev->OmacIdx);
-
-		RTMPSetIndividualHT(pAd, wdev->func_idx + MIN_NET_DEVICE_FOR_WDS);
-
-		if (strcmp(wds_entry->PeerWdsAddr, "00:00:00:00:00:00") != 0)
-			WdsEntryAlloc(pAd, HcGetBandByWdev(wdev), wds_entry->PeerWdsAddr);
-
-		if (WDS_ENTRY_IS_ASSIGNED(wds_entry->flag)) {
-			peer = MacTableInsertWDSEntry(pAd, wds_entry->PeerWdsAddr, wdev->func_idx);
-
-			if (!peer) {
-				MTWF_DBG(pAd, DBG_CAT_ALL, CATAP_WDS, DBG_LVL_ERROR, "can't insert a new WDS entry!");
-				return FALSE;
-			}
-
-			RAInit(pAd, peer);
-			WDS_ENTRY_SET_VALID(wds_entry->flag);
-			wds_entry->wdev.DevInfo.WdevActive = TRUE;
-		}
-#ifdef DPP_SUPPORT
-		DlListInit(&wdev->dpp_frame_event_list);
-#endif /* DPP_SUPPORT */
+	if (wdev == NULL) {
+		MTWF_LOG(DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_OFF, ("%s() wdev is NULL\n", __func__));
+		return FALSE;
 	}
+
+	pAd =  (struct _RTMP_ADAPTER *)wdev->sys_handle;
+#ifdef GREENAP_SUPPORT
+	/* This function will check and update allow status */
+	if (greenap_check_when_if_down_up(pAd) == FALSE)
+		return FALSE;
+#endif /* GREENAP_SUPPORT */
+
+	wds_entry = &pAd->WdsTab.WdsEntry[wdev->func_idx];
+	if (wifi_sys_open(wdev) != TRUE) {
+		MTWF_LOG(DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("%s() open fail!!!\n", __func__));
+		return FALSE;
+	}
+
+	MTWF_LOG(DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_OFF, ("WDS inf up for wds_%x(func_idx) OmacIdx=%d\n",
+		wdev->func_idx, wdev->OmacIdx));
+
+	RTMPSetIndividualHT(pAd, wdev->func_idx + MIN_NET_DEVICE_FOR_WDS);
+
+	if (wds_entry->Valid)
+		AsicUpdateWdsRxWCIDTable(pAd, wdev->func_idx);
 
 
 	return TRUE;
@@ -1871,28 +1686,30 @@ INT wds_inf_close(struct wifi_dev *wdev)
 {
 	struct _RTMP_ADAPTER *pAd = NULL;
 	RT_802_11_WDS_ENTRY *wds_entry;
-	UINT16 wcid;
+	UCHAR wcid;
 
 
-	if (wdev) {
-		pAd = (struct _RTMP_ADAPTER *)wdev->sys_handle;
-		if (wdev_do_linkdown(wdev) != TRUE) {
-			MTWF_DBG(pAd, DBG_CAT_AP, CATAP_WDS, DBG_LVL_ERROR, "linkdown fail!!\n");
-			return FALSE;
-		}
+	if (wdev == NULL) {
+		MTWF_LOG(DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_OFF, ("%s() wdev is NULL\n", __func__));
+		return FALSE;
+	}
 
-		wds_entry = &pAd->WdsTab.WdsEntry[wdev->func_idx];
-		if (WdsTableLookup(pAd, wds_entry->PeerWdsAddr, TRUE)) {
-			wcid = wds_entry->peer->wcid;
-			WdsEntryDel(pAd, wds_entry->PeerWdsAddr);
-			MacTableResetWdev(pAd, wdev);
-		}
+	pAd = (struct _RTMP_ADAPTER *)wdev->sys_handle;
+#ifdef GREENAP_SUPPORT
+	/* This function will check and update allow status */
+	if (greenap_check_when_if_down_up(pAd) == FALSE)
+		return FALSE;
+#endif /* GREENAP_SUPPORT */
 
-		wds_entry->wdev.DevInfo.WdevActive = FALSE;
-		if (wifi_sys_close(wdev) != TRUE) {
-			MTWF_DBG(pAd, DBG_CAT_AP, CATAP_WDS, DBG_LVL_ERROR, "close fail!!!\n");
-			return FALSE;
-		}
+	wds_entry = &pAd->WdsTab.WdsEntry[wdev->func_idx];
+	if (WdsTableLookup(pAd, wds_entry->PeerWdsAddr, TRUE)) {
+		wcid = wds_entry->MacTabMatchWCID;
+		wds_bss_linkdown(pAd, wcid);
+	}
+
+	if (wifi_sys_close(wdev) != TRUE) {
+		MTWF_LOG(DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("%s() close fail!!!\n", __func__));
+		return FALSE;
 	}
 
 
@@ -1916,9 +1733,9 @@ BOOLEAN WdsMsgTypeSubst(
 	/* wds data packet */
 	if (pFrame->Hdr.FC.Type == FC_TYPE_DATA) {
 		if ((pFrame->Hdr.FC.FrDs == 1) && (pFrame->Hdr.FC.ToDs == 1)) {
-			MTWF_DBG(pAd, DBG_CAT_AP, CATAP_WDS, DBG_LVL_DEBUG,
-				"%s, AP WDS recv UC data from "MACSTR"\n",
-				__func__, MAC2STR(pFrame->Hdr.Addr2));
+			MTWF_LOG(DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_TRACE,
+				("%s, AP WDS recv UC data from %02x-%02x-%02x-%02x-%02x-%02x\n",
+				__func__, PRINT_MAC(pFrame->Hdr.Addr2)));
 
 			*Machine = WDS_STATE_MACHINE;
 			*MsgType = APMT2_WDS_RECV_UC_DATA;
@@ -1937,11 +1754,10 @@ VOID ap_wds_rcv_uc_data_action(
 	PFRAME_802_11 pFrame = (PFRAME_802_11)Elem->Msg;
 	MAC_TABLE_ENTRY *pEntry;
 	RT_802_11_WDS_ENTRY *wds_entry;
-	struct wifi_dev *main_wdev;
 
 	RETURN_IF_PAD_NULL(pAd);
 
-	MTWF_DBG(pAd, DBG_CAT_AP, CATAP_WDS, DBG_LVL_DEBUG, "%s: PhyMode = %d\n", __func__, Elem->RxPhyMode);
+	MTWF_LOG(DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("%s(): PhyMode = %d\n", __func__, Elem->RxPhyMode));
 
 	/* lookup the match wds entry for the incoming packet. */
 	pEntry = WdsTableLookupByWcid(pAd, Elem->Wcid, pFrame->Hdr.Addr2, TRUE);
@@ -1949,53 +1765,35 @@ VOID ap_wds_rcv_uc_data_action(
 		pEntry = WdsTableLookup(pAd, pFrame->Hdr.Addr2, TRUE);
 
 	/* Only Lazy mode will auto learning, match with FrDs=1 and ToDs=1 */
-	if ((pEntry == NULL) && (pAd->WdsTab.Mode[HcGetBandByWdev(Elem->wdev)] >= WDS_LAZY_MODE)) {
-		INT WdsIdx = WdsEntryAlloc(pAd, HcGetBandByWdev(Elem->wdev), pFrame->Hdr.Addr2);
+	if ((pEntry == NULL) && (pAd->WdsTab.Mode >= WDS_LAZY_MODE)) {
+		INT WdsIdx = WdsEntryAlloc(pAd, pFrame->Hdr.Addr2);
 
 		if (WdsIdx >= 0 && WdsIdx < MAX_WDS_ENTRY) {
 			wds_entry = &pAd->WdsTab.WdsEntry[WdsIdx];
 
-			/* configure peer phymode according to the received frame */
-#ifdef DBDC_MODE
-			if (WdsIdx >= pAd->WdsTab.wds_num[DBDC_BAND0])
-				main_wdev = &pAd->ApCfg.MBSSID[pAd->ApCfg.BssidNumPerBand[DBDC_BAND0]].wdev;
-			else
-#endif	/* DBDC_MODE */
-				main_wdev = &pAd->ApCfg.MBSSID[MAIN_MBSSID].wdev;
+			/* user doesn't specific a phy mode for WDS link. */
+			if (wds_entry->PhyOpMode == 0xff) {
+			    UINT32 encrypt_mode = wds_entry->wdev.SecConfig.PairwiseCipher;
 
-			/* only update phymode once valid value from peer, else refer to configuration */
-			if (Elem->RxPhyMode)
-				wds_entry->phy_mode = get_wds_phymode(main_wdev, Elem->RxPhyMode);
+			    if ((pAd->CommonCfg.HT_DisallowTKIP) && IS_INVALID_HT_SECURITY(encrypt_mode))
+					wds_entry->PhyOpMode =
+						(wds_entry->PhyOpMode >= MODE_OFDM) ? MODE_OFDM : MODE_CCK;
+				else
+					wds_entry->PhyOpMode = Elem->RxPhyMode;
+				wds_entry->wdev.PhyMode = WdsPhyOpModeToSuppPhyMode(pAd, wds_entry);
+			}
 			pEntry = MacTableInsertWDSEntry(pAd, pFrame->Hdr.Addr2, (UCHAR)WdsIdx);
 
 			if (!pEntry) {
-				MTWF_DBG(pAd, DBG_CAT_AP, CATAP_WDS, DBG_LVL_ERROR,
-					"can't insert new pEntry\n");
+				MTWF_LOG(DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
+					("%s(): can't insert new pEntry\n", __func__));
 				return;
 			}
 
+			pEntry->SupportRateMode = WdsPhyOpModeToSuppRateMode(pAd, wds_entry);
 			RAInit(pAd, pEntry);
-			WDS_ENTRY_SET_VALID(wds_entry->flag);
 		}
 	}
-}
-
-VOID ap_wds_wdev_linkdown(
-	IN struct _RTMP_ADAPTER *pAd,
-	IN struct wifi_dev *wdev,
-	IN USHORT wcid)
-{
-	MAC_TABLE_ENTRY *pEntry;
-
-	if (wdev_do_linkdown(wdev) != TRUE)
-		 MTWF_DBG(pAd, DBG_CAT_AP, CATAP_WDS, DBG_LVL_ERROR, "linkdown fail!!\n");
-
-	if (!IS_WCID_VALID(pAd, wcid))
-		return;
-
-	pEntry = &pAd->MacTab.Content[wcid];
-	if (pEntry && IS_ENTRY_WDS(pEntry))
-		mac_entry_delete(pAd, pEntry);
 }
 
 VOID ap_wds_bss_linkdown(
@@ -2004,14 +1802,21 @@ VOID ap_wds_bss_linkdown(
 {
 	struct wifi_dev *wdev;
 	USHORT wcid;
+	MAC_TABLE_ENTRY *pEntry;
 
 	wdev = Elem->wdev;
+	if (wdev_do_linkdown(wdev) != TRUE)
+		 MTWF_LOG(DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_OFF, ("%s(): linkdown fail!!\n", __func__));
+
 	NdisMoveMemory(&wcid, Elem->Msg, sizeof(USHORT));
-	ap_wds_wdev_linkdown(pAd, wdev, wcid);
+	pEntry = &pAd->MacTab.Content[wcid];
+	mac_entry_delete(pAd, pEntry);
+
+	return;
 }
 
 VOID WdsStateMachineInit(
-	IN RTMP_ADAPTER *pAd,
+	IN RTMP_ADAPTER * pAd,
 	IN STATE_MACHINE * Sm,
 	OUT STATE_MACHINE_FUNC Trans[])
 {

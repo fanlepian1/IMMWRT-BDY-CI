@@ -7,7 +7,7 @@ VOID fpga_tr_stop(RTMP_ADAPTER *pAd, UCHAR stop)
 {
 	UINT32 mac_val;
 	/* enable/disable tx/rx*/
-	RTMP_IO_READ32(pAd->hdev_ctrl, MAC_SYS_CTRL, &mac_val);
+	RTMP_IO_READ32(pAd, MAC_SYS_CTRL, &mac_val);
 
 	switch (stop) {
 	case 3:  /* stop tx + rx */
@@ -28,7 +28,7 @@ VOID fpga_tr_stop(RTMP_ADAPTER *pAd, UCHAR stop)
 		break;
 	}
 
-	RTMP_IO_WRITE32(pAd->hdev_ctrl, MAC_SYS_CTRL, mac_val);
+	RTMP_IO_WRITE32(pAd, MAC_SYS_CTRL, mac_val);
 }
 
 

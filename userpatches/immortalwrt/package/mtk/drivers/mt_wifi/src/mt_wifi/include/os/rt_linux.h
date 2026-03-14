@@ -15,6 +15,22 @@
 #ifndef __RT_LINUX_H__
 #define __RT_LINUX_H__
 
+#ifdef VENDOR_FEATURE7_SUPPORT
+/* ADD - Start - Add our headers so that our #defines and arris_event can be used throughout the driver */
+#ifdef ARRIS_MODULE_PRESENT
+#include <linux/arris_mod_api.h>
+ARRISMOD_EXTERN(void, arris_event_send_hook, int, int, int, char *, int);
+#else
+/* ARRIS_MODULE_PRESENT is set in arris-patched config.mk, and causes us to include the proper kernel's
+  * arris_mod_api.h. If it's not defined, use MTK's patched version so MTK can compile the driver with Arris
+  * changes but without other Arris code.
+  */
+#include "arris_mod_api.h"
+#endif
+#include "event_common.h"
+/* ADD - End */
+#endif
+
 #include <linux/module.h>
 #include <linux/version.h>
 #include <linux/kernel.h>
@@ -30,7 +46,6 @@
 #include <linux/netdevice.h>
 #include <linux/etherdevice.h>
 #include <linux/skbuff.h>
-#include <linux/rtnetlink.h>
 #include <linux/ethtool.h>
 #include <linux/wireless.h>
 #include <linux/proc_fs.h>
@@ -38,6 +53,7 @@
 #include <linux/if_arp.h>
 #include <linux/ctype.h>
 #include <linux/vmalloc.h>
+
 
 #include <linux/wireless.h>
 #include <net/iw_handler.h>
@@ -64,7 +80,7 @@
 #include "common/link_list.h"
 
 #ifdef RT_CFG80211_SUPPORT
-#if (KERNEL_VERSION(2, 6, 28) <= LINUX_VERSION_CODE)
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 28))
 #include <net/mac80211.h>
 /* #define EXT_BUILD_CHANNEL_LIST */	/* must define with CRDA */
 #else /* LINUX_VERSION_CODE */
@@ -92,9 +108,6 @@
 
 #ifdef RT_CFG80211_SUPPORT
 #include "cfg80211.h"
-#ifdef CONFIG_VLAN_GTK_SUPPORT
-#include <linux/if_vlan.h>
-#endif
 #endif /* RT_CFG80211_SUPPORT */
 
 #include <linux/firmware.h>
@@ -109,11 +122,6 @@
 #endif /* WSC_AP_SUPPORT */
 #endif /* CONFIG_AP_SUPPORT */
 
-#ifdef CONFIG_STA_SUPPORT
-#ifdef WSC_STA_SUPPORT
-#define STA_WSC_INCLUDED
-#endif /* WSC_STA_SUPPORT */
-#endif /* CONFIG_STA_SUPPORT */
 
 #if defined(WSC_AP_SUPPORT) || defined(WSC_STA_SUPPORT)
 #define WSC_INCLUDED
@@ -134,14 +142,20 @@ typedef struct usb_ctrlrequest devctrlrequest;
 /***********************************************************************************
  *	Profile related sections
  ***********************************************************************************/
-
+#ifdef INTELP6_SUPPORT
+#define L1_PROFILE_PATH	"/tmp/l1profile.dat"
+#else
 #define L1_PROFILE_PATH	"/etc/wireless/l1profile.dat"
+#endif
 #define L1PROFILE_INDEX_LEN		10
 #define	L1PROFILE_ATTRNAME_LEN	30
-#define	L2PROFILE_PATH_LEN		80
+#define	L2PROFILE_PATH_LEN		50
 
+#ifdef CONFIG_AP_SUPPORT
+#ifdef RTMP_MAC_PCI
 #if CONFIG_RTPCI_AP_RF_OFFSET == 0x48000
 #define AP_PROFILE_PATH			"/etc/Wireless/iNIC/iNIC_ap.dat"
+#define AP_RTMP_FIRMWARE_FILE_NAME "/etc_ro/Wireless/iNIC/RT2860AP.bin"
 #else
 #ifdef BB_SOC
 #define AP_PROFILE_PATH			"/etc/Wireless/RT2860AP_AC/RT2860AP.dat"
@@ -152,38 +166,39 @@ typedef struct usb_ctrlrequest devctrlrequest;
 #endif
 
 
-#define AP_DRIVER_VERSION			"7.6.6.1"
-
+#define AP_DRIVER_VERSION			"5.0.4.0"
+#ifdef MULTIPLE_CARD_SUPPORT
+#define CARD_INFO_PATH			"/etc/Wireless/RT2860AP/RT2860APCard.dat"
+#endif /* MULTIPLE_CARD_SUPPORT */
 #ifdef WAPP_SUPPORT
-#define WAPP_SUPPORT_VERSION		"v3.0.2.0"
+#define WAPP_SUPPORT_VERSION		"2.0"
 #endif /* WAPP_SUPPORT */
+#endif /* RTMP_MAC_PCI */
 
-#define AP_PROFILE_PATH_USB			"/etc/Wireless/RT2870AP/RT2870AP.dat"
-#define AP_DRIVER_VERSION_USB			"3.0.0.0"
 
-#define AP_PROFILE_PATH_SDIO			"/etc/Wireless/RT2870AP/RT2870AP.dat"
-#define AP_DRIVER_VERSION_SDIO			"4.0.0.3"
 
+#ifdef RTMP_RBUS_SUPPORT
 /* This used for rbus-based chip, maybe we can integrate it together. */
-#define PROFILE_PATH_RBUS			"/etc/Wireless/RT2860i.dat"
+#define RTMP_FIRMWARE_FILE_NAME		"/etc_ro/Wireless/RT2860AP/RT2860AP.bin"
+#define PROFILE_PATH			"/etc/Wireless/RT2860i.dat"
 #define AP_PROFILE_PATH_RBUS		"/etc/Wireless/RT2860/RT2860.dat"
-#define RT2880_AP_DRIVER_VERSION_RBUS	"1.0.0.0"
+#define RT2880_AP_DRIVER_VERSION	"1.0.0.0"
+#endif /* RTMP_RBUS_SUPPORT */
 
-#define STA_PROFILE_PATH		"/etc/Wireless/RT2860STA/RT2860STA.dat"
-#define STA_DRIVER_VERSION		"7.5.0.0"
+#ifdef SINGLE_SKU_V2
+#ifdef VENDOR_FEATURE7_SUPPORT
+#define SINGLE_SKU_TABLE_FILE_NAME	"/tmp/.mt7615_SingleSKU.dat"
+#define BF_GAIN_TABLE_FILE_NAME     "/tmp/.mt7615_SingleSKU_BF_Gain.dat"
+#define BF_SKU_TABLE_FILE_NAME      "/tmp/.mt7615_SingleSKU_BF.dat"
+#else
+#define SINGLE_SKU_TABLE_FILE_NAME	"/etc_ro/Wireless/RT2860AP/SingleSKU.dat"
+#define BF_SKU_TABLE_FILE_NAME      "/etc_ro/Wireless/RT2860AP/SingleSKU_BF.dat"
+#endif
+#endif /* SINGLE_SKU_V2 */
 
-#define STA_PROFILE_PATH_USB	"/etc/Wireless/RT2870STA/RT2870STA.dat"
-#define STA_DRIVER_VERSION_USB	"3.0.0.0-Beta1"
+#endif /* CONFIG_AP_SUPPORT */
 
-#define STA_PROFILE_PATH_SDIO		"/etc/Wireless/RT2870STA/RT2870STA.dat"
-#define STA_DRIVER_VERSION_SDIO		"3.0.0.0"
 
-#define PROFILE_PATH_RBUS			"/etc/Wireless/RT2860i.dat"
-#define STA_PROFILE_PATH_RBUS	"/etc/Wireless/RT2860/RT2860.dat"
-
-#ifdef CONFIG_STA_SUPPORT
-extern const struct iw_handler_def rt28xx_iw_handler_def;
-#endif /* CONFIG_STA_SUPPORT */
 
 #ifdef CONFIG_APSTA_MIXED_SUPPORT
 extern	const struct iw_handler_def rt28xx_ap_iw_handler_def;
@@ -244,7 +259,7 @@ typedef int (*HARD_START_XMIT_FUNC)(struct sk_buff *skb, struct net_device *net_
 #ifndef PCI_DEVICE
 #define PCI_DEVICE(vend, dev) \
 	.vendor = (vend), .device = (dev), \
-								.subvendor = PCI_ANY_ID, .subdevice = PCI_ANY_ID
+	.subvendor = PCI_ANY_ID, .subdevice = PCI_ANY_ID
 #endif /* PCI_DEVICE */
 #endif /* RTMP_MAC_PCI */
 
@@ -252,7 +267,7 @@ typedef int (*HARD_START_XMIT_FUNC)(struct sk_buff *skb, struct net_device *net_
 #define RT_MOD_INC_USE_COUNT() \
 	do {\
 		if (!try_module_get(THIS_MODULE)) { \
-			MTWF_DBG(NULL, DBG_CAT_INIT, DBG_SUBCAT_ALL, DBG_LVL_ERROR, "cannot reserve module\n"); \
+			MTWF_LOG(DBG_CAT_INIT, DBG_SUBCAT_ALL, DBG_LVL_ERROR, ("%s: cannot reserve module\n", __func__)); \
 			return -1; \
 		}	\
 	} while (0)
@@ -294,14 +309,6 @@ struct iw_statistics *rt28xx_get_wireless_stats(
 /***********************************************************************************
  *	Network related constant definitions
  ***********************************************************************************/
-enum {
-	ERROR_NO_RING = 1,
-	ERROR_NO_RING_ALL,
-	ERROR_NO_TOKEN,
-	ERROR_NO_TX_RESOURCE,
-	ERROR_CHECK_NEXT_TX_RESOURCE,
-};
-
 #ifndef IFNAMSIZ
 #define IFNAMSIZ 16
 #endif
@@ -314,7 +321,6 @@ enum {
 #define NDIS_STATUS_RESOURCES                   0x03
 #define NDIS_STATUS_PKT_REQUEUE			0x04
 #define NDIS_STATUS_MORE_PROCESSING_REQUIRED             0x05
-#define NDIS_STATUS_TIMEOUT                     0x06
 
 
 #define NDIS_SET_PACKET_STATUS(_p, _status)			do {} while (0)
@@ -337,13 +343,6 @@ enum {
 /***********************************************************************************
  *	Ralink Specific network related constant definitions
  ***********************************************************************************/
-#ifdef CONFIG_STA_SUPPORT
-#define NDIS_PACKET_TYPE_DIRECTED	0
-#define NDIS_PACKET_TYPE_MULTICAST	1
-#define NDIS_PACKET_TYPE_BROADCAST	2
-#define NDIS_PACKET_TYPE_ALL_MULTICAST	3
-#define NDIS_PACKET_TYPE_PROMISCUOUS	4
-#endif /* CONFIG_STA_SUPPORT */
 
 #ifdef DOT11_VHT_AC
 #define MAX_PACKETS_IN_QUEUE		1024 /*(512)*/
@@ -365,7 +364,7 @@ typedef struct file *RTMP_OS_FD;
 typedef struct _OS_FS_INFO_ {
 	int				fsuid;
 	int				fsgid;
-	// mm_segment_t	fs;
+	//mm_segment_t	fs;
 } OS_FS_INFO;
 
 typedef struct _RTMP_OS_FD {
@@ -440,6 +439,37 @@ typedef spinlock_t			OS_NDIS_SPIN_LOCK;
 #define OS_NdisAcquireSpinLock		OS_SEM_LOCK
 #define OS_NdisReleaseSpinLock		OS_SEM_UNLOCK
 
+/*
+	Following lock/unlock definition used for BBP/RF register read/write.
+	Currently we don't use it to protect MAC register access.
+
+	For USB:
+			we use binary semaphore to do the protection because all register
+			access done in kernel thread and should allow task go sleep when
+			in protected status.
+
+	For PCI/PCI-E/RBUS:
+			We use interrupt to do the protection because the register may accessed
+			in thread/tasklet/timer/inteerupt, so we use interrupt_disable to protect
+			the access.
+*/
+#define RTMP_MCU_RW_LOCK(_pAd, _irqflags)	\
+	do {								\
+		if (_pAd->infType == RTMP_DEV_INF_USB)	\
+			RTMP_SEM_EVENT_WAIT(&_pAd->McuCmdSem, _irqflags);\
+		else\
+			RTMP_SEM_LOCK(&_pAd->McuCmdLock, _irqflags);\
+	} while (0)
+
+#define RTMP_MCU_RW_UNLOCK(_pAd, _irqflags)	\
+	do {				\
+		if (_pAd->infType == RTMP_DEV_INF_USB)\
+			RTMP_SEM_EVENT_UP(&_pAd->McuCmdSem);\
+		else\
+			RTMP_SEM_UNLOCK(&_pAd->McuCmdLock, _irqflags);\
+	} while (0)
+
+
 #ifndef wait_event_interruptible_timeout
 #define __wait_event_interruptible_timeout(wq, condition, ret) \
 	do { \
@@ -477,10 +507,9 @@ typedef spinlock_t			OS_NDIS_SPIN_LOCK;
 #define OS_SEM_EVENT_DESTORY(_pSema)		do {} while (0)
 #define OS_SEM_EVENT_WAIT(_pSema, _status)	((_status) = down_interruptible((_pSema)))
 #define OS_SEM_EVENT_UP(_pSema)			up(_pSema)
-#define OS_SEM_EVENT_TIMEOUT(_pSema, _time, _status)	((_status) = down_timeout((_pSema), (_time)))
-#define OS_SEM_EVENT_TRYLOCK(_pSema, _status)	((_status) = down_trylock((_pSema)))
 
 #define RTCMDUp					OS_RTCMDUp
+#define RTCMDRunning				OS_RTCMDRunning
 
 #ifdef KTHREAD_SUPPORT
 #define RTMP_WAIT_EVENT_INTERRUPTIBLE(_Status, _pTask) \
@@ -513,18 +542,9 @@ typedef spinlock_t			OS_NDIS_SPIN_LOCK;
 	do { \
 		if ((_pTask)->kthread_task) { \
 			(_pTask)->kthread_running = TRUE; \
-			wake_up_interruptible(&(_pTask)->kthread_q); \
+			wake_up(&(_pTask)->kthread_q); \
 		} \
 	} while (0)
-#endif
-
-#ifdef LINUX
-#define OS_SCHEDULE() 	\
-{ 							\
-	schedule(); 			\
-}
-#else
-#define OS_SCHEDULE()
 #endif
 
 /***********************************************************************************
@@ -610,7 +630,7 @@ typedef struct tasklet_struct  *POS_NET_TASK_STRUCT;
 
 typedef struct timer_list	OS_NDIS_MINIPORT_TIMER;
 typedef struct timer_list	OS_TIMER;
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(4, 14, 0))
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(4, 19, 0))
 typedef void (*TIMER_FUNCTION)(struct timer_list *);
 #else
 typedef void (*TIMER_FUNCTION)(unsigned long);
@@ -621,7 +641,12 @@ typedef void (*TIMER_FUNCTION)(unsigned long);
 		if (in_interrupt()) \
 			RtmpusecDelay(_time * 1000);\
 		else { \
-			msleep(_time); \
+			int _i; \
+			long _loop = ((_time)/(1000/OS_HZ)) > 0 ? ((_time)/(1000/OS_HZ)) : 1;\
+			wait_queue_head_t _wait; \
+			init_waitqueue_head(&_wait); \
+			for (_i = 0; _i < (_loop); _i++) \
+				wait_event_interruptible_timeout(_wait, 0, ONE_TICK); \
 		} \
 	}
 
@@ -676,7 +701,24 @@ struct os_cookie {
 	struct device *pDev;
 	UINT32 pAd_va;
 
+
 #if defined(RTMP_MAC_PCI) || defined(RTMP_MAC_USB)
+	RTMP_NET_TASK_STRUCT rx_done_task[2];
+	RTMP_NET_TASK_STRUCT cmd_rsp_event_task;
+	RTMP_NET_TASK_STRUCT tx_dma_done_task;
+	RTMP_NET_TASK_STRUCT tr_done_task;
+
+#ifdef ERR_RECOVERY
+	RTMP_NET_TASK_STRUCT mac_error_recovey_task;
+#endif /* ERR_RECOVERY */
+
+#ifdef CONFIG_FWOWN_SUPPORT
+	RTMP_NET_TASK_STRUCT mt_mac_fw_own_task;
+#endif /* CONFIG_FWOWN_SUPPORT */
+
+#ifdef MULTI_LAYER_INTERRUPT
+	RTMP_NET_TASK_STRUCT subsys_int_task;
+#endif
 
 #ifdef UAPSD_SUPPORT
 	RTMP_NET_TASK_STRUCT uapsd_eosp_sent_task;
@@ -710,6 +752,15 @@ struct os_cookie {
 	struct proc_dir_entry *proc_fwdump_file;
 	CHAR fwdump_dir_name[11];
 #endif
+
+	struct workqueue_struct *hif_wq;
+	struct work_struct tx_dma_done_work;
+	struct work_struct rx_done_work[2];
+	struct work_struct mac_recovery_work;
+	struct work_struct mac_fw_own_work;
+#ifdef MULTI_LAYER_INTERRUPT
+	struct work_struct subsys_int_work;
+#endif
 };
 
 typedef struct os_cookie	*POS_COOKIE;
@@ -719,28 +770,14 @@ typedef struct os_cookie	*POS_COOKIE;
 /***********************************************************************************
  *	OS debugging and printing related definitions and data structure
  ***********************************************************************************/
-#if (KERNEL_VERSION(4, 10, 0) > LINUX_VERSION_CODE)
 #define MTWF_PRINT	printk
-#else
-#define  mt_printk(fmt, ...) printk(KERN_CONT fmt, ##__VA_ARGS__)
-#define MTWF_PRINT	pr_cont
-#endif
-#ifdef DBG_ENHANCE
-/* Mapping Wi-Fi driver log to syslog level */
-#define MTWF_PRINT_DBG_LVL_OFF		pr_crit
-#define MTWF_PRINT_DBG_LVL_ERROR	pr_err
-#define MTWF_PRINT_DBG_LVL_WARN		pr_warn
-#define MTWF_PRINT_DBG_LVL_NOTICE	pr_notice
-#define MTWF_PRINT_DBG_LVL_INFO		pr_info
-#define MTWF_PRINT_DBG_LVL_DEBUG	pr_info
-#endif /* DBG_ENHANCE */
 
 #undef  ASSERT
 #ifdef DBG
 #define ASSERT(x)                                                               \
 	{                                                                               \
 		if (!(x)) {                                                                   \
-			mt_printk(KERN_WARNING __FILE__ ":%d assert " #x "failed\n", __LINE__);    \
+			printk(KERN_WARNING __FILE__ ":%d assert " #x "failed\n", __LINE__);    \
 			dump_stack();\
 			/* panic("Unexpected error occurs!\n");					*/\
 		}                                                                           \
@@ -764,7 +801,7 @@ void linux_pci_unmap_single(void *handle, ra_dma_addr_t dma_addr, size_t size, i
 #define PCI_MAP_SINGLE_DEV(_pAd, _ptr, _size, _sd_idx, _dir)				\
 	linux_pci_map_single(((POS_COOKIE)(_pAd->OS_Cookie))->pDev, _ptr, _size, _sd_idx, _dir)
 
-#define PCI_DMA_MAPPING_ERROR(_handle, _ptr)	\
+#define DMA_MAPPING_ERROR(_handle, _ptr)	\
 	dma_mapping_error(&((struct pci_dev *)(_handle))->dev, _ptr)
 
 #define PCI_UNMAP_SINGLE(_pAd, _ptr, _size, _dir)						\
@@ -777,14 +814,10 @@ void linux_pci_unmap_single(void *handle, ra_dma_addr_t dma_addr, size_t size, i
 	pci_free_consistent(_pci_dev, _size, _virtual_addr, _physical_addr)
 
 #if !defined(CONFIG_WIFI_PAGE_ALLOC_SKB) && !defined(CONFIG_WIFI_SLAB_ALLOC_SKB)
-#if (KERNEL_VERSION(3, 5, 0) <= LINUX_VERSION_CODE) && defined(CONFIG_MT7621_ASIC)
-#define CONFIG_WIFI_SLAB_ALLOC_SKB
-#else
-#if defined(MT7981_WIFI_SKB_USES_SLAB)
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 5, 0)) && defined (CONFIG_MT7621_ASIC)
 #define CONFIG_WIFI_SLAB_ALLOC_SKB
 #else
 #define CONFIG_WIFI_PAGE_ALLOC_SKB
-#endif	/* End of MT7981_WIFI_SKB_USES_SLAB */
 #endif
 #else
 #define CONFIG_WIFI_PAGE_ALLOC_SKB
@@ -812,29 +845,17 @@ void linux_pci_unmap_single(void *handle, ra_dma_addr_t dma_addr, size_t size, i
 	} while (0)
 #endif
 
-#if (KERNEL_VERSION(3, 5, 0) <= LINUX_VERSION_CODE)
-#ifndef BB_SOC
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 5, 0))
 #define CONFIG_WIFI_BUILD_SKB
-#endif
 #define CONFIG_WIFI_PREFETCH_RXDATA
 #endif
 
-#if (KERNEL_VERSION(4, 4, 0) <= LINUX_VERSION_CODE)
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(4, 4, 0)) && defined(CONFIG_ARCH_MT7622)
 #define CONFIG_DBG_QDISC
-#if (KERNEL_VERSION(4, 7, 0) <= LINUX_VERSION_CODE)
-#define OS_PAGE_REF(_p) atomic_read(&_p->_refcount)
-#else
-#define OS_PAGE_REF(_p) atomic_read(&_p->_count)
-#endif
 #endif
 
 
-#ifdef SNIFFER_RADIOTAP_SUPPORT
-#define SKB_BUF_HEADROOM_RSV	128 /* max radiotap length */
-#else
 #define SKB_BUF_HEADROOM_RSV	(NET_SKB_PAD)
-#endif
-
 #define SKB_BUF_TAILROOM_RSV	(sizeof(struct skb_shared_info))
 
 #define SKB_BUF_HEADTAIL_RSV	(SKB_BUF_HEADROOM_RSV + SKB_BUF_TAILROOM_RSV)
@@ -847,7 +868,7 @@ void linux_pci_unmap_single(void *handle, ra_dma_addr_t dma_addr, size_t size, i
 	do {\
 		_Pkt = netdev_alloc_frag(_length);\
 		if (_Pkt != NULL) {	\
-			MEM_DBG_PKT_ALLOC_INC_SIZE(_Pkt,_length);		\
+			MEM_DBG_PKT_ALLOC_INC(_Pkt);		\
 		};	\
 	} while (0)
 
@@ -868,11 +889,11 @@ void linux_pci_unmap_single(void *handle, ra_dma_addr_t dma_addr, size_t size, i
 		};	\
 	} while (0)
 
-#define DEV_SKB_PTR_ADJUST(_Pkt, _length, _buf_ptr, _buf_pad)		\
+#define DEV_SKB_PTR_ADJUST(_Pkt, _length, _buf_ptr)		\
 	do {\
 		if (_Pkt != NULL) {						\
 			MEM_DBG_PKT_FREE_INC(_buf_ptr);		\
-			skb_reserve((_Pkt), (SKB_BUF_HEADROOM_RSV) + _buf_pad);	\
+			skb_reserve((_Pkt), (SKB_BUF_HEADROOM_RSV));	\
 			skb_put((_Pkt), (_length));		\
 			MEM_DBG_PKT_ALLOC_INC(_Pkt);		\
 		};	\
@@ -917,6 +938,215 @@ void linux_pci_unmap_single(void *handle, ra_dma_addr_t dma_addr, size_t size, i
 
 #define NdisMIndicateStatus(_w, _x, _y, _z)
 
+
+
+/***********************************************************************************
+ * Device Register I/O Access related definitions and data structures.
+ **********************************************************************************/
+#ifdef RTMP_MAC_PCI
+#if defined(INF_TWINPASS) || defined(INF_DANUBE) || defined(INF_AR9) || defined(IKANOS_VX_1X0)
+#define RTMP_IO_FORCE_READ32(_A, _R, _pV)									\
+	do {																	\
+		(*(_pV) = readl((void *)((_A)->PciHif.CSRBaseAddress + (_R))));			\
+		(*(_pV) = SWAP32(*((UINT32 *)(_pV))));                           \
+	} while (0)
+
+#define RTMP_IO_READ32(_A, _R, _pV)									\
+	do {																	\
+		if ((_A)->bPCIclkOff == FALSE) {                                      \
+			(*(_pV) = readl((void *)((_A)->PciHif.CSRBaseAddress + (_R))));			\
+			(*(_pV) = SWAP32(*((UINT32 *)(_pV))));                           \
+		}                                                                   \
+	} while (0)
+
+#define RTMP_IO_READ8(_A, _R, _pV)									\
+	(*(_pV) = readb((void *)((_A)->PciHif.CSRBaseAddress + (_R))))
+
+#define _RTMP_IO_WRITE32(_A, _R, _V)									\
+	do {																	\
+		if ((_A)->bPCIclkOff == FALSE) {                                      \
+			UINT32	_Val;													\
+			_Val = SWAP32(_V);												\
+			writel(_Val, (void *)((_A)->PciHif.CSRBaseAddress + (_R)));			\
+		}                                                                   \
+	} while (0)
+
+#ifdef INF_VR9
+#define RTMP_IO_WRITE8(_A, _R, _V)            \
+	do {                    \
+		ULONG Val;                \
+		UCHAR _i;                \
+		UINT32 _Val;		\
+		_i = ((_R) & 0x3);             \
+		Val = readl((void *)((_A)->PciHif.CSRBaseAddress + ((_R) - _i)));   \
+		Val = SWAP32(Val);				\
+		Val = Val & (~(0x000000ff << ((_i)*8)));         \
+		Val = Val | ((ULONG)(_V) << ((_i)*8));         \
+		Val = SWAP32(Val);				\
+		writel((Val), (void *)((_A)->PciHif.CSRBaseAddress + ((_R) - _i)));    \
+	} while (0)
+#else
+#define RTMP_IO_WRITE8(_A, _R, _V)									\
+	writeb((_V), (PUCHAR)((_A)->PciHif.CSRBaseAddress + (_R)))
+#endif
+
+#define RTMP_IO_WRITE16(_A, _R, _V)									\
+	writew(SWAP16((_V)), (PUSHORT)((_A)->PciHif.CSRBaseAddress + (_R)))
+
+#elif defined(PLATFORM_M_STB)
+#define RTMP_IO_READ32(_A, _R, _pV)									\
+do{																	\
+    if ((_A)->bPCIclkOff == FALSE)                                  \
+    {                                                               \
+		(pci_read_config_dword(((POS_COOKIE)(_A->OS_Cookie))->pci_dev, _R + 0x80000000, _pV));	\
+    }                                                               \
+    else															\
+		*(_pV) = 0;													\
+}while(0)
+
+#define _RTMP_IO_WRITE32(_A, _R, _V) 								\
+do{ 																\
+	if ((_A)->bPCIclkOff == FALSE) 									\
+		(pci_write_config_dword(((POS_COOKIE)(_A->OS_Cookie))->pci_dev, _R + 0x80000000, _V));	\
+}while(0)
+
+#define RTMP_IO_READ16(_A, _R, _pV)									\
+do{ 																\
+	if ((_A)->bPCIclkOff == FALSE)									\
+	{																\
+		(pci_read_config_word(((POS_COOKIE)(_A->OS_Cookie))->pci_dev, _R + 0x80000000, _pV));	\
+	}																\
+	else															\
+		*(_pV) = 0; 												\
+}while(0)
+
+#define RTMP_IO_WRITE16(_A, _R, _V) 								\
+do{ 																\
+	if ((_A)->bPCIclkOff == FALSE) 									\
+		(pci_write_config_word(((POS_COOKIE)(_A->OS_Cookie))->pci_dev, _R + 0x80000000, _V));	\
+}while(0)
+
+#define RTMP_IO_READ8(_A, _R, _pV)									\
+do{ 																\
+	if ((_A)->bPCIclkOff == FALSE)									\
+	{																\
+		(pci_read_config_byte(((POS_COOKIE)(_A->OS_Cookie))->pci_dev, _R + 0x80000000, _pV));	\
+	}																\
+	else															\
+		*(_pV) = 0; 												\
+}while(0)
+
+#define RTMP_IO_WRITE8(_A, _R, _V) 									\
+do{ 																\
+	if ((_A)->bPCIclkOff == FALSE) 									\
+		(pci_write_config_byte(((POS_COOKIE)(_A->OS_Cookie))->pci_dev, _R + 0x80000000, _V));	\
+}while(0)
+
+#else
+#define RTMP_IO_READ32(_A, _R, _pV)								\
+	do {																\
+		if ((_A)->bPCIclkOff == FALSE)                                  \
+			(*(_pV) = readl((void *)((_A)->PciHif.CSRBaseAddress + (_R))));			\
+		else															\
+			*(_pV) = 0;													\
+	} while (0)
+
+#define RTMP_IO_FORCE_READ32(_A, _R, _pV)							\
+	(*(_pV) = readl((void *)((_A)->PciHif.CSRBaseAddress + (_R))))
+
+#if defined(BRCM_6358) || defined(RALINK_2880) || defined(RALINK_3052) || defined(RALINK_2883) || defined(RTMP_RBUS_SUPPORT) || defined(BB_SOC)
+#define RTMP_IO_READ8(_A, _R, _V)            \
+	do {                    \
+		ULONG Val;                \
+		UCHAR _i;                \
+		_i = ((_R) & 0x3);             \
+		Val = readl((void *)((_A)->PciHif.CSRBaseAddress + ((_R) - _i)));   \
+		Val = (Val >> ((_i)*8)) & (0x000000ff);         \
+		*((PUCHAR)_V) = (UCHAR) Val;				\
+	} while (0)
+#else
+#define RTMP_IO_READ8(_A, _R, _pV)								\
+	(*(_pV) = readb((void *)((_A)->PciHif.CSRBaseAddress + (_R))))
+#endif /* #if defined(BRCM_6358) || defined(RALINK_2880) */
+
+#define _RTMP_IO_WRITE32(_A, _R, _V) \
+	do { \
+		if ((_A)->bPCIclkOff == FALSE) \
+			writel((_V), (void *)((_A)->PciHif.CSRBaseAddress + (_R))); \
+	} while (0)
+
+#define RTMP_IO_FORCE_WRITE32(_A, _R, _V)												\
+	writel(_V, (void *)((_A)->PciHif.CSRBaseAddress + (_R)))
+
+/* This is actually system IO */
+#define RTMP_SYS_IO_READ32(_R, _pV)		\
+	(*_pV = readl((void *)(_R)))
+
+#define RTMP_SYS_IO_WRITE32(_R, _V)		\
+	writel(_V, (void *)(_R))
+
+
+
+#if defined(BRCM_6358) || defined(RALINK_2880) || defined(RALINK_3052) || defined(RALINK_2883) || defined(RTMP_RBUS_SUPPORT) || defined(MT76x2) || defined(BB_SOC)
+#define RTMP_IO_WRITE8(_A, _R, _V)            \
+	do {                    \
+		ULONG Val;                \
+		UCHAR _i;                \
+		_i = ((_R) & 0x3);             \
+		Val = readl((void *)((_A)->PciHif.CSRBaseAddress + ((_R) - _i)));   \
+		Val = Val & (~(0x000000ff << ((_i)*8)));         \
+		Val = Val | ((ULONG)(_V) << ((_i)*8));         \
+		writel((Val), (void *)((_A)->PciHif.CSRBaseAddress + ((_R) - _i)));    \
+	} while (0)
+#else
+#define RTMP_IO_WRITE8(_A, _R, _V)							\
+	writeb((_V), (PUCHAR)((_A)->PciHif.CSRBaseAddress + (_R)))
+#endif /* #if defined(BRCM_6358) || defined(RALINK_2880) */
+
+#define RTMP_IO_WRITE16(_A, _R, _V)							\
+	writew((_V), (PUSHORT)((_A)->PciHif.CSRBaseAddress + (_R)))
+#endif /* #if defined(INF_TWINPASS) || defined(INF_DANUBE) || defined(IKANOS_VX_1X0) */
+
+
+#ifndef VENDOR_FEATURE3_SUPPORT
+#define RTMP_IO_WRITE32		_RTMP_IO_WRITE32
+#endif /* VENDOR_FEATURE3_SUPPORT */
+#endif /* RTMP_MAC_PCI */
+
+#ifdef MT_MAC
+#define RTMP_MCU_IO_READ32(_A, _R, _pV)	\
+	CmdIORead32((_A), (_R), (_pV))
+#define RTMP_MCU_IO_WRITE32(_A, _R, _V)	\
+	CmdIOWrite32((_A), (_R), (_V))
+
+#endif /* MT_MAC */
+
+
+
+
+
+#define MAC_IO_READ32(_A, _R, _pV)			RTMP_IO_READ32(_A, _R, _pV)
+#define MAC_IO_WRITE32(_A, _R, _V)			RTMP_IO_WRITE32(_A, _R, _V)
+
+
+#if defined(RTMP_MAC_PCI) && defined(WHNAT_SUPPORT)
+#define HIF_IO_READ32(_A, _R, _pV)			pci_io_read32(_A, _R, _pV)
+#define HIF_IO_WRITE32(_A, _R, _V)			pci_io_write32(_A, _R, _V)
+#else
+#define HIF_IO_READ32(_A, _R, _pV)			RTMP_IO_READ32(_A, _R, _pV)
+#define HIF_IO_WRITE32(_A, _R, _V)			RTMP_IO_WRITE32(_A, _R, _V)
+#endif
+
+#define PHY_IO_READ32(_A, _R, _pV)			RTMP_IO_READ32(_A, _R, _pV)
+#define PHY_IO_WRITE32(_A, _R, _V)			RTMP_IO_WRITE32(_A, _R, _V)
+
+#define HW_IO_READ32(_A, _R, _pV)			RTMP_IO_READ32(_A, _R, _pV)
+#define HW_IO_WRITE32(_A, _R, _V)			RTMP_IO_WRITE32(_A, _R, _V)
+
+#define MCU_IO_READ32(_A, _R, _pV)			RTMP_MCU_IO_READ32(_A, _R, _pV)
+#define MCU_IO_WRITE32(_A, _R, _V)			RTMP_MCU_IO_WRITE32(_A, _R, _V)
+
+
 #define RTMP_USB_URB_DATA_GET(__pUrb)			(((purbb_t)__pUrb)->context)
 #define RTMP_USB_URB_STATUS_GET(__pUrb)			(((purbb_t)__pUrb)->status)
 #define RTMP_USB_URB_LEN_GET(__pUrb)			(((purbb_t)__pUrb)->actual_length)
@@ -941,9 +1171,11 @@ void linux_pci_unmap_single(void *handle, ra_dma_addr_t dma_addr, size_t size, i
 /* Get & Set NETDEV interface hardware type */
 #define RTMP_OS_NETDEV_GET_TYPE(_pNetDev)			((_pNetDev)->type)
 #define RTMP_OS_NETDEV_SET_TYPE(_pNetDev, _type)	((_pNetDev)->type = (_type))
-
+#ifdef SNIFFER_MT7615
 #define RTMP_OS_NETDEV_SET_TYPE_MONITOR(_pNetDev)	RTMP_OS_NETDEV_SET_TYPE(_pNetDev, ARPHRD_IEEE80211_RADIOTAP)
-
+#else
+#define RTMP_OS_NETDEV_SET_TYPE_MONITOR(_pNetDev)	RTMP_OS_NETDEV_SET_TYPE(_pNetDev, ARPHRD_IEEE80211_PRISM)
+#endif
 #define RTMP_OS_NETDEV_START_QUEUE(_pNetDev)	netif_start_queue((_pNetDev))
 #define RTMP_OS_NETDEV_STOP_QUEUE(_pNetDev)	netif_stop_queue((_pNetDev))
 #define RTMP_OS_NETDEV_WAKE_QUEUE(_pNetDev)	netif_wake_queue((_pNetDev))
@@ -989,7 +1221,7 @@ void linux_pci_unmap_single(void *handle, ra_dma_addr_t dma_addr, size_t size, i
 #define SET_OS_PKT_LEN(_pkt, _len)	\
 	((RTPKT_TO_OSPKT(_pkt)->len) = (_len))
 
-#if (KERNEL_VERSION(2, 6, 22) <= LINUX_VERSION_CODE)
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,22))
 #define GET_OS_PKT_DATATAIL(_pkt) \
 	skb_tail_pointer(RTPKT_TO_OSPKT(_pkt))
 #define SET_OS_PKT_DATATAIL(_pkt, _len)	\
@@ -998,7 +1230,7 @@ void linux_pci_unmap_single(void *handle, ra_dma_addr_t dma_addr, size_t size, i
 #define GET_OS_PKT_DATATAIL(_pkt) \
 	(RTPKT_TO_OSPKT(_pkt)->tail)
 #define SET_OS_PKT_DATATAIL(_pkt, _len)	\
-	(((RTPKT_TO_OSPKT(_pkt))->tail) = (PUCHAR)(((RTPKT_TO_OSPKT(_pkt))->data) + (_len)))
+	((RTPKT_TO_OSPKT(_pkt))->tail) = (PUCHAR)(((RTPKT_TO_OSPKT(_pkt))->data) + (_len))
 #endif
 
 #define GET_OS_PKT_HEAD(_pkt) \
@@ -1069,16 +1301,11 @@ void linux_pci_unmap_single(void *handle, ra_dma_addr_t dma_addr, size_t size, i
 	(htonl((_Val)))
 
 #define CB_OFF  10
-#define CB_LEN 37
+#define CB_LEN	36
 #define GET_OS_PKT_CB(_p)		(RTPKT_TO_OSPKT(_p)->cb)
 #define PACKET_CB(_p, _offset)	((RTPKT_TO_OSPKT(_p)->cb[CB_OFF + (_offset)]))
 
 
-
-/***********************************************************************************
- *	64 bit operand
- ***********************************************************************************/
-#define mod_64bit(_a, _b) do_div(_a, _b)
 
 
 /***********************************************************************************
@@ -1088,7 +1315,6 @@ void linux_pci_unmap_single(void *handle, ra_dma_addr_t dma_addr, size_t size, i
 #ifdef CONFIG_FAST_NAT_SUPPORT
 extern int (*ra_sw_nat_hook_tx)(struct sk_buff *skb, int gmac_no);
 extern int (*ra_sw_nat_hook_rx)(struct sk_buff *skb);
-extern int (*ppe_del_entry_by_mac)(unsigned char *mac);
 extern void (*ppe_dev_register_hook) (VOID  *dev);
 extern void (*ppe_dev_unregister_hook) (VOID  *dev);
 
@@ -1116,12 +1342,12 @@ struct APCLI_BRIDGE_LEARNING_MAPPING_MAP {
 extern int (*wf_fwd_tx_hook)(struct sk_buff *skb);
 extern int (*wf_fwd_rx_hook)(struct sk_buff *skb);
 extern unsigned char (*wf_fwd_entry_insert_hook)
-(struct net_device *src, struct net_device *dest, void *adapter);
+	(struct net_device *src, struct net_device *dest, void *adapter);
 extern unsigned char (*wf_fwd_entry_delete_hook)
-(struct net_device *src, struct net_device *dest, unsigned char link_down);
+	(struct net_device *src, struct net_device *dest, unsigned char link_down);
 
 extern void (*wf_fwd_check_device_hook)
-(struct net_device *net_dev, signed int type, signed int mbss_idx, unsigned char channel, unsigned char link);
+	(struct net_device *net_dev, signed int type, signed int mbss_idx, unsigned char channel, unsigned char link);
 
 extern void (*wf_fwd_set_cb_num)(unsigned int band_cb_num, unsigned int receive_cb_num);
 extern bool (*wf_fwd_check_active_hook)(void);
@@ -1146,11 +1372,11 @@ extern void (*wf_fwd_probe_adapter)(void *adapter);
 extern void (*wf_fwd_probe_apcli_device_hook)(void *device);
 extern void (*wf_fwd_insert_bridge_mapping_hook)(struct sk_buff *skb);
 extern void (*wf_fwd_insert_repeater_mapping_hook)
-(void *apcli_device, void *lock, void *cli_mapping, void *map_mapping, void *ifAddr_mapping);
+	(void *apcli_device, void *lock, void *cli_mapping, void *map_mapping, void *ifAddr_mapping);
 extern int (*wf_fwd_search_mapping_table_hook)
-(struct sk_buff *skb, struct APCLI_BRIDGE_LEARNING_MAPPING_STRUCT **tbl_entry);
+	(struct sk_buff *skb, struct APCLI_BRIDGE_LEARNING_MAPPING_STRUCT **tbl_entry);
 extern void (*wf_fwd_delete_entry_inform_hook)(unsigned char *addr);
-extern bool (*wf_fwd_needed_hook)(void);
+extern bool (*wf_fwd_needed_hook) (void);
 extern void (*wf_fwd_add_entry_inform_hook)(unsigned char *addr);
 extern void (*wf_fwd_set_bridge_hook) (unsigned char* bridge_intf_name,unsigned int len);
 
@@ -1158,42 +1384,42 @@ extern void (*wf_fwd_probe_dev_hook)(struct net_device *net_dev_p);
 #endif /* CONFIG_WIFI_PKT_FWD */
 
 #if defined(CONFIG_WIFI_PKT_FWD) || defined(CONFIG_WIFI_PKT_FWD_MODULE)
-struct wifi_fwd_func_table {
-	int (*wf_fwd_rx_hook)(struct sk_buff *skb);
-	int (*wf_fwd_tx_hook)(struct sk_buff *skb);
-	unsigned char (*wf_fwd_entry_insert_hook)(struct net_device *src, struct net_device *dest, void *adapter);
-	unsigned char (*wf_fwd_entry_delete_hook)(struct net_device *src, struct net_device *dest, unsigned char link_down);
-	void (*wf_fwd_set_cb_num)(unsigned int band_cb_num, unsigned int receive_cb_num);
-	void (*wf_fwd_set_debug_level_hook)(unsigned char level);
-	bool (*wf_fwd_check_active_hook)(void);
-	void (*wf_fwd_get_rep_hook)(unsigned char idx);
-	void (*wf_fwd_pro_active_hook)(void);
-	void (*wf_fwd_pro_halt_hook)(void);
-	void (*wf_fwd_pro_enabled_hook)(void);
-	void (*wf_fwd_pro_disabled_hook)(void);
-	void (*wf_fwd_access_schedule_active_hook)(void);
-	void (*wf_fwd_access_schedule_halt_hook)(void);
-	void (*wf_fwd_hijack_active_hook)(void);
-	void (*wf_fwd_hijack_halt_hook)(void);
-	void (*wf_fwd_bpdu_active_hook)(void);
-	void (*wf_fwd_bpdu_halt_hook)(void);
-	void (*wf_fwd_show_entry_hook)(void);
-	bool (*wf_fwd_needed_hook)(void);
-	void (*wf_fwd_delete_entry_hook)(unsigned char idx);
-	void (*packet_source_show_entry_hook)(void);
-	void (*packet_source_delete_entry_hook)(unsigned char idx);
-	void (*wf_fwd_feedback_map_table)(void *adapter, void **peer, void **opp_peer, void **oth_peer);
-	void (*wf_fwd_probe_adapter)(void *adapter);
+struct wifi_fwd_func_table{
+	int (*wf_fwd_rx_hook) (struct sk_buff *skb);
+	int (*wf_fwd_tx_hook) (struct sk_buff *skb);
+	unsigned char (*wf_fwd_entry_insert_hook) (struct net_device *src, struct net_device *dest, void *adapter);
+	unsigned char (*wf_fwd_entry_delete_hook) (struct net_device *src, struct net_device *dest, unsigned char link_down);
+	void (*wf_fwd_set_cb_num) (unsigned int band_cb_num, unsigned int receive_cb_num);
+	void (*wf_fwd_set_debug_level_hook) (unsigned char level);
+	bool (*wf_fwd_check_active_hook) (void);
+	void (*wf_fwd_get_rep_hook) (unsigned char idx);
+	void (*wf_fwd_pro_active_hook) (void);
+	void (*wf_fwd_pro_halt_hook) (void);
+	void (*wf_fwd_pro_enabled_hook) (void);
+	void (*wf_fwd_pro_disabled_hook) (void);
+	void (*wf_fwd_access_schedule_active_hook) (void);
+	void (*wf_fwd_access_schedule_halt_hook) (void);
+	void (*wf_fwd_hijack_active_hook) (void);
+	void (*wf_fwd_hijack_halt_hook) (void);
+	void (*wf_fwd_bpdu_active_hook) (void);
+	void (*wf_fwd_bpdu_halt_hook) (void);
+	void (*wf_fwd_show_entry_hook) (void);
+	bool (*wf_fwd_needed_hook) (void);
+	void (*wf_fwd_delete_entry_hook) (unsigned char idx);
+	void (*packet_source_show_entry_hook) (void);
+	void (*packet_source_delete_entry_hook) (unsigned char idx);
+	void (*wf_fwd_feedback_map_table) (void *adapter, void **peer, void **opp_peer, void **oth_peer);
+	void (*wf_fwd_probe_adapter) (void *adapter);
 	void (*wf_fwd_remove_adapter)(void *adapter);
 	void (*wf_fwd_insert_repeater_mapping_hook)(void *adapter, void *lock, void *cli_mapping, void *map_mapping, void *ifAddr_mapping);
 	void (*wf_fwd_delete_repeater_mapping) (void *apcli_device);
-	void (*wf_fwd_insert_bridge_mapping_hook)(struct sk_buff *skb);
-	int (*wf_fwd_search_mapping_table_hook)(struct sk_buff *skb, struct APCLI_BRIDGE_LEARNING_MAPPING_STRUCT **tbl_entry);
-	void (*wf_fwd_delete_entry_inform_hook)(unsigned char *addr);
-	void (*wf_fwd_check_device_hook)(struct net_device *net_dev, signed int type, signed int mbss_idx, unsigned char channel, unsigned char link);
-	void (*wf_fwd_add_entry_inform_hook)(unsigned char *addr);
-	void (*wf_fwd_debug_level_hook)(unsigned char level);
-	void (*wf_fwd_set_easy_setup_mode)(unsigned int easy_setup_mode);
+	void (*wf_fwd_insert_bridge_mapping_hook) (struct sk_buff *skb);
+	int (*wf_fwd_search_mapping_table_hook) (struct sk_buff *skb, struct APCLI_BRIDGE_LEARNING_MAPPING_STRUCT **tbl_entry);
+	void (*wf_fwd_delete_entry_inform_hook) (unsigned char *addr);
+	void (*wf_fwd_check_device_hook) (struct net_device *net_dev, signed int type, signed int mbss_idx, unsigned char channel, unsigned char link);
+	void (*wf_fwd_add_entry_inform_hook) (unsigned char *addr);
+	void (*wf_fwd_debug_level_hook) (unsigned char level);
+	void (*wf_fwd_set_easy_setup_mode) (unsigned int easy_setup_mode);
 	void (*wf_fwd_set_bridge_hook) (unsigned char* bridge_intf_name,unsigned int len);
 };
 
@@ -1214,7 +1440,7 @@ int wl_proc_exit(void);
 
 #if defined(CONFIG_RA_CLASSIFIER) || defined(CONFIG_RA_CLASSIFIER_MODULE)
 extern volatile unsigned long classifier_cur_cycle;
-extern int (*ra_classifier_hook_rx)(struct sk_buff *skb, unsigned long cycle);
+extern int (*ra_classifier_hook_rx) (struct sk_buff *skb, unsigned long cycle);
 #endif /* defined(CONFIG_RA_CLASSIFIER)||defined(CONFIG_RA_CLASSIFIER_MODULE) */
 #endif /* RTMP_RBUS_SUPPORT */
 
@@ -1232,40 +1458,10 @@ struct net_device *alloc_netdev(int sizeof_priv, const char *mask, void (*setup)
 #endif
 
 IRQ_HANDLE_TYPE
-#if (KERNEL_VERSION(2, 6, 19) <= LINUX_VERSION_CODE)
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 19))
 rt2860_interrupt(int irq, void *dev_instance);
 #else
 rt2860_interrupt(int irq, void *dev_instance, struct pt_regs *regs);
-#endif
-
-#ifdef MULTI_INTR_SUPPORT
-IRQ_HANDLE_TYPE
-#if (KERNEL_VERSION(2, 6, 19) <= LINUX_VERSION_CODE)
-rt2860_multi_interrupt(int irq, void *dev_instance);
-#else
-rt2860_multi_interrupt(int irq, void *dev_instance, struct pt_regs *regs);
-#endif
-
-IRQ_HANDLE_TYPE
-#if (KERNEL_VERSION(2, 6, 19) <= LINUX_VERSION_CODE)
-rt2860_multi_interrupt_2nd(int irq, void *dev_instance);
-#else
-rt2860_multi_interrupt_2nd(int irq, void *dev_instance, struct pt_regs *regs);
-#endif
-
-IRQ_HANDLE_TYPE
-#if (KERNEL_VERSION(2, 6, 19) <= LINUX_VERSION_CODE)
-rt2860_multi_interrupt_3rd(int irq, void *dev_instance);
-#else
-rt2860_multi_interrupt_3rd(int irq, void *dev_instance, struct pt_regs *regs);
-#endif
-
-IRQ_HANDLE_TYPE
-#if (KERNEL_VERSION(2, 6, 19) <= LINUX_VERSION_CODE)
-rt2860_multi_interrupt_4th(int irq, void *dev_instance);
-#else
-rt2860_multi_interrupt_4th(int irq, void *dev_instance, struct pt_regs *regs);
-#endif
 #endif
 
 #endif /* RTMP_MAC_PCI */
@@ -1361,9 +1557,45 @@ void usb_iot_add_padding(struct urb *urb, UINT8 *buf, ra_dma_addr_t dma);
 #define RTUSB_UNLINK_URB(pUrb)		usb_unlink_urb(pUrb)
 #endif /* LINUX_VERSION_CODE */
 
+/* Prototypes of completion funuc. */
+#define RtmpUsbBulkOutDataPacketComplete		RTUSBBulkOutDataPacketComplete
+#define RtmpUsbBulkOutMLMEPacketComplete		RTUSBBulkOutMLMEPacketComplete
+#define RtmpUsbBulkOutNullFrameComplete			RTUSBBulkOutNullFrameComplete
+#define RtmpUsbBulkOutRTSFrameComplete			RTUSBBulkOutRTSFrameComplete
+#define RtmpUsbBulkOutPsPollComplete			RTUSBBulkOutPsPollComplete
+#define RtmpUsbBulkRxComplete				RTUSBBulkRxComplete
+#define RtmpUsbBulkCmdRspEventComplete			RTUSBBulkCmdRspEventComplete
+#ifdef MT_MAC
+#define RtmpUsbBulkOutBCNPacketComplete			RTUSBBulkOutBCNPacketComplete
+#endif
+
+#if ((LINUX_VERSION_CODE < KERNEL_VERSION(2, 5, 51)) || (LINUX_VERSION_CODE > KERNEL_VERSION(2, 6, 18)))
+#define RTUSBBulkOutDataPacketComplete(Status, pURB, pt_regs)	RTUSBBulkOutDataPacketComplete(pURB)
+#define RTUSBBulkOutMLMEPacketComplete(Status, pURB, pt_regs)	RTUSBBulkOutMLMEPacketComplete(pURB)
+#define RTUSBBulkOutNullFrameComplete(Status, pURB, pt_regs)	RTUSBBulkOutNullFrameComplete(pURB)
+#define RTUSBBulkOutRTSFrameComplete(Status, pURB, pt_regs)	RTUSBBulkOutRTSFrameComplete(pURB)
+#define RTUSBBulkOutPsPollComplete(Status, pURB, pt_regs)	RTUSBBulkOutPsPollComplete(pURB)
+#define RTUSBBulkRxComplete(Status, pURB, pt_regs)		RTUSBBulkRxComplete(pURB)
+#define RTUSBBulkCmdRspEventComplete(Status, pURB, pt_regs)	RTUSBBulkCmdRspEventComplete(pURB)
+#ifdef MT_MAC
+#define RTUSBBulkOutBCNPacketComplete(Status, pURB, pt_regs)	RTUSBBulkOutBCNPacketComplete(pURB)
+#endif
+#else
+#define RTUSBBulkOutDataPacketComplete(Status, pURB, pt_regs)	RTUSBBulkOutDataPacketComplete(pURB, pt_regs)
+#define RTUSBBulkOutMLMEPacketComplete(Status, pURB, pt_regs)	RTUSBBulkOutMLMEPacketComplete(pURB, pt_regs)
+#define RTUSBBulkOutNullFrameComplete(Status, pURB, pt_regs)	RTUSBBulkOutNullFrameComplete(pURB, pt_regs)
+#define RTUSBBulkOutRTSFrameComplete(Status, pURB, pt_regs)	RTUSBBulkOutRTSFrameComplete(pURB, pt_regs)
+#define RTUSBBulkOutPsPollComplete(Status, pURB, pt_regs)	RTUSBBulkOutPsPollComplete(pURB, pt_regs)
+#define RTUSBBulkRxComplete(Status, pURB, pt_regs)		RTUSBBulkRxComplete(pURB, pt_regs)
+#define RTUSBBulkCmdRspEventComplete(Status, pURB, pt_regs)	RTUSBBulkCmdRspEventComplete(pURB, pt_regs)
+#ifdef MT_MAC
+#define RTUSBBulkOutBCNPacketComplete(Status, pURB, pt_regs)	RTUSBBulkOutBCNPacketComplete(pURB, pt_regs)
+#endif
+#endif
+
 /*extern void dump_urb(struct urb *purb); */
 
-#define InterlockedIncrement		atomic_inc
+#define InterlockedIncrement 		atomic_inc
 #define NdisInterlockedIncrement	atomic_inc
 #define InterlockedDecrement		atomic_dec
 #define NdisInterlockedDecrement	atomic_dec
@@ -1372,6 +1604,17 @@ void usb_iot_add_padding(struct urb *urb, UINT8 *buf, ra_dma_addr_t dma);
 typedef void USBHST_STATUS;
 typedef INT32 URBCompleteStatus;
 typedef struct pt_regs pregs;
+
+USBHST_STATUS RTUSBBulkOutDataPacketComplete(URBCompleteStatus Status, purbb_t pURB, pregs *pt_regs);
+USBHST_STATUS RTUSBBulkOutMLMEPacketComplete(URBCompleteStatus Status, purbb_t pURB, pregs *pt_regs);
+USBHST_STATUS RTUSBBulkOutNullFrameComplete(URBCompleteStatus Status, purbb_t pURB, pregs *pt_regs);
+USBHST_STATUS RTUSBBulkOutRTSFrameComplete(URBCompleteStatus Status, purbb_t pURB, pregs *pt_regs);
+USBHST_STATUS RTUSBBulkOutPsPollComplete(URBCompleteStatus Status, purbb_t pURB, pregs *pt_regs);
+USBHST_STATUS RTUSBBulkRxComplete(URBCompleteStatus Status, purbb_t pURB, pregs *pt_regs);
+USBHST_STATUS RTUSBBulkCmdRspEventComplete(URBCompleteStatus Status, purbb_t pURB, pregs *pt_regs);
+#ifdef MT_MAC
+USBHST_STATUS RTUSBBulkOutBCNPacketComplete(URBCompleteStatus Status, purbb_t pURB, pregs *pt_regs);
+#endif
 
 /* Fill Bulk URB Macro */
 
@@ -1430,22 +1673,22 @@ do {	\
 
 #else
 #define RTUSB_FILL_TX_BULK_URB(pUrb, pUsb_Dev, uEndpointAddress,	\
-							   pTransferBuf, BufSize, Complete, pContext, TransferDma)		\
-FILL_BULK_URB(pUrb, pUsb_Dev,	\
-			  usb_sndbulkpipe(pUsb_Dev, uEndpointAddress),	\
-			  pTransferBuf, BufSize, Complete, pContext)
+	pTransferBuf, BufSize, Complete, pContext, TransferDma)		\
+	FILL_BULK_URB(pUrb, pUsb_Dev,	\
+	usb_sndbulkpipe(pUsb_Dev, uEndpointAddress),	\
+	pTransferBuf, BufSize, Complete, pContext)
 
 #define RTUSB_FILL_HTTX_BULK_URB(pUrb, pUsb_Dev, uEndpointAddress,	\
-								 pTransferBuf, BufSize, Complete, pContext, TransferDma)		\
-FILL_BULK_URB(pUrb, pUsb_Dev,	\
-			  usb_sndbulkpipe(pUsb_Dev, uEndpointAddress),	\
-			  pTransferBuf, BufSize, Complete, pContext)
+	pTransferBuf, BufSize, Complete, pContext, TransferDma)		\
+	FILL_BULK_URB(pUrb, pUsb_Dev,	\
+	usb_sndbulkpipe(pUsb_Dev, uEndpointAddress),	\
+	pTransferBuf, BufSize, Complete, pContext)
 
 #define RTUSB_FILL_RX_BULK_URB(pUrb, pUsb_Dev, uEndpointAddress,	\
-							   pTransferBuf, BufSize,	Complete, pContext, TransferDma)	\
-FILL_BULK_URB(pUrb, pUsb_Dev,	\
-			  usb_rcvbulkpipe(pUsb_Dev, uEndpointAddress),	\
-			  pTransferBuf, BufSize, Complete, pContext)
+	pTransferBuf, BufSize,	Complete, pContext, TransferDma)	\
+	FILL_BULK_URB(pUrb, pUsb_Dev,	\
+		usb_rcvbulkpipe(pUsb_Dev, uEndpointAddress),	\
+		pTransferBuf, BufSize, Complete, pContext)
 
 #define	RTUSB_URB_DMA_MAPPING(pUrb)
 #endif
@@ -1458,7 +1701,7 @@ FILL_BULK_URB(pUrb, pUsb_Dev,	\
 		else if (RequestType == DEVICE_VENDOR_REQUEST_IN)	\
 			ret = USB_CONTROL_MSG(pUsb_Dev, usb_rcvctrlpipe(pUsb_Dev, uEndpointAddress), Request, RequestType, Value, Index, tmpBuf, TransferBufferLength, timeout);	\
 		else {	\
-			MTWF_DBG(NULL, DBG_CAT_HIF, CATHIF_USB, DBG_LVL_ERROR, "vendor request direction is failed\n");	\
+			MTWF_LOG(DBG_CAT_HIF, CATHIF_USB, DBG_LVL_ERROR, ("vendor request direction is failed\n"));	\
 			ret = -1;	\
 		}	\
 	} while (0)
@@ -1534,15 +1777,10 @@ extern int rausb_control_msg(VOID *dev,
 #define ate_print printk
 #ifdef RTMP_MAC_PCI
 #ifdef CONFIG_AP_SUPPORT
-#ifndef CONFIG_STA_SUPPORT /* avoid wrong usage when enabling P2P_SUPPORT */
 #define EEPROM_BIN_FILE_NAME  "/etc/Wireless/RT2860AP/e2p.bin"
-#endif /* CONFIG_STA_SUPPORT */
 #endif /* CONFIG_AP_SUPPORT */
-#ifdef CONFIG_STA_SUPPORT
-#define EEPROM_BIN_FILE_NAME  "/etc/Wireless/RT2860STA/e2p.bin"
-#endif /* CONFIG_STA_SUPPORT */
-#else
-#endif /* RTMP_MAC_PCI*/
+#endif /* RTMP_MAC_PCI */
+
 
 
 
@@ -1559,9 +1797,6 @@ INT RtmpOSNetDevOpsAlloc(
 
 #include "os/rt_os.h"
 
-#ifdef WIFI_MD_COEX_SUPPORT
-UCHAR mt_get_active_pci_num(void);
-#endif
 
 #ifdef MULTI_INF_SUPPORT
 #ifdef RTMP_PCI_SUPPORT
@@ -1576,11 +1811,18 @@ VOID __exit wbsys_module_exit(void);
 #endif /* RTMP_RBUS_SUPPORT */
 
 int multi_inf_adapt_reg(VOID *pAd);
+
 int multi_inf_adapt_unreg(VOID *pAd);
-int multi_inf_active_cnt(void);
+
 int multi_inf_get_count(void);
+
 int multi_inf_get_idx(VOID *pAd);
+#ifdef INTELP6_SUPPORT
+struct pci_dev* rtmp_get_pci_dev(void *pAd);
+#endif
 #endif /* MULTI_INF_SUPPORT */
+
+struct device *rtmp_get_dev(void *ad);
 
 #define RA_WEXT	0
 #define RA_NETLINK	1
@@ -1669,10 +1911,6 @@ VOID starv_timeout_log_basic(struct starv_log_entry *entry);
 #ifdef CONFIG_DBG_QDISC
 void os_system_tx_queue_dump(PNET_DEV dev);
 #endif /*CONFIG_DBG_QDISC*/
-
-
-VOID os_module_init(VOID);
-VOID os_module_exit(VOID);
 
 #endif /* __RT_LINUX_H__ */
 

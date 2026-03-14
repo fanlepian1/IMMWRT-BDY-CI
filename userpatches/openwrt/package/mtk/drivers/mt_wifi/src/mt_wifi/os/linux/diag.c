@@ -1,15 +1,34 @@
 /*
- * Copyright (c) [2020], MediaTek Inc. All rights reserved.
- *
- * This software/firmware and related documentation ("MediaTek Software") are
- * protected under relevant copyright laws.
- * The information contained herein is confidential and proprietary to
- * MediaTek Inc. and/or its licensors.
- * Except as otherwise provided in the applicable licensing terms with
- * MediaTek Inc. and/or its licensors, any reproduction, modification, use or
- * disclosure of MediaTek Software, and information contained herein, in whole
- * or in part, shall be strictly prohibited.
-*/
+  * Copyright (c) 2016 MediaTek Inc.  All rights reserved.
+  *
+  * This software is available to you under a choice of one of two
+  * licenses.  You may choose to be licensed under the terms of the GNU
+  * General Public License (GPL) Version 2, available from the file
+  * COPYING in the main directory of this source tree, or the
+  * BSD license below:
+  *
+  *     Redistribution and use in source and binary forms, with or
+  *     without modification, are permitted provided that the following
+  *     conditions are met:
+  *
+  *      - Redistributions of source code must retain the above
+  *        copyright notice, this list of conditions and the following
+  *        disclaimer.
+  *
+  *      - Redistributions in binary form must reproduce the above
+  *        copyright notice, this list of conditions and the following
+  *        disclaimer in the documentation and/or other materials
+  *        provided with the distribution.
+  *
+  * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+  * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+  * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+  * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
+  * BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
+  * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
+  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+  * SOFTWARE.
+  */
 
 #ifdef WIFI_DIAG
 #include <linux/kernel.h>
@@ -26,6 +45,7 @@
 #include "rtmp_comm.h"
 #include "dot11_base.h"
 
+#define DIAG_PRINT(Level, Fmt)  MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, Level, Fmt)
 
 #if KERNEL_VERSION(3, 10, 0) <= LINUX_VERSION_CODE
 #define GET_PRIV_DATA_FROM_INODE(inode)		PDE_DATA(inode)
@@ -117,8 +137,6 @@ typedef struct _DIAG_CTRL {
 	NDIS_SPIN_LOCK assoc_error_lock;
 
 	DIAG_WIFI_PROCESS_INFO process_info;
-	PRTMP_ADAPTER pAd;
-	UCHAR channel;
 } DIAG_CTRL;
 
 
@@ -272,7 +290,8 @@ void diag_get_frame_info(
 			break;
 
 		default:
-			MTWF_DBG(NULL, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_ERROR, "not handled MGMT frme, subtype=%d\n", pHeader->FC.SubType);
+			DIAG_PRINT(DBG_LVL_TRACE, ("%s, not handled MGMT frme, subtype=%d\n",
+				__func__, pHeader->FC.SubType));
 			break;
 		}
 	} else if (pHeader->FC.Type == FC_TYPE_CNTL) {
@@ -299,7 +318,8 @@ void diag_get_frame_info(
 			break;
 
 		default:
-			MTWF_DBG(NULL, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_ERROR, "not handled CNTL frme, subtype=%d\n", pHeader->FC.SubType);
+			DIAG_PRINT(DBG_LVL_TRACE, ("%s, not handled CNTL frme, subtype=%d\n",
+				__func__, pHeader->FC.SubType));
 			break;
 		}
 	}
@@ -364,7 +384,7 @@ void diag_frame_cache(DIAG_FRAME_INFO *info, DIAG_CTRL *pCtrl)
 		pCtrl->diag_log_write_idx =
 			(pCtrl->diag_log_write_idx + 1) % DIAG_LOG_BUFF_SIZE;
 	} else {
-		MTWF_DBG(NULL, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_ERROR, "diag_log_entry array full\n");
+		DIAG_PRINT(DBG_LVL_ERROR, ("%s, diag_log_entry array full\n", __func__));
 	}
 
 	RTMP_INT_UNLOCK(&pCtrl->diag_log_lock, flags);
@@ -372,60 +392,28 @@ void diag_frame_cache(DIAG_FRAME_INFO *info, DIAG_CTRL *pCtrl)
 
 static int diag_statistic_proc_show(struct seq_file *m, void *v)
 {
-	DIAG_CTRL *pCtrl = (DIAG_CTRL *)m->private;
-	PRTMP_ADAPTER pAd = NULL;
+	PRTMP_ADAPTER pAd = (PRTMP_ADAPTER)m->private;
 	ULONG txCount = 0;
 	ULONG rxCount = 0;
 	ULONG txFails = 0;
-	UINT8 dbdc_idx = 0;
-	struct _RTMP_CHIP_CAP *cap = NULL;
-
-	if (pCtrl == NULL) {
-		MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_ERROR, "pCtrl is NULL\n");
-		return -EFAULT;
-	}
-	pAd = pCtrl->pAd;
-	if (pAd == NULL) {
-		MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_ERROR, "pAd is NULL\n");
-		return -EFAULT;
-	}
-	cap = hc_get_chip_cap(pAd->hdev_ctrl);
-
-#ifdef DBDC_MODE
-	if (pAd->CommonCfg.dbdc_mode == TRUE) {
-		if (pCtrl->channel > 14)
-			dbdc_idx = 1;
-		else
-			dbdc_idx = 0;
-	} else
-		dbdc_idx = 0;
-#else
-	dbdc_idx = 0;
-#endif
-
-	MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO, "dbdc_idx=%d\n", dbdc_idx);
+	UINT8 ucBand = BAND0;
 
 #ifdef RACTRL_FW_OFFLOAD_SUPPORT
-	if (cap->fgRateAdaptFWOffload == TRUE) {
+	{
 		EXT_EVENT_TX_STATISTIC_RESULT_T rTxStatResult;
 		memset(&rTxStatResult, 0, sizeof(rTxStatResult));
-		MtCmdGetTxStatistic(pAd, GET_TX_STAT_TOTAL_TX_CNT, dbdc_idx, 0, &rTxStatResult);
-		pAd->WlanCounters[dbdc_idx].TransmittedFragmentCount.u.LowPart += (rTxStatResult.u4TotalTxCount -
+		MtCmdGetTxStatistic(pAd, GET_TX_STAT_TOTAL_TX_CNT, ucBand, 0, &rTxStatResult);
+		pAd->WlanCounters[ucBand].TransmittedFragmentCount.u.LowPart += (rTxStatResult.u4TotalTxCount -
 				rTxStatResult.u4TotalTxFailCount);
-		pAd->WlanCounters[dbdc_idx].FailedCount.u.LowPart += rTxStatResult.u4TotalTxFailCount;
-		pAd->WlanCounters[dbdc_idx].CurrentBwTxCount.u.LowPart += rTxStatResult.u4CurrBwTxCnt;
-		pAd->WlanCounters[dbdc_idx].OtherBwTxCount.u.LowPart += rTxStatResult.u4OtherBwTxCnt;
+		pAd->WlanCounters[ucBand].FailedCount.u.LowPart += rTxStatResult.u4TotalTxFailCount;
+		pAd->WlanCounters[ucBand].CurrentBwTxCount.u.LowPart += rTxStatResult.u4CurrBwTxCnt;
+		pAd->WlanCounters[ucBand].OtherBwTxCount.u.LowPart += rTxStatResult.u4OtherBwTxCnt;
 	}
 #endif /* RACTRL_FW_OFFLOAD_SUPPORT */
 
-#if defined(MT7915) || defined(MT7986) || defined(MT7916) || defined(MT7981)
-	if (IS_MT7915(pAd) || IS_MT7986(pAd) || IS_MT7916(pAd) || IS_MT7981(pAd))
-		rxCount = (ULONG)pAd->WlanCounters[dbdc_idx].RxMpduCount.QuadPart;
-	else
-#endif
-		rxCount = pAd->WlanCounters[dbdc_idx].ReceivedFragmentCount.QuadPart;
-	txCount = pAd->WlanCounters[dbdc_idx].TransmittedFragmentCount.u.LowPart;
-	txFails = pAd->WlanCounters[dbdc_idx].FailedCount.u.LowPart;
+	txCount = pAd->WlanCounters[ucBand].TransmittedFragmentCount.u.LowPart;
+	rxCount = pAd->WlanCounters[ucBand].ReceivedFragmentCount.QuadPart;
+	txFails = pAd->WlanCounters[ucBand].FailedCount.u.LowPart;
 
 	seq_printf(m, "tx_packets:%ld\n", txCount);
 	seq_printf(m, "rx_packets:%ld\n", rxCount);
@@ -441,12 +429,8 @@ static int diag_statistic_proc_open(struct inode *inode, struct file *file)
 
 static int diag_duration_proc_show(struct seq_file *m, void *v)
 {
-	DIAG_CTRL *pCtrl = (DIAG_CTRL *)m->private;
-
-	if (pCtrl == NULL) {
-		MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_ERROR, "pCtrl is NULL\n");
-		return -EFAULT;
-	}
+	PRTMP_ADAPTER pAd = (PRTMP_ADAPTER)m->private;
+	DIAG_CTRL *pCtrl = pAd->pDiagCtrl;
 
 	seq_printf(m, "%d\n", pCtrl->diag_duration);
 	return 0;
@@ -460,6 +444,7 @@ static int diag_duration_proc_open(struct inode *inode, struct file *file)
 static ssize_t diag_duration_proc_write(struct file *file, const char __user *buffer,
 	size_t count, loff_t *pos)
 {
+	PRTMP_ADAPTER pAd = NULL;
 	DIAG_CTRL *pCtrl = NULL;
 	unsigned int val = 0;
 	UCHAR buf[10];
@@ -467,11 +452,10 @@ static ssize_t diag_duration_proc_write(struct file *file, const char __user *bu
 	if ((file == NULL) || (buffer == NULL))
 		return -EFAULT;
 
-	pCtrl = (DIAG_CTRL *)GET_PRIV_DATA_FROM_FILE(file);
-	if (pCtrl == NULL) {
-		MTWF_DBG(NULL, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_ERROR, "pCtrl is NULL\n");
+	pAd = GET_PRIV_DATA_FROM_FILE(file);
+	pCtrl = pAd->pDiagCtrl;
+	if (pCtrl == NULL)
 		return -EFAULT;
-	}
 
 	memset(buf, 0, sizeof(buf));
 	if (copy_from_user(buf, buffer, min(sizeof(buf), count)))
@@ -480,9 +464,9 @@ static ssize_t diag_duration_proc_write(struct file *file, const char __user *bu
 	val = simple_strtol(buf, NULL, 10);
 	if ((val <= 300) && (val >= 60)) {
 		pCtrl->diag_duration = val;
-		MTWF_DBG(NULL, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO, "set duraion %d, band=%d.\n", val, pCtrl->diag_band);
+		DIAG_PRINT(DBG_LVL_TRACE, ("%s set duraion %d.\n", __func__, val));
 	} else {
-		MTWF_DBG(NULL, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_ERROR, "rang error, valid rang is [60,300].\n");
+		DIAG_PRINT(DBG_LVL_ERROR, ("%s rang error, valid rang is [60,300].\n", __func__));
 		return -EFAULT;
 	}
 	return count;
@@ -490,12 +474,8 @@ static ssize_t diag_duration_proc_write(struct file *file, const char __user *bu
 
 static int diag_enable_proc_show(struct seq_file *m, void *v)
 {
-	DIAG_CTRL *pCtrl = (DIAG_CTRL *)m->private;
-
-	if (pCtrl == NULL) {
-		MTWF_DBG(NULL, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_ERROR, "pCtrl is NULL\n");
-		return -EFAULT;
-	}
+	PRTMP_ADAPTER pAd = (PRTMP_ADAPTER)m->private;
+	DIAG_CTRL *pCtrl = pAd->pDiagCtrl;
 
 	seq_printf(m, "%d\n", pCtrl->diag_enable);
 	return 0;
@@ -519,17 +499,10 @@ static ssize_t diag_enable_proc_write(struct file *file, const char __user *buff
 	if ((file == NULL) || (buffer == NULL))
 		return -EFAULT;
 
-	pCtrl = (DIAG_CTRL *)GET_PRIV_DATA_FROM_FILE(file);
-	if (pCtrl == NULL) {
-		MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_ERROR, "pCtrl is NULL\n");
+	pAd = GET_PRIV_DATA_FROM_FILE(file);
+	pCtrl = pAd->pDiagCtrl;
+	if (pCtrl == NULL)
 		return -EFAULT;
-	}
-
-	pAd = pCtrl->pAd;
-	if (pAd == NULL) {
-		MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_ERROR, "pAd is NULL\n");
-		return -EFAULT;
-	}
 
 	memset(buf, 0, sizeof(buf));
 	if (copy_from_user(buf, buffer, min(sizeof(buf), count)))
@@ -537,7 +510,7 @@ static ssize_t diag_enable_proc_write(struct file *file, const char __user *buff
 
 	val = simple_strtol(buf, NULL, 10);
 	if (val > 1) {
-		MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_ERROR, "rang error, valid rang is [0,1].\n");
+		DIAG_PRINT(DBG_LVL_ERROR, ("%s rang error, valid rang is [0,1].\n", __func__));
 		return -EFAULT;
 	}
 
@@ -546,7 +519,7 @@ static ssize_t diag_enable_proc_write(struct file *file, const char __user *buff
 	OS_WAIT(500);
 
 	if (val !=  0) {
-		MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO, "Flush diag_log file\n");
+		DIAG_PRINT(DBG_LVL_OFF, ("Flush diag_log file\n"));
 		memset(pCtrl->diag_log_entry, 0, DIAG_LOG_BUFF_SIZE*sizeof(DIAG_LOG_ENTRY));
 		pCtrl->diag_log_read_idx = 0;
 		pCtrl->diag_log_write_idx = 0;
@@ -567,18 +540,13 @@ static ssize_t diag_enable_proc_write(struct file *file, const char __user *buff
 
 static int diag_ch_occ_proc_show(struct seq_file *m, void *v)
 {
-	DIAG_CTRL *pCtrl = NULL;
+	PRTMP_ADAPTER pAd = (PRTMP_ADAPTER)m->private;
+	DIAG_CTRL *pCtrl = pAd->pDiagCtrl;
 	UINT32 ch_occ = 0;
 	CHAR *band = NULL;
 	UCHAR ch = 0;
 
-	pCtrl = (DIAG_CTRL *)m->private;
-	if (pCtrl == NULL) {
-		MTWF_DBG(NULL, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_ERROR, "pCtrl is NULL\n");
-		return -EFAULT;
-	}
-
-	ch = pCtrl->channel;
+	ch = pAd->ApCfg.MBSSID[0].wdev.channel;
 	ch_occ = (100 * pCtrl->busy_time)/1000;
 	seq_puts(m, "Channel\tBand\tOccupancy\n");
 	if (ch < 14)
@@ -597,82 +565,45 @@ static int diag_ch_occ_proc_open(struct inode *inode, struct file *file)
 
 static int diag_sta_proc_show(struct seq_file *m, void *v)
 {
-	PRTMP_ADAPTER pAd = NULL;
-	DIAG_CTRL *pCtrl = NULL;
+	PRTMP_ADAPTER pAd = (PRTMP_ADAPTER)m->private;
 	PMAC_TABLE_ENTRY pEntry = NULL;
 #ifdef RACTRL_FW_OFFLOAD_SUPPORT
 	EXT_EVENT_TX_STATISTIC_RESULT_T rTxStatResult;
 #endif
 	INT i = 0;
-	UINT8 dbdc_idx = 0;
+	UINT8 ucBand = BAND0;
 	UINT32 pecent;
 	UINT32 deci;
 	UINT32 tx_suc;
-	UINT16 wtbl_max_num = 0;
-	UCHAR apidx = 0;
-	struct _RTMP_CHIP_CAP *cap = NULL;
-
-	pCtrl = (DIAG_CTRL *)m->private;
-	if (pCtrl == NULL) {
-		MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_ERROR, "pCtrl is NULL\n");
-		return -EFAULT;
-	}
-
-	pAd = pCtrl->pAd;
-	if (pAd == NULL) {
-		MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_ERROR, "pAd is NULL\n");
-		return -EFAULT;
-	}
-
-	cap = hc_get_chip_cap(pAd->hdev_ctrl);
-	wtbl_max_num = WTBL_MAX_NUM(pAd);
-	dbdc_idx = HcGetBandByWdev(&pAd->ApCfg.MBSSID[apidx].wdev);
 
 	seq_puts(m, "STA:             \tSNR  \tRSSI   \tTXSUCC\n");
-	for (i = 0; i < wtbl_max_num; i++) {
+	for (i = 0; i < MAX_LEN_OF_MAC_TABLE; i++) {
 		pEntry = &pAd->MacTab.Content[i];
 
 		if (pEntry->EntryType != ENTRY_CLIENT)
 			continue;
-
-		apidx = pEntry->func_tb_idx;
-		if ((pCtrl->diag_band == DIAG_BAND_2G && WMODE_CAP_5G(&pAd->ApCfg.MBSSID[apidx].wdev.PhyMode)) ||
-		(pCtrl->diag_band == DIAG_BAND_5G && WMODE_CAP_2G(pAd->ApCfg.MBSSID[apidx].wdev.PhyMode)))
-			continue;
-
-		seq_printf(m, MACSTR, (MAC2STR(pEntry->Addr)));
+		seq_printf(m, "%02X:%02X:%02X:%02X:%02X:%02X", PRINT_MAC(pEntry->Addr));
 		seq_printf(m, "\t%d", pEntry->RssiSample.AvgSnr[0]);
 		seq_printf(m, "\t%d", RTMPAvgRssi(pAd, &pEntry->RssiSample));
 
 #ifdef RACTRL_FW_OFFLOAD_SUPPORT
-		if (cap->fgRateAdaptFWOffload == TRUE) {
-			memset(&rTxStatResult, 0, sizeof(EXT_EVENT_TX_STATISTIC_RESULT_T));
-			MtCmdGetTxStatistic(pAd,
-				GET_TX_STAT_TOTAL_TX_CNT, dbdc_idx,
-				pEntry->wcid, &rTxStatResult);
-			tx_suc = rTxStatResult.u4TotalTxCount - rTxStatResult.u4TotalTxFailCount;
-
-			MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_DEBUG, "tx_succ=%d, tx_total=%d\n", tx_suc, rTxStatResult.u4TotalTxCount);
-
-			if ((rTxStatResult.u4TotalTxCount > 0) && (tx_suc <= rTxStatResult.u4TotalTxCount)) {
-				pecent = (UINT32)((100 * tx_suc)/rTxStatResult.u4TotalTxCount);
-				deci = (UINT32)((100 * tx_suc)%rTxStatResult.u4TotalTxCount);
-				deci = (UINT32)((100 * deci)/rTxStatResult.u4TotalTxCount);
-			} else {
-				pecent = 100;
-				deci = 0;
-			}
+		memset(&rTxStatResult, 0, sizeof(EXT_EVENT_TX_STATISTIC_RESULT_T));
+		MtCmdGetTxStatistic(pAd,
+			GET_TX_STAT_ENTRY_TX_CNT, 0/*Don't Care*/,
+			pEntry->wcid, &rTxStatResult);
+		tx_suc = rTxStatResult.u4EntryTxCount - rTxStatResult.u4EntryTxFailCount;
+		if ((rTxStatResult.u4EntryTxCount > 0) && (tx_suc <= rTxStatResult.u4EntryTxCount)) {
+			pecent = (UINT32)((100 * tx_suc)/rTxStatResult.u4EntryTxCount);
+			deci = (UINT32)((100 * tx_suc)%rTxStatResult.u4EntryTxCount);
+			deci = (UINT32)((100 * deci)/rTxStatResult.u4EntryTxCount);
+		} else {
+			pecent = 100;
+			deci = 0;
 		}
 #endif
 		seq_printf(m, "\t%d.%02d\n", pecent, deci);
 	}
-
-#if defined(MT7915) || defined(MT7986) || defined(MT7916) || defined(MT7981)
-	if (IS_MT7915(pAd) || IS_MT7986(pAd) || IS_MT7916(pAd) || IS_MT7981(pAd))
-		seq_printf(m, "RXCRCERR: %d\n", pAd->WlanCounters[dbdc_idx].RxFcsErrorCount.u.LowPart);
-	else
-#endif
-		seq_printf(m, "RXCRCERR: %d\n", pAd->WlanCounters[dbdc_idx].FCSErrorCount.u.LowPart);
+	seq_printf(m, "RXCRCERR: %d\n", pAd->WlanCounters[ucBand].FCSErrorCount.u.LowPart);
 	return 0;
 }
 
@@ -723,38 +654,7 @@ static const struct file_operations diag_sta_proc_fops = {
 	.release	= single_release,
 };
 
-#if defined(MT7663) || defined(MT7915) || defined(MT7986) || defined(MT7916) || defined(MT7981)
-void diag_get_snr(RTMP_ADAPTER *pAd, UINT16 wcid, UCHAR *pData)
-{
-	CHAR avgSnr;
-	PMAC_TABLE_ENTRY pEntry = &pAd->MacTab.Content[wcid];
-
-
-#if defined(MT7915) || defined(MT7986) || defined(MT7916) || defined(MT7981)
-	if (IS_MT7915(pAd) || IS_MT7986(pAd) || IS_MT7916(pAd) || IS_MT7981(pAd)) {
-		struct rxd_grp_3 *rxd_grp3 = (struct rxd_grp_3 *)pData;
-
-		if (rxd_grp3 && (wcid < MAX_LEN_OF_MAC_TABLE))
-			avgSnr = ((rxd_grp3->rxd_17) & BITS(13, 18)) >> 13;
-	}
-#endif
-	/* real SNR is read value -16.
-		The real SNR may < 0, it's right, but customer may feel strange.
-		so if real SNR < 0, treate it as 0. */
-	avgSnr = (avgSnr >= 16) ? (avgSnr - 16) : 0;
-
-	/* moving average */
-	if (pEntry->RssiSample.AvgSnr[0])
-		pEntry->RssiSample.AvgSnr[0] = (((pEntry->RssiSample.AvgSnr[0] * 7) + avgSnr) >> 3);
-	else
-		pEntry->RssiSample.AvgSnr[0] = avgSnr;
-
-	MTWF_DBG(pAd, DBG_CAT_RX, DBG_SUBCAT_ALL, DBG_LVL_DEBUG,
-		"DiagAvgSnr:%d\n", pEntry->RssiSample.AvgSnr[0]);
-}
-#endif
-
-void diag_var_dir_mk(ENUM_DIAG_BAND diag_band)
+void DiagVarDirMk(ENUM_DIAG_BAND diag_band)
 {
 	RTMP_OS_FS_INFO osFSInfo;
 	int ret = 0;
@@ -766,12 +666,13 @@ void diag_var_dir_mk(ENUM_DIAG_BAND diag_band)
 	if (ret != 0) {
 		ret = sys_mkdir(DIAG_VAR_PATH, 0777);
 		if (ret < 0)
-			MTWF_DBG(NULL, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_ERROR, "Error create directory %s\n", DIAG_VAR_PATH);
+			DIAG_PRINT(DBG_LVL_ERROR, ("%s, Error create directory %s\n", __func__, DIAG_VAR_PATH));
 	}
 	for (i = 0; i < DIAG_VAR_FILE_NUM; i++) {
 		fd = RtmpOSFileOpen(DIAG_VAR_FILE_LIST[diag_band][i], O_CREAT | O_TRUNC, S_IRWXU | S_IRWXG | S_IRWXO);
 		if (IS_FILE_OPEN_ERR(fd))
-			MTWF_DBG(NULL, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_ERROR, "Error create %s\n", DIAG_VAR_FILE_LIST[diag_band][i]);
+			DIAG_PRINT(DBG_LVL_ERROR,
+				("%s, Error create %s\n", __func__, DIAG_VAR_FILE_LIST[diag_band][i]));
 		else
 			RtmpOSFileClose(fd);
 	}
@@ -779,7 +680,7 @@ void diag_var_dir_mk(ENUM_DIAG_BAND diag_band)
 	RtmpOSFSInfoChange(&osFSInfo, FALSE);
 }
 
-void diag_proc_dir_mk(ENUM_DIAG_BAND diag_band)
+void DiagProcDirMk(ENUM_DIAG_BAND diag_band)
 {
 	RTMP_OS_FS_INFO osFSInfo;
 	RTMP_OS_FD fd = NULL;
@@ -788,7 +689,7 @@ void diag_proc_dir_mk(ENUM_DIAG_BAND diag_band)
 	UCHAR tmpbuf[64];
 	UCHAR diag_2G = 0, diag_5G = 0;
 
-	MTWF_DBG(NULL, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO, "diag_band:%d\n", diag_band);
+	DIAG_PRINT(DBG_LVL_OFF, ("%s diag_band:%d\n", __func__, diag_band));
 
 	memset(buf, 0, 64);
 	memset(tmpbuf, 0, 64);
@@ -797,30 +698,30 @@ void diag_proc_dir_mk(ENUM_DIAG_BAND diag_band)
 	RtmpOSFSInfoChange(&osFSInfo, TRUE);
 	fd = RtmpOSFileOpen(DIAG_STATUS_FILE, O_CREAT | O_RDONLY, S_IRWXU | S_IRWXG | S_IRWXO);
 	if (IS_FILE_OPEN_ERR(fd)) {
-		MTWF_DBG(NULL, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_ERROR, "open DIAG_STATUS_FILE for read failed\n");
+		DIAG_PRINT(DBG_LVL_ERROR, ("%s, open DIAG_STATUS_FILE for read failed\n", __func__));
 	} else {
 		if (RtmpOSFileRead(fd, buf, buf_size - 1) > 0) {
 			if (RTMPGetKeyParameter("2G_WIFI_DIAG", tmpbuf, 64, buf, TRUE)) {
 				diag_2G = (UCHAR)simple_strtol(tmpbuf, 0, 10);
-				MTWF_DBG(NULL, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO, "diag_2G=%d\n", diag_2G);
+				DIAG_PRINT(DBG_LVL_ERROR, ("%s, diag_2G=%d\n", __func__, diag_2G));
 			}
 			if (RTMPGetKeyParameter("5G_WIFI_DIAG", tmpbuf, 64, buf, TRUE)) {
 				diag_5G = (UCHAR)simple_strtol(tmpbuf, 0, 10);
-				MTWF_DBG(NULL, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO, "diag_5G=%d\n", diag_5G);
+				DIAG_PRINT(DBG_LVL_ERROR, ("%s, diag_5G=%d\n", __func__, diag_5G));
 			}
 		}
 		RtmpOSFileClose(fd);
 	}
 
 	if ((diag_2G == 0) && (diag_5G == 0)) {
-		MTWF_DBG(NULL, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-			" dir %s may not exist, create it\n", DIAG_PROC_PATH);
+		DIAG_PRINT(DBG_LVL_ERROR,
+			("%s  dir %s may not exist, create it\n", __func__, DIAG_PROC_PATH));
 		proc_mkdir(DIAG_PROC_PATH, NULL);
 	}
 
 	fd = RtmpOSFileOpen(DIAG_STATUS_FILE, O_CREAT | O_WRONLY | O_TRUNC, S_IRWXU | S_IRWXG | S_IRWXO);
 	if (IS_FILE_OPEN_ERR(fd)) {
-		MTWF_DBG(NULL, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_ERROR, "open DIAG_STATUS_FILE for write failed\n");
+		DIAG_PRINT(DBG_LVL_ERROR, ("%s, open DIAG_STATUS_FILE for write failed\n", __func__));
 	} else {
 		char *diag_stat_str = NULL;
 
@@ -844,7 +745,7 @@ void diag_proc_dir_mk(ENUM_DIAG_BAND diag_band)
 }
 
 
-void diag_proc_dir_rm(ENUM_DIAG_BAND diag_band)
+void DiagProcDirRm(ENUM_DIAG_BAND diag_band)
 {
 	RTMP_OS_FS_INFO osFSInfo;
 	RTMP_OS_FD fd = NULL;
@@ -853,7 +754,7 @@ void diag_proc_dir_rm(ENUM_DIAG_BAND diag_band)
 	UCHAR tmpbuf[64];
 	UCHAR diag_2G = 0, diag_5G = 0;
 
-	MTWF_DBG(NULL, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO, "diag_band:%d\n", diag_band);
+	DIAG_PRINT(DBG_LVL_OFF, ("%s diag_band:%d\n", __func__, diag_band));
 
 	memset(buf, 0, 64);
 	memset(tmpbuf, 0, 64);
@@ -862,16 +763,16 @@ void diag_proc_dir_rm(ENUM_DIAG_BAND diag_band)
 	RtmpOSFSInfoChange(&osFSInfo, TRUE);
 	fd = RtmpOSFileOpen(DIAG_STATUS_FILE, O_CREAT | O_RDONLY, S_IRWXU | S_IRWXG | S_IRWXO);
 	if (IS_FILE_OPEN_ERR(fd)) {
-		MTWF_DBG(NULL, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_ERROR, "open DIAG_STATUS_FILE failed\n");
+		DIAG_PRINT(DBG_LVL_ERROR, ("%s, open DIAG_STATUS_FILE failed\n", __func__));
 	} else {
 		if (RtmpOSFileRead(fd, buf, buf_size - 1) > 0) {
 			if (RTMPGetKeyParameter("2G_WIFI_DIAG", tmpbuf, 64, buf, TRUE)) {
 				diag_2G = (UCHAR)simple_strtol(tmpbuf, 0, 10);
-				MTWF_DBG(NULL, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO, "diag_2G=%d\n", diag_2G);
+				DIAG_PRINT(DBG_LVL_TRACE, ("%s, diag_2G=%d\n", __func__, diag_2G));
 			}
 			if (RTMPGetKeyParameter("5G_WIFI_DIAG", tmpbuf, 64, buf, TRUE)) {
 				diag_5G = (UCHAR)simple_strtol(tmpbuf, 0, 10);
-				MTWF_DBG(NULL, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO, "diag_5G=%d\n", diag_5G);
+				DIAG_PRINT(DBG_LVL_TRACE, ("%s, diag_5G=%d\n", __func__, diag_5G));
 			}
 		}
 		RtmpOSFileClose(fd);
@@ -879,13 +780,13 @@ void diag_proc_dir_rm(ENUM_DIAG_BAND diag_band)
 
 	if (((diag_band == DIAG_BAND_2G) && (diag_5G == 0)) ||
 		((diag_band == DIAG_BAND_5G) && (diag_2G == 0))) {
-		MTWF_DBG(NULL, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO, "remove proc/ctcwifi\n");
+		DIAG_PRINT(DBG_LVL_OFF, ("%s, remove proc/ctcwifi\n", __func__));
 		remove_proc_entry(DIAG_PROC_PATH, NULL);
 	}
 
 	fd = RtmpOSFileOpen(DIAG_STATUS_FILE, O_CREAT | O_WRONLY | O_TRUNC, S_IRWXU | S_IRWXG | S_IRWXO);
 	if (IS_FILE_OPEN_ERR(fd)) {
-		MTWF_DBG(NULL, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_ERROR, "open DIAG_STATUS_FILE for write failed\n");
+		DIAG_PRINT(DBG_LVL_ERROR, ("%s, open DIAG_STATUS_FILE for write failed\n", __func__));
 	} else {
 		char *diag_stat_str = NULL;
 
@@ -908,7 +809,7 @@ void diag_proc_dir_rm(ENUM_DIAG_BAND diag_band)
 	RtmpOSFSInfoChange(&osFSInfo, FALSE);
 }
 
-void diag_proc_entry_init(ENUM_DIAG_BAND diag_band, DIAG_CTRL *pCtrl)
+void DiagProcEntryInit(ENUM_DIAG_BAND diag_band, PRTMP_ADAPTER pAd)
 {
 	const struct file_operations *DIAG_PROC_FOPS[5] = {
 		&diag_statistic_proc_fops,
@@ -919,14 +820,14 @@ void diag_proc_entry_init(ENUM_DIAG_BAND diag_band, DIAG_CTRL *pCtrl)
 	};
 	int i;
 
-	MTWF_DBG(NULL, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO, "diag_band:%d\n", diag_band);
+	DIAG_PRINT(DBG_LVL_TRACE, ("%s pAd:%p diag_band:%d\n", __func__, pAd, diag_band));
 
 	for (i = 0; i < DIAG_PROC_FILE_NUM; i++)
 		proc_create_data(DIAG_PROC_FILE_LIST[diag_band][i], S_IRWXU | S_IRWXG | S_IRWXO, NULL,
-				 DIAG_PROC_FOPS[i], pCtrl);
+				 DIAG_PROC_FOPS[i], pAd);
 }
 
-void diag_proc_entry_deinit(ENUM_DIAG_BAND diag_band)
+void DiagProcEntryDeinit(ENUM_DIAG_BAND diag_band)
 {
 	int i;
 
@@ -934,77 +835,53 @@ void diag_proc_entry_deinit(ENUM_DIAG_BAND diag_band)
 		remove_proc_entry(DIAG_PROC_FILE_LIST[diag_band][i], 0);
 }
 
-void diag_ctrl_alloc(PRTMP_ADAPTER pAd)
+void DiagCtrlAlloc(PRTMP_ADAPTER pAd)
 {
 	DIAG_CTRL *pCtrl = NULL;
 	UCHAR index = 0;
-	UCHAR dbdc_idx = 0;
 
-	MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO, "pAd:%p\n", pAd);
+	DIAG_PRINT(DBG_LVL_OFF, ("%s pAd:%p\n", __func__, pAd));
 
-	for (dbdc_idx = 0; dbdc_idx < DBDC_BAND_NUM; dbdc_idx++) {
-		os_alloc_mem(NULL, (UCHAR **)&pCtrl, sizeof(DIAG_CTRL));
-		if (pCtrl == NULL) {
-			MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-				"fail to allocate pDiagCtrl memory dbdc_idx=%d\n", dbdc_idx);
-			return;
-		}
-		memset(pCtrl, 0, sizeof(DIAG_CTRL));
-
-		for (index = 0; index < DIAG_PROCESS_NUM_MAX; index++)
-			pCtrl->process_info.entry[index].pid = -1;
-
-		pCtrl->diag_enable = 0;
-		pCtrl->diag_duration = 60;
-
-		pAd->pDiagCtrl[dbdc_idx] = pCtrl;
+	os_alloc_mem(NULL, (UCHAR **)&pCtrl, sizeof(DIAG_CTRL));
+	if (pCtrl == NULL) {
+		DIAG_PRINT(DBG_LVL_ERROR,
+			("%s fail to allocate pDiagCtrl memory\n", __func__));
+		return;
 	}
+	memset(pCtrl, 0, sizeof(DIAG_CTRL));
+
+	for (index = 0; index < DIAG_PROCESS_NUM_MAX; index++)
+		pCtrl->process_info.entry[index].pid = -1;
+
+	pCtrl->diag_enable = 0;
+	pCtrl->diag_duration = 60;
+
+	pAd->pDiagCtrl = pCtrl;
 }
 
-void diag_ctrl_free(PRTMP_ADAPTER pAd)
+void DiagCtrlFree(PRTMP_ADAPTER pAd)
 {
-	UCHAR dbdc_idx = 0;
-	MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO, "pAd:%p\n", pAd);
+	DIAG_PRINT(DBG_LVL_OFF, ("%s pAd:%p\n", __func__, pAd));
 
-	for (dbdc_idx = 0; dbdc_idx < DBDC_BAND_NUM; dbdc_idx++) {
-		if (pAd->pDiagCtrl[dbdc_idx])
-			os_free_mem(pAd->pDiagCtrl[dbdc_idx]);
-		pAd->pDiagCtrl[dbdc_idx] = NULL;
-	}
+	if (pAd->pDiagCtrl)
+		os_free_mem(pAd->pDiagCtrl);
+	pAd->pDiagCtrl = NULL;
 }
 
-void diag_add_pid(OS_TASK *pTask)
+void DiagAddPid(OS_TASK *pTask)
 {
-	PRTMP_ADAPTER	pAd = NULL;
-	DIAG_CTRL *pCtrl = NULL;
+	PRTMP_ADAPTER	pAd = (PRTMP_ADAPTER)RTMP_OS_TASK_DATA_GET(pTask);
+	DIAG_CTRL *pCtrl = pAd->pDiagCtrl;
 	UCHAR index = 0;
 
-	if (!pTask) {
-		MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_ERROR, "pTask is NULL\n");
+	if (!pCtrl)
 		return;
-	}
-
-	pAd = (PRTMP_ADAPTER)RTMP_OS_TASK_DATA_GET(pTask);
-	if (!pAd) {
-		MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_ERROR, "pAd is NULL\n");
-		return;
-	}
-
-	/* for non-DBDC mode, pAd->pDiagCtrl has 1 array element, use pDiagCtrl[0] to record task info;
-	*   for DBDC mode, pAd->pDiagCtrl has 2 array elements, but driver share the tasks, hence also
-	*    use pDiagCtrl[0] to record task info.
-	*/
-	pCtrl = pAd->pDiagCtrl[0];
-	if (!pCtrl) {
-		MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_ERROR, "pCtrl is NULL\n");
-		return;
-	}
 
 	for (index = 0; index < DIAG_PROCESS_NUM_MAX; index++) {
 		if (pCtrl->process_info.entry[index].pid == -1) {
 			pCtrl->process_info.entry[index].is_process = 0;
 #ifdef KTHREAD_SUPPORT
-			pCtrl->process_info.entry[index].pid = current->pid;
+			pCtrl->process_info.entry[index].pid = pTask->kthread_task->pid;
 #else
 			pCtrl->process_info.entry[index].pid = pTask->taskPID;
 #endif
@@ -1012,49 +889,33 @@ void diag_add_pid(OS_TASK *pTask)
 				(strlen(pTask->taskName) > (RTMP_OS_TASK_NAME_LEN-1)) ?
 				(RTMP_OS_TASK_NAME_LEN-1) : strlen(pTask->taskName));
 			pCtrl->process_info.num++;
-			MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO, "add PID=%d, name=%s, total_num=%d\n", pCtrl->process_info.entry[index].pid,
+			DIAG_PRINT(DBG_LVL_ERROR, ("%s, add PID=%d, name=%s, total_num=%d\n",
+				__func__, pCtrl->process_info.entry[index].pid,
 				pCtrl->process_info.entry[index].name,
-				pCtrl->process_info.num);
+				pCtrl->process_info.num));
 			break;
 		}
 	}
 }
 
-void diag_del_pid(OS_TASK *pTask)
+void DiagDelPid(OS_TASK *pTask)
 {
-	PRTMP_ADAPTER	pAd = NULL;
-	DIAG_CTRL *pCtrl = NULL;
+	PRTMP_ADAPTER	pAd = (PRTMP_ADAPTER)RTMP_OS_TASK_DATA_GET(pTask);
+	DIAG_CTRL *pCtrl = pAd->pDiagCtrl;
 	UCHAR index = 0;
 
-	if (!pTask) {
-		MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_ERROR, "pTask is NULL\n");
+	if (!pCtrl)
 		return;
-	}
-
-	pAd = (PRTMP_ADAPTER)RTMP_OS_TASK_DATA_GET(pTask);
-	if (!pAd) {
-		MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_ERROR, "pAd is NULL\n");
-		return;
-	}
-
-	/* for non-DBDC mode, pAd->pDiagCtrl has 1 array element, use pDiagCtrl[0] to record task info;
-	*   for DBDC mode, pAd->pDiagCtrl has 2 array elements, but driver share the tasks, hence also
-	*    use pDiagCtrl[0] to record task info.
-	*/
-	pCtrl = pAd->pDiagCtrl[0];
-	if (!pCtrl) {
-		MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_ERROR, "pCtrl is NULL\n");
-		return;
-	}
 
 	for (index = 0; index < DIAG_PROCESS_NUM_MAX; index++) {
 #ifdef KTHREAD_SUPPORT
-		if (pCtrl->process_info.entry[index].pid == current->pid)
+		if (pCtrl->process_info.entry[index].pid == pTask->kthread_task->pid)
 #else
 		if (pCtrl->process_info.entry[index].pid == pTask->taskPID)
 #endif
 		{
-			MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO, "delete PID=%d, total_num=%d\n", pCtrl->process_info.entry[index].pid, pCtrl->process_info.num);
+			DIAG_PRINT(DBG_LVL_ERROR, ("%s, delete PID=%d, total_num=%d\n",
+				__func__, pCtrl->process_info.entry[index].pid, pCtrl->process_info.num));
 			pCtrl->process_info.entry[index].is_process = 0;
 			pCtrl->process_info.entry[index].pid = -1;
 			memset(pCtrl->process_info.entry[index].name,
@@ -1065,18 +926,13 @@ void diag_del_pid(OS_TASK *pTask)
 	}
 }
 
-VOID diag_get_process_info(
+VOID DiagGetProcessInfo(
 	IN	PRTMP_ADAPTER pAd,
 	IN	RTMP_IOCTL_INPUT_STRUCT * wrq)
 {
 	DIAG_WIFI_PROCESS_INFO process_info;
 	UCHAR index = 0;
-
-	/* for non-DBDC mode, pAd->pDiagCtrl has 1 array element, use pDiagCtrl[0] to record task info;
-	*   for DBDC mode, pAd->pDiagCtrl has 2 array elements, but driver share the tasks, hence also
-	*    use pDiagCtrl[0] to record task info.
-	*/
-	DIAG_CTRL *pCtrl = pAd->pDiagCtrl[0];
+	DIAG_CTRL *pCtrl = pAd->pDiagCtrl;
 
 	if (!wrq)
 		return;
@@ -1095,32 +951,26 @@ VOID diag_get_process_info(
 
 	wrq->u.data.length = sizeof(process_info);
 	if (copy_to_user(wrq->u.data.pointer, &process_info, wrq->u.data.length))
-		MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_ERROR, "copy_to_user() fail\n");
+		DIAG_PRINT(DBG_LVL_ERROR, ("%s: copy_to_user() fail\n", __func__));
 }
 
-void diag_conn_error(PRTMP_ADAPTER pAd, UCHAR apidx, UCHAR *addr,
+void DiagConnError(PRTMP_ADAPTER pAd, UCHAR apidx, UCHAR *addr,
 	ENUM_DIAG_CONN_ERROR_CODE Code, UINT32 Reason)
 {
 	struct timex  txc;
 	DIAG_ASSOC_ERROR_ENTRY *entry;
 	ULONG flags;
 	ENUM_DIAG_CONN_ERROR_CODE DiagCode = 0;
-	DIAG_CTRL *pCtrl = NULL;
-	UCHAR dbdc_idx;
+	DIAG_CTRL *pCtrl = pAd->pDiagCtrl;
 
 	if (!addr)
 		return;
 
+	if ((!pCtrl) || (!pCtrl->init_flag))
+		return;
+
 	if (!(VALID_MBSS(pAd, apidx) && (apidx < pAd->ApCfg.BssidNum)))
 		return;
-
-	dbdc_idx = HcGetBandByWdev(wdev);
-	pCtrl = pAd->pDiagCtrl[dbdc_idx];
-
-	if ((!pCtrl) || (!pCtrl->init_flag)) {
-		MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_ERROR, "pCtrl not init\n");
-		return;
-	}
 
 	if (Code == DIAG_CONN_DEAUTH_COM)
 		diag_common_deauth_code_trans(Reason, &DiagCode);
@@ -1148,13 +998,13 @@ void diag_conn_error(PRTMP_ADAPTER pAd, UCHAR apidx, UCHAR *addr,
 		pCtrl->assoc_error_write_idx =
 			(pCtrl->assoc_error_write_idx + 1) % DIAG_ASSOC_ERROR_BUFF_SIZE;
 	} else {
-		MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_ERROR, "assoc_error_entry array full\n");
+		DIAG_PRINT(DBG_LVL_ERROR, ("%s, assoc_error_entry array full\n", __func__));
 	}
 
 	RTMP_INT_UNLOCK(&pCtrl->assoc_error_lock, flags);
 }
 
-void diag_conn_error_write(PRTMP_ADAPTER pAd)
+void DiagConnErrorWrite(PRTMP_ADAPTER pAd)
 {
 	RTMP_OS_FD fd = NULL;
 	RTMP_OS_FS_INFO osFSInfo;
@@ -1162,79 +1012,71 @@ void diag_conn_error_write(PRTMP_ADAPTER pAd)
 	UINT32 buf_size = 256;
 	DIAG_ASSOC_ERROR_ENTRY *log_entry;
 	UINT32 write_size;
-	DIAG_CTRL *pCtrl = NULL;
-	UCHAR dbdc_idx = 0;
+	DIAG_CTRL *pCtrl = pAd->pDiagCtrl;
 
-	for (dbdc_idx = 0; dbdc_idx < DBDC_BAND_NUM; dbdc_idx++) {
-		pCtrl = pAd->pDiagCtrl[dbdc_idx];
-		if ((!pCtrl) || (!pCtrl->init_flag)) {
-			MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_ERROR, "diag not init dbdc_idx=%d\n", dbdc_idx);
-			continue;
-		}
+	if ((!pCtrl) || (!pCtrl->init_flag))
+		return;
 
-		memset(buf, 0, sizeof(buf));
-		RtmpOSFSInfoChange(&osFSInfo, TRUE);
-		fd = RtmpOSFileOpen(DIAG_VAR_FILE_LIST[pCtrl->diag_band][0], O_WRONLY, 0);
+	memset(buf, 0, sizeof(buf));
+	RtmpOSFSInfoChange(&osFSInfo, TRUE);
+	fd = RtmpOSFileOpen(DIAG_VAR_FILE_LIST[pCtrl->diag_band][0], O_WRONLY, 0);
+	if (IS_FILE_OPEN_ERR(fd)) {
+		fd = RtmpOSFileOpen(DIAG_VAR_FILE_LIST[pCtrl->diag_band][0], O_CREAT, S_IRWXU | S_IRWXG | S_IRWXO);
 		if (IS_FILE_OPEN_ERR(fd)) {
-			fd = RtmpOSFileOpen(DIAG_VAR_FILE_LIST[pCtrl->diag_band][0],
-			O_CREAT, S_IRWXU | S_IRWXG | S_IRWXO);
-			if (IS_FILE_OPEN_ERR(fd)) {
-				RtmpOSFSInfoChange(&osFSInfo, FALSE);
-				MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_ERROR, "open conn_error_file fail dbdc_idx=%d\n", dbdc_idx);
-				continue;
-			}
-			pCtrl->assoc_error_file_offset = 0;
+			RtmpOSFSInfoChange(&osFSInfo, FALSE);
+			return;
 		}
-
-		RtmpOSFileSeek(fd, pCtrl->assoc_error_file_offset);
-
-		while (pCtrl->assoc_error_write_idx != pCtrl->assoc_error_read_idx) {
-			log_entry = &pCtrl->assoc_error_entry[pCtrl->assoc_error_read_idx];
-			snprintf(buf + strlen(buf),
-				buf_size -  strlen(buf),
-				"%04d-%02d-%02d %02d:%02d:%02d",
-				log_entry->tm.tm_year + 1900,
-				log_entry->tm.tm_mon + 1,
-				log_entry->tm.tm_mday,
-				log_entry->tm.tm_hour,
-				log_entry->tm.tm_min,
-				log_entry->tm.tm_sec);
-
-			snprintf(buf + strlen(buf),
-				buf_size -  strlen(buf),
-				MACSTR" %s: %s",
-				MAC2STR(log_entry->StaAddr),
-				log_entry->Ssid,
-				DIAG_CONN_ERR_INFO[log_entry->errCode]);
-
-			if (log_entry->errCode == DIAG_CONN_DEAUTH ||
-				log_entry->errCode == DIAG_CONN_FRAME_LOST ||
-				log_entry->errCode == DIAG_CONN_AUTH_FAIL)
-				snprintf(buf + strlen(buf),
-					buf_size -  strlen(buf),
-					"%d\n", log_entry->reason);
-
-			write_size = strlen(buf);
-			if ((pCtrl->assoc_error_file_offset + write_size) > DIAG_LOG_FILE_SIZE_MAX) {
-				pCtrl->assoc_error_file_offset = 0; /* overwrite from file start */
-				RtmpOSFileSeek(fd, 0);
-			}
-			RtmpOSFileWrite(fd, buf, write_size);
-			pCtrl->assoc_error_file_offset += write_size;
-
-			memset(buf, 0, buf_size);
-			memset(log_entry, 0, sizeof(DIAG_ASSOC_ERROR_ENTRY));
-
-			pCtrl->assoc_error_read_idx =
-				(pCtrl->assoc_error_read_idx + 1) % DIAG_ASSOC_ERROR_BUFF_SIZE;
-		}
-
-		RtmpOSFileClose(fd);
-		RtmpOSFSInfoChange(&osFSInfo, FALSE);
+		pCtrl->assoc_error_file_offset = 0;
 	}
+
+	RtmpOSFileSeek(fd, pCtrl->assoc_error_file_offset);
+
+	while (pCtrl->assoc_error_write_idx != pCtrl->assoc_error_read_idx) {
+		log_entry = &pCtrl->assoc_error_entry[pCtrl->assoc_error_read_idx];
+		snprintf(buf + strlen(buf),
+			buf_size -  strlen(buf),
+			"%04d-%02d-%02d %02d:%02d:%02d",
+			log_entry->tm.tm_year + 1900,
+			log_entry->tm.tm_mon + 1,
+			log_entry->tm.tm_mday,
+			log_entry->tm.tm_hour,
+			log_entry->tm.tm_min,
+			log_entry->tm.tm_sec);
+
+		snprintf(buf + strlen(buf),
+			buf_size -  strlen(buf),
+			" %02x:%02x:%02x:%02x:%02x:%02x %s: %s",
+			PRINT_MAC(log_entry->StaAddr),
+			log_entry->Ssid,
+			DIAG_CONN_ERR_INFO[log_entry->errCode]);
+
+		if (log_entry->errCode == DIAG_CONN_DEAUTH ||
+			log_entry->errCode == DIAG_CONN_FRAME_LOST ||
+			log_entry->errCode == DIAG_CONN_AUTH_FAIL)
+			snprintf(buf + strlen(buf),
+				buf_size -  strlen(buf),
+				"%d\n", log_entry->reason);
+
+		write_size = strlen(buf);
+		if ((pCtrl->assoc_error_file_offset + write_size) > DIAG_LOG_FILE_SIZE_MAX) {
+			pCtrl->assoc_error_file_offset = 0; /* overwrite from file start */
+			RtmpOSFileSeek(fd, 0);
+		}
+		RtmpOSFileWrite(fd, buf, write_size);
+		pCtrl->assoc_error_file_offset += write_size;
+
+		memset(buf, 0, buf_size);
+		memset(log_entry, 0, sizeof(DIAG_ASSOC_ERROR_ENTRY));
+
+		pCtrl->assoc_error_read_idx =
+			(pCtrl->assoc_error_read_idx + 1) % DIAG_ASSOC_ERROR_BUFF_SIZE;
+	}
+
+	RtmpOSFileClose(fd);
+	RtmpOSFSInfoChange(&osFSInfo, FALSE);
 }
 
-void diag_log_file_write(PRTMP_ADAPTER pAd)
+void DiagLogFileWrite(PRTMP_ADAPTER pAd)
 {
 	RTMP_OS_FD fd = NULL;
 	RTMP_OS_FS_INFO osFSInfo;
@@ -1244,137 +1086,132 @@ void diag_log_file_write(PRTMP_ADAPTER pAd)
 	UINT32 write_size;
 	UCHAR *pData = NULL;
 	UINT32 dataLen = 0, index = 0;
-	DIAG_CTRL *pCtrl = NULL;
-	UCHAR dbdc_idx = 0;
+	DIAG_CTRL *pCtrl = pAd->pDiagCtrl;
 
-	for (dbdc_idx = 0; dbdc_idx < DBDC_BAND_NUM; dbdc_idx++) {
-		pCtrl = pAd->pDiagCtrl[dbdc_idx];
-		if ((!pCtrl) || (!pCtrl->init_flag)) {
-			MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_ERROR, "diag not init dbdc_idx=%d\n", dbdc_idx);
-			continue;
-		}
+	if ((!pCtrl) || (!pCtrl->init_flag))
+		return;
 
-		if (pCtrl->diag_enable == 0) {
-			/*MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_ERROR, "diag_log not enable dbdc_idx=%d\n", dbdc_idx); */
-			continue;
-		}
+	if (pCtrl->diag_enable == 0)
+		return;
 
-		buf = pCtrl->diag_log_tmp_buf;
-		buf_size = 2*DIAG_FRAME_SIZE_MAX + 128;
-		memset(buf, 0, buf_size);
+	buf = pCtrl->diag_log_tmp_buf;
+	buf_size = 2*DIAG_FRAME_SIZE_MAX + 128;
+	memset(buf, 0, buf_size);
 
-		RtmpOSFSInfoChange(&osFSInfo, TRUE);
-		fd = RtmpOSFileOpen(DIAG_VAR_FILE_LIST[pCtrl->diag_band][1], O_WRONLY, 0);
+	RtmpOSFSInfoChange(&osFSInfo, TRUE);
+	fd = RtmpOSFileOpen(DIAG_VAR_FILE_LIST[pCtrl->diag_band][1], O_WRONLY, 0);
+	if (IS_FILE_OPEN_ERR(fd)) {
+		fd = RtmpOSFileOpen(DIAG_VAR_FILE_LIST[pCtrl->diag_band][1], O_CREAT, S_IRWXU | S_IRWXG | S_IRWXO);
 		if (IS_FILE_OPEN_ERR(fd)) {
-			fd = RtmpOSFileOpen(DIAG_VAR_FILE_LIST[pCtrl->diag_band][1],
-			O_CREAT, S_IRWXU | S_IRWXG | S_IRWXO);
-			if (IS_FILE_OPEN_ERR(fd)) {
-				RtmpOSFSInfoChange(&osFSInfo, FALSE);
-				MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_ERROR, "open diag_log_file fail dbdc_idx=%d\n", dbdc_idx);
-				continue;
-			}
-			pCtrl->diag_log_file_offset = 0;
+			RtmpOSFSInfoChange(&osFSInfo, FALSE);
+			return;
 		}
-
-		RtmpOSFileSeek(fd, pCtrl->diag_log_file_offset);
-
-		while (pCtrl->diag_log_write_idx != pCtrl->diag_log_read_idx) {
-
-			if (pCtrl->diag_enable == 0)
-				break;
-
-			log_entry = &pCtrl->diag_log_entry[pCtrl->diag_log_read_idx];
-
-			/* pData include 80211 header, because CNTL frame just include FCS except the 80211 header */
-			pData = log_entry->data;
-			dataLen = log_entry->data_len;
-
-			/* time */
-			if (strlen(buf) < (buf_size - 1))
-				snprintf(buf + strlen(buf),
-				buf_size -  strlen(buf),
-				"%04d-%02d-%02d %02d:%02d:%02d ",
-				log_entry->tm.tm_year + 1900,
-				log_entry->tm.tm_mon + 1,
-				log_entry->tm.tm_mday,
-				log_entry->tm.tm_hour,
-				log_entry->tm.tm_min,
-				log_entry->tm.tm_sec);
-
-			/* SSID */
-			if (strlen(buf) < (buf_size - 1))
-				snprintf(buf + strlen(buf), buf_size -  strlen(buf), log_entry->ssid);
-
-			/* sends/receives */
-			if (strlen(buf) < (buf_size - 1))
-				snprintf(buf + strlen(buf),
-					buf_size -  strlen(buf), (log_entry->isTX) ?  " sends " : " receives ");
-
-			/* frame type */
-			if (strlen(buf) < (buf_size - 1))
-				snprintf(buf + strlen(buf), buf_size -  strlen(buf), log_entry->frame_type);
-
-			if (strlen(buf) < (buf_size - 1))
-				snprintf(buf + strlen(buf), buf_size -  strlen(buf),
-				(log_entry->isTX) ? " to " : " from ");
-
-			/* STA MAC address */
-			if (strlen(buf) < (buf_size - 1)) {
-				if (!MAC_ADDR_EQUAL(log_entry->sta_addr, MAC_ADDR_ZERO))
-					snprintf(buf + strlen(buf),
-						buf_size -  strlen(buf),
-						MACSTR,
-						MAC2STR(log_entry->sta_addr));
-				else
-					snprintf(buf + strlen(buf),
-						buf_size -  strlen(buf),
-						"%s", "No-STA-Addr");
-			}
-
-			/* frame body */
-			if (strlen(buf) < (buf_size - 1))
-				snprintf(buf + strlen(buf), buf_size -  strlen(buf), "[");
-
-			for (index = 0; index < dataLen; index++) {
-				if (strlen(buf) < (buf_size - 1))
-					snprintf(buf + strlen(buf), buf_size -  strlen(buf), "%02X", pData[index]);
-			}
-
-			if (strlen(buf) < (buf_size - 1))
-				snprintf(buf + strlen(buf), buf_size -  strlen(buf), "]\n");
-
-			write_size = strlen(buf);
-			if ((pCtrl->diag_log_file_offset + write_size) > DIAG_LOG_FILE_SIZE_MAX) {
-				pCtrl->diag_log_file_offset = 0; /* overwrite from file start */
-				RtmpOSFileSeek(fd, 0);
-			}
-			RtmpOSFileWrite(fd, buf, write_size);
-			pCtrl->diag_log_file_offset += write_size;
-
-			memset(buf, 0, buf_size);
-			memset(log_entry, 0, sizeof(DIAG_LOG_ENTRY));
-
-			/* update read_idx */
-			pCtrl->diag_log_read_idx =
-				(pCtrl->diag_log_read_idx + 1) % DIAG_LOG_BUFF_SIZE;
-		}
-
-		RtmpOSFileClose(fd);
-		RtmpOSFSInfoChange(&osFSInfo, FALSE);
+		pCtrl->diag_log_file_offset = 0;
 	}
+
+	RtmpOSFileSeek(fd, pCtrl->diag_log_file_offset);
+
+	while (pCtrl->diag_log_write_idx != pCtrl->diag_log_read_idx) {
+
+		if (pCtrl->diag_enable == 0)
+			break;
+
+		log_entry = &pCtrl->diag_log_entry[pCtrl->diag_log_read_idx];
+
+		/* pData include 80211 header, because CNTL frame just include FCS except the 80211 header */
+		pData = log_entry->data;
+		dataLen = log_entry->data_len;
+
+		/* time */
+		if (strlen(buf) < (buf_size - 1))
+			snprintf(buf + strlen(buf),
+			buf_size -  strlen(buf),
+			"%04d-%02d-%02d %02d:%02d:%02d ",
+			log_entry->tm.tm_year + 1900,
+			log_entry->tm.tm_mon + 1,
+			log_entry->tm.tm_mday,
+			log_entry->tm.tm_hour,
+			log_entry->tm.tm_min,
+			log_entry->tm.tm_sec);
+
+		/* SSID */
+		if (strlen(buf) < (buf_size - 1))
+			snprintf(buf + strlen(buf), buf_size -  strlen(buf), log_entry->ssid);
+
+		/* sends/receives */
+		if (strlen(buf) < (buf_size - 1))
+			snprintf(buf + strlen(buf),
+				buf_size -  strlen(buf), (log_entry->isTX) ?  " sends " : " receives ");
+
+		/* frame type */
+		if (strlen(buf) < (buf_size - 1))
+			snprintf(buf + strlen(buf), buf_size -  strlen(buf), log_entry->frame_type);
+
+		if (strlen(buf) < (buf_size - 1))
+			snprintf(buf + strlen(buf), buf_size -  strlen(buf), (log_entry->isTX) ?  " to " : " from ");
+
+		/* STA MAC address */
+		if (strlen(buf) < (buf_size - 1)) {
+			if (!MAC_ADDR_EQUAL(log_entry->sta_addr, MAC_ADDR_ZERO))
+				snprintf(buf + strlen(buf),
+					buf_size -  strlen(buf),
+					"%02X%02X%02X%02X%02X%02X",
+					log_entry->sta_addr[0], log_entry->sta_addr[1],
+					log_entry->sta_addr[2], log_entry->sta_addr[3],
+					log_entry->sta_addr[4], log_entry->sta_addr[5]);
+			else
+				snprintf(buf + strlen(buf),
+					buf_size -  strlen(buf),
+					"%s", "No-STA-Addr");
+		}
+
+		/* frame body */
+		if (strlen(buf) < (buf_size - 1))
+			snprintf(buf + strlen(buf), buf_size -  strlen(buf), "[");
+
+		for (index = 0; index < dataLen; index++) {
+			if (strlen(buf) < (buf_size - 1))
+				snprintf(buf + strlen(buf), buf_size -  strlen(buf), "%02X", pData[index]);
+		}
+
+		if (strlen(buf) < (buf_size - 1))
+			snprintf(buf + strlen(buf), buf_size -  strlen(buf), "]\n");
+
+		write_size = strlen(buf);
+		if ((pCtrl->diag_log_file_offset + write_size) > DIAG_LOG_FILE_SIZE_MAX) {
+			pCtrl->diag_log_file_offset = 0; /* overwrite from file start */
+			RtmpOSFileSeek(fd, 0);
+		}
+		RtmpOSFileWrite(fd, buf, write_size);
+		pCtrl->diag_log_file_offset += write_size;
+
+		memset(buf, 0, buf_size);
+		memset(log_entry, 0, sizeof(DIAG_LOG_ENTRY));
+
+		/* update read_idx */
+		pCtrl->diag_log_read_idx =
+			(pCtrl->diag_log_read_idx + 1) % DIAG_LOG_BUFF_SIZE;
+	}
+
+	RtmpOSFileClose(fd);
+	RtmpOSFSInfoChange(&osFSInfo, FALSE);
 }
 
-void diag_miniport_mm_request(PRTMP_ADAPTER pAd, UCHAR *pData, UINT Length)
+void DiagMiniportMMRequest(PRTMP_ADAPTER pAd, UCHAR *pData, UINT Length)
 {
 	PHEADER_802_11 pHdr = NULL;
 	BSS_STRUCT *pMbssEntry = NULL;
 	MAC_TABLE_ENTRY *pMacTblEntry = NULL;
 	DIAG_FRAME_INFO diag_info;
-	DIAG_CTRL *pCtrl = NULL;
-	UCHAR dbdc_idx;
-	ENUM_DIAG_BAND diag_band;
+	DIAG_CTRL *pCtrl = pAd->pDiagCtrl;
 
-	if (!pAd || !pData || (Length == 0))
+	if (!pData || (Length == 0))
+		return;
+
+	if ((!pCtrl) || (!pCtrl->init_flag))
+		return;
+
+	if (pCtrl->diag_enable == 0)
 		return;
 
 	memset(&diag_info, 0, sizeof(diag_info));
@@ -1404,45 +1241,32 @@ void diag_miniport_mm_request(PRTMP_ADAPTER pAd, UCHAR *pData, UINT Length)
 			pMbssEntry = &pAd->ApCfg.MBSSID[first_up_idx];
 	}
 	if (pMbssEntry) {
-		if (WMODE_CAP_5G(pMbssEntry->wdev.PhyMode))
-			diag_band = DIAG_BAND_5G;
-		else
-			diag_band = DIAG_BAND_2G;
-
-		dbdc_idx = HcGetBandByWdev(&pMbssEntry->wdev);
-
-		pCtrl = pAd->pDiagCtrl[dbdc_idx];
-		if ((!pCtrl) || (!pCtrl->init_flag)) {
-			MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_ERROR, "pCtrl not init, dbdc_idx=%d\n", dbdc_idx);
-			return;
-		}
-		if (pCtrl->diag_enable == 0) {
-			/*MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_ERROR, "diag_enable is 0, dbdc_idx=%d\n", dbdc_idx);*/
-			return;
-		}
-
 		diag_info.ssid = pMbssEntry->Ssid;
 		diag_info.ssid_len = pMbssEntry->SsidLen;
 		diag_info.isTX = 1;
-		diag_info.band = diag_band;
+		diag_info.band = (pAd->LatchRfRegs.Channel > 14) ? 1 : 0;
 		diag_info.pData = pData;
 		diag_info.dataLen = Length;
 		diag_frame_cache(&diag_info, pCtrl);
 	} else
-		MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_ERROR, "Error, no UP ap interface!!!\n");
+		DIAG_PRINT(DBG_LVL_ERROR, ("%s, Error, no UP ap interface!!!\n", __func__));
 }
 
-void diag_dev_rx_mgmt_frm(RTMP_ADAPTER *pAd, RX_BLK *pRxBlk)
+void DiagDevRxMgmtFrm(RTMP_ADAPTER *pAd, RX_BLK *pRxBlk)
 {
 	DIAG_FRAME_INFO diag_info;
 	MAC_TABLE_ENTRY *pEntry = NULL;
 	BSS_STRUCT *pMbss = NULL;
 	FRAME_CONTROL *FC = NULL;
-	DIAG_CTRL *pCtrl = NULL;
-	UCHAR dbdc_idx;
-	ENUM_DIAG_BAND diag_band;
+	DIAG_CTRL *pCtrl = pAd->pDiagCtrl;
 
-	if (!pRxBlk || !pAd)
+	if (!pRxBlk)
+		return;
+
+	if ((!pCtrl) || (!pCtrl->init_flag))
+		return;
+
+	if (pCtrl->diag_enable == 0)
 		return;
 
 	/* frame type & SubType check */
@@ -1462,7 +1286,13 @@ void diag_dev_rx_mgmt_frm(RTMP_ADAPTER *pAd, RX_BLK *pRxBlk)
 		return;
 	}
 
-	if (IS_WCID_VALID(pAd, pRxBlk->wcid))
+	memset(&diag_info, 0, sizeof(diag_info));
+	diag_info.isTX = 0;
+	diag_info.band = (pAd->LatchRfRegs.Channel > 14) ? 1 : 0;
+	diag_info.pData = pRxBlk->pData;
+	diag_info.dataLen = pRxBlk->DataSize;
+
+	if (VALID_WCID(pRxBlk->wcid))
 		pEntry = &pAd->MacTab.Content[pRxBlk->wcid];
 	else
 		pEntry = MacTableLookup(pAd, pRxBlk->Addr2);
@@ -1490,236 +1320,154 @@ void diag_dev_rx_mgmt_frm(RTMP_ADAPTER *pAd, RX_BLK *pRxBlk)
 			pMbss = &pAd->ApCfg.MBSSID[first_up_idx];
 	}
 	if (pMbss) {
-
-		if (WMODE_CAP_5G(pMbss->wdev.PhyMode))
-			diag_band = DIAG_BAND_5G;
-		else
-			diag_band = DIAG_BAND_2G;
-
-		dbdc_idx = HcGetBandByWdev(&pMbss->wdev);
-
-		pCtrl = pAd->pDiagCtrl[dbdc_idx];
-		if ((!pCtrl) || (!pCtrl->init_flag)) {
-			MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_ERROR, "pCtrl not init, dbdc_idx=%d\n", dbdc_idx);
-			return;
-		}
-		if (pCtrl->diag_enable == 0) {
-			/* MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_ERROR, "diag_enable is 0, dbdc_idx=%d\n", dbdc_idx); */
-			return;
-		}
-
-		memset(&diag_info, 0, sizeof(diag_info));
-		diag_info.isTX = 0;
-		diag_info.band = diag_band;
-		diag_info.pData = pRxBlk->pData;
-		diag_info.dataLen = pRxBlk->DataSize;
-
 		diag_info.ssid = pMbss->Ssid;
 		diag_info.ssid_len = pMbss->SsidLen;
 		diag_frame_cache(&diag_info, pCtrl);
 	} else
-		MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_ERROR, "Error, no UP ap interface!!!\n");
+		DIAG_PRINT(DBG_LVL_ERROR, ("%s, Error, no UP ap interface!!!\n", __func__));
 }
 
-void diag_dev_rx_cntl_frm(RTMP_ADAPTER *pAd, RX_BLK *pRxBlk)
+#ifdef SNIFFER_SUPPORT
+void DiagDevRxCntlFrm(RTMP_ADAPTER *pAd, RX_BLK *pRxBlk)
 {
 	DIAG_FRAME_INFO diag_info;
 	MAC_TABLE_ENTRY *pEntry = NULL;
 	BSS_STRUCT *pMbss = NULL;
+	DIAG_CTRL *pCtrl = pAd->pDiagCtrl;
 	FRAME_CONTROL *FC = NULL;
-	DIAG_CTRL *pCtrl = NULL;
-	UCHAR dbdc_idx;
-	ENUM_DIAG_BAND diag_band;
 
+	if (!pRxBlk)
+		return;
 
-	if (!pAd || !pRxBlk)
+	if ((!pCtrl) || (!pCtrl->init_flag))
+		return;
+
+	if (pCtrl->diag_enable == 0)
 		return;
 
 	FC = (FRAME_CONTROL *)pRxBlk->FC;
-	/*only BAR*/
 
-	if (IS_WCID_VALID(pAd, pRxBlk->wcid))
-		pEntry = &pAd->MacTab.Content[pRxBlk->wcid];
-	else
-		pEntry = MacTableLookup(pAd, pRxBlk->Addr2);
+	DIAG_PRINT(DBG_LVL_ERROR, ("%s, type:%d, subtype:%d\n", __func__,
+		FC->Type, FC->SubType));
 
-	if ((IS_VALID_ENTRY(pEntry)) && (IS_ENTRY_CLIENT(pEntry))
-		&& VALID_MBSS(pAd, pEntry->func_tb_idx)
-		&& (pEntry->func_tb_idx < pAd->ApCfg.BssidNum))
-		pMbss = &pAd->ApCfg.MBSSID[pEntry->func_tb_idx];
-	else {
-		UCHAR apidx, first_up_idx = 0xFF;
-
-		for (apidx = 0; apidx < pAd->ApCfg.BssidNum; apidx++) {
-			if ((pAd->ApCfg.MBSSID[apidx].wdev.if_dev != NULL) &&
-				(RTMP_OS_NETDEV_STATE_RUNNING(pAd->ApCfg.MBSSID[apidx].wdev.if_dev))) {
-				if (RTMPEqualMemory(pAd->ApCfg.MBSSID[apidx].wdev.bssid,
-					pRxBlk->Addr1, MAC_ADDR_LEN)) {
-					pMbss = &pAd->ApCfg.MBSSID[apidx];
-					break;
-				}
-				if (first_up_idx == 0xFF)
-					first_up_idx = apidx;
-			}
-		}
-		if ((pMbss == NULL) && (first_up_idx != 0xFF))
-			pMbss = &pAd->ApCfg.MBSSID[first_up_idx];
-	}
-
-	if (pMbss) {
-
-		if (pMbss->wdev.channel > 14)
-			diag_band = DIAG_BAND_5G;
-		else
-			diag_band = DIAG_BAND_2G;
-
-#ifdef DBDC_MODE
-		if (pAd->CommonCfg.dbdc_mode == TRUE)
-			dbdc_idx = HcGetBandByWdev(&pMbss->wdev);
-		else
-			dbdc_idx = 0;
-#else
-		dbdc_idx = 0;
-#endif
-		pCtrl = pAd->pDiagCtrl[dbdc_idx];
-
-	if ((!pCtrl) || (!pCtrl->init_flag)) {
-		MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_ERROR, "pCtrl not init, dbdc_idx=%d\n", dbdc_idx);
-		return;
-	}
-	if (pCtrl->diag_enable == 0) {
-		/* MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_ERROR, "diag_enable is 0, dbdc_idx=%d\n", dbdc_idx); */
+	/* frame type & subtype check */
+	if ((FC->Type != FC_TYPE_CNTL) || (
+		(FC->SubType != SUBTYPE_RTS) &&
+		(FC->SubType != SUBTYPE_CTS) &&
+		(FC->SubType != SUBTYPE_ACK))) {
 		return;
 	}
 
 	memset(&diag_info, 0, sizeof(diag_info));
 	diag_info.isTX = 0;
-	diag_info.band = diag_band;
+	diag_info.band = (pAd->LatchRfRegs.Channel > 14) ? 1 : 0;
 	diag_info.pData = pRxBlk->pData;
 	diag_info.dataLen = pRxBlk->DataSize;
 
-	diag_info.ssid = pMbss->Ssid;
-	diag_info.ssid_len = pMbss->SsidLen;
-	diag_frame_cache(&diag_info, pCtrl);
+	if (VALID_WCID(pRxBlk->wcid))
+		pEntry = &pAd->MacTab.Content[pRxBlk->wcid];
+	else
+		pEntry = MacTableLookup(pAd, pHeader->Addr2);
+
+	if ((IS_VALID_ENTRY(pEntry)) && (IS_ENTRY_CLIENT(pEntry)) &&
+		VALID_MBSS(pAd, pEntry->func_tb_idx) &&
+		(pEntry->func_tb_idx < pAd->ApCfg.BssidNum))
+		pMbss = &pAd->ApCfg.MBSSID[pEntry->func_tb_idx];
+	else {
+		UCHAR apidx, first_up_idx = 0xFF;
+
+		for (apidx = 0; apidx < pAd->ApCfg.BssidNum; apidx++) {
+			if ((pAd->ApCfg.MBSSID[apidx].wdev.if_dev != NULL) &&
+				(RTMP_OS_NETDEV_STATE_RUNNING(pAd->ApCfg.MBSSID[apidx].wdev.if_dev))) {
+				if (RTMPEqualMemory(pAd->ApCfg.MBSSID[apidx].wdev.bssid,
+					pHeader->Addr1, MAC_ADDR_LEN)) {
+					pMbss = &pAd->ApCfg.MBSSID[apidx];
+					break;
+				}
+				if (first_up_idx == 0xFF)
+					first_up_idx = apidx;
+			}
+		}
+		if ((pMbss == NULL) && (first_up_idx != 0xFF))
+			pMbss = &pAd->ApCfg.MBSSID[first_up_idx];
+	}
+	if (pMbss) {
+		diag_info.ssid = pMbss->Ssid;
+		diag_info.ssid_len = pMbss->SsidLen;
+		diag_frame_cache(&diag_info, pCtrl);
 	} else
-	MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO, "Error, no UP ap interface!!!\n");
-
-
+		DIAG_PRINT(DBG_LVL_ERROR, ("%s, Error, no UP ap interface!!!\n", __func__));
 }
+#endif
 
-
-void diag_bcn_tx(RTMP_ADAPTER *pAd, BSS_STRUCT *pMbss, UCHAR *pBeaconFrame, ULONG FrameLen)
+void DiagBcnTx(RTMP_ADAPTER *pAd, BSS_STRUCT *pMbss, UCHAR *pBeaconFrame, ULONG FrameLen)
 {
 	DIAG_FRAME_INFO diag_info;
-	DIAG_CTRL *pCtrl = NULL;
-	UCHAR dbdc_idx;
-	ENUM_DIAG_BAND diag_band;
+	DIAG_CTRL *pCtrl = pAd->pDiagCtrl;
 
-	if (!pAd || !pMbss || !pBeaconFrame || (FrameLen == 0))
+	if (!pMbss || !pBeaconFrame || (FrameLen == 0))
 		return;
 
-	if (WMODE_CAP_5G(pMbss->wdev.PhyMode))
-		diag_band = DIAG_BAND_5G;
-	else
-		diag_band = DIAG_BAND_2G;
-
-	dbdc_idx = HcGetBandByWdev(&pMbss->wdev);
-
-	pCtrl = pAd->pDiagCtrl[dbdc_idx];
-	if ((!pCtrl) || (!pCtrl->init_flag)) {
-		MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_ERROR, "pCtrl not init, dbdc_idx=%d\n", dbdc_idx);
+	if ((!pCtrl) || (!pCtrl->init_flag))
 		return;
-	}
-	if (pCtrl->diag_enable == 0) {
-		/*MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_ERROR, "diag_enable is 0, dbdc_idx=%d\n", dbdc_idx);*/
+
+	if (pCtrl->diag_enable == 0)
 		return;
-	}
 
 	memset(&diag_info, 0, sizeof(diag_info));
 	diag_info.isTX = 1;
-	diag_info.band = diag_band;
+	diag_info.band = (pAd->LatchRfRegs.Channel > 14) ? 1 : 0;
 	diag_info.ssid = pMbss->Ssid;
 	diag_info.ssid_len = pMbss->SsidLen;
 	diag_info.pData = pBeaconFrame;
 	diag_info.dataLen = FrameLen;
 	diag_frame_cache(&diag_info, pCtrl);
 
-	MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO, "!\n");
+	DIAG_PRINT(DBG_LVL_WARN, ("%s !\n", __func__));
 }
 
-void diag_ap_mlme_one_sec_proc(PRTMP_ADAPTER pAd)
+void DiagApMlmeOneSecProc(PRTMP_ADAPTER pAd)
 {
-	DIAG_CTRL *pCtrl = NULL;
-	UCHAR dbdc_idx;
+	DIAG_CTRL *pCtrl = pAd->pDiagCtrl;
 
-	for (dbdc_idx = 0; dbdc_idx < DBDC_BAND_NUM; dbdc_idx++) {
-		pCtrl = pAd->pDiagCtrl[dbdc_idx];
-		if ((!pCtrl) || (!pCtrl->init_flag))
-			continue;
+	if ((!pCtrl) || (!pCtrl->init_flag))
+		return;
 
-		if (RTMP_TEST_FLAG(pAd, fRTMP_ADAPTER_BSS_SCAN_IN_PROGRESS)) {
-			pCtrl->busy_time = 0;
-			MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_WARN, "SCAN conflict with Diag channel Occupancy\n");
-		} else {
-#if defined(MT7915) || defined(MT7986) || defined(MT7916) || defined(MT7981)
-			if (IS_MT7915(pAd) || IS_MT7986(pAd) || IS_MT7916(pAd) || IS_MT7981(pAd))
-				pCtrl->busy_time =
-					((UINT32)pAd->WlanCounters[dbdc_idx].CcaNavTxTime.QuadPart) >> 10;
-#else
-			pCtrl->busy_time = (pAd->OneSecMibBucket.ChannelBusyTime[dbdc_idx]) >> 10;
-#endif
-		}
-
-		MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO, "update band:%d busy_time:%d ms by OneSecMibBucket\n", pCtrl->diag_band, pCtrl->busy_time);
+	if (RTMP_TEST_FLAG(pAd, fRTMP_ADAPTER_BSS_SCAN_IN_PROGRESS)) {
+		pCtrl->busy_time = 0;
+		DIAG_PRINT(DBG_LVL_WARN, ("%s SCAN conflict with Diag channel Occupancy\n", __func__));
 	}
+	else
+		pCtrl->busy_time = (pAd->OneSecMibBucket.ChannelBusyTime[BAND0]) >> 10; /* translate us to ms */
+
+	DIAG_PRINT(DBG_LVL_TRACE, ("%s update band:%d busy_time:%d ms by OneSecMibBucket\n",
+		__func__, pCtrl->diag_band, pCtrl->busy_time));
 
 	/* For diag_log/association_error file write in MLME task */
 	MlmeEnqueue(pAd, WIFI_DAIG_STATE_MACHINE, 0, 0, NULL, 0);
 }
 
-BOOLEAN diag_proc_init(PRTMP_ADAPTER pAd, struct wifi_dev *wdev)
+BOOLEAN DiagProcInit(PRTMP_ADAPTER pAd)
 {
-	DIAG_CTRL *pCtrl = NULL;
-	UCHAR dbdc_idx = 0;
-	ENUM_DIAG_BAND diag_band;
-	UCHAR index;
+	DIAG_CTRL *pCtrl = pAd->pDiagCtrl;
+	struct wifi_dev *wdev = &pAd->ApCfg.MBSSID[MAIN_MBSSID].wdev;
 
-	if (!pAd || !wdev) {
-		MTWF_DBG(NULL, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_ERROR, "NULL parameters\n");
-		return FALSE;
-	}
-
-	if (WMODE_CAP_5G(wdev->PhyMode))
-		diag_band = DIAG_BAND_5G;
-	else
-		diag_band = DIAG_BAND_2G;
-
-	dbdc_idx = HcGetBandByWdev(wdev);
-
-	pCtrl = pAd->pDiagCtrl[dbdc_idx];
 	if (!pCtrl) {
-		MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_ERROR, "pDiagCtrl not allocate dbdc_idx=%d\n", dbdc_idx);
-		return FALSE;
-	}
-	if (pCtrl->init_flag == TRUE) {
-		MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_ERROR, "pDiagCtrl already init dbdc_idx=%d\n", dbdc_idx);
+		DIAG_PRINT(DBG_LVL_ERROR, ("%s pDiagCtrl not allocate\n", __func__));
 		return FALSE;
 	}
 
-	memset(pCtrl, 0, sizeof(DIAG_CTRL));
-	pCtrl->pAd = pAd;
-	pCtrl->diag_band = diag_band;
-	pCtrl->channel = wdev->channel;
-	pCtrl->diag_duration = 60;
-	for (index = 0; index < DIAG_PROCESS_NUM_MAX; index++)
-		pCtrl->process_info.entry[index].pid = -1;
+	if (wdev && (wdev->channel > 14))
+		pCtrl->diag_band = DIAG_BAND_5G;
+	else
+		pCtrl->diag_band = DIAG_BAND_2G;
 
-	MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO, "diag for diag_band %d channel:%d\n", pCtrl->diag_band, wdev->channel);
+	DIAG_PRINT(DBG_LVL_OFF, ("%s diag for diag_band %d channel:%d\n", __func__, pCtrl->diag_band, wdev->channel));
 	NdisAllocateSpinLock(pAd, &(pCtrl->diag_log_lock));
 	NdisAllocateSpinLock(pAd, &(pCtrl->assoc_error_lock));
-	diag_var_dir_mk(pCtrl->diag_band);
-	diag_proc_dir_mk(pCtrl->diag_band);
-	diag_proc_entry_init(pCtrl->diag_band, pCtrl);
+	DiagVarDirMk(pCtrl->diag_band);
+	DiagProcDirMk(pCtrl->diag_band);
+	DiagProcEntryInit(pCtrl->diag_band, pAd);
 
 	pCtrl->init_flag = TRUE;
 
@@ -1727,38 +1475,24 @@ BOOLEAN diag_proc_init(PRTMP_ADAPTER pAd, struct wifi_dev *wdev)
 
 }
 
-BOOLEAN diag_proc_exit(PRTMP_ADAPTER pAd, struct wifi_dev *wdev)
+BOOLEAN DiagProcExit(PRTMP_ADAPTER pAd)
 {
-	DIAG_CTRL *pCtrl = NULL;
-	UCHAR dbdc_idx = 0;
+	DIAG_CTRL *pCtrl = pAd->pDiagCtrl;
 
-	if (!pAd || !wdev)
+	if (!pCtrl)
 		return FALSE;
 
-	MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO, "pAd:%p\n", pAd);
-
-	dbdc_idx = HcGetBandByWdev(wdev);
-
-	pCtrl = pAd->pDiagCtrl[dbdc_idx];
-	if (!pCtrl) {
-		MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_ERROR, "pDiagCtrl is NULL dbdc_idx=%d\n", dbdc_idx);
-		return FALSE;
-	}
-	if (pCtrl->init_flag == FALSE) {
-		MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_ERROR, "pDiagCtrl already deinit dbdc_idx=%d\n", dbdc_idx);
-		return FALSE;
-	}
-
+	DIAG_PRINT(DBG_LVL_OFF, ("%s pAd:%p\n", __func__, pAd));
 	pCtrl->init_flag = FALSE;
 	/* stop diag_log handling */
 	pCtrl->diag_enable = 0;
 	OS_WAIT(500);
 
-	diag_proc_entry_deinit(pCtrl->diag_band);
+	DiagProcEntryDeinit(pCtrl->diag_band);
 	NdisFreeSpinLock(&pCtrl->diag_log_lock);
 	NdisFreeSpinLock(&pCtrl->assoc_error_lock);
 
-	diag_proc_dir_rm(pCtrl->diag_band);
+	DiagProcDirRm(pCtrl->diag_band);
 
 	return TRUE;
 }

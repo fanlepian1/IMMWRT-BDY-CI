@@ -17,10 +17,6 @@
 #endif /* DOT11_VHT_AC */
 #endif /* DOT11_N_SUPPORT */
 
-#ifdef DOT11_HE_AX
-#include "dot11ax_he.h"
-#endif /* DOT11_HE_AX */
-
 #ifdef DOT11K_RRM_SUPPORT
 #include "dot11k_rrm.h"
 #endif /* DOT11K_RRM_SUPPORT */

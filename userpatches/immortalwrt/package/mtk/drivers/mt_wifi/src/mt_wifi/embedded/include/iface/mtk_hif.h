@@ -1,16 +1,17 @@
-/*
- * Copyright (c) [2020], MediaTek Inc. All rights reserved.
- *
- * This software/firmware and related documentation ("MediaTek Software") are
- * protected under relevant copyright laws.
- * The information contained herein is confidential and proprietary to
- * MediaTek Inc. and/or its licensors.
- * Except as otherwise provided in the applicable licensing terms with
- * MediaTek Inc. and/or its licensors, any reproduction, modification, use or
- * disclosure of MediaTek Software, and information contained herein, in whole
- * or in part, shall be strictly prohibited.
-*/
 /***************************************************************************
+ * MediaTek Inc.
+ * 4F, No. 2 Technology 5th Rd.
+ * Science-based Industrial Park
+ * Hsin-chu, Taiwan, R.O.C.
+ *
+ * (c) Copyright 1997-2012, MediaTek, Inc.
+ *
+ * All rights reserved. MediaTek source code is an unpublished work and the
+ * use of a copyright notice does not imply otherwise. This source code
+ * contains confidential trade secret material of MediaTek. Any attemp
+ * or participation in deciphering, decoding, reverse engineering or in any
+ * way altering the source code is stricitly prohibited, unless the prior
+ * written consent of MediaTek Technology, Inc. is obtained.
  ***************************************************************************
 
 */
@@ -55,6 +56,7 @@ struct mtk_hif_ops {
 								  u8 frag_num, u16 *free_num);
 	void (*kickout_data_tx)(struct mtk_hif_dev *hif_dev, struct _TX_BLK *tx_blk, UCHAR que_idx);
 
+	PNDIS_PACKET(*get_pkt_from_rx_resource)(struct mtk_hif_dev *hif_dev, bool *re_schedule, unsigned int *rx_pending, u8 ring_no);
 	UINT32(*get_tx_resource_free_num)(struct mtk_hif_dev *hif_dev, UINT8 que_idx);
 	u8 *src_va, unsigned int src_buf_len);
 };

@@ -6,6 +6,10 @@
 
 UCHAR OWE_TRANS_OUI[] = {0x50, 0x6f, 0x9a, 0x1c};
 
+#ifdef APCLI_OWE_SUPPORT
+UCHAR apcli_owe_supp_groups[APCLI_MAX_SUPPORTED_OWE_GROUPS] = {19, 20};
+#endif
+
 static inline UINT16 GET_LE16(const UCHAR *a)
 {
 	return (a[1] << 8) | a[0];
@@ -32,7 +36,7 @@ static UINT owe_process_peer_pubkey(OWE_INFO *owe, UCHAR *peer_pub_key, UCHAR pu
 		ecc_point_find_by_x(ec_group_bi, peer_pub_point->x, &peer_pub_point->y, TRUE);
 
 	if (ecc_point_is_on_curve(ec_group_bi, peer_pub_point) == FALSE) {
-		MTWF_DBG(NULL, DBG_CAT_SEC, CATSEC_OWE, DBG_LVL_ERROR, "point is not on curve\n");
+		MTWF_LOG(DBG_CAT_SEC, CATSEC_OWE, DBG_LVL_OFF, ("%s, point is not on curve\n", __func__));
 		goto err;
 	}
 	SAE_ECC_SET_Z_TO_1(peer_pub_point);
@@ -59,8 +63,8 @@ INT owe_calculate_secret(OWE_INFO *owe, SAE_BN **secret)
 	SAE_ECC_3D_to_2D(ec_group_bi, secret_point);
 
 	if (secret_point == NULL) {
-		MTWF_DBG(NULL, DBG_CAT_SEC, CATSEC_OWE, DBG_LVL_ERROR,
-			 "can't output the common secret point\n");
+		MTWF_LOG(DBG_CAT_SEC, CATSEC_OWE, DBG_LVL_ERROR,
+			 ("==> %s(), can't output the common secret point\n", __func__));
 		return ret;
 	}
 
@@ -95,8 +99,8 @@ static VOID owe_calculate_pmkid(OWE_INFO *owe,
 	ec_group = (EC_GROUP_INFO *)owe->group_info;
 
 	if (os_alloc_mem(NULL, (UCHAR **)&material, ec_group->prime_len) == NDIS_STATUS_FAILURE) {
-		MTWF_DBG(NULL, DBG_CAT_SEC, CATSEC_OWE, DBG_LVL_ERROR,
-				 "alloc buf for material failed...\n");
+		MTWF_LOG(DBG_CAT_SEC, CATSEC_OWE, DBG_LVL_ERROR,
+				 ("==> %s(), alloc buf for material failed...\n", __func__));
 		goto err;
 	}
 
@@ -133,8 +137,8 @@ static VOID owe_calculate_pmkid(OWE_INFO *owe,
 		os_free_mem(owe->pmkid);
 
 	if (os_alloc_mem(NULL, (UCHAR **)&owe->pmkid, LEN_PMKID) == NDIS_STATUS_FAILURE) {
-		MTWF_DBG(NULL, DBG_CAT_SEC, CATSEC_OWE, DBG_LVL_ERROR,
-				 "alloc pmkid failed...\n");
+		MTWF_LOG(DBG_CAT_SEC, CATSEC_OWE, DBG_LVL_ERROR,
+				 ("==> %s(), alloc pmkid failed...\n", __func__));
 		goto err;
 	}
 	NdisMoveMemory(owe->pmkid, pmkid, LEN_PMKID);
@@ -149,7 +153,8 @@ INT process_ecdh_element(
 	struct _MAC_TABLE_ENTRY *entry,
 	EXT_ECDH_PARAMETER_IE *ext_ie_ptr,
 	UCHAR ie_len,
-	UCHAR type)
+	UCHAR type,
+	BOOLEAN update_only_grp_info)
 {
 	OWE_INFO *owe = &entry->SecConfig.owe;
 	UINT16 peer_group = 0;
@@ -166,7 +171,6 @@ INT process_ecdh_element(
 	UCHAR prk[SHA512_DIGEST_SIZE], pmkid[SHA512_DIGEST_SIZE];
 	UCHAR hash_len = 0;
 	struct _SECURITY_CONFIG *sec_config = &entry->SecConfig;
-	BOOLEAN ret = MLME_SUCCESS;
 
 	if ((ext_ie_ptr->ext_ie_id == 0) && (ext_ie_ptr->length == 0))
 		return MLME_SUCCESS;
@@ -193,8 +197,14 @@ INT process_ecdh_element(
 		}
 	}
 
-	MTWF_DBG(ad, DBG_CAT_SEC, CATSEC_OWE, DBG_LVL_INFO,
-			 "==> %s(), peer_group:%d\n", __func__, peer_group);
+	if (update_only_grp_info == TRUE) {
+		MTWF_LOG(DBG_CAT_SEC, CATSEC_OWE, DBG_LVL_TRACE,
+				 ("==> %s(), Update group info :%d\n", __func__, sec_config->key_deri_alg));
+		return MLME_SUCCESS;
+	}
+
+	MTWF_LOG(DBG_CAT_SEC, CATSEC_OWE, DBG_LVL_TRACE,
+			 ("==> %s(), peer_group:%d\n", __func__, peer_group));
 
 	/*if we cannot support the group, skip the further steps.*/
 	if (owe->last_try_group == 0)
@@ -204,54 +214,49 @@ INT process_ecdh_element(
 	remain_len = remain_len - sizeof(peer_group);
 
 	if (init_owe_group(owe, peer_group) == 0) {
-		MTWF_DBG(ad, DBG_CAT_SEC, CATSEC_OWE, DBG_LVL_ERROR,
-			 "init_owe_group failed. shall not happen!\n");
+		MTWF_LOG(DBG_CAT_SEC, CATSEC_OWE, DBG_LVL_ERROR,
+			 ("==> %s(), init_owe_group failed. shall not happen!\n", __func__));
 		return MLME_UNSPECIFY_FAIL;
 	}
 
 	if (os_alloc_mem(NULL, (UCHAR **)&peer_pub, remain_len) == NDIS_STATUS_FAILURE) {
-		MTWF_DBG(ad, DBG_CAT_SEC, CATSEC_OWE, DBG_LVL_ERROR,
-				 "alloc buf for peer_pub failed...\n");
+		MTWF_LOG(DBG_CAT_SEC, CATSEC_OWE, DBG_LVL_ERROR,
+				 ("==> %s(), alloc buf for peer_pub failed...\n", __func__));
 		return MLME_UNSPECIFY_FAIL;
 	}
 	NdisMoveMemory(peer_pub, pos, remain_len);
 	if (owe_process_peer_pubkey(owe, peer_pub, remain_len) == 0) {
-		MTWF_DBG(ad, DBG_CAT_SEC, CATSEC_OWE, DBG_LVL_ERROR,
-				 "owe_process_peer_pubkey failed...\n");
-		ret = MLME_UNSPECIFY_FAIL;
-		goto LabelErr;
+		MTWF_LOG(DBG_CAT_SEC, CATSEC_OWE, DBG_LVL_ERROR,
+				 ("==> %s(), owe_process_peer_pubkey failed...\n", __func__));
+		return MLME_UNSPECIFY_FAIL;
 	}
 
 	SAE_BN_INIT(&secret);
 	if (owe_calculate_secret(owe, &secret) == 0) {
-		MTWF_DBG(ad, DBG_CAT_SEC, CATSEC_OWE, DBG_LVL_ERROR,
-				 "owe_calculate_secret failed...\n");
-		ret = MLME_UNSPECIFY_FAIL;
-		goto LabelErr;
+		MTWF_LOG(DBG_CAT_SEC, CATSEC_OWE, DBG_LVL_ERROR,
+				 ("==> %s(), owe_calculate_secret failed...\n", __func__));
+		return MLME_UNSPECIFY_FAIL;
 	}
 
 	ec_group = (EC_GROUP_INFO *)owe->group_info;
 	if (os_alloc_mem(NULL, (UCHAR **)&sec_buf, ec_group->prime_len) == NDIS_STATUS_FAILURE) {
-		MTWF_DBG(ad, DBG_CAT_SEC, CATSEC_OWE, DBG_LVL_ERROR,
-				 "alloc buf for hkey failed...\n");
-		ret = MLME_UNSPECIFY_FAIL;
-		goto LabelErr;
+		MTWF_LOG(DBG_CAT_SEC, CATSEC_OWE, DBG_LVL_ERROR,
+				 ("==> %s(), alloc buf for hkey failed...\n", __func__));
+		return MLME_UNSPECIFY_FAIL;
 	}
 	SAE_BN_BI2BIN_WITH_PAD(secret, sec_buf, &sec_length, ec_group->prime_len);
 
 	if (os_alloc_mem(NULL, (UCHAR **)&hkey, ec_group->prime_len + remain_len + 2) == NDIS_STATUS_FAILURE) {
-		MTWF_DBG(ad, DBG_CAT_SEC, CATSEC_OWE, DBG_LVL_ERROR,
-				 "alloc buf for hkey failed...\n");
-		ret = MLME_UNSPECIFY_FAIL;
-		goto LabelErr;
+		MTWF_LOG(DBG_CAT_SEC, CATSEC_OWE, DBG_LVL_ERROR,
+				 ("==> %s(), alloc buf for hkey failed...\n", __func__));
+		return MLME_UNSPECIFY_FAIL;
 	}
 
 	my_pubkey = get_owe_pub_key(owe);
 	if (my_pubkey == NULL) {
-		MTWF_DBG(ad, DBG_CAT_SEC, CATSEC_OWE, DBG_LVL_ERROR,
-				 "get own pub failed, shall not happen...\n");
-		ret = MLME_UNSPECIFY_FAIL;
-		goto LabelErr;
+		MTWF_LOG(DBG_CAT_SEC, CATSEC_OWE, DBG_LVL_ERROR,
+				 ("==> %s(), get own pub failed, shall not happen...\n", __func__));
+		return MLME_UNSPECIFY_FAIL;
 	}
 
 	owe_calculate_pmkid(owe, my_pubkey->x, peer_pub, type, remain_len, peer_group, pmkid);
@@ -271,10 +276,9 @@ INT process_ecdh_element(
 		NdisMoveMemory(hkey + hkey_length, &peer_group, sizeof(peer_group));
 		hkey_length += sizeof(peer_group);
 	} else {
-		MTWF_DBG(ad, DBG_CAT_SEC, CATSEC_OWE, DBG_LVL_ERROR,
-				 "parsing wrong type, shall not happen\n");
-		ret = MLME_UNSPECIFY_FAIL;
-		goto LabelErr;
+		MTWF_LOG(DBG_CAT_SEC, CATSEC_OWE, DBG_LVL_ERROR,
+				 ("==> %s(), parsing wrong type, shall not happen\n", __func__));
+		return MLME_UNSPECIFY_FAIL;
 	}
 	if (peer_group == ECDH_GROUP_256) {
 		hash_len = SHA256_DIGEST_SIZE;
@@ -299,7 +303,6 @@ INT process_ecdh_element(
 	hex_dump("OWE PRK:", prk, hash_len);
 	hex_dump("OWE PMK:", sec_config->PMK, hash_len);
 
-LabelErr:
 	if (sec_buf)
 		os_free_mem(sec_buf);
 	if (hkey)
@@ -310,11 +313,12 @@ LabelErr:
 	if (peer_pub)
 		os_free_mem(peer_pub);
 
-	return ret;
+	return MLME_SUCCESS;
 }
 
 INT init_owe_group(OWE_INFO *owe, UCHAR group)
 {
+	BIG_INTEGER_EC_POINT *generator = NULL;
 	EC_GROUP_INFO *ec_group = get_ecc_group_info(group);
 	EC_GROUP_INFO_BI *ec_group_bi = get_ecc_group_info_bi(group);
 	INT ret = 0;
@@ -323,8 +327,8 @@ INT init_owe_group(OWE_INFO *owe, UCHAR group)
 		return 1;
 
 	if (ec_group == NULL || ec_group_bi == NULL) {
-		MTWF_DBG(NULL, DBG_CAT_SEC, CATSEC_OWE, DBG_LVL_ERROR,
-			 "get ec_group failed. shall not happen!\n");
+		MTWF_LOG(DBG_CAT_SEC, CATSEC_OWE, DBG_LVL_ERROR,
+			 ("==> %s(), get ec_group failed. shall not happen!\n", __func__));
 		goto err;
 	}
 
@@ -333,9 +337,15 @@ INT init_owe_group(OWE_INFO *owe, UCHAR group)
 	if (owe->group_info_bi == NULL)
 		owe->group_info_bi = (VOID *)ec_group_bi;
 
-	if (ecc_gen_key(ec_group_bi, &owe->priv_key, &owe->pub_key) == 0) {
-		MTWF_DBG(NULL, DBG_CAT_SEC, CATSEC_OWE, DBG_LVL_ERROR,
-			 "ecc_gen_key failed...\n");
+	ecc_point_init(&generator);
+	SAE_BN_COPY(ec_group_bi->gx, &generator->x);
+	SAE_BN_COPY(ec_group_bi->gy, &generator->y);
+	SAE_ECC_SET_Z_TO_1(generator);
+
+	owe->generator = (VOID *)generator;
+	if (ecc_gen_key(ec_group, ec_group_bi, &owe->priv_key, generator, &owe->pub_key) == 0) {
+		MTWF_LOG(DBG_CAT_SEC, CATSEC_OWE, DBG_LVL_ERROR,
+			 ("==> %s(), ecc_gen_key failed...\n", __func__));
 		goto err;
 	}
 
@@ -355,6 +365,7 @@ INT build_owe_dh_ie(struct _RTMP_ADAPTER *ad,
 
 	EC_GROUP_INFO *ec_group = NULL;
 	EC_GROUP_INFO_BI *ec_group_bi = NULL;
+	BIG_INTEGER_EC_POINT *generator = NULL;
 	BIG_INTEGER_EC_POINT *my_pub_key = NULL;
 	UCHAR *pub_buf = NULL;
 	INT extend_length = 0;
@@ -367,11 +378,12 @@ INT build_owe_dh_ie(struct _RTMP_ADAPTER *ad,
 	ec_group = (EC_GROUP_INFO *)owe->group_info;
 	ec_group_bi = (EC_GROUP_INFO_BI *)owe->group_info_bi;
 
+	generator = (BIG_INTEGER_EC_POINT *)owe->generator;
 	my_pub_key = (BIG_INTEGER_EC_POINT *)owe->pub_key;
 
 	if (os_alloc_mem(NULL, (UCHAR **)&pub_buf, ec_group->prime_len) == NDIS_STATUS_FAILURE) {
-		MTWF_DBG(ad, DBG_CAT_SEC, CATSEC_OWE, DBG_LVL_ERROR,
-				 "alloc mem failed...\n");
+		MTWF_LOG(DBG_CAT_SEC, CATSEC_OWE, DBG_LVL_ERROR,
+				 ("==> %s(), ecc_gen_key failed...\n", __func__));
 		goto err;
 	}
 	SAE_BN_BI2BIN_WITH_PAD(my_pub_key->x, pub_buf, &pub_buf_length, ec_group->prime_len);
@@ -411,6 +423,10 @@ INT deinit_owe_group(OWE_INFO *owe)
 		ecc_point_free((BIG_INTEGER_EC_POINT **)&owe->pub_key);
 		owe->pub_key = NULL;
 	}
+	if (owe->generator != NULL) {
+		ecc_point_free((BIG_INTEGER_EC_POINT **)&owe->generator);
+		owe->generator = NULL;
+	}
 	if (owe->priv_key != NULL) {
 		SAE_BN_FREE(&owe->priv_key);
 		owe->priv_key = NULL;
@@ -442,9 +458,9 @@ USHORT owe_pmkid_ecdh_process(RTMP_ADAPTER *pAd,
 			      UINT8 *pmkid_count,
 			      UCHAR type)
 {
+	BOOLEAN need_update_grp_info = FALSE;
 	BOOLEAN need_process_ecdh_ie = FALSE;
-	UINT32 CacheIdx = 0;/* Key cache */
-	INT cache_check = 0;
+	INT CacheIdx;/* Key cache */
 	USHORT ret = MLME_SUCCESS;
 
 	pPmkid = WPA_ExtractSuiteFromRSNIE(rsn_ie,
@@ -452,31 +468,31 @@ USHORT owe_pmkid_ecdh_process(RTMP_ADAPTER *pAd,
 					   PMKID_LIST,
 					   pmkid_count);
 	if (pPmkid != NULL) {
-		cache_check = RTMPSearchPMKIDCache(&pAd->ApCfg.PMKIDCache,
+		CacheIdx = RTMPSearchPMKIDCache(&pAd->ApCfg.PMKIDCache,
 						pEntry->func_tb_idx,
-						pEntry->Addr,
-						FALSE);
-		if (cache_check >= 0)
-			CacheIdx = cache_check;
-
-		if ((cache_check == -1) ||
+						pEntry->Addr);
+		if ((CacheIdx == -1) ||
 		   ((RTMPEqualMemory(pPmkid,
 				     &pAd->ApCfg.PMKIDCache.BSSIDInfo[CacheIdx].PMKID,
 				LEN_PMKID)) == 0)) {
-			MTWF_DBG(pAd, DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-				"no OWE PMKID, do normal ECDH procedure\n");
+			MTWF_LOG(DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
+				("%s: no OWE PMKID, do normal ECDH procedure\n",
+					__func__));
 			need_process_ecdh_ie = TRUE;
-		} else
+		} else {
 			store_pmkid_cache_in_sec_config(pAd, pEntry, CacheIdx);
+			need_update_grp_info = TRUE;
+		}
 	} else
 		need_process_ecdh_ie = TRUE;
 
-	if (need_process_ecdh_ie == TRUE) {
+	if (need_process_ecdh_ie == TRUE || (need_update_grp_info == TRUE)) {
 		ret = process_ecdh_element(pAd,
 						pEntry,
 						ecdh_ie,
 						ecdh_ie_length,
-						type);
+						type,
+						need_update_grp_info);
 	}
 	return ret;
 }
@@ -488,6 +504,7 @@ BOOLEAN extract_pair_owe_bss_info(UCHAR *owe_vendor_ie,
 				  UCHAR *pair_bssid,
 				  UCHAR *pair_ssid,
 				  UCHAR *pair_ssid_len,
+				  UCHAR *pair_band,
 				  UCHAR *pair_ch)
 {
 	BOOLEAN ret = TRUE;
@@ -511,8 +528,10 @@ BOOLEAN extract_pair_owe_bss_info(UCHAR *owe_vendor_ie,
 	*pair_ssid_len = local_ssid_len;
 
 	if (has_band_ch_info == TRUE) {
-		pos = pos + local_ssid_len + sizeof(UCHAR);/*parse ch info field*/
+		pos = pos + local_ssid_len;/*parse ch info field*/
+		*pair_band = *pos;
 		/*TODO: sanity check of Operating Class and CH???? */
+		pos = pos + sizeof(UCHAR);
 		*pair_ch = *pos;
 	}
 
@@ -520,42 +539,55 @@ end:
 	return ret;
 }
 
-#ifdef CONFIG_STA_SUPPORT
+#ifdef APCLI_OWE_SUPPORT
 void wext_send_owe_trans_chan_event(PNET_DEV net_dev,
-				UCHAR event_id,
-				UCHAR *pair_bssid,
-				UCHAR *pair_ssid,
-				UCHAR *pair_ssid_len,
-				UCHAR *pair_band,
-				UCHAR *pair_ch)
+											UCHAR event_id,
+											UCHAR *pair_bssid,
+											UCHAR *pair_ssid,
+											UCHAR *pair_ssid_len,
+											UCHAR *pair_band,
+											UCHAR *pair_ch)
 {
 	struct owe_trans_channel_change_info *owe_tran_ch_data = NULL;
 	struct owe_event *event_data = NULL;
 	UINT16 buflen = 0;
 	char *buf = NULL;
+
+
 	buflen = sizeof(struct owe_event) + sizeof(struct owe_trans_channel_change_info);
 	os_alloc_mem(NULL, (UCHAR **)&buf, buflen);
 	NdisZeroMemory(buf, buflen);
+
 	event_data = (struct owe_event *)buf;
 	event_data->event_id = event_id;
+
 	event_data->event_len = sizeof(*owe_tran_ch_data);
 	owe_tran_ch_data = (struct owe_trans_channel_change_info *)event_data->event_body;
+
 	NdisCopyMemory(owe_tran_ch_data->ifname, RtmpOsGetNetDevName(net_dev), IFNAMSIZ);
-	NdisCopyMemory(owe_tran_ch_data->ifname, RtmpOsGetNetDevName(net_dev), IFNAMSIZ);
+
 	if (pair_bssid)
 		memcpy(owe_tran_ch_data->pair_bssid, pair_bssid, 6);
 	if (pair_ssid)
 		memcpy(owe_tran_ch_data->pair_ssid, pair_ssid, *pair_ssid_len);
+
 	if (pair_ssid_len)
 		owe_tran_ch_data->pair_ssid_len = *pair_ssid_len;
+
 	if (pair_band && (*pair_band != 0))
 		owe_tran_ch_data->pair_band = *pair_band;
+
 	if (pair_ch && (*pair_ch != 0))
 		owe_tran_ch_data->pair_ch = *pair_ch;
+
+
 	RtmpOSWrielessEventSend(net_dev, RT_WLAN_EVENT_CUSTOM,
-				OID_802_11_OWE_TRANS_EVENT, NULL, (PUCHAR)buf, buflen);
+							OID_802_11_OWE_TRANS_EVENT, NULL, (PUCHAR)buf, buflen);
 	os_free_mem(buf);
 }
-#endif	/* CONFIG_STA_SUPPORT */
 
-#endif/*CONFIG_OWE_SUPPORT*/
+#endif
+
+
+
+#endif /*CONFIG_OWE_SUPPORT*/

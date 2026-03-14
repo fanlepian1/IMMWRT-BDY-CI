@@ -1,17 +1,13 @@
 /*
- * Copyright (c) [2020], MediaTek Inc. All rights reserved.
- *
- * This software/firmware and related documentation ("MediaTek Software") are
- * protected under relevant copyright laws.
- * The information contained herein is confidential and proprietary to
- * MediaTek Inc. and/or its licensors.
- * Except as otherwise provided in the applicable licensing terms with
- * MediaTek Inc. and/or its licensors, any reproduction, modification, use or
- * disclosure of MediaTek Software, and information contained herein, in whole
- * or in part, shall be strictly prohibited.
-*/
-/*
  ***************************************************************************
+ * MediaTek Inc.
+ *
+ * All rights reserved. source code is an unpublished work and the
+ * use of a copyright notice does not imply otherwise. This source code
+ * contains confidential trade secret material of MediaTek. Any attemp
+ * or participation in deciphering, decoding, reverse engineering or in any
+ * way altering the source code is stricitly prohibited, unless the prior
+ * written consent of MediaTek, Inc. is obtained.
  ***************************************************************************
 
 	Module Name:
@@ -65,68 +61,17 @@
 #define GROUP_M     1
 #define GROUP_H     2
 
-#define CLEAN_ALL   0
-#define CLEAN_2G    1
-#define CLEAN_5G    2
+#define IBF_PHASE_EEPROM_START      0x220
 
-
-
-
-
-
-#if defined(MT7986)
-#define MT7986_IBF_PHASE_EEPROM_START      0x651
-
-#define MT7986_IBF_LNA_PHASE_G0_ADDR       MT7986_IBF_PHASE_EEPROM_START
-#define MT7986_IBF_LNA_PHASE_G1_ADDR       (MT7986_IBF_LNA_PHASE_G0_ADDR  + 0x28)
-#define MT7986_IBF_LNA_PHASE_G2_ADDR       (MT7986_IBF_LNA_PHASE_G1_ADDR  + 0x28)
-#define MT7986_IBF_LNA_PHASE_G3_ADDR       (MT7986_IBF_LNA_PHASE_G2_ADDR  + 0x28)
-#define MT7986_IBF_LNA_PHASE_G4_ADDR       (MT7986_IBF_LNA_PHASE_G3_ADDR  + 0x28)
-#define MT7986_IBF_LNA_PHASE_G5_ADDR       (MT7986_IBF_LNA_PHASE_G4_ADDR  + 0x28)
-#define MT7986_IBF_LNA_PHASE_G6_ADDR       (MT7986_IBF_LNA_PHASE_G5_ADDR  + 0x28)
-#define MT7986_IBF_LNA_PHASE_G7_ADDR       (MT7986_IBF_LNA_PHASE_G6_ADDR  + 0x28)
-#define MT7986_IBF_LNA_PHASE_G8_ADDR       (MT7986_IBF_LNA_PHASE_G7_ADDR  + 0x28)
-
-#define MT7986_EPA_IBF_PHASE_EEPROM_START      0x60A
-
-#define MT7986_EPA_IBF_LNA_PHASE_G0_ADDR       MT7986_EPA_IBF_PHASE_EEPROM_START
-#define MT7986_EPA_IBF_LNA_PHASE_G1_ADDR       (MT7986_EPA_IBF_LNA_PHASE_G0_ADDR  + 0x28)
-#define MT7986_EPA_IBF_LNA_PHASE_G2_ADDR       (MT7986_EPA_IBF_LNA_PHASE_G1_ADDR  + 0x28)
-#define MT7986_EPA_IBF_LNA_PHASE_G3_ADDR       (MT7986_EPA_IBF_LNA_PHASE_G2_ADDR  + 0x28)
-#define MT7986_EPA_IBF_LNA_PHASE_G4_ADDR       (MT7986_EPA_IBF_LNA_PHASE_G3_ADDR  + 0x28)
-#define MT7986_EPA_IBF_LNA_PHASE_G5_ADDR       (MT7986_EPA_IBF_LNA_PHASE_G4_ADDR  + 0x28)
-#define MT7986_EPA_IBF_LNA_PHASE_G6_ADDR       (MT7986_EPA_IBF_LNA_PHASE_G5_ADDR  + 0x28)
-#define MT7986_EPA_IBF_LNA_PHASE_G7_ADDR       (MT7986_EPA_IBF_LNA_PHASE_G6_ADDR  + 0x28)
-#define MT7986_EPA_IBF_LNA_PHASE_G8_ADDR       (MT7986_EPA_IBF_LNA_PHASE_G7_ADDR  + 0x28)
-#endif
-
-#if defined(MT7916)
-#define MT7916_IBF_PHASE_EEPROM_START      0x60A
-
-#define MT7916_IBF_LNA_PHASE_G0_ADDR       MT7916_IBF_PHASE_EEPROM_START
-#define MT7916_IBF_LNA_PHASE_G1_ADDR       (MT7916_IBF_LNA_PHASE_G0_ADDR  + 0x28)
-#define MT7916_IBF_LNA_PHASE_G2_ADDR       (MT7916_IBF_LNA_PHASE_G1_ADDR  + 0x28)
-#define MT7916_IBF_LNA_PHASE_G3_ADDR       (MT7916_IBF_LNA_PHASE_G2_ADDR  + 0x28)
-#define MT7916_IBF_LNA_PHASE_G4_ADDR       (MT7916_IBF_LNA_PHASE_G3_ADDR  + 0x28)
-#define MT7916_IBF_LNA_PHASE_G5_ADDR       (MT7916_IBF_LNA_PHASE_G4_ADDR  + 0x28)
-#define MT7916_IBF_LNA_PHASE_G6_ADDR       (MT7916_IBF_LNA_PHASE_G5_ADDR  + 0x28)
-#define MT7916_IBF_LNA_PHASE_G7_ADDR       (MT7916_IBF_LNA_PHASE_G6_ADDR  + 0x28)
-#define MT7916_IBF_LNA_PHASE_G8_ADDR       (MT7916_IBF_LNA_PHASE_G7_ADDR  + 0x28)
-#endif
-
-#if defined(MT7981)
-#define MT7981_IBF_PHASE_EEPROM_START      0x60A
-
-#define MT7981_IBF_LNA_PHASE_G0_ADDR       MT7981_IBF_PHASE_EEPROM_START
-#define MT7981_IBF_LNA_PHASE_G1_ADDR       (MT7981_IBF_LNA_PHASE_G0_ADDR  + 0x28)
-#define MT7981_IBF_LNA_PHASE_G2_ADDR       (MT7981_IBF_LNA_PHASE_G1_ADDR  + 0x28)
-#define MT7981_IBF_LNA_PHASE_G3_ADDR       (MT7981_IBF_LNA_PHASE_G2_ADDR  + 0x28)
-#define MT7981_IBF_LNA_PHASE_G4_ADDR       (MT7981_IBF_LNA_PHASE_G3_ADDR  + 0x28)
-#define MT7981_IBF_LNA_PHASE_G5_ADDR       (MT7981_IBF_LNA_PHASE_G4_ADDR  + 0x28)
-#define MT7981_IBF_LNA_PHASE_G6_ADDR       (MT7981_IBF_LNA_PHASE_G5_ADDR  + 0x28)
-#define MT7981_IBF_LNA_PHASE_G7_ADDR       (MT7981_IBF_LNA_PHASE_G6_ADDR  + 0x28)
-#define MT7981_IBF_LNA_PHASE_G8_ADDR       (MT7981_IBF_LNA_PHASE_G7_ADDR  + 0x28)
-#endif
+#define IBF_LNA_PHASE_G0_ADDR       IBF_PHASE_EEPROM_START
+#define IBF_LNA_PHASE_G1_ADDR       (IBF_LNA_PHASE_G0_ADDR  + 0x15)
+#define IBF_LNA_PHASE_G2_ADDR       (IBF_LNA_PHASE_G1_ADDR  + 0x1E)
+#define IBF_LNA_PHASE_G3_ADDR       (IBF_LNA_PHASE_G2_ADDR  + 0x1A)
+#define IBF_LNA_PHASE_G4_ADDR       (IBF_LNA_PHASE_G3_ADDR  + 0x1E)
+#define IBF_LNA_PHASE_G5_ADDR       (IBF_LNA_PHASE_G4_ADDR  + 0x1E)
+#define IBF_LNA_PHASE_G6_ADDR       (IBF_LNA_PHASE_G5_ADDR  + 0x1E)
+#define IBF_LNA_PHASE_G7_ADDR       (IBF_LNA_PHASE_G6_ADDR  + 0x1E)
+#define IBF_LNA_PHASE_G8_ADDR       (IBF_PHASE_EEPROM_START + 0x120)
 
 #define IBF_R0_H_G0                 0
 #define IBF_R0_M_G0                 1
@@ -205,10 +150,8 @@ typedef enum _IBF_PHASE_STATUS_INSTRUMENT {
 	STATUS_DONE
 } IBF_PHASE_STATUS_INSTRUMENT;
 
-
-
-#if defined(MT7986)
-typedef struct _MT7986_IBF_PHASE_OUT {
+#if defined(MT7615)
+typedef struct _MT7615_IBF_PHASE_OUT {
 	UINT8 ucC0_L;
 	UINT8 ucC1_L;
 	UINT8 ucC2_L;
@@ -221,418 +164,201 @@ typedef struct _MT7986_IBF_PHASE_OUT {
 	UINT8 ucC1_H;
 	UINT8 ucC2_H;
 	UINT8 ucC3_H;
-	UINT8 ucC0_UH;
-	UINT8 ucC1_UH;
-	UINT8 ucC2_UH;
-	UINT8 ucC3_UH;
-} MT7986_IBF_PHASE_OUT, *P_MT7986_IBF_PHASE_OUT;
+} MT7615_IBF_PHASE_OUT, *P_MT7615_IBF_PHASE_OUT;
 
-typedef struct _MT7986_IBF_PHASE_G0_T {
-	UINT8 ucG0_R0_UH;
+typedef struct _MT7615_IBF_PHASE_G0_T {
 	UINT8 ucG0_R0_H;
 	UINT8 ucG0_R0_M;
 	UINT8 ucG0_R0_L;
-	UINT8 ucG0_R0_UL;
-	UINT8 ucG0_R1_UH;
 	UINT8 ucG0_R1_H;
 	UINT8 ucG0_R1_M;
 	UINT8 ucG0_R1_L;
-	UINT8 ucG0_R1_UL;
-	UINT8 ucG0_R2_UH;
 	UINT8 ucG0_R2_H;
 	UINT8 ucG0_R2_M;
 	UINT8 ucG0_R2_L;
-	UINT8 ucG0_R2_UL;
-	UINT8 ucG0_R3_UH;
 	UINT8 ucG0_R3_H;
 	UINT8 ucG0_R3_M;
 	UINT8 ucG0_R3_L;
-	UINT8 ucG0_R3_UL;
-	UINT8 ucG0_R2_UH_SX2;
-	UINT8 ucG0_R2_H_SX2;
-	UINT8 ucG0_R2_M_SX2;
-	UINT8 ucG0_R2_L_SX2;
-	UINT8 ucG0_R2_UL_SX2;
-	UINT8 ucG0_R3_UH_SX2;
-	UINT8 ucG0_R3_H_SX2;
-	UINT8 ucG0_R3_M_SX2;
-	UINT8 ucG0_R3_L_SX2;
-	UINT8 ucG0_R3_UL_SX2;
 	UINT8 ucG0_M_T0_H;
 	UINT8 ucG0_M_T1_H;
 	UINT8 ucG0_M_T2_H;
-	UINT8 ucG0_M_T2_H_SX2;
-	UINT8 ucG0_R0_Reserved;
-	UINT8 ucG0_R1_Reserved;
-	UINT8 ucG0_R2_Reserved;
-	UINT8 ucG0_R3_Reserved;
-	UINT8 ucG0_R2_SX2_Reserved;
-	UINT8 ucG0_R3_SX2_Reserved;
-} MT7986_IBF_PHASE_G0_T, *P_MT7986_IBF_PHASE_G0_T;
+	UINT8 ucG0_L_T0_H;
+	UINT8 ucG0_L_T1_H;
+	UINT8 ucG0_L_T2_H;
+	UINT8 ucG0_H_T0_H;
+	UINT8 ucG0_H_T1_H;
+	UINT8 ucG0_H_T2_H;
+} MT7615_IBF_PHASE_G0_T, *P_MT7615_IBF_PHASE_G0_T;
 
-typedef struct _MT7986_IBF_PHASE_Gx_T {
-	UINT8 ucGx_R0_UH;
+typedef struct _MT7615_IBF_PHASE_Gx_T {
 	UINT8 ucGx_R0_H;
 	UINT8 ucGx_R0_M;
 	UINT8 ucGx_R0_L;
-	UINT8 ucGx_R0_UL;
-	UINT8 ucGx_R1_UH;
 	UINT8 ucGx_R1_H;
 	UINT8 ucGx_R1_M;
 	UINT8 ucGx_R1_L;
-	UINT8 ucGx_R1_UL;
-	UINT8 ucGx_R2_UH;
 	UINT8 ucGx_R2_H;
 	UINT8 ucGx_R2_M;
 	UINT8 ucGx_R2_L;
-	UINT8 ucGx_R2_UL;
-	UINT8 ucGx_R3_UH;
 	UINT8 ucGx_R3_H;
 	UINT8 ucGx_R3_M;
 	UINT8 ucGx_R3_L;
-	UINT8 ucGx_R3_UL;
-	UINT8 ucGx_R2_UH_SX2;
 	UINT8 ucGx_R2_H_SX2;
 	UINT8 ucGx_R2_M_SX2;
 	UINT8 ucGx_R2_L_SX2;
-	UINT8 ucGx_R2_UL_SX2;
-	UINT8 ucGx_R3_UH_SX2;
 	UINT8 ucGx_R3_H_SX2;
 	UINT8 ucGx_R3_M_SX2;
 	UINT8 ucGx_R3_L_SX2;
-	UINT8 ucGx_R3_UL_SX2;
 	UINT8 ucGx_M_T0_H;
 	UINT8 ucGx_M_T1_H;
 	UINT8 ucGx_M_T2_H;
 	UINT8 ucGx_M_T2_H_SX2;
-	UINT8 ucGx_R0_Reserved;
-	UINT8 ucGx_R1_Reserved;
-	UINT8 ucGx_R2_Reserved;
-	UINT8 ucGx_R3_Reserved;
-	UINT8 ucGx_R2_SX2_Reserved;
-	UINT8 ucGx_R3_SX2_Reserved;
-} MT7986_IBF_PHASE_Gx_T, *P_MT7986_IBF_PHASE_Gx_T;
+	UINT8 ucGx_L_T0_H;
+	UINT8 ucGx_L_T1_H;
+	UINT8 ucGx_L_T2_H;
+	UINT8 ucGx_L_T2_H_SX2;
+	UINT8 ucGx_H_T0_H;
+	UINT8 ucGx_H_T1_H;
+	UINT8 ucGx_H_T2_H;
+	UINT8 ucGx_H_T2_H_SX2;
+} MT7615_IBF_PHASE_Gx_T, *P_MT7615_IBF_PHASE_Gx_T;
 #endif
 
-#if defined(MT7916)
-typedef struct _MT7916_IBF_PHASE_OUT {
+#if defined(MT7622)
+typedef struct _MT7622_IBF_PHASE_OUT {
 	UINT8 ucC0_L;
 	UINT8 ucC1_L;
 	UINT8 ucC2_L;
-	UINT8 ucC3_L;
 	UINT8 ucC0_M;
 	UINT8 ucC1_M;
 	UINT8 ucC2_M;
-	UINT8 ucC3_M;
 	UINT8 ucC0_H;
 	UINT8 ucC1_H;
 	UINT8 ucC2_H;
-	UINT8 ucC3_H;
 	UINT8 ucC0_UH;
 	UINT8 ucC1_UH;
 	UINT8 ucC2_UH;
-	UINT8 ucC3_UH;
-} MT7916_IBF_PHASE_OUT, *P_MT7916_IBF_PHASE_OUT;
+	UINT8 ucC_L;
+	UINT8 ucC_M;
+	UINT8 ucC_H;
+	UINT8 ucC_UH;
+} MT7622_IBF_PHASE_OUT, *P_MT7622_IBF_PHASE_OUT;
 
-typedef struct _MT7916_IBF_PHASE_G0_T {
+typedef struct _MT7622_IBF_PHASE_G0_T {
 	UINT8 ucG0_R0_UH;
 	UINT8 ucG0_R0_H;
 	UINT8 ucG0_R0_M;
 	UINT8 ucG0_R0_L;
-	UINT8 ucG0_R0_UL;
 	UINT8 ucG0_R1_UH;
 	UINT8 ucG0_R1_H;
 	UINT8 ucG0_R1_M;
 	UINT8 ucG0_R1_L;
-	UINT8 ucG0_R1_UL;
 	UINT8 ucG0_R2_UH;
 	UINT8 ucG0_R2_H;
 	UINT8 ucG0_R2_M;
 	UINT8 ucG0_R2_L;
-	UINT8 ucG0_R2_UL;
 	UINT8 ucG0_R3_UH;
 	UINT8 ucG0_R3_H;
 	UINT8 ucG0_R3_M;
 	UINT8 ucG0_R3_L;
-	UINT8 ucG0_R3_UL;
-	UINT8 ucG0_R2_UH_SX2;
-	UINT8 ucG0_R2_H_SX2;
-	UINT8 ucG0_R2_M_SX2;
-	UINT8 ucG0_R2_L_SX2;
-	UINT8 ucG0_R2_UL_SX2;
-	UINT8 ucG0_R3_UH_SX2;
-	UINT8 ucG0_R3_H_SX2;
-	UINT8 ucG0_R3_M_SX2;
-	UINT8 ucG0_R3_L_SX2;
-	UINT8 ucG0_R3_UL_SX2;
-	UINT8 ucG0_M_T0_H;
-	UINT8 ucG0_M_T1_H;
-	UINT8 ucG0_M_T2_H;
-	UINT8 ucG0_M_T2_H_SX2;
-	UINT8 ucG0_R0_Reserved;
-	UINT8 ucG0_R1_Reserved;
-	UINT8 ucG0_R2_Reserved;
-	UINT8 ucG0_R3_Reserved;
-	UINT8 ucG0_R2_SX2_Reserved;
-	UINT8 ucG0_R3_SX2_Reserved;
-} MT7916_IBF_PHASE_G0_T, *P_MT7916_IBF_PHASE_G0_T;
+	UINT8 ucG0_M_T0_UH;
+	UINT8 ucG0_M_T1_UH;
+	UINT8 ucG0_M_T2_UH;
+	UINT8 ucG0_L_T0_UH;
+	UINT8 ucG0_L_T1_UH;
+	UINT8 ucG0_L_T2_UH;
+	UINT8 ucG0_H_T0_UH;
+	UINT8 ucG0_H_T1_UH;
+	UINT8 ucG0_H_T2_UH;
+} MT7622_IBF_PHASE_G0_T, *P_MT7622_IBF_PHASE_G0_T;
 
-typedef struct _MT7916_IBF_PHASE_Gx_T {
+typedef struct _MT7622_IBF_PHASE_Gx_T {
 	UINT8 ucGx_R0_UH;
 	UINT8 ucGx_R0_H;
 	UINT8 ucGx_R0_M;
 	UINT8 ucGx_R0_L;
-	UINT8 ucGx_R0_UL;
 	UINT8 ucGx_R1_UH;
 	UINT8 ucGx_R1_H;
 	UINT8 ucGx_R1_M;
 	UINT8 ucGx_R1_L;
-	UINT8 ucGx_R1_UL;
 	UINT8 ucGx_R2_UH;
 	UINT8 ucGx_R2_H;
 	UINT8 ucGx_R2_M;
 	UINT8 ucGx_R2_L;
-	UINT8 ucGx_R2_UL;
 	UINT8 ucGx_R3_UH;
 	UINT8 ucGx_R3_H;
 	UINT8 ucGx_R3_M;
 	UINT8 ucGx_R3_L;
-	UINT8 ucGx_R3_UL;
 	UINT8 ucGx_R2_UH_SX2;
 	UINT8 ucGx_R2_H_SX2;
 	UINT8 ucGx_R2_M_SX2;
 	UINT8 ucGx_R2_L_SX2;
-	UINT8 ucGx_R2_UL_SX2;
 	UINT8 ucGx_R3_UH_SX2;
 	UINT8 ucGx_R3_H_SX2;
 	UINT8 ucGx_R3_M_SX2;
 	UINT8 ucGx_R3_L_SX2;
-	UINT8 ucGx_R3_UL_SX2;
-	UINT8 ucGx_M_T0_H;
-	UINT8 ucGx_M_T1_H;
-	UINT8 ucGx_M_T2_H;
-	UINT8 ucGx_M_T2_H_SX2;
-	UINT8 ucGx_R0_Reserved;
-	UINT8 ucGx_R1_Reserved;
-	UINT8 ucGx_R2_Reserved;
-	UINT8 ucGx_R3_Reserved;
-	UINT8 ucGx_R2_SX2_Reserved;
-	UINT8 ucGx_R3_SX2_Reserved;
-} MT7916_IBF_PHASE_Gx_T, *P_MT7916_IBF_PHASE_Gx_T;
+	UINT8 ucGx_M_T0_UH;
+	UINT8 ucGx_M_T1_UH;
+	UINT8 ucGx_M_T2_UH;
+	UINT8 ucGx_M_T2_UH_SX2;
+	UINT8 ucGx_L_T0_UH;
+	UINT8 ucGx_L_T1_UH;
+	UINT8 ucGx_L_T2_UH;
+	UINT8 ucGx_L_T2_UH_SX2;
+	UINT8 ucGx_H_T0_UH;
+	UINT8 ucGx_H_T1_UH;
+	UINT8 ucGx_H_T2_UH;
+	UINT8 ucGx_H_T2_UH_SX2;
+} MT7622_IBF_PHASE_Gx_T, *P_MT7622_IBF_PHASE_Gx_T;
 #endif
 
-#if defined(MT7981)
-typedef struct _MT7981_IBF_PHASE_OUT {
-	UINT8 ucC0_L;
-	UINT8 ucC1_L;
-	UINT8 ucC2_L;
-	UINT8 ucC3_L;
-	UINT8 ucC0_M;
-	UINT8 ucC1_M;
-	UINT8 ucC2_M;
-	UINT8 ucC3_M;
-	UINT8 ucC0_H;
-	UINT8 ucC1_H;
-	UINT8 ucC2_H;
-	UINT8 ucC3_H;
-	UINT8 ucC0_UH;
-	UINT8 ucC1_UH;
-	UINT8 ucC2_UH;
-	UINT8 ucC3_UH;
-} MT7981_IBF_PHASE_OUT, *P_MT7981_IBF_PHASE_OUT;
-
-typedef struct _MT7981_IBF_PHASE_G0_T {
-	UINT8 ucG0_R0_UH;
-	UINT8 ucG0_R0_H;
-	UINT8 ucG0_R0_M;
-	UINT8 ucG0_R0_L;
-	UINT8 ucG0_R0_UL;
-	UINT8 ucG0_R1_UH;
-	UINT8 ucG0_R1_H;
-	UINT8 ucG0_R1_M;
-	UINT8 ucG0_R1_L;
-	UINT8 ucG0_R1_UL;
-	UINT8 ucG0_R2_UH;
-	UINT8 ucG0_R2_H;
-	UINT8 ucG0_R2_M;
-	UINT8 ucG0_R2_L;
-	UINT8 ucG0_R2_UL;
-	UINT8 ucG0_R3_UH;
-	UINT8 ucG0_R3_H;
-	UINT8 ucG0_R3_M;
-	UINT8 ucG0_R3_L;
-	UINT8 ucG0_R3_UL;
-	UINT8 ucG0_R2_UH_SX2;
-	UINT8 ucG0_R2_H_SX2;
-	UINT8 ucG0_R2_M_SX2;
-	UINT8 ucG0_R2_L_SX2;
-	UINT8 ucG0_R2_UL_SX2;
-	UINT8 ucG0_R3_UH_SX2;
-	UINT8 ucG0_R3_H_SX2;
-	UINT8 ucG0_R3_M_SX2;
-	UINT8 ucG0_R3_L_SX2;
-	UINT8 ucG0_R3_UL_SX2;
-	UINT8 ucG0_M_T0_H;
-	UINT8 ucG0_M_T1_H;
-	UINT8 ucG0_M_T2_H;
-	UINT8 ucG0_M_T2_H_SX2;
-	UINT8 ucG0_R0_Reserved;
-	UINT8 ucG0_R1_Reserved;
-	UINT8 ucG0_R2_Reserved;
-	UINT8 ucG0_R3_Reserved;
-	UINT8 ucG0_R2_SX2_Reserved;
-	UINT8 ucG0_R3_SX2_Reserved;
-} MT7981_IBF_PHASE_G0_T, *P_MT7981_IBF_PHASE_G0_T;
-
-typedef struct _MT7981_IBF_PHASE_Gx_T {
-	UINT8 ucGx_R0_UH;
-	UINT8 ucGx_R0_H;
-	UINT8 ucGx_R0_M;
-	UINT8 ucGx_R0_L;
-	UINT8 ucGx_R0_UL;
-	UINT8 ucGx_R1_UH;
-	UINT8 ucGx_R1_H;
-	UINT8 ucGx_R1_M;
-	UINT8 ucGx_R1_L;
-	UINT8 ucGx_R1_UL;
-	UINT8 ucGx_R2_UH;
-	UINT8 ucGx_R2_H;
-	UINT8 ucGx_R2_M;
-	UINT8 ucGx_R2_L;
-	UINT8 ucGx_R2_UL;
-	UINT8 ucGx_R3_UH;
-	UINT8 ucGx_R3_H;
-	UINT8 ucGx_R3_M;
-	UINT8 ucGx_R3_L;
-	UINT8 ucGx_R3_UL;
-	UINT8 ucGx_R2_UH_SX2;
-	UINT8 ucGx_R2_H_SX2;
-	UINT8 ucGx_R2_M_SX2;
-	UINT8 ucGx_R2_L_SX2;
-	UINT8 ucGx_R2_UL_SX2;
-	UINT8 ucGx_R3_UH_SX2;
-	UINT8 ucGx_R3_H_SX2;
-	UINT8 ucGx_R3_M_SX2;
-	UINT8 ucGx_R3_L_SX2;
-	UINT8 ucGx_R3_UL_SX2;
-	UINT8 ucGx_M_T0_H;
-	UINT8 ucGx_M_T1_H;
-	UINT8 ucGx_M_T2_H;
-	UINT8 ucGx_M_T2_H_SX2;
-	UINT8 ucGx_R0_Reserved;
-	UINT8 ucGx_R1_Reserved;
-	UINT8 ucGx_R2_Reserved;
-	UINT8 ucGx_R3_Reserved;
-	UINT8 ucGx_R2_SX2_Reserved;
-	UINT8 ucGx_R3_SX2_Reserved;
-} MT7981_IBF_PHASE_Gx_T, *P_MT7981_IBF_PHASE_Gx_T;
-#endif
-
-
-
-
-
-
-
-
-
-#if defined(MT7986)
-VOID mt7986_iBFPhaseComp(IN struct _RTMP_ADAPTER *pAd,
+#if defined(MT7615)
+VOID mt7615_iBFPhaseComp(IN struct _RTMP_ADAPTER *pAd,
 						IN UCHAR ucGroup,
 						IN PCHAR pCmdBuf);
 
-VOID mt7986_iBFPhaseCalInit(IN struct _RTMP_ADAPTER *pAd);
+VOID mt7615_iBFPhaseCalInit(IN struct _RTMP_ADAPTER *pAd);
 
-VOID mt7986_iBFPhaseFreeMem(IN struct _RTMP_ADAPTER *pAd);
+VOID mt7615_iBFPhaseFreeMem(IN struct _RTMP_ADAPTER *pAd);
 
-VOID mt7986_iBFPhaseCalE2PInit(IN struct _RTMP_ADAPTER *pAd);
+VOID mt7615_iBFPhaseCalE2PInit(IN struct _RTMP_ADAPTER *pAd);
 
-VOID mt7986_iBFPhaseCalE2PUpdate(IN struct _RTMP_ADAPTER *pAd,
+VOID mt7615_iBFPhaseCalE2PUpdate(IN struct _RTMP_ADAPTER *pAd,
 						IN UCHAR   ucGroup,
 						IN BOOLEAN fgSX2,
 						IN UCHAR   ucUpdateAllType);
 
-VOID mt7986_iBFPhaseCalReport(IN struct _RTMP_ADAPTER *pAd,
+VOID mt7615_iBFPhaseCalReport(IN struct _RTMP_ADAPTER *pAd,
 						IN UCHAR   ucGroupL_M_H,
 						IN UCHAR   ucGroup,
 						IN BOOLEAN fgSX2,
 						IN UCHAR   ucStatus,
 						IN UCHAR   ucPhaseCalType,
 						IN PUCHAR  pBuf);
+#endif /* MT7615 */
 
-VOID mt7986_eBFPfmuMemAlloc(IN struct _RTMP_ADAPTER *pAd,
-						IN PCHAR pPfmuMemRow,
-						IN PCHAR pPfmuMemCol);
-
-VOID mt7986_iBFPfmuMemAlloc(IN struct _RTMP_ADAPTER *pAd,
-						IN PCHAR pPfmuMemRow,
-						IN PCHAR pPfmuMemCol);
-#endif /* MT7986 */
-
-#if defined(MT7916)
-VOID mt7916_iBFPhaseComp(IN struct _RTMP_ADAPTER *pAd,
+#if defined(MT7622)
+VOID mt7622_iBFPhaseComp(IN struct _RTMP_ADAPTER *pAd,
 						IN UCHAR ucGroup,
 						IN PCHAR pCmdBuf);
 
-VOID mt7916_iBFPhaseCalInit(IN struct _RTMP_ADAPTER *pAd);
+VOID mt7622_iBFPhaseCalInit(IN struct _RTMP_ADAPTER *pAd);
 
-VOID mt7916_iBFPhaseFreeMem(IN struct _RTMP_ADAPTER *pAd);
+VOID mt7622_iBFPhaseFreeMem(IN struct _RTMP_ADAPTER *pAd);
 
-VOID mt7916_iBFPhaseCalE2PInit(IN struct _RTMP_ADAPTER *pAd);
+VOID mt7622_iBFPhaseCalE2PInit(IN struct _RTMP_ADAPTER *pAd);
 
-VOID mt7916_iBFPhaseCalE2PUpdate(IN struct _RTMP_ADAPTER *pAd,
+VOID mt7622_iBFPhaseCalE2PUpdate(IN struct _RTMP_ADAPTER *pAd,
 						IN UCHAR   ucGroup,
 						IN BOOLEAN fgSX2,
 						IN UCHAR   ucUpdateAllType);
 
-VOID mt7916_iBFPhaseCalReport(IN struct _RTMP_ADAPTER *pAd,
+VOID mt7622_iBFPhaseCalReport(IN struct _RTMP_ADAPTER *pAd,
 						IN UCHAR   ucGroupL_M_H,
 						IN UCHAR   ucGroup,
 						IN BOOLEAN fgSX2,
 						IN UCHAR   ucStatus,
 						IN UCHAR   ucPhaseCalType,
 						IN PUCHAR  pBuf);
-
-VOID mt7916_eBFPfmuMemAlloc(IN struct _RTMP_ADAPTER *pAd,
-						IN PCHAR pPfmuMemRow,
-						IN PCHAR pPfmuMemCol);
-
-VOID mt7916_iBFPfmuMemAlloc(IN struct _RTMP_ADAPTER *pAd,
-						IN PCHAR pPfmuMemRow,
-						IN PCHAR pPfmuMemCol);
-#endif /* MT7916 */
-
-#if defined(MT7981)
-VOID mt7981_iBFPhaseComp(IN struct _RTMP_ADAPTER *pAd,
-						IN UCHAR ucGroup,
-						IN PCHAR pCmdBuf);
-
-VOID mt7981_iBFPhaseCalInit(IN struct _RTMP_ADAPTER *pAd);
-
-VOID mt7981_iBFPhaseFreeMem(IN struct _RTMP_ADAPTER *pAd);
-
-VOID mt7981_iBFPhaseCalE2PInit(IN struct _RTMP_ADAPTER *pAd);
-
-VOID mt7981_iBFPhaseCalE2PUpdate(IN struct _RTMP_ADAPTER *pAd,
-						IN UCHAR   ucGroup,
-						IN BOOLEAN fgSX2,
-						IN UCHAR   ucUpdateAllType);
-
-VOID mt7981_iBFPhaseCalReport(IN struct _RTMP_ADAPTER *pAd,
-						IN UCHAR   ucGroupL_M_H,
-						IN UCHAR   ucGroup,
-						IN BOOLEAN fgSX2,
-						IN UCHAR   ucStatus,
-						IN UCHAR   ucPhaseCalType,
-						IN PUCHAR  pBuf);
-
-VOID mt7981_eBFPfmuMemAlloc(IN struct _RTMP_ADAPTER *pAd,
-						IN PCHAR pPfmuMemRow,
-						IN PCHAR pPfmuMemCol);
-
-VOID mt7981_iBFPfmuMemAlloc(IN struct _RTMP_ADAPTER *pAd,
-						IN PCHAR pPfmuMemRow,
-						IN PCHAR pPfmuMemCol);
-#endif /* MT7981 */
-
+#endif /* MT7622 */
 #endif /* _RT_TXBF_CAL_H_ */

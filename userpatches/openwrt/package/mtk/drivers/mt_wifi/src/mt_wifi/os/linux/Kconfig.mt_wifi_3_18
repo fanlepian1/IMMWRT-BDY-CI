@@ -378,29 +378,14 @@ config BACKGROUND_SCAN_SUPPORT
 	bool "Background Scan Support"
 	depends on WIFI_DRIVER
 	default y
-
+	
 config SMART_CARRIER_SENSE_SUPPORT
 	bool "Smart Carrier Sense Support"
 	depends on WIFI_DRIVER
 	default y
-
-config SCS_FW_OFFLOAD
-        bool "Smart Carrier Sense Offload Support"
-        depends on WIFI_DRIVER && SMART_CARRIER_SENSE_SUPPORT
-        default y
-
-config DYNAMIC_WMM_SUPPORT
-	bool "Dynamic WMM Feature"
-	depends on WIFI_DRIVER
-	default y
-
+	
 config MT_DFS_SUPPORT
-        bool "Dynamic Frequency Selection Support"
-        depends on WIFI_DRIVER
-        default y
-
-config MT_THERMAL_PROTECT_SUPPORT
-        bool "THERMAL PROTECT Support"
+        bool "Dynamic Frequency Selection Support"	
         depends on WIFI_DRIVER
         default y
 
@@ -489,6 +474,14 @@ config IGMP_SNOOP_SUPPORT
 	depends on WIFI_DRIVER
 	depends on MT_AP_SUPPORT
 	default y
+
+#config BLOCK_NET_IF
+#	bool "NETIF Block"
+#	depends on WIFI_DRIVER
+#	depends on MT_AP_SUPPORT
+#	default n
+#	help
+#	Support Net interface block while Tx-Sw queue full
 
 #config RATE_ADAPTION
 #	bool "New Rate Adaptation support"

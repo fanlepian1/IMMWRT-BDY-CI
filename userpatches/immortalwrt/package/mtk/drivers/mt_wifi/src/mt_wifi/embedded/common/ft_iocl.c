@@ -1,16 +1,15 @@
-/*
- * Copyright (c) [2020], MediaTek Inc. All rights reserved.
- *
- * This software/firmware and related documentation ("MediaTek Software") are
- * protected under relevant copyright laws.
- * The information contained herein is confidential and proprietary to
- * MediaTek Inc. and/or its licensors.
- * Except as otherwise provided in the applicable licensing terms with
- * MediaTek Inc. and/or its licensors, any reproduction, modification, use or
- * disclosure of MediaTek Software, and information contained herein, in whole
- * or in part, shall be strictly prohibited.
-*/
 /****************************************************************************
+ * Ralink Tech Inc.
+ * Taiwan, R.O.C.
+ *
+ * (c) Copyright 2002, Ralink Technology, Inc.
+ *
+ * All rights reserved. Ralink's source code is an unpublished work and the
+ * use of a copyright notice does not imply otherwise. This source code
+ * contains confidential trade secret material of Ralink Tech. Any attemp
+ * or participation in deciphering, decoding, reverse engineering or in any
+ * way altering the source code is stricitly prohibited, unless the prior
+ * written consent of Ralink Technology, Inc. is obtained.
  ***************************************************************************/
 
 /****************************************************************************
@@ -38,11 +37,6 @@
 static UCHAR gFT_MAC_STA[ETH_ALEN] = { 0x00, 0x0e, 0x2e, 0x82, 0xe7, 0x6d };
 UCHAR gFT_MAC_OldAP[ETH_ALEN] = { 0x00, 0x0e, 0x2e, 0x12, 0x34, 0x56 };
 
-#ifdef CONFIG_STA_SUPPORT
-#define FT_RIC_SIM_AP_MAX	10
-static FT_RIC_STATUS gFT_RIC_RspStatus[FT_RIC_SIM_AP_MAX];
-static UINT32 gFT_RIC_RspStatusIndex;
-#endif /* CONFIG_STA_SUPPORT */
 
 #endif /* FT_FUNC_SIMULATION */
 
@@ -83,15 +77,6 @@ static VOID FT_11K_CMD_SimKeyShow(PRTMP_ADAPTER pAd, INT32 Argc, CHAR *pArgv);
 #endif /* FT_FUNC_SIMULATION */
 #endif /* CONFIG_AP_SUPPORT */
 
-#ifdef CONFIG_STA_SUPPORT
-#ifdef FT_FUNC_SIMULATION
-static VOID FT_RIC_CMD_StatusDisplay(FT_RIC_STATUS *pRspStatus);
-static VOID FT_RIC_CMD_SimRscReqStart(PRTMP_ADAPTER pAd, INT32 Argc, CHAR *pArgv);
-static VOID FT_RIC_CMD_SimRscReq(PRTMP_ADAPTER pAd, INT32 Argc, CHAR *pArgv);
-static VOID FT_RIC_CMD_SimRscReqEnd(PRTMP_ADAPTER pAd, INT32 Argc, CHAR *pArgv);
-static VOID FT_RIC_CMD_SimRscReqRspList(PRTMP_ADAPTER pAd, INT32 Argc, CHAR *pArgv);
-#endif /* FT_FUNC_SIMULATION */
-#endif /* CONFIG_STA_SUPPORT */
 
 static UINT32 FT_CMD_UtilHexGet(CHAR **ppArgv);
 static UINT32 FT_CMD_UtilNumGet(CHAR **ppArgv);
@@ -126,7 +111,6 @@ static UINT32 TYPE_FUNC FT_CMD_UtilHexGet(
 	CHAR buf[3], *pNum;
 	UINT32 ID;
 	UCHAR Value;
-
 	pNum = (*ppArgv);
 	buf[0] = 0x30;
 	buf[1] = 0x30;
@@ -181,7 +165,6 @@ static UINT32 TYPE_FUNC FT_CMD_UtilNumGet(
 {
 	CHAR buf[20], *pNum;
 	UINT32 ID;
-
 	pNum = (*ppArgv);
 
 	for (ID = 0; ID < sizeof(buf) - 1; ID++) {
@@ -276,35 +259,37 @@ INT TYPE_FUNC FT_KDP_CMD_R0KH_InfoShow(RTMP_ADAPTER * pAd, RTMP_STRING * pArgv)
 {
 	FT_KDP_R0KH_INFO *pInfo;
 	UINT32 IdInfo, IdArray;
-
 	RTMP_SEM_LOCK(&(pAd->ApCfg.FtTab.FT_KdpLock));
 	pInfo = FT_KDP_CB->R0KH_InfoHead;
 	IdInfo = 1;
 
 	while (pInfo != NULL) {
-		MTWF_PRINT("\n%03d. R0KHID = 0x", IdInfo);
+		MTWF_LOG(DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_OFF, ("\n%03d. R0KHID = 0x", IdInfo));
 
 		for (IdArray = 0; IdArray < sizeof(pInfo->R0KHID); IdArray++) {
 			if (IdArray == (sizeof(pInfo->R0KHID) >> 1))
-				MTWF_PRINT("\n                ");
+				MTWF_LOG(DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_OFF, ("\n                "));
 
 			/* End of if */
-			MTWF_PRINT(" %02x", pInfo->R0KHID[IdArray]);
+			MTWF_LOG(DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_OFF, (" %02x", pInfo->R0KHID[IdArray]));
 		} /* End of for */
 
-		MTWF_PRINT("\n%03d. MAC = "MACSTR"\n",
-				  IdInfo, MAC2STR(pInfo->MAC));
-		MTWF_PRINT("%03d. IP  = %d.%d.%d.%d\n", IdInfo,
+		MTWF_LOG(DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_OFF,
+				 ("\n%03d. MAC = 0x%02x:%02x:%02x:%02x:%02x:%02x\n",
+				  IdInfo, pInfo->MAC[0], pInfo->MAC[1], pInfo->MAC[2],
+				  pInfo->MAC[3], pInfo->MAC[4], pInfo->MAC[5]));
+		MTWF_LOG(DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_OFF,
+				 ("%03d. IP  = %d.%d.%d.%d\n", IdInfo,
 				  (pInfo->IP & 0x000000FF) >> 0,
 				  (pInfo->IP & 0x0000FF00) >> 8,
 				  (pInfo->IP & 0x00FF0000) >> 16,
-				  (pInfo->IP & 0xFF000000) >> 24);
+				  (pInfo->IP & 0xFF000000) >> 24));
 		pInfo = pInfo->pNext;
 		IdInfo++;
 	} /* End of while */
 
 	RTMP_SEM_UNLOCK(&(pAd->ApCfg.FtTab.FT_KdpLock));
-	MTWF_PRINT("\n");
+	MTWF_LOG(DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_OFF, ("\n"));
 	return TRUE;
 } /* End of FT_KDP_CMD_R0KH_InfoShow */
 #endif /* FT_KDP_FUNC_R0KH_IP_RECORD */
@@ -334,38 +319,37 @@ static VOID TYPE_FUNC FT_KDP_CMD_EventList(
 {
 	FT_KDP_SIGNAL *pFtKdp;
 	ULONG SplFlags;
-
 	pFtKdp = (FT_KDP_SIGNAL *)FT_KDP_CB->EventList.pHead;
 
 	if (pFtKdp == NULL) {
-		MTWF_DBG(pAd, DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_ERROR, "ft_kdp> No any event!\n");
+		MTWF_LOG(DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_OFF, ("ft_kdp> No any event!\n"));
 		return;
 	} /* End of if */
 
-	MTWF_PRINT("\nEvent\n");
-	MTWF_PRINT("----------------------------------------------------\n");
+	MTWF_LOG(DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_OFF, ("\nEvent\n"));
+	MTWF_LOG(DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_OFF, ("----------------------------------------------------\n"));
 	RTMP_SEM_LOCK(&(pAd->ApCfg.FtTab.FT_KdpLock));
 
 	while (pFtKdp != NULL) {
 		switch (pFtKdp->Sig) {
 		case FT_KDP_SIG_KEY_TIMEOUT:
-			MTWF_PRINT("KEY TIMEOUT\n");
+			MTWF_LOG(DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_OFF, ("KEY TIMEOUT\n"));
 			break;
 
 		case FT_KDP_SIG_KEY_REQ:
-			MTWF_PRINT("KEY REQUEST\n");
+			MTWF_LOG(DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_OFF, ("KEY REQUEST\n"));
 			break;
 
 		case FT_KDP_SIG_FT_ASSOCIATION:
-			MTWF_PRINT("STATION FT ASSOCIATION\n");
+			MTWF_LOG(DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_OFF, ("STATION FT ASSOCIATION\n"));
 			break;
 
 		case FT_KDP_SIG_TERMINATE:
-			MTWF_PRINT("TERMINATE\n");
+			MTWF_LOG(DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_OFF, ("TERMINATE\n"));
 			break;
 
 		default:
-			MTWF_PRINT("UNKNOWN\n");
+			MTWF_LOG(DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_OFF, ("UNKNOWN\n"));
 			break;
 		} /* End of switch */
 
@@ -373,7 +357,7 @@ static VOID TYPE_FUNC FT_KDP_CMD_EventList(
 	} /* End of while  */
 
 	RTMP_SEM_UNLOCK(&(pAd->ApCfg.FtTab.FT_KdpLock));
-	MTWF_PRINT("\n");
+	MTWF_LOG(DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_OFF, ("\n"));
 } /* End of FT_KDP_CMD_EventList */
 #endif /* FT_KDP_FUNC_SOCK_COMM */
 
@@ -400,7 +384,6 @@ static VOID FT_KDP_CMD_DbgFlagCtrl(
 	IN	CHAR				*pArgv)
 {
 	INT32 DebugLevel;
-
 	DebugLevel = FT_CMD_UtilNumGet(&pArgv);
 	FT_KDP_EVENT_INFORM(pAd, BSS0, FT_KSP_SIG_DEBUG_TRACE,
 						&DebugLevel, sizeof(DebugLevel), NULL);
@@ -546,7 +529,6 @@ static VOID TYPE_FUNC FT_KDP_CMD_SimR0KH_InfoCreate(
 	UCHAR MAC[ETH_ALEN];
 	UCHAR ByteFirst;
 	UCHAR IP[4];
-
 	ByteFirst = FT_CMD_UtilHexGet(&pArgv);
 	IP[0] = FT_CMD_UtilNumGet(&pArgv);
 	IP[1] = FT_CMD_UtilNumGet(&pArgv);
@@ -657,8 +639,7 @@ static VOID TYPE_FUNC FT_RRB_CMD_SimSend(
 	IN	CHAR				*pArgv)
 {
 	FT_KDP_EVT_ACTION ActionCB, *pActionCB;
-	UCHAR MacPeer[6] = {0};
-
+	UCHAR MacPeer[6];
 	pActionCB = &ActionCB;
 	pActionCB->RequestType = FT_CMD_UtilNumGet(&pArgv);
 	FT_CMD_UtilMacGet(&pArgv, MacPeer);
@@ -754,49 +735,49 @@ static VOID TYPE_FUNC FT_R1KH_InfoShow(
 	INT i;
 	INT HashIdx;
 	PFT_R1HK_ENTRY pEntry;
-
 	RTMP_SEM_LOCK(&pAd->ApCfg.FtTab.FT_R1khEntryTabLock);
 
 	for (HashIdx = 0; HashIdx < FT_R1KH_ENTRY_HASH_TABLE_SIZE; HashIdx++) {
 		pEntry = (PFT_R1HK_ENTRY)\
 				 (pAd->ApCfg.FtTab.FT_R1khEntryTab[HashIdx].pHead);
 		if (pEntry != NULL)
-			MTWF_PRINT("\nHashIdx=%d\n", HashIdx);
+			MTWF_LOG(DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_OFF, ("\nHashIdx=%d\n", HashIdx));
 
 		while (pEntry != NULL) {
-			MTWF_PRINT("StaMac="MACSTR", ",
-					 MAC2STR(pEntry->StaMac));
-			MTWF_PRINT("\nKeyLifeTime=%d, ", pEntry->KeyLifeTime);
-			MTWF_PRINT("\nRassocDeadline=%d\n",
-					 pEntry->RassocDeadline);
-			MTWF_PRINT("PairwisChipher=");
+			MTWF_LOG(DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_OFF, ("StaMac=%02x:%02x:%02x:%02x:%02x:%02x, ",
+					 pEntry->StaMac[0], pEntry->StaMac[1], pEntry->StaMac[2],
+					 pEntry->StaMac[3], pEntry->StaMac[4], pEntry->StaMac[5]));
+			MTWF_LOG(DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_OFF, ("\nKeyLifeTime=%d, ", pEntry->KeyLifeTime));
+			MTWF_LOG(DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_OFF, ("\nRassocDeadline=%d\n",
+					 pEntry->RassocDeadline));
+			MTWF_LOG(DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_OFF, ("PairwisChipher="));
 
 			for (i = 0; i < 4; i++)
-				MTWF_PRINT("%02x:", pEntry->PairwisChipher[i]);
+				MTWF_LOG(DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_OFF, ("%02x:", pEntry->PairwisChipher[i]));
 
-			MTWF_PRINT("\nAkmSuite=");
+			MTWF_LOG(DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_OFF, ("\nAkmSuite="));
 
 			for (i = 0; i < 4; i++)
-				MTWF_PRINT("%02x:", pEntry->AkmSuite[i]);
+				MTWF_LOG(DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_OFF, ("%02x:", pEntry->AkmSuite[i]));
 
-			MTWF_PRINT("\nPmkR0Name=");
+			MTWF_LOG(DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_OFF, ("\nPmkR0Name="));
 
 			for (i = 0; i < 16; i++)
-				MTWF_PRINT("%02x:", pEntry->PmkR0Name[i]);
+				MTWF_LOG(DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_OFF, ("%02x:", pEntry->PmkR0Name[i]));
 
-			MTWF_PRINT("\nPmkR1Key=");
+			MTWF_LOG(DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_OFF, ("\nPmkR1Key="));
 
 			for (i = 0; i < 32; i++)
-				MTWF_PRINT("%02x:", pEntry->PmkR1Key[i]);
+				MTWF_LOG(DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_OFF, ("%02x:", pEntry->PmkR1Key[i]));
 
-			MTWF_PRINT("\nPmkR1Name=");
+			MTWF_LOG(DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_OFF, ("\nPmkR1Name="));
 
 			for (i = 0; i < 16; i++)
-				MTWF_PRINT("%02x:", pEntry->PmkR1Name[i]);
-			MTWF_PRINT("\nR0KHID=");
+				MTWF_LOG(DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_OFF, ("%02x:", pEntry->PmkR1Name[i]));
+			MTWF_LOG(DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_OFF, ("\nR0KHID="));
 			for (i = 0; i < pEntry->R0khIdLen; i++)
-				MTWF_PRINT("%02x:", pEntry->R0khId[i]);
-			MTWF_PRINT("\n");
+				MTWF_LOG(DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_OFF, ("%02x:", pEntry->R0khId[i]));
+			MTWF_LOG(DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_OFF, ("\n"));
 			pEntry = pEntry->pNext;
 		}
 	}
@@ -814,7 +795,7 @@ static VOID FT_OverDs_SimReq(
 	PUCHAR pOutBuffer = NULL;
 	ULONG FrameLen;
 	HEADER_802_11 Hdr;
-	PFT_INFO FtInfoBuf;
+	FT_INFO FtInfoBuf;
 	NDIS_STATUS NStatus;
 	UCHAR StaAddr[MAC_ADDR_LEN] = {0x00, 0x0c, 0x43, 0x00, 0x00, 0x00};
 	UCHAR TargetAddr[MAC_ADDR_LEN] = {0x00, 0x0c, 0x43, 0x26, 0x60, 0x0b};
@@ -824,18 +805,12 @@ static VOID FT_OverDs_SimReq(
 		FtEntry->Sst = SST_ASSOC;
 	}
 
-	os_alloc_mem(pAd, (UCHAR **)&FtInfoBuf, sizeof(FT_INFO));
-	if (FtInfoBuf == NULL) {
-		MTWF_DBG(pAd, DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_ERROR, "allocate memory failed.\n");
-		return;
-	}
-	NdisZeroMemory(FtInfoBuf, sizeof(FT_INFO));
-
+	NdisZeroMemory(&FtInfoBuf, sizeof(FT_INFO));
 	NStatus = MlmeAllocateMemory(pAd, &pOutBuffer);
 	os_zero_mem(pOutBuffer, MAX_MGMT_PKT_LEN);
 	if (NStatus != NDIS_STATUS_SUCCESS) {
-		MTWF_DBG(pAd, DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_ERROR, "allocate memory failed.\n");
-		os_free_mem(FtInfoBuf);
+		MTWF_LOG(DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_ERROR, ("%s: allocate memory failed.\n",
+				 __func__));
 		return;
 	}
 	/* Make 802.11 header. */
@@ -852,7 +827,7 @@ static VOID FT_OverDs_SimReq(
 	PEID_STRUCT  eid_ptr;
 	PUCHAR pRsnIe, pRsnIe_payload;
 	UCHAR	rsn_len = 0;
-	pRsnIe = (PUCHAR)FtInfoBuf->RSN_IE;
+	pRsnIe = (PUCHAR)FtInfoBuf.RSN_IE;
 	eid_ptr = (PEID_STRUCT)pRsnIe;
 	eid_ptr->Eid = IE_RSN;
 	pRsnIe_payload = (PUCHAR)&eid_ptr->Octet[0];
@@ -907,14 +882,14 @@ static VOID FT_OverDs_SimReq(
 	/* hex_dump("The RSNE", pRsnIe_payload, rsn_len); */
 
 	eid_ptr->Len = rsn_len;
-	FtInfoBuf->RSNIE_Len = eid_ptr->Len + 2;
+	FtInfoBuf.RSNIE_Len = eid_ptr->Len + 2;
 }
 	/* MD IE */
 {
-	FtInfoBuf->MdIeInfo.Len = 3;
-	FT_SET_MDID(FtInfoBuf->MdIeInfo.MdId, FT_DEFAULT_MDID);
-	FtInfoBuf->MdIeInfo.FtCapPlc.field.FtOverDs = 1;
-	FtInfoBuf->MdIeInfo.FtCapPlc.field.RsrReqCap = 1;
+	FtInfoBuf.MdIeInfo.Len = 3;
+	FT_SET_MDID(FtInfoBuf.MdIeInfo.MdId, FT_DEFAULT_MDID);
+	FtInfoBuf.MdIeInfo.FtCapPlc.field.FtOverDs = 1;
+	FtInfoBuf.MdIeInfo.FtCapPlc.field.RsrReqCap = 1;
 }
 	/* FT IE */
 {
@@ -922,32 +897,30 @@ static VOID FT_OverDs_SimReq(
 
 	pFtCfg = &pAd->ApCfg.MBSSID[FtEntry->apidx].wdev.FtCfg;
 
-	FtInfoBuf->FtIeInfo.Len = sizeof(FtInfoBuf->FtIeInfo.MICCtr);
-	FtInfoBuf->FtIeInfo.Len += sizeof(FtInfoBuf->FtIeInfo.MIC);
-	FtInfoBuf->FtIeInfo.Len += sizeof(FtInfoBuf->FtIeInfo.ANonce);
-	FtInfoBuf->FtIeInfo.Len += sizeof(FtInfoBuf->FtIeInfo.SNonce);
-	GenRandom(pAd, StaAddr, FtInfoBuf->FtIeInfo.SNonce);
+	FtInfoBuf.FtIeInfo.Len = sizeof(FtInfoBuf.FtIeInfo.MICCtr);
+	FtInfoBuf.FtIeInfo.Len += sizeof(FtInfoBuf.FtIeInfo.MIC);
+	FtInfoBuf.FtIeInfo.Len += sizeof(FtInfoBuf.FtIeInfo.ANonce);
+	FtInfoBuf.FtIeInfo.Len += sizeof(FtInfoBuf.FtIeInfo.SNonce);
+	GenRandom(pAd, StaAddr, FtInfoBuf.FtIeInfo.SNonce);
 
-	FtInfoBuf->FtIeInfo.Len += sizeof(((FT_OPTION_FIELD *)0)->SubElementId);
-	FtInfoBuf->FtIeInfo.Len += sizeof(FtInfoBuf->FtIeInfo.R0khIdLen);
-	FtInfoBuf->FtIeInfo.Len += pFtCfg->FtR0khIdLen;
-	NdisMoveMemory(FtInfoBuf->FtIeInfo.R0khId, pFtCfg->FtR0khId, pFtCfg->FtR0khIdLen);
-	FtInfoBuf->FtIeInfo.R0khIdLen = pFtCfg->FtR0khIdLen;
+	FtInfoBuf.FtIeInfo.Len += sizeof(((FT_OPTION_FIELD *)0)->SubElementId);
+	FtInfoBuf.FtIeInfo.Len += sizeof(FtInfoBuf.FtIeInfo.R0khIdLen);
+	FtInfoBuf.FtIeInfo.Len += pFtCfg->FtR0khIdLen;
+	NdisMoveMemory(FtInfoBuf.FtIeInfo.R0khId, pFtCfg->FtR0khId, pFtCfg->FtR0khIdLen);
+	FtInfoBuf.FtIeInfo.R0khIdLen = pFtCfg->FtR0khIdLen;
 
 	/* hex_dump("The FTE", (PUCHAR)&FtInfoBuf.FtIeInfo, FtInfoBuf.FtIeInfo.Len); */
 }
 	FT_MakeFtActFrame(pAd, pOutBuffer, &FrameLen,
 					  FT_ACTION_BT_REQ, FtEntry->Addr, TargetAddr, 0,
-					  FtInfoBuf);
+					  &FtInfoBuf);
 
 	/* enqueue it into FT action state machine. */
-#ifdef CUSTOMER_DCC_FEATURE
+#if defined(CUSTOMER_DCC_FEATURE) || defined(CONFIG_MAP_SUPPORT)
 	REPORT_MGMT_FRAME_TO_MLME(pAd, FtEntry->wcid, pOutBuffer, FrameLen, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, OPMODE_AP, &pAd->ApCfg.MBSSID[FtEntry->apidx].wdev, FtEntry->HTPhyMode.field.MODE);
 #else
 	REPORT_MGMT_FRAME_TO_MLME(pAd, FtEntry->wcid, pOutBuffer, FrameLen, 0, 0, 0, 0, 0, 0, OPMODE_AP, &pAd->ApCfg.MBSSID[FtEntry->apidx].wdev, FtEntry->HTPhyMode.field.MODE);
 #endif
-	if (FtInfoBuf)
-		os_free_mem(FtInfoBuf);
 	if (pOutBuffer)
 		os_free_mem(pOutBuffer);
 }
@@ -961,270 +934,6 @@ static VOID FT_OverDs_SimConfirm(
 #endif /* CONFIG_AP_SUPPORT */
 
 
-#ifdef CONFIG_STA_SUPPORT
-#ifdef FT_FUNC_SIMULATION
-/*
-========================================================================
-Routine Description:
-	Display the reponse status for a resource request.
-
-Arguments:
-	*pRspStatus		- the status
-
-Return Value:
-	None
-
-Note:
-========================================================================
-*/
-static VOID TYPE_FUNC FT_RIC_CMD_StatusDisplay(FT_RIC_STATUS *pRspStatus)
-{
-	MTWF_PRINT("\nAP MAC = "MACSTR"\n",
-			  MAC2STR(pRspStatus->AP_MAC));
-
-	if (pRspStatus->FlgHasBaResource == TRUE) {
-		if (pRspStatus->FlgIsBaAccepted == TRUE)
-			MTWF_PRINT("\tBA Resource is accepted.\n");
-		else
-			MTWF_PRINT("\tBA Resource is not accepted.\n"); /* End of if */
-	} /* End of if */
-
-	if (pRspStatus->TspecNumberOfRequested > 0) {
-		MTWF_PRINT("\tNumber of requested TSPEC: %d\n",
-				 pRspStatus->TspecNumberOfRequested);
-		MTWF_PRINT("\tNumber of accepted TSPEC: %d\n",
-				 pRspStatus->TspecNumberOfAccepted);
-		MTWF_PRINT("\tTotal requested Time: %d us\n",
-				 pRspStatus->TspecMediumTimeTotalCur);
-		MTWF_PRINT("\tTotal accepted Time: %d us\n",
-				 pRspStatus->TspecMediumTimeTotalNew);
-	} /* End of if */
-
-	if (pRspStatus->UnknownRDIE > 0) {
-		MTWF_PRINT("\tNumber of unknown RDIE: %d\n",
-				 pRspStatus->UnknownRDIE);
-	} /* End of if */
-} /* End of FT_RIC_CMD_StatusDisplay */
-
-
-/*
-========================================================================
-Routine Description:
-	Simulate to start our resource request to the target AP.
-
-Arguments:
-	pAd				- WLAN control block pointer
-	Argc			- the number of input parameters
-	*pArgv			- input parameters
-
-Return Value:
-	None
-
-Note:
-	Need to build any TSPEC before.
-
-	EX: Build a simulated TSPEC.
-
-	iwpriv ra0 set acm=69_0_0_1_1
-	iwpriv ra0 set acm=65_1_7_0_1_7_0_500_3000_200000_11000000_10_0
-	iwpriv ra0 set acm=65_1_6_1_1_6_0_500_3000_200000_11000000_10_0
-	iwpriv ra0 set acm=65_1_5_0_1_5_0_500_3000_200000_11000000_10_0
-	iwpriv ra0 set acm=65_1_4_1_1_4_0_500_3000_200000_11000000_10_0
-	iwpriv ra0 set acm=06_1_0
-	iwpriv ra0 set ft=506
-	iwpriv ra0 set ft=507_00:11:11:11:11:11_1_0_0_1
-	iwpriv ra0 set ft=507_00:22:22:22:22:22_0_0_1_1
-	iwpriv ra0 set ft=507_00:33:33:33:33:33_1_1_1_0
-	iwpriv ra0 set ft=508_00:22:22:22:22:22
-	iwpriv ra0 set ft=509
-========================================================================
-*/
-static VOID TYPE_FUNC FT_RIC_CMD_SimRscReqStart(
-	IN	PRTMP_ADAPTER		pAd,
-	IN	INT32				Argc,
-	IN	CHAR				*pArgv)
-{
-	FT_RIC_ResourceRequestStart(pAd);
-	gFT_RIC_RspStatusIndex = 0;
-} /* End of FT_RIC_CMD_SimRscReqStart */
-
-
-/*
-========================================================================
-Routine Description:
-	Simulate to send our resource request to the target AP.
-
-Arguments:
-	pAd				- WLAN control block pointer
-	Argc			- the number of input parameters
-	*pArgv			- input parameters
-
-Return Value:
-	None
-
-Note:
-	Command: [AP MAC] [Status for TSPEC 1] [Status for TSPEC 2]
-	[Status for TSPEC 3] [Status for TSPEC 4] [Status for TSPEC 5]
-	[Status for TSPEC 6] [Status for TSPEC 7] [Status for TSPEC 8]
-========================================================================
-*/
-static VOID TYPE_FUNC FT_RIC_CMD_SimRscReq(
-	IN	PRTMP_ADAPTER		pAd,
-	IN	INT32				Argc,
-	IN	CHAR				*pArgv)
-{
-	FT_ELM_RIC_DATA_INFO *pElmDataInfoRsp;
-	UCHAR *pFrame, *pFrameRDIE, *pFrameNextRDIE, *pFrameRSC;
-	UINT32 FilledLen, RdieLen, RscLen, RspLen = 0;
-	UCHAR MacPeer[6] = {0};
-	BOOLEAN RspStatus[8];
-	UINT32 IdStatus, RDIE_Index;
-
-	/* sanity check */
-	if (gFT_RIC_RspStatusIndex >= FT_RIC_SIM_AP_MAX)
-		return;
-
-	/* End of if */
-	/* get AP mac address */
-	FT_CMD_UtilMacGet(&pArgv, MacPeer);
-
-	if (*(UINT32 *)MacPeer == 0)
-		memcpy(MacPeer, gFT_MAC_OldAP, 6);
-
-	/* End of if */
-	memset(RspStatus, 0, sizeof(RspStatus));
-
-	if (Argc > ARRAY_SIZE(RspStatus)) {
-		MTWF_DBG(pAd, DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_INFO,
-			 "limit Argc(%d) to %lu\n",
-			  Argc, (ULONG)ARRAY_SIZE(RspStatus));
-		Argc = ARRAY_SIZE(RspStatus);
-	}
-
-	for (IdStatus = 0; IdStatus < (Argc - 1); IdStatus++)
-		RspStatus[IdStatus] = FT_CMD_UtilNumGet(&pArgv);
-
-	/* End of for */
-	/* init */
-	os_alloc_mem(pAd, (UCHAR **)&pFrame, 1000);
-
-	if (pFrame == NULL)
-		return;
-
-	memset(pFrame, 0, 1000);
-	RspLen = 0;
-	/* simulate to request */
-	FilledLen = FT_RIC_ResourceRequest(pAd, MacPeer, pFrame, 1000);
-
-	/* modify response status */
-	if (Argc > 1) {
-		RDIE_Index = 0;
-		RspLen = 0;
-		pFrameRDIE = pFrame;
-
-		while (FilledLen > 0) {
-			/* update RDIE status */
-			pElmDataInfoRsp = (FT_ELM_RIC_DATA_INFO *)pFrameRDIE;
-			pElmDataInfoRsp->StatusCode = RspStatus[RDIE_Index];
-			RdieLen = FT_ELM_HDR_LEN + *(pFrameRDIE + 1);
-			pFrameRSC = pFrameRDIE + RdieLen;
-			RscLen = FT_ELM_HDR_LEN + *(pFrameRSC + 1);
-			RspLen += RdieLen;
-			FilledLen -= (RdieLen + RscLen);
-
-			/* update resource element */
-			if (pElmDataInfoRsp->StatusCode != 0) {
-				/* delete the following resource TSPEC */
-				pElmDataInfoRsp->RD_Count = 0;
-				pFrameNextRDIE = pFrameRSC + RscLen;
-				memcpy(pFrameRSC, pFrameNextRDIE, FilledLen);
-				pFrameRDIE += (RdieLen);
-			} else {
-				RspLen += RscLen;
-				pFrameRDIE += (RdieLen + RscLen);
-			} /* End of if */
-
-			/* check next RDIE pair */
-			RDIE_Index++;
-		} /* End of while */
-	} /* End of if */
-
-	/* simulate to response (Medium Time will be 0) */
-	FT_RIC_ResourceResponseHandle(pAd, MacPeer, pFrame, RspLen,
-								  &gFT_RIC_RspStatus[gFT_RIC_RspStatusIndex]);
-	/* display status */
-	FT_RIC_CMD_StatusDisplay(&gFT_RIC_RspStatus[gFT_RIC_RspStatusIndex]);
-	os_free_mem(pFrame);
-	gFT_RIC_RspStatusIndex++;
-} /* End of FT_RIC_CMD_SimRscReq */
-
-
-/*
-========================================================================
-Routine Description:
-	Simulate to end our resource request to the target AP.
-
-Arguments:
-	pAd				- WLAN control block pointer
-	Argc			- the number of input parameters
-	*pArgv			- input parameters
-
-Return Value:
-	None
-
-Note:
-	Command: [Selected AP MAC]
-========================================================================
-*/
-static VOID TYPE_FUNC FT_RIC_CMD_SimRscReqEnd(
-	IN	PRTMP_ADAPTER		pAd,
-	IN	INT32				Argc,
-	IN	CHAR				*pArgv)
-{
-	UCHAR MacPeer[6] = {0};
-	/* get selected AP mac address */
-	FT_CMD_UtilMacGet(&pArgv, MacPeer);
-
-	if (*(UINT32 *)MacPeer == 0)
-		memcpy(MacPeer, gFT_MAC_OldAP, 6);
-
-	/* End of if */
-	/* end resource request mechanism */
-	FT_RIC_ResourceRequestEnd(pAd, MacPeer);
-} /* End of FT_RIC_CMD_SimRscReqEnd */
-
-
-/*
-========================================================================
-Routine Description:
-	Simulate to list our resource request response from all APs.
-
-Arguments:
-	pAd				- WLAN control block pointer
-	Argc			- the number of input parameters
-	*pArgv			- input parameters
-
-Return Value:
-	None
-
-Note:
-========================================================================
-*/
-static VOID TYPE_FUNC FT_RIC_CMD_SimRscReqRspList(
-	IN	PRTMP_ADAPTER		pAd,
-	IN	INT32				Argc,
-	IN	CHAR				*pArgv)
-{
-	UINT32 IdRsc;
-
-	for (IdRsc = 0; IdRsc < gFT_RIC_RspStatusIndex; IdRsc++) {
-		FT_RIC_CMD_StatusDisplay(&gFT_RIC_RspStatus[IdRsc]);
-		MTWF_DBG(pAd, DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_INFO, "\n");
-	} /* End of for */
-} /* End of FT_RIC_CMD_SimRscReqRspList */
-
-#endif /* FT_FUNC_SIMULATION */
-#endif /* CONFIG_STA_SUPPORT */
 
 
 
@@ -1317,122 +1026,98 @@ INT TYPE_FUNC FT_Ioctl(RTMP_ADAPTER * pAd, RTMP_STRING *pArgvIn)
 
 	/* normal commands */
 	case FT_KDP_CMD_DAEMON_KILL:
-		MTWF_DBG(pAd, DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_INFO, "ft_iocl> kill daemon!\n");
+		MTWF_LOG(DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_TRACE, ("ft_iocl> kill daemon!\n"));
 		FT_KDP_EventInform(pAd, BSS0, FT_KDP_SIG_TERMINATE, NULL, 0, 0, NULL);
 		break;
 #ifndef FT_KDP_FUNC_SOCK_COMM
 
 	case FT_KDP_CMD_EVENT_LIST:
-		MTWF_DBG(pAd, DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_INFO, "ft_iocl> event list!\n");
+		MTWF_LOG(DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_TRACE, ("ft_iocl> event list!\n"));
 		FT_KDP_CMD_EventList(pAd, Argc, pArgv);
 		break;
 #endif /* FT_KDP_FUNC_SOCK_COMM */
 
 	case FT_KDP_CMD_DEBUG_FLAG_CTRL:
-		MTWF_DBG(pAd, DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_INFO, "ft_iocl> IAPP daemon debug flag control!\n");
+		MTWF_LOG(DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_TRACE, ("ft_iocl> IAPP daemon debug flag control!\n"));
 		FT_KDP_CMD_DbgFlagCtrl(pAd, Argc, pArgv);
 		break;
 #ifdef FT_FUNC_SIMULATION
 
 	/* simulation commands */
 	case FT_KDP_CMD_SM_EVT_FT_ASSOC:
-		MTWF_DBG(pAd, DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_INFO, "ft_iocl> (sm) ft assoc!\n");
+		MTWF_LOG(DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_TRACE, ("ft_iocl> (sm) ft assoc!\n"));
 		FT_KDP_CMD_SimEvtFtAssoc(pAd, Argc, pArgv);
 		break;
 
 	case FT_KDP_CMD_SM_EVT_FT_REASSOC:
-		MTWF_DBG(pAd, DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_INFO, "ft_iocl> (sm) ft reassoc!\n");
+		MTWF_LOG(DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_TRACE, ("ft_iocl> (sm) ft reassoc!\n"));
 		FT_KDP_CMD_SimEvtFtReAssoc(pAd, Argc, pArgv);
 		break;
 
 	case FT_KDP_CMD_SM_EVT_KEY_REQ:
-		MTWF_DBG(pAd, DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_INFO, "ft_iocl> (sm) key req!\n");
+		MTWF_LOG(DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_TRACE, ("ft_iocl> (sm) key req!\n"));
 		FT_KDP_CMD_SimKeyReq(pAd, Argc, pArgv);
 		break;
 #ifdef FT_KDP_FUNC_R0KH_IP_RECORD
 
 	case FT_KDP_CMD_SM_R0KH_INFO_CREATE:
-		MTWF_DBG(pAd, DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_INFO, "ft_iocl> (sm) R0KH INFO create!\n");
+		MTWF_LOG(DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_TRACE, ("ft_iocl> (sm) R0KH INFO create!\n"));
 		FT_KDP_CMD_SimR0KH_InfoCreate(pAd, Argc, pArgv);
 		break;
 #endif /* FT_KDP_FUNC_R0KH_IP_RECORD */
 
 	case FT_RIC_CMD_SM_REQ_HANDLE:
-		MTWF_DBG(pAd, DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_INFO, "ft_iocl> (sm) handle a resource request!\n");
+		MTWF_LOG(DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_TRACE, ("ft_iocl> (sm) handle a resource request!\n"));
 		FT_RIC_CMD_SimRscReqHandle(pAd, Argc, pArgv);
 		break;
 
 	case FT_RIC_CMD_SM_REQ_HDL_TSPEC:
-		MTWF_DBG(pAd, DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_INFO, "ft_iocl> (sm) make a resource request TSPEC!\n");
+		MTWF_LOG(DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_TRACE, ("ft_iocl> (sm) make a resource request TSPEC!\n"));
 		FT_RIC_CMD_SimRscReqHdlTspec(pAd, Argc, pArgv);
 		break;
 
 	case FT_RIC_CMD_SM_RRB_SEND:
-		MTWF_DBG(pAd, DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_INFO, "ft_iocl> (sm) send a RRB frame!\n");
+		MTWF_LOG(DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_TRACE, ("ft_iocl> (sm) send a RRB frame!\n"));
 		FT_RRB_CMD_SimSend(pAd, Argc, pArgv);
 		break;
 
 	case FT_11K_CMD_INFO_REQ:
-		MTWF_DBG(pAd, DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_INFO, "ft_iocl> (sm) send a info request frame!\n");
+		MTWF_LOG(DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_TRACE, ("ft_iocl> (sm) send a info request frame!\n"));
 		FT_11K_CMD_SimInfoReq(pAd, Argc, pArgv);
 		break;
 
 	case FT_KDP_KEY_SHOW:
-		MTWF_DBG(pAd, DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_INFO, "ft_iocl> (sm) show key information!\n");
+		MTWF_LOG(DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_TRACE, ("ft_iocl> (sm) show key information!\n"));
 		FT_11K_CMD_SimKeyShow(pAd, Argc, pArgv);
 		break;
 #endif /* FT_FUNC_SIMULATION */
 #ifdef FT_KDP_FUNC_R0KH_IP_RECORD
 
 	case FT_KDP_CMD_SM_R0KH_INFO_SHOW:
-		MTWF_DBG(pAd, DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_INFO, "ft_iocl> (sm) R0KH INFO show!\n");
+		MTWF_LOG(DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_TRACE, ("ft_iocl> (sm) R0KH INFO show!\n"));
 		FT_KDP_CMD_R0KH_InfoShow(pAd, (RTMP_STRING *)pArgv);
 		break;
 #endif /* FT_KDP_FUNC_R0KH_IP_RECORD */
 
 	case FT_R1KH_INFO_SHOW:
-		MTWF_DBG(pAd, DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_INFO, "ft_iocl> (sm) R1KH INFO show!\n");
+		MTWF_LOG(DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_TRACE, ("ft_iocl> (sm) R1KH INFO show!\n"));
 		FT_R1KH_InfoShow(pAd, Argc, pArgv);
 		break;
 
 	case FT_REQ_ACT:
-		MTWF_DBG(pAd, DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_INFO, "ft_iocl> FT_REQ_ACT!\n");
+		MTWF_LOG(DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_TRACE, ("ft_iocl> FT_REQ_ACT!\n"));
 		FT_OverDs_SimReq(pAd, Argc, pArgv);
 		break;
 
 	case FT_CONFIRM_ACT:
-		MTWF_DBG(pAd, DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_INFO, "ft_iocl> FT_CONFIRM_ACT!\n");
+		MTWF_LOG(DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_TRACE, ("ft_iocl> FT_CONFIRM_ACT!\n"));
 		FT_OverDs_SimConfirm(pAd, Argc, pArgv);
 		break;
 #endif /* CONFIG_AP_SUPPORT */
-#ifdef CONFIG_STA_SUPPORT
-#ifdef FT_FUNC_SIMULATION
-
-	case FT_RIC_CMD_SM_REQ_START:
-		MTWF_DBG(pAd, DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_INFO, "ft_iocl> (sm) Resource Request Start!\n");
-		FT_RIC_CMD_SimRscReqStart(pAd, Argc, pArgv);
-		break;
-
-	case FT_RIC_CMD_SM_REQ:
-		MTWF_DBG(pAd, DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_INFO, "ft_iocl> (sm) Resource Request!\n");
-		FT_RIC_CMD_SimRscReq(pAd, Argc, pArgv);
-		break;
-
-	case FT_RIC_CMD_SM_REQ_END:
-		MTWF_DBG(pAd, DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_INFO, "ft_iocl> (sm) Resource Request End!\n");
-		FT_RIC_CMD_SimRscReqEnd(pAd, Argc, pArgv);
-		break;
-
-	case FT_RIC_CMD_SM_REQ_RSP_LIST:
-		MTWF_DBG(pAd, DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_INFO, "ft_iocl> (sm) Resource Req/Rsp List!\n");
-		FT_RIC_CMD_SimRscReqRspList(pAd, Argc, pArgv);
-		break;
-#endif /* FT_FUNC_SIMULATION */
-#endif /* CONFIG_STA_SUPPORT */
 
 	default: /* error command type */
-		MTWF_DBG(pAd, DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_INFO,
-				 "ft_iocl> ERROR! No such command %d!\n", Command);
+		MTWF_LOG(DBG_CAT_PROTO, CATPROTO_FT, DBG_LVL_TRACE,
+				 ("ft_iocl> ERROR! No such command %d!\n", Command));
 		return -EINVAL; /* input error */
 	} /* End of switch */
 

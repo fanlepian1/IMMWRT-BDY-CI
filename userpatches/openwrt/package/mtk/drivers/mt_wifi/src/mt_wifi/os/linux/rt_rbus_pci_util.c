@@ -14,24 +14,26 @@
 #define RTMP_MODULE_OS
 #define RTMP_MODULE_OS_UTIL
 
-#include "rt_config.h"
+/*#include "rt_config.h" */
 #include "rtmp_comm.h"
 #include "rtmp_osabl.h"
 #include "rt_os_util.h"
 
-#if (KERNEL_VERSION(5, 4, 0) < LINUX_VERSION_CODE)
-static inline void *dma_zalloc_coherent(struct device *dev, size_t size,
-										dma_addr_t *dma_handle, gfp_t flag)
-{
-	void *ret = dma_alloc_coherent(dev, size, dma_handle,
-								   flag | __GFP_ZERO);
-	return ret;
-}
-#endif
-
 #ifdef RTMP_MAC_PCI
 VOID *alloc_rx_buf_1k(void *hif_resource);
+static inline void *dma_zalloc_coherent(struct device *dev, size_t size, dma_addr_t *dma_handle, gfp_t flag)
 
+{
+
+      void *ret = dma_alloc_coherent(dev, size, dma_handle, flag);
+
+      if (ret)
+
+         memset(ret, 0, size);
+
+      return ret;
+
+}
 /* Function for Tx/Rx/Mgmt Desc Memory allocation. */
 void RtmpAllocDescBuf(
 	IN VOID * pDev,
@@ -43,11 +45,7 @@ void RtmpAllocDescBuf(
 {
 	dma_addr_t DmaAddr = (dma_addr_t)(*phy_addr);
 	struct device *pdev = (struct device *)pDev;
-#if (KERNEL_VERSION(3, 18, 0) <= LINUX_VERSION_CODE)
 	*VirtualAddress = (PVOID)dma_zalloc_coherent(pdev, sizeof(char) * Length, &DmaAddr, GFP_KERNEL);
-#else
-	*VirtualAddress = (PVOID)dma_alloc_coherent(pdev, sizeof(char) * Length, &DmaAddr, GFP_KERNEL);
-#endif
 	*phy_addr = (NDIS_PHYSICAL_ADDRESS)DmaAddr;
 }
 
@@ -87,55 +85,46 @@ void RTMP_FreeFirstTxBuffer(
 	kfree(va);
 }
 
+#ifdef BB_SOC
+__IMEM
+#endif
 PNDIS_PACKET RTMP_AllocateRxPacketBuffer(
 	VOID *reserved,
 	VOID *dev,
+	enum  MEM_ALLOC_TYPE type,
 	ULONG size,
 	VOID **va,
 	PNDIS_PHYSICAL_ADDRESS pa)
 {
 	struct sk_buff *pkt = NULL;
 	struct device *pdev = (struct device *)dev;
-	struct hif_pci_rx_ring *rx_ring = (struct hif_pci_rx_ring *)reserved;
-	UINT8 buf_flags = rx_ring->buf_flags;
 
-	switch (rx_ring->buf_type) {
+	switch (type) {
+#ifdef CONFIG_WIFI_BUILD_SKB
 	case DYNAMIC_PAGE_ALLOC:
-
-#if (KERNEL_VERSION(4, 10, 0) <= LINUX_VERSION_CODE)
-		pkt = page_frag_alloc(&rx_ring->rx_page, SKB_DATA_ALIGN(SKB_BUF_HEADROOM_RSV + size)
-								+ SKB_DATA_ALIGN(SKB_BUF_TAILROOM_RSV), GFP_ATOMIC);
-		if (pkt)
-			MEM_DBG_PKT_ALLOC_INC_SIZE(pkt, size);
-#elif (KERNEL_VERSION(4, 3, 0) < LINUX_VERSION_CODE)
-		pkt = __alloc_page_frag(&rx_ring->rx_page, SKB_DATA_ALIGN(SKB_BUF_HEADROOM_RSV + size)
-								+ SKB_DATA_ALIGN(SKB_BUF_TAILROOM_RSV), GFP_ATOMIC);
-		if (pkt)
-			MEM_DBG_PKT_ALLOC_INC_SIZE(pkt, size);
-#else
+		/* pkt is dynamic-alloc dma va address */
 		DEV_ALLOC_FRAG(pkt, SKB_DATA_ALIGN(SKB_BUF_HEADROOM_RSV + size)
-										+ SKB_DATA_ALIGN(SKB_BUF_TAILROOM_RSV));
-#endif
+				+ SKB_DATA_ALIGN(SKB_BUF_TAILROOM_RSV));
 
-		if (pkt) {
-			if (buf_flags & BUF_ZERO)
-				NdisZeroMemory((unsigned char *)pkt + SKB_BUF_HEADROOM_RSV, size);
-
-			NdisZeroMemory((unsigned char *)pkt, SKB_BUF_HEADROOM_RSV);
-			*va = (unsigned char *)pkt + SKB_BUF_HEADROOM_RSV;
-		}
+		if (pkt)
+			*va = ((PVOID)pkt + SKB_BUF_HEADROOM_RSV);
 
 		break;
+#else
+	case DYNAMIC_PAGE_ALLOC:
+		/* not support. alloc as DYNAMIC_SLAB_ALLOC*/
+#endif
+
 	case DYNAMIC_SLAB_ALLOC:
+		/* pkt is dynamic-alloc skb */
+#ifdef BB_SOC
+		pkt = skbmgr_dev_alloc_skb4k();
+#else
 		DEV_ALLOC_SKB(pkt, size);
+#endif
 
-		if (pkt) {
-			if (buf_flags & BUF_ZERO)
-				NdisZeroMemory((PVOID)pkt->data, size);
-
-			NdisZeroMemory((PVOID)pkt->head, skb_headroom(pkt));
-			*va = pkt->data;
-		}
+		if (pkt)
+			*va = (PVOID)pkt->data;
 
 		break;
 
@@ -143,83 +132,26 @@ PNDIS_PACKET RTMP_AllocateRxPacketBuffer(
 		/* pkt is pre-alloc dma va adrress */
 		pkt = alloc_rx_buf_1k(reserved);
 
-		if (pkt) {
-			if (buf_flags & BUF_ZERO)
-				NdisZeroMemory((PVOID)pkt, size);
-
+		if (pkt)
 			*va = ((PVOID)pkt);
-		}
+
 		break;
 
 	default:
 
-		MTWF_DBG(NULL, DBG_CAT_HIF, CATHIF_PCI, DBG_LVL_ERROR,
-					"unknown allocate type %d\n", rx_ring->buf_type);
+		MTWF_LOG(DBG_CAT_HIF, CATHIF_PCI, DBG_LVL_ERROR, ("%s: unknown allocate type %d\n", __func__, type));
 		break;
 	}
 
 	if (pkt) {
 		*pa = dma_map_single(pdev, *va, size, DMA_FROM_DEVICE);
-		 if (dma_mapping_error(pdev, *pa)) {
-			MTWF_DBG(NULL, DBG_CAT_HIF, CATHIF_PCI, DBG_LVL_ERROR, "!!!!dma_mapping_error(pdev, *pa)!!!!\n");
-			switch (rx_ring->buf_type) {
-			case DYNAMIC_PAGE_ALLOC:
-
-#if (KERNEL_VERSION(4, 10, 0) <= LINUX_VERSION_CODE)
-				page_frag_free(pkt);
-#elif (KERNEL_VERSION(4, 3, 0) < LINUX_VERSION_CODE)
-				__free_page_frag(pkt);
-#else
-				DEV_FREE_FRAG_BUF(pkt);
-#endif
-				break;
-
-			case DYNAMIC_SLAB_ALLOC:
-				dev_kfree_skb_any(pkt);
-				break;
-
-			case PRE_SLAB_ALLOC:
-				free_rx_buf_1k(reserved);
-				break;
-
-			default:
-
-				MTWF_DBG(NULL, DBG_CAT_HIF, CATHIF_PCI, DBG_LVL_ERROR,
-							"unknown allocate type %d\n", rx_ring->buf_type);
-				break;
-			}
-
-			return NULL;
-		}
 	} else {
 		*va = (PVOID)NULL;
 		*pa = (NDIS_PHYSICAL_ADDRESS)0;
-		MTWF_DBG(NULL, DBG_CAT_HIF, CATHIF_PCI, DBG_LVL_ERROR, "can't allocate rx %ld size packet\n", size);
+		MTWF_LOG(DBG_CAT_HIF, CATHIF_PCI, DBG_LVL_ERROR, ("can't allocate rx %ld size packet\n", size));
 	}
 
 	return (PNDIS_PACKET)pkt;
-}
-
-#if ((KERNEL_VERSION(4, 10, 0) > LINUX_VERSION_CODE) && (KERNEL_VERSION(4, 3, 0) < LINUX_VERSION_CODE))
-void __page_frag_drain(struct page *page, unsigned int order,
-					   unsigned int count)
-{
-#if ((KERNEL_VERSION(4, 7, 0) <= LINUX_VERSION_CODE) && (KERNEL_VERSION(4, 10, 0) > LINUX_VERSION_CODE))
-	atomic_sub(count - 1, &page->_refcount);
-#elif ((KERNEL_VERSION(4, 3, 0) < LINUX_VERSION_CODE) && (KERNEL_VERSION(4, 7, 0) > LINUX_VERSION_CODE))
-	atomic_sub(count - 1, &page->_count);
-#endif
-	__free_pages(page, order);
-}
-#endif
-
-inline void rx_page_frag_cache_drain(struct page *page, unsigned int count)
-{
-#if (KERNEL_VERSION(4, 10, 0) <= LINUX_VERSION_CODE)
-	__page_frag_cache_drain(page, count);
-#elif (KERNEL_VERSION(4, 3, 0) < LINUX_VERSION_CODE)
-	__page_frag_drain(page, compound_order(page), count);
-#endif
 }
 
 /*
@@ -284,7 +216,7 @@ VOID *RTMPFindHostPCIDev(VOID *pPciDevSrc)
 	UINT DevFn;
 	PPCI_DEV pPci_dev;
 
-	MTWF_DBG(NULL, DBG_CAT_HIF, CATHIF_PCI, DBG_LVL_INFO, "%s.===>\n", __func__);
+	MTWF_LOG(DBG_CAT_HIF, CATHIF_PCI, DBG_LVL_TRACE, ("%s.===>\n", __func__));
 	parent_pci_dev = NULL;
 
 	if (pci_dev->bus->parent) {
@@ -535,7 +467,6 @@ int RtmpOsPciFindCapability(VOID *pDev, INT Cap)
 	return pci_find_capability(pDev, Cap);
 }
 
-#ifdef CONFIG_WIFI_MSI_SUPPORT
 /*
  * ========================================================================
  * Routine Description:
@@ -553,6 +484,7 @@ int RtmpOsPciMsiEnable(VOID *pDev)
 	return pci_enable_msi(pDev);
 }
 
+
 /*
  * ========================================================================
  * Routine Description:
@@ -569,6 +501,6 @@ VOID RtmpOsPciMsiDisable(VOID *pDev)
 {
 	pci_disable_msi(pDev);
 }
-#endif
+
 #endif /* RTMP_MAC_PCI */
 

@@ -2,13 +2,9 @@ export MODULE_FLAGS
 
 KBUILD_EXTRA_SYMBOLS+= $(RT28xx_DIR)/os/linux/Module.symvers
 
-
 ifdef CONFIG_WHNAT_SUPPORT
-ifeq ($(CONFIG_WARP_V2), y)
-obj-$(CONFIG_WHNAT_SUPPORT)+= warp_proxy/
-else
 obj-$(CONFIG_WHNAT_SUPPORT)+= whnat/
-endif
+MODULE_LIST+=mt_whnat
 endif
 
 clean:

@@ -1,17 +1,18 @@
 /*
- * Copyright (c) [2020], MediaTek Inc. All rights reserved.
- *
- * This software/firmware and related documentation ("MediaTek Software") are
- * protected under relevant copyright laws.
- * The information contained herein is confidential and proprietary to
- * MediaTek Inc. and/or its licensors.
- * Except as otherwise provided in the applicable licensing terms with
- * MediaTek Inc. and/or its licensors, any reproduction, modification, use or
- * disclosure of MediaTek Software, and information contained herein, in whole
- * or in part, shall be strictly prohibited.
-*/
-/*
  ***************************************************************************
+ * Ralink Tech Inc.
+ * 4F, No. 2 Technology 5th Rd.
+ * Science-based Industrial Park
+ * Hsin-chu, Taiwan, R.O.C.
+ *
+ * (c) Copyright 2002, Ralink Technology, Inc.
+ *
+ * All rights reserved. Ralink's source code is an unpublished work and the
+ * use of a copyright notice does not imply otherwise. This source code
+ * contains confidential trade secret material of Ralink Tech. Any attemp
+ * or participation in deciphering, decoding, reverse engineering or in any
+ * way altering the source code is stricitly prohibited, unless the prior
+ * written consent of Ralink Technology, Inc. is obtained.
  ***************************************************************************
 
     Module Name:
@@ -30,41 +31,23 @@
 
 #include    "rtmp.h"
 
-#define GET_MAX_REPEATER_ENTRY_NUM(_pChipCap)	_pChipCap->MaxRepeaterNum /* repeater pool for all bands */
-#define GET_PER_BAND_MAX_REPEATER_ENTRY_NUM(_pChipCap)	((_pChipCap->MaxRepeaterNum)/(_pChipCap->band_cnt)) /* per band max repeater entry */
-
-/*Repeater Client Type for REPEATER_CLIENT_ENTRY.Cli_Type*/
-#define REPT_UNKNOWN_CLI 0x00
-#define REPT_ETH_CLI 0x01
-#define REPT_BRIDGE_CLI 0x02
-#define REPT_WIRELESS_CLI 0x04
-
-/*Operation macro for REPEATER_CLIENT_ENTRY.Cli_Type*/
-#define SET_REPT_CLI_TYPE(_pRept, _type) ((_pRept)->Cli_Type = (_type))
-#define ADD_REPT_CLI_TYPE(_pRept, _type) ((_pRept)->Cli_Type |= (_type))
-#define CLEAN_REPT_CLI_TYPE(_pRept) ((_pRept)->Cli_Type = REPT_UNKNOWN_CLI)
-
-/*Macro for checking*/
-#define IS_REPT_CLI_TYPE(_pRept, _type) ((_pRept) ? (_pRept)->Cli_Type & (_type) : 0)
-#define IS_REPT_LINK_UP(_pRept) ((_pRept) ? (_pRept)->CliConnectState == REPT_ENTRY_CONNTED : 0)
-#define IS_REPT_IN_DISCONNECTING(_pRept) ((_pRept) ? (_pRept)->CliDisconnectState == REPT_ENTRY_DISCONNT_STATE_DISCONNTING : 0)
+#define GET_MAX_REPEATER_ENTRY_NUM(_pChipCap)    _pChipCap->MaxRepeaterNum
 
 VOID RepeaterCtrlInit(RTMP_ADAPTER *pAd);
-VOID RepeaterCliReset(RTMP_ADAPTER *pAd);
-VOID RepeaterCtrlExit(RTMP_ADAPTER *pAd, UCHAR band_idx);
+VOID RepeaterCtrlExit(RTMP_ADAPTER *pAd);
 VOID CliLinkMapInit(RTMP_ADAPTER *pAd);
+
+enum _REPEATER_MLME_ENQ_IDX_CHK_TBL {
+	REPT_MLME_START_IDX = 64,
+	REPT_MLME_LAST_IDX = 95,
+	REPT_MLME_MAX_IDX = 96,/*shall not over this.*/
+};
 
 enum _REPT_ENTRY_CONNT_STATE {
 	REPT_ENTRY_DISCONNT = 0,
 	REPT_ENTRY_CONNTING = 1,
 	REPT_ENTRY_CONNTED = 2,
 };
-
-enum _REPT_ENTRY_DISCONNT_STATE {
-	REPT_ENTRY_DISCONNT_STATE_UNKNOWN = 0,
-	REPT_ENTRY_DISCONNT_STATE_DISCONNTING = 1,
-};
-
 
 enum _REPEATER_MAC_ADDR_RULE_TYPE {
 	FOLLOW_CLI_LINK_MAC_ADDR_OUI = 0,
@@ -88,9 +71,7 @@ UINT32 ReptTxPktCheckHandler(
 	RTMP_ADAPTER *pAd,
 	IN struct wifi_dev *cli_link_wdev,
 	IN PNDIS_PACKET pPacket,
-	OUT UINT16 *pWcid);
-
-INT ReptGetMuarIdxByCliIdx(RTMP_ADAPTER *pAd, UCHAR CliIdx, UCHAR *muar_idx);
+	OUT UCHAR * pWcid);
 
 VOID RepeaterFillMlmeParaThenEnq(
 	RTMP_ADAPTER *pAd,
@@ -98,7 +79,7 @@ VOID RepeaterFillMlmeParaThenEnq(
 	ULONG MsgType,
 	REPEATER_CLIENT_ENTRY *pReptEntry);
 
-INT AsicSetReptFuncEnable(RTMP_ADAPTER *pAd, BOOLEAN enable, UCHAR band_idx);
+INT AsicSetReptFuncEnable(RTMP_ADAPTER *pAd, BOOLEAN enable);
 
 REPEATER_CLIENT_ENTRY *RTMPLookupRepeaterCliEntry(
 	IN VOID *pData,
@@ -113,17 +94,18 @@ BOOLEAN RTMPQueryLookupRepeaterCliEntryMT(
 
 VOID RTMPInsertRepeaterEntry(
 	RTMP_ADAPTER *pAd,
-	struct wifi_dev *main_sta_wdev,
+	struct wifi_dev *wdev,
 	PUCHAR pAddr);
 
 VOID RTMPRemoveRepeaterEntry(
 	IN RTMP_ADAPTER *pAd,
+	IN UCHAR func_tb_idx,
 	IN UCHAR CliIdx);
 
 VOID RTMPRepeaterReconnectionCheck(
 	IN RTMP_ADAPTER *pAd);
 
-MAC_TABLE_ENTRY *RTMPInsertRepeaterMacEntry(
+MAC_TABLE_ENTRY * RTMPInsertRepeaterMacEntry(
 	IN  RTMP_ADAPTER *pAd,
 	IN  PUCHAR pAddr,
 	IN  struct wifi_dev *wdev,
@@ -133,8 +115,7 @@ MAC_TABLE_ENTRY *RTMPInsertRepeaterMacEntry(
 
 BOOLEAN RTMPRepeaterVaildMacEntry(
 	IN RTMP_ADAPTER *pAd,
-	IN UCHAR *pAddr,
-	IN UCHAR band_idx);
+	IN UCHAR * pAddr);
 
 INVAILD_TRIGGER_MAC_ENTRY *RepeaterInvaildMacLookup(
 	IN RTMP_ADAPTER *pAd,
@@ -170,29 +151,6 @@ VOID UpdateMbssCliLinkMap(
 	struct wifi_dev *cli_link_wdev,
 	struct wifi_dev *mbss_link_wdev);
 
-VOID RepeaterDisconnectRootAP(
-    RTMP_ADAPTER *pAd,
-    REPEATER_CLIENT_ENTRY *pReptCli,
-    UINT reason);
-
-VOID repeater_disconnect_by_band(
-	RTMP_ADAPTER *ad,
-	UCHAR band_idx);
-
-#ifdef REPEATER_TX_RX_STATISTIC
-BOOLEAN MtRepeaterGetTxRxInfo(
-	RTMP_ADAPTER *pAd,
-	UINT16 wcid,
-	UCHAR CliIfIndex,
-	RETRTXRXINFO *pReptStatis);
-#endif /* REPEATER_TX_RX_STATISTIC */
 REPEATER_CLIENT_ENTRY *lookup_rept_entry(RTMP_ADAPTER *pAd, PUCHAR address);
-
-VOID ReptWaitLinkDown(REPEATER_CLIENT_ENTRY *pReptEntry);
-
-BOOLEAN repeater_enable_by_any_band(RTMP_ADAPTER *ad);
-VOID repeater_set_enable(RTMP_ADAPTER *ad, BOOLEAN enable, UINT8 idx);
-BOOLEAN repeater_get_enable(RTMP_ADAPTER *ad, UINT8 idx);
-PNET_DEV repeater_get_apcli_ifdev(RTMP_ADAPTER *ad, MAC_TABLE_ENTRY *mac_entry);
 
 #endif  /* __AP_REPEATER_H__ */

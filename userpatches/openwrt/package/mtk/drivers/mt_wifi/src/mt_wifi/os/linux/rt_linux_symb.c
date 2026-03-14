@@ -97,9 +97,6 @@ EXPORT_SYMBOL(RtmpOsSetNetDevType);
 EXPORT_SYMBOL(RtmpOsSetNetDevTypeMonitor);
 EXPORT_SYMBOL(get_sniffer_mode);
 EXPORT_SYMBOL(set_sniffer_mode);
-#ifdef ETH_CONVERT_SUPPORT
-EXPORT_SYMBOL(RtmpOsNetPrivGet);
-#endif /* ETH_CONVERT_SUPPORT */
 EXPORT_SYMBOL(RtmpOSNetDevAddrSet);
 
 EXPORT_SYMBOL(RtmpOSFileOpen);
@@ -272,25 +269,6 @@ EXPORT_SYMBOL(BG_FTPH_Remove);
 #endif /* BG_FT_SUPPORT */
 #endif /* CONFIG_AP_SUPPORT */
 
-#ifdef CONFIG_STA_SUPPORT
-EXPORT_SYMBOL(ralinkrate);
-EXPORT_SYMBOL(RT_RateSize);
-EXPORT_SYMBOL(send_prism_monitor_packets);
-EXPORT_SYMBOL(send_radiotap_monitor_packets);
-#ifdef NATIVE_WPA_SUPPLICANT_SUPPORT
-EXPORT_SYMBOL(wext_notify_event_assoc);
-#endif /* NATIVE_WPA_SUPPLICANT_SUPPORT */
-
-#ifdef WPA_SUPPLICANT_SUPPORT
-#ifndef NATIVE_WPA_SUPPLICANT_SUPPORT
-EXPORT_SYMBOL(SendAssocIEsToWpaSupplicant);
-#endif /* NATIVE_WPA_SUPPLICANT_SUPPORT */
-#endif /* WPA_SUPPLICANT_SUPPORT */
-
-#ifdef WPA_SUPPLICANT_SUPPORT
-EXPORT_SYMBOL(WpaSendMicFailureToWpaSupplicant);
-#endif /* WPA_SUPPLICANT_SUPPORT */
-#endif /* CONFIG_STA_SUPPORT */
 
 
 /* only for PCI */
@@ -312,12 +290,6 @@ EXPORT_SYMBOL(RtmpFlashRead);
 EXPORT_SYMBOL(RtmpFlashWrite);
 #endif /* defined(RTMP_RBUS_SUPPORT) || defined (RTMP_FLASH_SUPPORT)  */
 
-#ifdef CONFIG_STA_SUPPORT
-EXPORT_SYMBOL(RtmpOSNotifyRawData);
-#ifdef WIDI_SUPPORT
-EXPORT_SYMBOL(RtmpOSWidiNotify);
-#endif /* WIDI_SUPPORT */
-#endif /* CONFIG_STA_SUPPORT */
 
 EXPORT_SYMBOL(RtPrivIoctlSetVal);
 EXPORT_SYMBOL(RtmpOsSpinLockIrqSave);

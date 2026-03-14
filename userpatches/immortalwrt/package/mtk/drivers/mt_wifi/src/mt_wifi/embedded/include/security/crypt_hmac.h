@@ -1,16 +1,15 @@
-/*
- * Copyright (c) [2020], MediaTek Inc. All rights reserved.
- *
- * This software/firmware and related documentation ("MediaTek Software") are
- * protected under relevant copyright laws.
- * The information contained herein is confidential and proprietary to
- * MediaTek Inc. and/or its licensors.
- * Except as otherwise provided in the applicable licensing terms with
- * MediaTek Inc. and/or its licensors, any reproduction, modification, use or
- * disclosure of MediaTek Software, and information contained herein, in whole
- * or in part, shall be strictly prohibited.
-*/
 /****************************************************************************
+ * Ralink Tech Inc.
+ * Taiwan, R.O.C.
+ *
+ * (c) Copyright 2002, Ralink Technology, Inc.
+ *
+ * All rights reserved. Ralink's source code is an unpublished work and the
+ * use of a copyright notice does not imply otherwise. This source code
+ * contains confidential trade secret material of Ralink Tech. Any attemp
+ * or participation in deciphering, decoding, reverse engineering or in any
+ * way altering the source code is stricitly prohibited, unless the prior
+ * written consent of Ralink Technology, Inc. is obtained.
  ***************************************************************************/
 
 /****************************************************************************
@@ -89,24 +88,6 @@ VOID RT_HMAC_SHA384_VECTOR(
 	IN UINT mac_len);
 #endif /* SHA384_SUPPORT */
 
-#ifdef SHA512_SUPPORT
-VOID RT_HMAC_SHA512(
-	IN const UINT8 Key[],
-	IN UINT KeyLen,
-	IN const UINT8 Message[],
-	IN UINT MessageLen,
-	OUT UINT8 MAC[],
-	IN UINT MACLen);
-
-VOID RT_HMAC_SHA512_VECTOR(
-	IN const UINT8 key[],
-	IN UINT key_len,
-	IN UCHAR element_num,
-	IN const UINT8 *message[],
-	IN UINT *message_len,
-	OUT UINT8 mac[],
-	IN UINT mac_len);
-#endif /* SHA512_SUPPORT */
 
 #ifdef MD5_SUPPORT
 VOID RT_HMAC_MD5(

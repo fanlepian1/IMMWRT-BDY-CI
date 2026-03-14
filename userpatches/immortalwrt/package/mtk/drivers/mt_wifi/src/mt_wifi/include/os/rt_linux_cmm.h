@@ -1,16 +1,16 @@
-/*
- * Copyright (c) [2020], MediaTek Inc. All rights reserved.
- *
- * This software/firmware and related documentation ("MediaTek Software") are
- * protected under relevant copyright laws.
- * The information contained herein is confidential and proprietary to
- * MediaTek Inc. and/or its licensors.
- * Except as otherwise provided in the applicable licensing terms with
- * MediaTek Inc. and/or its licensors, any reproduction, modification, use or
- * disclosure of MediaTek Software, and information contained herein, in whole
- * or in part, shall be strictly prohibited.
-*/
 /****************************************************************************
+ * Ralink Tech Inc.
+ * 4F, No. 2 Technology 5th Rd.
+ * Science-based Industrial Park
+ * Hsin-chu, Taiwan, R.O.C.
+ * (c) Copyright 2002, Ralink Technology, Inc.
+ *
+ * All rights reserved. Ralink's source code is an unpublished work and the
+ * use of a copyright notice does not imply otherwise. This source code
+ * contains confidential trade secret material of Ralink Tech. Any attemp
+ * or participation in deciphering, decoding, reverse engineering or in any
+ * way altering the source code is stricitly prohibited, unless the prior
+ * written consent of Ralink Technology, Inc. is obtained.
  ****************************************************************************
 
     Module Name:
@@ -73,7 +73,11 @@ RTMP_DECLARE_DRV_OPS_FUNCTION(pci);
 
 
 #ifdef MT_MAC
+#if defined(CONFIG_SECOND_IF_MT7663E) || defined(CONFIG_FIRST_IF_MT7663E)
+#define RTMP_DRV_NAME   "mt76xx_drv"
+#else
 #define RTMP_DRV_NAME   "mt_drv"
+#endif
 #else
 #define RTMP_DRV_NAME	"rt2860"
 #endif /* MT_MAC */
@@ -226,8 +230,6 @@ RTMP_DECLARE_DRV_OPS_FUNCTION(pci);
 #define RTMP_SEM_EVENT_DESTORY					OS_SEM_EVENT_DESTORY
 #define RTMP_SEM_EVENT_WAIT						OS_SEM_EVENT_WAIT
 #define RTMP_SEM_EVENT_UP						OS_SEM_EVENT_UP
-#define RTMP_SEM_EVENT_TIMEOUT					OS_SEM_EVENT_TIMEOUT
-#define RTMP_SEM_EVENT_TRYLOCK					OS_SEM_EVENT_TRYLOCK
 
 #define RtmpMLMEUp								OS_RTMP_MlmeUp
 
@@ -324,9 +326,6 @@ typedef struct completion RTMP_OS_COMPLETION;
 
 #define RTMP_OS_COMPLETE(__pCompletion)	\
 	complete(__pCompletion)
-
-#define RTMP_OS_COMPLETE_ALL(__pCompletion)	\
-	complete_all(__pCompletion)
 
 #define RTMP_OS_WAIT_FOR_COMPLETION_TIMEOUT(__pCompletion, __Timeout)	\
 	wait_for_completion_timeout(__pCompletion, __Timeout)
@@ -440,21 +439,22 @@ extern RTMP_USB_CONFIG *pRtmpUsbConfig;
 /***********************************************************************************
  *	Others
  ***********************************************************************************/
-#define APCLI_IF_UP_CHECK(pAd, ifidx) (RtmpOSNetDevIsUp((pAd)->StaCfg[(ifidx)].wdev.if_dev) == TRUE)
+#define APCLI_IF_UP_CHECK(pAd, ifidx) (RtmpOSNetDevIsUp((pAd)->ApCfg.ApCliTab[(ifidx)].wdev.if_dev) == TRUE)
 
-#ifdef RTMP_MAC_PCI
 #ifdef MEMORY_OPTIMIZATION
-#define MGMT_RING_SIZE          64/*32*/
+#define MGMT_RING_SIZE          32
 #else
-#ifdef WIFI_EAP_FEATURE
-#define MGMT_RING_SIZE          512
-#else /* WIFI_EAP_FEATURE */
 #define MGMT_RING_SIZE          128
-#endif /* !WIFI_EAP_FEATURE */
-#endif
 #endif
 
-#define MAX_TX_PROCESS 512
+#ifdef MT_MAC
+#define BCN_RING_SIZE		20
+#endif /* MT_MAC */
+
+#define MAX_TX_PROCESS          512
+#define LOCAL_TXBUF_SIZE        2
+
+#define CTL_RING_SIZE		128
 
 #define RTMP_OS_NETDEV_SET_PRIV		RtmpOsSetNetDevPriv
 #define RTMP_OS_NETDEV_GET_PRIV		RtmpOsGetNetDevPriv

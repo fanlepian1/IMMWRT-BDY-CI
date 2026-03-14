@@ -1,17 +1,18 @@
 /*
- * Copyright (c) [2020], MediaTek Inc. All rights reserved.
- *
- * This software/firmware and related documentation ("MediaTek Software") are
- * protected under relevant copyright laws.
- * The information contained herein is confidential and proprietary to
- * MediaTek Inc. and/or its licensors.
- * Except as otherwise provided in the applicable licensing terms with
- * MediaTek Inc. and/or its licensors, any reproduction, modification, use or
- * disclosure of MediaTek Software, and information contained herein, in whole
- * or in part, shall be strictly prohibited.
-*/
-/*
  ***************************************************************************
+ * Ralink Tech Inc.
+ * 4F, No. 2 Technology	5th	Rd.
+ * Science-based Industrial	Park
+ * Hsin-chu, Taiwan, R.O.C.
+ *
+ * (c) Copyright 2002-2006, Ralink Technology, Inc.
+ *
+ * All rights reserved.	Ralink's source	code is	an unpublished work	and	the
+ * use of a	copyright notice does not imply	otherwise. This	source code
+ * contains	confidential trade secret material of Ralink Tech. Any attemp
+ * or participation	in deciphering,	decoding, reverse engineering or in	any
+ * way altering	the	source code	is stricitly prohibited, unless	the	prior
+ * written consent of Ralink Technology, Inc. is obtained.
  ***************************************************************************
 
 	Module Name:
@@ -119,18 +120,6 @@ extern UINT8 WPS_DH_P_VALUE[192];
 #define WSC_ID_8021X_ENABLED       0x1062
 #define WSC_ID_APPSESSIONKEY       0x1063
 #define WSC_ID_WEPTRANSMITKEY      0x1064
-#ifdef IWSC_SUPPORT
-#define WSC_ID_ENTRY_ACCEPTABLE    0x106D
-#define WSC_ID_REGISTRATON_READY   0x106E
-#define WSC_ID_REGISTRAR_IPV4      0x106F
-#define WSC_ID_IPV4_SUBMASK        0x1070
-#define WSC_ID_ENROLLEE_IPV4       0x1071
-#define WSC_ID_IPV4_SUBMASK_LIST   0x1072
-#define WSC_ID_IP_ADDR_CONF_METHOD 0x1073
-#endif /* IWSC_SUPPORT */
-#ifdef MAP_R3
-#define WSC_ID_DPP_URI_INFO	   0x1BBB
-#endif /* MAP_R3 */
 
 /* WFA Vendor Extension Subelements */
 #define WFA_EXT_ID_VERSION2				0x00
@@ -154,11 +143,8 @@ extern UINT8 WPS_DH_P_VALUE[192];
 #define WSC_AUTHTYPE_WPA         0x0008
 #define WSC_AUTHTYPE_WPA2        0x0010
 #define WSC_AUTHTYPE_WPA2PSK     0x0020
-#define WSC_AUTHTYPE_SAE         0x0040           /* Required to work with WPA3 support on MAP_R1 */
 #define WSC_AUTHTYPE_WPANONE     0x0080
-#if (defined(MAP_R3) || defined(DPP_SUPPORT))
-#define WSC_AUTHTYPE_DPP		 0x0100
-#endif
+
 /* Config methods */
 #define WSC_CONFMET_USBA            0x0001
 #define WSC_CONFMET_ETHERNET        0x0002

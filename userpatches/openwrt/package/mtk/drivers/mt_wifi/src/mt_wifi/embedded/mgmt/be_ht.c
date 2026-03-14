@@ -1,16 +1,17 @@
-/*
- * Copyright (c) [2020], MediaTek Inc. All rights reserved.
- *
- * This software/firmware and related documentation ("MediaTek Software") are
- * protected under relevant copyright laws.
- * The information contained herein is confidential and proprietary to
- * MediaTek Inc. and/or its licensors.
- * Except as otherwise provided in the applicable licensing terms with
- * MediaTek Inc. and/or its licensors, any reproduction, modification, use or
- * disclosure of MediaTek Software, and information contained herein, in whole
- * or in part, shall be strictly prohibited.
-*/
 /***************************************************************************
+* MediaTek Inc.
+* 4F, No. 2 Technology 5th Rd.
+* Science-based Industrial Park
+* Hsin-chu, Taiwan, R.O.C.
+*
+* (c) Copyright 1997-2012, MediaTek, Inc.
+*
+* All rights reserved. MediaTek source code is an unpublished work and the
+* use of a copyright notice does not imply otherwise. This source code
+* contains confidential trade secret material of MediaTek. Any attemp
+* or participation in deciphering, decoding, reverse engineering or in any
+* way altering the source code is stricitly prohibited, unless the prior
+* written consent of MediaTek Technology, Inc. is obtained.
 ***************************************************************************
 
 */
@@ -24,8 +25,18 @@
 VOID ht_oper_init(struct wifi_dev *wdev, struct ht_op *obj)
 {
 	/*initial ht_phy_info value*/
-	obj->ht_bw = wlan_operate_get_ht_bw(wdev);
-	obj->ext_cha = wlan_operate_get_ext_cha(wdev);
+#ifdef BW_VENDOR10_CUSTOM_FEATURE
+	struct _RTMP_ADAPTER *pAd = (struct _RTMP_ADAPTER *)wdev->sys_handle;
+	if (IS_APCLI_SYNC_PEER_DEAUTH_ENBL(pAd)) {
+		obj->ht_bw = wlan_operate_get_ht_bw(wdev);
+		obj->ext_cha = wlan_operate_get_ext_cha(wdev);
+	} else {
+#endif
+	obj->ht_bw = HT_BW_20;
+	obj->ext_cha = EXTCHA_NONE;
+#ifdef BW_VENDOR10_CUSTOM_FEATURE
+	}
+#endif
 
 	obj->ht_ldpc = wlan_config_get_ht_ldpc(wdev);
 	obj->ht_stbc = wlan_config_get_ht_stbc(wdev);
@@ -70,7 +81,6 @@ static VOID ht_oper_set_ext_cha(struct wifi_dev *wdev, UCHAR ext_cha)
 	struct wifi_dev *twdev;
 	UCHAR i;
 
-	os_zero_mem(&cfg, sizeof(cfg));
 	/*update extcha since radio is changed*/
 	for (i = 0; i < WDEV_NUM_MAX; i++) {
 		twdev = ad->wdev_list[i];
@@ -98,70 +108,6 @@ static VOID ht_oper_set_ext_cha(struct wifi_dev *wdev, UCHAR ext_cha)
 *
 Operate loader
 */
-VOID operate_loader_trx_stream(struct wifi_dev *wdev, struct wlan_operate *op, UINT8 tx_stream, UINT8 rx_stream)
-{
-	UINT8 cur_op_rx_stream = rx_stream;
-
-#ifdef DBDC_MODE
-	struct _RTMP_ADAPTER *pAd = (struct _RTMP_ADAPTER *)wdev->sys_handle;
-
-	if (pAd->CommonCfg.dbdc_mode) {
-		UINT8 band_idx = HcGetBandByWdev(wdev);
-
-		if (band_idx == DBDC_BAND0) {
-			if (cur_op_rx_stream > pAd->dbdc_band0_rx_path)
-				cur_op_rx_stream = pAd->dbdc_band0_rx_path;
-		} else {
-			if (cur_op_rx_stream > pAd->dbdc_band1_rx_path)
-				cur_op_rx_stream = pAd->dbdc_band1_rx_path;
-		}
-	}
-#endif
-
-	memset(op->ht_status.ht_cap_ie.MCSSet, 0, sizeof(op->ht_status.ht_cap_ie.MCSSet));
-	switch (cur_op_rx_stream) {
-	case 4:
-		op->ht_status.ht_cap_ie.MCSSet[3] =  0xff;
-		/* fall through */
-	case 3:
-		op->ht_status.ht_cap_ie.MCSSet[2] =  0xff;
-		/* fall through */
-	case 2:
-		op->ht_status.ht_cap_ie.MCSSet[1] =  0xff;
-		/* fall through */
-	case 1:
-
-	default:
-		op->ht_status.ht_cap_ie.MCSSet[0] =  0xff;
-	}
-}
-
-#ifdef CONFIG_RA_PHY_RATE_SUPPORT
-VOID operate_loader_eap_trx_stream(struct wifi_dev *wdev, struct wlan_operate *op, UINT8 tx_stream, UINT8 rx_stream)
-{
-	UINT8 cur_op_rx_stream = rx_stream;
-
-	if (wdev->eap.eap_htsuprate_en != TRUE)
-		return;
-
-	memset(op->ht_status.ht_cap_ie.MCSSet, 0, sizeof(op->ht_status.ht_cap_ie.MCSSet));
-	switch (cur_op_rx_stream) {
-	case 4:
-		op->ht_status.ht_cap_ie.MCSSet[3] = wdev->eap.eapmcsset[3];
-		/* fall through */
-	case 3:
-		op->ht_status.ht_cap_ie.MCSSet[2] = wdev->eap.eapmcsset[2];
-		/* fall through */
-	case 2:
-		op->ht_status.ht_cap_ie.MCSSet[1] = wdev->eap.eapmcsset[1];
-		/* fall through */
-	case 1:
-		op->ht_status.ht_cap_ie.MCSSet[0] = wdev->eap.eapmcsset[0];
-		break;
-	}
-}
-#endif /* CONFIG_RA_PHY_RATE_SUPPORT */
-
 VOID operate_loader_ht_bw(struct wlan_operate *op)
 {
 	op->ht_status.addht.AddHtInfo.RecomWidth = op->ht_oper.ht_bw;
@@ -245,11 +191,11 @@ VOID operate_loader_smps(struct wlan_operate *op, UCHAR smps)
 	op->ht_status.ht_cap_ie.HtCapInfo.MimoPs = smps;
 }
 
-VOID operate_loader_cckin40(struct wlan_operate *op, BOOL is_2g, UCHAR ht_bw)
+VOID operate_loader_cckin40(struct wlan_operate *op, UCHAR ch, UCHAR ht_bw)
 {
 	UCHAR cckin40 = 0;
 
-	if (is_2g && (ht_bw == HT_BW_40))
+	if ((ch < 14) && (ht_bw == HT_BW_40))
 		cckin40 = 1;
 	op->ht_status.ht_cap_ie.HtCapInfo.CCKmodein40 = cckin40;
 }
@@ -359,18 +305,6 @@ INT32 wlan_operate_set_ht_ldpc(struct wifi_dev *wdev, UCHAR ht_ldpc)
 	return ret;
 }
 
-INT32 wlan_operate_loader_greenfield(struct wifi_dev *wdev, UCHAR ht_gf)
-{
-    struct wlan_operate *op;
-    INT32 ret = WLAN_OPER_OK;
-
-    if (wdev && wdev->wpf_op) {
-		op = (struct wlan_operate *)wdev->wpf_op;
-		operate_loader_greenfield(op, ht_gf);
-    }
-    return ret;
-}
-
 INT32 wlan_operate_set_max_amsdu_len(struct wifi_dev *wdev, UCHAR len)
 {
 	struct wlan_operate *op;
@@ -478,7 +412,8 @@ INT32 wlan_operate_set_rts_pkt_thld(struct wifi_dev *wdev, UCHAR pkt_num)
 		op = (struct wlan_operate *)wdev->wpf_op;
 		ad = (struct _RTMP_ADAPTER *)wdev->sys_handle;
 		operate_loader_rts_pkt_thld(op, pkt_num);
-		HW_SET_RTS_THLD(ad, wdev, op->ht_oper.pkt_thld, op->ht_oper.len_thld);
+		HW_SET_RTS_THLD(ad, wdev, op->ht_oper.pkt_thld, op->ht_oper.len_thld,
+				 op->ht_oper.retry_limit);
 	}
 	return ret;
 }
@@ -493,7 +428,8 @@ INT32 wlan_operate_set_rts_len_thld(struct wifi_dev *wdev, UINT32 pkt_len)
 		op = (struct wlan_operate *)wdev->wpf_op;
 		ad = (struct _RTMP_ADAPTER *)wdev->sys_handle;
 		operate_loader_rts_len_thld(op, pkt_len);
-		HW_SET_RTS_THLD(ad, wdev, op->ht_oper.pkt_thld, op->ht_oper.len_thld);
+		HW_SET_RTS_THLD(ad, wdev, op->ht_oper.pkt_thld, op->ht_oper.len_thld,
+				op->ht_oper.retry_limit);
 	}
 	return ret;
 }
@@ -550,12 +486,7 @@ UINT16 wlan_operate_get_non_gf_sta(struct wifi_dev *wdev)
 
 UINT32 wlan_operate_get_frag_thld(struct wifi_dev *wdev)
 {
-	struct wlan_operate *op;
-	if (!wdev)
-		return DEFAULT_FRAG_THLD;
-	op = (struct wlan_operate *) wdev->wpf_op;
-	if (!op)
-		return DEFAULT_FRAG_THLD;
+	struct wlan_operate *op = (struct wlan_operate *) wdev->wpf_op;
 
 	return op->ht_oper.frag_thld;
 }
@@ -575,11 +506,16 @@ UINT32 wlan_operate_get_rts_len_thld(struct wifi_dev *wdev)
 	return op->ht_oper.len_thld;
 }
 
+UCHAR wlan_operate_get_rts_retry_limit(struct wifi_dev *wdev)
+{
+	struct wlan_operate *op = (struct wlan_operate *) wdev->wpf_op;
+	return op->ht_oper.retry_limit;
+}
+
 VOID *wlan_operate_get_ht_cap(struct wifi_dev *wdev)
 {
 	struct wlan_operate *op = NULL;
-	if (wdev == NULL)/*ALPS05330340*/
-		return NULL;
+
 	op = (struct wlan_operate *)wdev->wpf_op;
 	if (op)
 		return &op->ht_status.ht_cap_ie;
@@ -596,30 +532,6 @@ VOID wlan_operate_update_ht_stbc(struct wifi_dev *wdev, UCHAR use_stbc)
 	UCHAR tx_nsts = ad->Antenna.field.TxPath;
 	UCHAR rx_nsts = ad->Antenna.field.RxPath;
 
-#ifdef DBDC_MODE
-	if (ad->CommonCfg.dbdc_mode) {
-		UINT8 band_idx = HcGetBandByWdev(wdev);
-
-		if (band_idx == DBDC_BAND0) {
-			tx_nsts = ad->dbdc_band0_tx_path;
-			rx_nsts = ad->dbdc_band0_rx_path;
-		} else {
-			tx_nsts = ad->dbdc_band1_tx_path;
-			rx_nsts = ad->dbdc_band1_rx_path;
-		}
-	}
-#endif
-
-#ifdef ANTENNA_CONTROL_SUPPORT
-	{
-		UINT8 BandIdx = HcGetBandByWdev(wdev);
-		if (ad->bAntennaSetAPEnable[BandIdx]) {
-			tx_nsts = ad->TxStream[BandIdx];
-			rx_nsts = ad->RxStream[BandIdx];
-		}
-	}
-#endif /* ANTENNA_CONTROL_SUPPORT */
-
 	if (op)
 		operate_loader_ht_stbc(op, tx_nsts, rx_nsts, use_stbc);
 }
@@ -630,9 +542,6 @@ VOID wlan_operate_update_ht_cap(struct wifi_dev *wdev)
 	struct wlan_operate *op = (struct wlan_operate *)wdev->wpf_op;
 	struct _RTMP_ADAPTER *ad = (struct _RTMP_ADAPTER *)wdev->sys_handle;
 	struct _RTMP_CHIP_CAP *cap = hc_get_chip_cap(ad->hdev_ctrl);
-#ifdef TXBF_SUPPORT
-	HT_CAPABILITY_IE *ht_cap = (HT_CAPABILITY_IE *)wlan_operate_get_ht_cap(wdev); /* Get wdev's HT TxBF Cap pointer */
-#endif
 
 	if (cfg && op) {
 		/* set from .dat */
@@ -643,25 +552,13 @@ VOID wlan_operate_update_ht_cap(struct wifi_dev *wdev)
 		operate_loader_min_mpdu_start_space(op, cfg->ht_conf.min_mpdu_start_space);
 		operate_loader_smps(op, cfg->ht_conf.mmps);
 		wlan_operate_update_ht_stbc(wdev, cfg->ht_conf.ht_stbc);
-		operate_loader_trx_stream(wdev, op, cfg->phy_conf.tx_stream, cfg->phy_conf.rx_stream);
-#ifdef CONFIG_RA_PHY_RATE_SUPPORT
-		operate_loader_eap_trx_stream(wdev, op, cfg->phy_conf.tx_stream, cfg->phy_conf.rx_stream);
-#endif /* CONFIG_RA_PHY_RATE_SUPPORT */
-
-
 		/* set from chip cap */
-		operate_loader_max_amsdu_len(op, cap->ppdu.max_amsdu_len);
-		operate_loader_ht_max_ampdu_len_exp(op, cap->ppdu.ht_max_ampdu_len_exp);
+		operate_loader_max_amsdu_len(op, cap->max_amsdu_len);
+		operate_loader_ht_max_ampdu_len_exp(op, cap->ht_max_ampdu_len_exp);
 		/* set from fix */
 		wlan_operate_set_ht_delayed_ba(wdev, 0);
 		wlan_operate_set_lsig_txop_protect(wdev, 0);
 		wlan_operate_set_psmp(wdev, 0);
-		operate_loader_cckin40(op, WMODE_CAP_2G(wdev->PhyMode), cfg->ht_conf.ht_bw);
-#ifdef TXBF_SUPPORT
-		if (cap->FlgHwTxBfCap) {
-			/* build HT TxBF Cap for wdev*/
-			mt_WrapSetETxBFCap(ad, wdev, &ht_cap->TxBFCap);
-		}
-#endif /* TXBF_SUPPORT */
+		operate_loader_cckin40(op, wdev->channel, cfg->ht_conf.ht_bw);
 	}
 }

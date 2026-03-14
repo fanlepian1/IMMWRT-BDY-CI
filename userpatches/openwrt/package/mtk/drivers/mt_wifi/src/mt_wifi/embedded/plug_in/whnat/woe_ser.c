@@ -1,17 +1,13 @@
 /*
- * Copyright (c) [2020], MediaTek Inc. All rights reserved.
- *
- * This software/firmware and related documentation ("MediaTek Software") are
- * protected under relevant copyright laws.
- * The information contained herein is confidential and proprietary to
- * MediaTek Inc. and/or its licensors.
- * Except as otherwise provided in the applicable licensing terms with
- * MediaTek Inc. and/or its licensors, any reproduction, modification, use or
- * disclosure of MediaTek Software, and information contained herein, in whole
- * or in part, shall be strictly prohibited.
-*/
-/*
  ***************************************************************************
+ * MediaTek Inc.
+ *
+ * All rights reserved. source code is an unpublished work and the
+ * use of a copyright notice does not imply otherwise. This source code
+ * contains confidential trade secret material of MediaTek. Any attemp
+ * or participation in deciphering, decoding, reverse engineering or in any
+ * way altering the source code is stricitly prohibited, unless the prior
+ * written consent of MediaTek, Inc. is obtained.
  ***************************************************************************
 
 	Module Name: whnat
@@ -51,7 +47,8 @@ static int wed_ser_check(struct wed_entry *wed)
 	if (ser_ctrl->tx_bm_err_cnt > WED_MAX_ERR_CNT) {
 
 		ser_ctrl->tx_bm_ser_cnt++;
-		WHNAT_DBG(WHNAT_DBG_INF, "%s(): wed_tx_bm is full or error, please dump SER stat!\n", __func__);
+		WHNAT_DBG(WHNAT_DBG_OFF, "%s(): wed_tx_bm error !\n", __func__);
+		return TRUE;
 	}
 	return FALSE;
 }
@@ -70,7 +67,7 @@ void wed_ser_err_cnt_wpdma_update(
 		if ((state->wpdma_tx0_mib == new_state->wpdma_tx0_mib) &&
 			(state->wpdma_tx1_mib == new_state->wpdma_tx1_mib)) {
 			ser_ctrl->wpdma_idle_cnt++;
-		} else {
+		} else {			
 			ser_ctrl->wpdma_idle_cnt = 0;
 		}
 	} else {

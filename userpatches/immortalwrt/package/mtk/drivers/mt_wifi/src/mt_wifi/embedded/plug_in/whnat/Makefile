@@ -8,7 +8,7 @@ OBJS+= wed.o
 OBJS+= wdma.o
 OBJS+= woe_proc.o
 OBJS+= woe_hw.o
-OBJS+= woe_client_jedi.o
+OBJS+= woe_mt7615.o
 OBJS+= woe_hif.o
 OBJS+= woe_ser.o
 

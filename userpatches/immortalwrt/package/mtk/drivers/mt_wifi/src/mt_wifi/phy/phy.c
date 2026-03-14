@@ -1,17 +1,18 @@
 /*
- * Copyright (c) [2020], MediaTek Inc. All rights reserved.
- *
- * This software/firmware and related documentation ("MediaTek Software") are
- * protected under relevant copyright laws.
- * The information contained herein is confidential and proprietary to
- * MediaTek Inc. and/or its licensors.
- * Except as otherwise provided in the applicable licensing terms with
- * MediaTek Inc. and/or its licensors, any reproduction, modification, use or
- * disclosure of MediaTek Software, and information contained herein, in whole
- * or in part, shall be strictly prohibited.
-*/
-/*
  ***************************************************************************
+ * Ralink Tech Inc.
+ * 4F, No. 2 Technology 5th Rd.
+ * Science-based Industrial Park
+ * Hsin-chu, Taiwan, R.O.C.
+ *
+ * (c) Copyright 2002-2004, Ralink Technology, Inc.
+ *
+ * All rights reserved. Ralink's source code is an unpublished work and the
+ * use of a copyright notice does not imply otherwise. This source code
+ * contains confidential trade secret material of Ralink Tech. Any attemp
+ * or participation in deciphering, decoding, reverse engineering or in any
+ * way altering the source code is stricitly prohibited, unless the prior
+ * written consent of Ralink Technology, Inc. is obtained.
  ***************************************************************************
 
 	Module Name:
@@ -41,6 +42,12 @@ INT phy_probe(RTMP_ADAPTER *pAd)
 NDIS_STATUS NICInitBBP(RTMP_ADAPTER *pAd)
 {
 	/* Before program BBP, we need to wait BBP/RF get wake up.*/
+#ifdef MT_MAC
+	if (IS_HIF_TYPE(pAd, HIF_MT)) {
+		if (MtAsicWaitMacTxRxIdle(pAd) == FALSE)
+			return NDIS_STATUS_FAILURE;
+	}
+#endif
 
 	if (pAd->phy_op && pAd->phy_op->bbp_init)
 		return pAd->phy_op->bbp_init(pAd);
@@ -113,8 +120,8 @@ INT bbp_set_bw(struct _RTMP_ADAPTER *pAd, UINT8 bw, UCHAR BandIdx)
 		result = pAd->phy_op->bbp_set_bw(pAd, bw);
 
 	if (result == TRUE) {
-		MTWF_DBG(pAd, DBG_CAT_HW, DBG_SUBCAT_ALL, DBG_LVL_INFO, "%s(): Set PhyBW as %sHz.l\n",
-				__func__, get_bw_str(bw));
+		MTWF_LOG(DBG_CAT_HW, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("%s(): Set PhyBW as %sHz.l\n",
+				__func__, get_bw_str(bw)));
 	}
 
 	return result;
@@ -267,14 +274,4 @@ INT Smart_Carrier_Sense(RTMP_ADAPTER *pAd)
 		return FALSE;
 }
 #endif /* SMART_CARRIER_SENSE_SUPPORT */
-
-#ifdef DYNAMIC_WMM_SUPPORT
-INT Dynamic_Wmm_Process(RTMP_ADAPTER *pAd)
-{
-	if (pAd->phy_op && pAd->phy_op->Dynamic_Wmm_Process)
-		return pAd->phy_op->Dynamic_Wmm_Process(pAd);
-	else
-		return FALSE;
-}
-#endif /* DYNAMIC_WMM_SUPPORT */
 

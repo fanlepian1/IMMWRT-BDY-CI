@@ -1,16 +1,16 @@
-/*
- * Copyright (c) [2020], MediaTek Inc. All rights reserved.
- *
- * This software/firmware and related documentation ("MediaTek Software") are
- * protected under relevant copyright laws.
- * The information contained herein is confidential and proprietary to
- * MediaTek Inc. and/or its licensors.
- * Except as otherwise provided in the applicable licensing terms with
- * MediaTek Inc. and/or its licensors, any reproduction, modification, use or
- * disclosure of MediaTek Software, and information contained herein, in whole
- * or in part, shall be strictly prohibited.
-*/
 /****************************************************************************
+ * Ralink Tech Inc.
+ * 4F, No. 2 Technology 5th Rd.
+ * Science-based Industrial Park
+ * Hsin-chu, Taiwan, R.O.C.
+ * (c) Copyright 2002, Ralink Technology, Inc.
+ *
+ * All rights reserved. Ralink's source code is an unpublished work and the
+ * use of a copyright notice does not imply otherwise. This source code
+ * contains confidential trade secret material of Ralink Tech. Any attemp
+ * or participation in deciphering, decoding, reverse engineering or in any
+ * way altering the source code is stricitly prohibited, unless the prior
+ * written consent of Ralink Technology, Inc. is obtained.
  ****************************************************************************
 
      Module Name:
@@ -215,10 +215,18 @@ BOOLEAN RTMPSpoofedMgmtDetection(
 			rssi_info.raw_rssi[0] = rxblk->rx_signal.raw_rssi[0];
 			rssi_info.raw_rssi[1] = rxblk->rx_signal.raw_rssi[1];
 			rssi_info.raw_rssi[2] = rxblk->rx_signal.raw_rssi[2];
+#if defined(CUSTOMER_DCC_FEATURE) || defined(CONFIG_MAP_SUPPORT)
+			rssi_info.raw_rssi[3] = rxblk->rx_signal.raw_rssi[3];
+#endif
 			RcvdRssi = RTMPMaxRssi(pAd,
 								   ConvertToRssi(pAd, &rssi_info, RSSI_IDX_0),
 								   ConvertToRssi(pAd, &rssi_info, RSSI_IDX_1),
-								   ConvertToRssi(pAd, &rssi_info, RSSI_IDX_2));
+								   ConvertToRssi(pAd, &rssi_info, RSSI_IDX_2)
+#if defined(CUSTOMER_DCC_FEATURE) || defined(CONFIG_MAP_SUPPORT)
+									, ConvertToRssi(pAd, &rssi_info, RSSI_IDX_3)
+#endif
+
+								   );
 
 			switch (FC->SubType) {
 			case SUBTYPE_ASSOC_RSP:
@@ -276,7 +284,11 @@ VOID RTMPConflictSsidDetection(
 	IN UCHAR			SsidLen,
 	IN CHAR				Rssi0,
 	IN CHAR				Rssi1,
-	IN CHAR				Rssi2)
+	IN CHAR				Rssi2
+#if defined(CUSTOMER_DCC_FEATURE) || defined(CONFIG_MAP_SUPPORT)
+	, IN CHAR				Rssi3
+#endif
+)
 {
 	INT	i;
 
@@ -289,9 +301,17 @@ VOID RTMPConflictSsidDetection(
 			rssi_info.raw_rssi[0] = Rssi0;
 			rssi_info.raw_rssi[1] = Rssi1;
 			rssi_info.raw_rssi[2] = Rssi2;
+#if defined(CUSTOMER_DCC_FEATURE) || defined(CONFIG_MAP_SUPPORT)
+			rssi_info.raw_rssi[3] = Rssi3;
+#endif
+
 			RcvdRssi = RTMPMaxRssi(pAd, ConvertToRssi(pAd, &rssi_info, RSSI_IDX_0),
 								   ConvertToRssi(pAd, &rssi_info, RSSI_IDX_1),
-								   ConvertToRssi(pAd, &rssi_info, RSSI_IDX_2));
+								   ConvertToRssi(pAd, &rssi_info, RSSI_IDX_2)
+#if defined(CUSTOMER_DCC_FEATURE) || defined(CONFIG_MAP_SUPPORT)
+									, ConvertToRssi(pAd, &rssi_info, RSSI_IDX_3)
+#endif
+								   );
 			pAd->ApCfg.MBSSID[i].RcvdConflictSsidCount++;
 			pAd->ApCfg.MBSSID[i].RssiOfRcvdConflictSsid = RcvdRssi;
 			return;
@@ -316,9 +336,17 @@ BOOLEAN RTMPReplayAttackDetection(
 			rssi_info.raw_rssi[0] = rxblk->rx_signal.raw_rssi[0];
 			rssi_info.raw_rssi[1] = rxblk->rx_signal.raw_rssi[1];
 			rssi_info.raw_rssi[2] = rxblk->rx_signal.raw_rssi[2];
+#if defined(CUSTOMER_DCC_FEATURE) || defined(CONFIG_MAP_SUPPORT)
+			rssi_info.raw_rssi[3] = rxblk->rx_signal.raw_rssi[3];
+#endif
 			RcvdRssi = RTMPMaxRssi(pAd, ConvertToRssi(pAd, &rssi_info, RSSI_IDX_0),
 								   ConvertToRssi(pAd, &rssi_info, RSSI_IDX_1),
-								   ConvertToRssi(pAd, &rssi_info, RSSI_IDX_2));
+								   ConvertToRssi(pAd, &rssi_info, RSSI_IDX_2)
+#if defined(CUSTOMER_DCC_FEATURE) || defined(CONFIG_MAP_SUPPORT)
+								   , ConvertToRssi(pAd, &rssi_info, RSSI_IDX_3)
+#endif
+
+								   );
 			pAd->ApCfg.MBSSID[i].RcvdReplayAttackCount++;
 			pAd->ApCfg.MBSSID[i].RssiOfRcvdReplayAttack = RcvdRssi;
 			return TRUE;
@@ -378,55 +406,55 @@ VOID rtmp_read_ids_from_file(
 		else
 			pAd->ApCfg.IdsEnable = FALSE;
 
-		MTWF_DBG(pAd, DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_INFO, "IDS is %s\n", pAd->ApCfg.IdsEnable ? "enabled" : "disabled");
+		MTWF_LOG(DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("IDS is %s\n", pAd->ApCfg.IdsEnable ? "enabled" : "disabled"));
 	}
 
 	/*AuthFloodThreshold */
 	if (RTMPGetKeyParameter("AuthFloodThreshold", tmpbuf, 10, buffer, TRUE)) {
 		pAd->ApCfg.AuthFloodThreshold = os_str_tol(tmpbuf, 0, 10);
-		MTWF_DBG(pAd, DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_INFO, "AuthFloodThreshold = %d\n", pAd->ApCfg.AuthFloodThreshold);
+		MTWF_LOG(DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("AuthFloodThreshold = %d\n", pAd->ApCfg.AuthFloodThreshold));
 	}
 
 	/*AssocReqFloodThreshold */
 	if (RTMPGetKeyParameter("AssocReqFloodThreshold", tmpbuf, 10, buffer, TRUE)) {
 		pAd->ApCfg.AssocReqFloodThreshold = os_str_tol(tmpbuf, 0, 10);
-		MTWF_DBG(pAd, DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_INFO, "AssocReqFloodThreshold = %d\n", pAd->ApCfg.AssocReqFloodThreshold);
+		MTWF_LOG(DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("AssocReqFloodThreshold = %d\n", pAd->ApCfg.AssocReqFloodThreshold));
 	}
 
 	/*ReassocReqFloodThreshold */
 	if (RTMPGetKeyParameter("ReassocReqFloodThreshold", tmpbuf, 10, buffer, TRUE)) {
 		pAd->ApCfg.ReassocReqFloodThreshold = os_str_tol(tmpbuf, 0, 10);
-		MTWF_DBG(pAd, DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_INFO, "ReassocReqFloodThreshold = %d\n", pAd->ApCfg.ReassocReqFloodThreshold);
+		MTWF_LOG(DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("ReassocReqFloodThreshold = %d\n", pAd->ApCfg.ReassocReqFloodThreshold));
 	}
 
 	/*ProbeReqFloodThreshold */
 	if (RTMPGetKeyParameter("ProbeReqFloodThreshold", tmpbuf, 10, buffer, TRUE)) {
 		pAd->ApCfg.ProbeReqFloodThreshold = os_str_tol(tmpbuf, 0, 10);
-		MTWF_DBG(pAd, DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_INFO, "ProbeReqFloodThreshold = %d\n", pAd->ApCfg.ProbeReqFloodThreshold);
+		MTWF_LOG(DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("ProbeReqFloodThreshold = %d\n", pAd->ApCfg.ProbeReqFloodThreshold));
 	}
 
 	/*DisassocFloodThreshold */
 	if (RTMPGetKeyParameter("DisassocFloodThreshold", tmpbuf, 10, buffer, TRUE)) {
 		pAd->ApCfg.DisassocFloodThreshold = os_str_tol(tmpbuf, 0, 10);
-		MTWF_DBG(pAd, DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_INFO, "DisassocFloodThreshold = %d\n", pAd->ApCfg.DisassocFloodThreshold);
+		MTWF_LOG(DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("DisassocFloodThreshold = %d\n", pAd->ApCfg.DisassocFloodThreshold));
 	}
 
 	/*DeauthFloodThreshold */
 	if (RTMPGetKeyParameter("DeauthFloodThreshold", tmpbuf, 10, buffer, TRUE)) {
 		pAd->ApCfg.DeauthFloodThreshold = os_str_tol(tmpbuf, 0, 10);
-		MTWF_DBG(pAd, DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_INFO, "DeauthFloodThreshold = %d\n", pAd->ApCfg.DeauthFloodThreshold);
+		MTWF_LOG(DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("DeauthFloodThreshold = %d\n", pAd->ApCfg.DeauthFloodThreshold));
 	}
 
 	/*EapReqFloodThreshold */
 	if (RTMPGetKeyParameter("EapReqFloodThreshold", tmpbuf, 10, buffer, TRUE)) {
 		pAd->ApCfg.EapReqFloodThreshold = os_str_tol(tmpbuf, 0, 10);
-		MTWF_DBG(pAd, DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_INFO, "EapReqFloodThreshold = %d\n", pAd->ApCfg.EapReqFloodThreshold);
+		MTWF_LOG(DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("EapReqFloodThreshold = %d\n", pAd->ApCfg.EapReqFloodThreshold));
 	}
 
 	/* DataFloodThreshold  */
 	if (RTMPGetKeyParameter("DataFloodThreshold", tmpbuf, 10, buffer, TRUE)) {
 		pAd->ApCfg.DataFloodThreshold = os_str_tol(tmpbuf, 0, 10);
-		MTWF_DBG(pAd, DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_INFO, "DataFloodThreshold = %d\n", pAd->ApCfg.DataFloodThreshold);
+		MTWF_LOG(DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("DataFloodThreshold = %d\n", pAd->ApCfg.DataFloodThreshold));
 	}
 }
 

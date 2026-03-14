@@ -321,7 +321,8 @@ ap_objs := $(SRC_EMBEDDED_DIR)/ap/ap.o\
             $(SRC_EMBEDDED_DIR)/ap/ap_autoChSel.o\
             $(SRC_EMBEDDED_DIR)/ap/ap_qload.o\
             $(SRC_EMBEDDED_DIR)/ap/ap_cfg.o\
-            $(RLT_SRC_DIR)/os/linux/ap_ioctl.o
+            $(SRC_EMBEDDED_DIR)/ap/ap_nps.o\
+            $(RLT_SRC_DIR)/os/linux/ap_ioctl.o            
 
 ifeq ($(CONFIG_MBSS_SUPPORT),y)
     EXTRA_CFLAGS += -DMBSS_SUPPORT
@@ -666,5 +667,5 @@ EXTRA_CFLAGS += -DIP_ASSEMBLY
 
 MODULE_FLAGS=$(EXTRA_CFLAGS)
 export MODULE_FLAGS
-obj-m+=$(SRC_EMBEDDED_DIR)/plug_in/
+obj-m+=$(SRC_EMBEDDED_DIR)/tools/plug_in/
 

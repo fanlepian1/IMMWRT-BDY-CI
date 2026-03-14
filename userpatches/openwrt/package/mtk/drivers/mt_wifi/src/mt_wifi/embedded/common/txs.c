@@ -1,17 +1,13 @@
 /*
- * Copyright (c) [2020], MediaTek Inc. All rights reserved.
- *
- * This software/firmware and related documentation ("MediaTek Software") are
- * protected under relevant copyright laws.
- * The information contained herein is confidential and proprietary to
- * MediaTek Inc. and/or its licensors.
- * Except as otherwise provided in the applicable licensing terms with
- * MediaTek Inc. and/or its licensors, any reproduction, modification, use or
- * disclosure of MediaTek Software, and information contained herein, in whole
- * or in part, shall be strictly prohibited.
-*/
-/*
  ***************************************************************************
+ * MediaTek Inc.
+ *
+ * All rights reserved. source code is an unpublished work and the
+ * use of a copyright notice does not imply otherwise. This source code
+ * contains confidential trade secret material of MediaTek. Any attemp
+ * or participation in deciphering, decoding, reverse engineering or in any
+ * way altering the source code is stricitly prohibited, unless the prior
+ * written consent of MediaTek, Inc. is obtained.
  ***************************************************************************
 
 	Module Name:
@@ -40,7 +36,7 @@ INT32 TdlsTxSHandler(RTMP_ADAPTER *pAd, CHAR *Data, UINT32 Priv)
 	TXS_D_4 *TxSD4 = &txs_entry->TxSD4;
 
 	pEntry = &pAd->MacTab.Content[TxSD3->TxS_WlanIdx];
-	MTWF_DBG(pAd, DBG_CAT_TX, DBG_SUBCAT_ALL, DBG_LVL_INFO, "txs d0 me : %d\n", TxSD0->ME);
+	MTWF_LOG(DBG_CAT_TX, DBG_SUBCAT_ALL, DBG_LVL_ERROR, ("%s():txs d0 me : %d\n", __func__, TxSD0->ME));
 
 	if (TxSD0->ME == 0)
 		pEntry->TdlsTxFailCount = 0;
@@ -48,8 +44,8 @@ INT32 TdlsTxSHandler(RTMP_ADAPTER *pAd, CHAR *Data, UINT32 Priv)
 		pEntry->TdlsTxFailCount++;
 
 	if (pEntry->TdlsTxFailCount > 15) {
-		MTWF_DBG(pAd, DBG_CAT_TX, DBG_SUBCAT_ALL, DBG_LVL_ERROR, "TdlsTxFailCount > 15!!  teardown link with ("MACSTR")!!\n"
-				 , MAC2STR(pEntry->Addr));
+		MTWF_LOG(DBG_CAT_TX, DBG_SUBCAT_ALL, DBG_LVL_ERROR, ("%s(): TdlsTxFailCount > 15!!  teardown link with (%02X:%02X:%02X:%02X:%02X:%02X)!!\n"
+				 , __func__, PRINT_MAC(pEntry->Addr)));
 		pEntry->TdlsTxFailCount = 0;
 		cfg_tdls_auto_teardown(pAd, pEntry);
 	}
@@ -69,6 +65,18 @@ INT32 BcnTxSHandler(RTMP_ADAPTER *pAd, CHAR *Data, UINT32 Priv)
 	return 0;
 }
 
+#ifdef STA_LP_PHASE_1_SUPPORT
+INT32 NullFramePM1TxSHandler(RTMP_ADAPTER *pAd, CHAR *Data, UINT32 Priv)
+{
+	return 0;
+}
+
+INT32 NullFramePM0TxSHandler(RTMP_ADAPTER *pAd, CHAR *Data, UINT32 Priv)
+{
+	return 0;
+}
+#endif /*STA_LP_PHASE_1_SUPPORT */
+
 INT32 PsDataTxSHandler(RTMP_ADAPTER *pAd, CHAR *Data, UINT32 Priv)
 {
 	/* TODO: shiang-MT7615, fix me! */
@@ -78,6 +86,51 @@ INT32 PsDataTxSHandler(RTMP_ADAPTER *pAd, CHAR *Data, UINT32 Priv)
 
 /**** End of TxS Call Back Functions ****/
 
+#ifdef FTM_SUPPORT
+INT32 FtmTXSHandler(RTMP_ADAPTER *pAd, CHAR *Data)
+{
+	TXS_STRUC *txs_entry = (TXS_STRUC *)Data;
+	TXS_D_0 *txs_d0 = &txs_entry->TxSD0;
+	PFTM_PEER_ENTRY	pEntry = NULL;
+	BOOLEAN TxError = (txs_d0->ME || txs_d0->RE || txs_d0->LE || txs_d0->BE || txs_d0->TxOp || txs_d0->PSBit || txs_d0->BAFail);
+	BOOLEAN TimerCancelled;
+	MTWF_LOG(DBG_CAT_PROTO, DBG_SUBCAT_ALL, DBG_LVL_WARN,
+			 ("   - FTM_TxS PID:0x%02X Err:%d\n", txs_d0->TxS_PId, TxError));
+	pEntry = FtmGetPidPendingNode(pAd, txs_d0->TxS_PId);
+
+	if (!pEntry)
+		return 0;
+
+	/* Flag clear */
+	pEntry->bTxSCallbackCheck = 0;
+	RTMPCancelTimer(&pEntry->FtmTxTimer, &TimerCancelled);
+	/* Record bTxOK */
+	pEntry->bTxOK = !TxError;
+
+	switch (pEntry->State) {
+	case FTMPEER_NEGO: {
+		if (pEntry->bTxOK)
+			FtmEntryNegoDoneAction(pAd, pEntry);
+		else
+			RTMPSetTimer(&pEntry->FtmTxTimer, 1);	/* Nego should be completed within 10 ms */
+	}
+	break;
+
+	default: {
+		BOOLEAN bTxFTM = TRUE;
+
+		if (pEntry->bTxOK)
+			bTxFTM = FtmEntryCntDownAction(pAd, pEntry);
+
+		if (bTxFTM)
+			RTMPSetTimer(&pEntry->FtmTxTimer, FtmMinDeltaToMS(pEntry->VerdictParm.min_delta_ftm));
+	}
+	break;
+	}
+
+	return 0;
+}
+#endif /* FTM_SUPPORT */
 
 INT32 InitTxSTypeTable(RTMP_ADAPTER *pAd)
 {
@@ -85,7 +138,7 @@ INT32 InitTxSTypeTable(RTMP_ADAPTER *pAd)
 	ULONG Flags;
 	TXS_CTL *TxSCtl = &pAd->TxSCtl;
 
-	MTWF_DBG(pAd, DBG_CAT_TX, DBG_SUBCAT_ALL, DBG_LVL_INFO, " ");
+	MTWF_LOG(DBG_CAT_TX, DBG_SUBCAT_ALL, DBG_LVL_OFF, ("%s %d\n", __func__, __LINE__));
 
 	/* Per Pkt */
 	for (Index = 0; Index < TOTAL_PID_HASH_NUMS; Index++) {
@@ -114,30 +167,6 @@ INT32 InitTxSTypeTable(RTMP_ADAPTER *pAd)
 /*7636 psm*/
 INT32 NullFrameTxSHandler(RTMP_ADAPTER *pAd, CHAR *Data, UINT32 Priv)
 {
-#if defined(MT7636) && defined(CONFIG_STA_SUPPORT)
-	TXS_STRUC *txs_entry = (TXS_STRUC *)Data;
-	TXS_D_0 *TxSD0 = &txs_entry->TxSD0;
-	TXS_D_4 *TxSD4 = &txs_entry->TxSD4;
-
-	MTWF_DBG(pAd, DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_INFO, "%s, line(%d)\n", __func__, __LINE__);
-
-	if ((pAd->OpMode == OPMODE_STA) && (pAd->StaCfg[0].BssType == BSS_INFRA) && (pAd->StaCfg[0].WindowsPowerMode != Ndis802_11PowerModeCAM)) {
-		if (TxSD4->TxS_Pid == PID_NULL_FRAME_PWR_SAVE) {
-			if ((TxSD0->LE == 0) && (TxSD0->RE == 0) && (TxSD0->ME == 0)) {
-				MTWF_DBG(pAd, DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_INFO, "Got TXS, RTMPSendNullFrame(PM=1)\n");
-				/*7636 psm*/
-				MTWF_DBG(pAd, DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_INFO, "%s(%d)::Enter RTMPOffloadPm(pAd, 0x04, 1);\n", __func__, __LINE__);
-				/*In 7636, power saving mechanism is offlaoded to F/W and doesn't need the last argument*/
-				RTEnqueueInternalCmd(pAd, HWCMD_ID_FORCE_SLEEP_AUTO_WAKEUP, NULL, 0);
-			} else
-				MTWF_DBG(pAd, DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_ERROR, "Got TXS, ERROR, Peer didn't get NullFrame(PM=1)\n");
-		}
-
-		if (TxSD4->TxS_Pid == PID_NULL_FRAME_PWR_ACTIVE)
-			MTWF_DBG(pAd, DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_INFO, "Got TXS, RTMPSendNullFrame(PM=0)\n");
-	}
-
-#endif /*MT7636*/
 	return 0;
 }
 
@@ -249,9 +278,9 @@ INT32 TxSTypeCtlPerPkt(RTMP_ADAPTER *pAd, UINT32 PktPid, UINT8 Format, BOOLEAN T
 		}
 	}
 	RTMP_SPIN_UNLOCK_IRQRESTORE(&TxSCtl->TxSTypePerPktLock[PktPid % TOTAL_PID_HASH_NUMS], &Flags);
-	MTWF_DBG(pAd, DBG_CAT_TX, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-			 "can not find TxSType(PktPID = %d, Format = %d)\n",
-			  PktPid, Format);
+	MTWF_LOG(DBG_CAT_TX, DBG_SUBCAT_ALL, DBG_LVL_OFF,
+			 ("%s: can not find TxSType(PktPID = %d, Format = %d)\n",
+			  __func__, PktPid, Format));
 	return -1;
 }
 
@@ -266,7 +295,7 @@ INT32 AddTxSTypePerPktType(RTMP_ADAPTER *pAd, UINT8 PktType, UINT8 PktSubType,
 	os_alloc_mem(NULL, (PUCHAR *)&TxSType, sizeof(*TxSType));
 
 	if (!TxSType) {
-		MTWF_DBG(pAd, DBG_CAT_TX, DBG_SUBCAT_ALL, DBG_LVL_ERROR, "can not allocate TxS Type\n");
+		MTWF_LOG(DBG_CAT_TX, DBG_SUBCAT_ALL, DBG_LVL_ERROR, ("can not allocate TxS Type\n"));
 		return -1;
 	}
 
@@ -274,7 +303,7 @@ INT32 AddTxSTypePerPktType(RTMP_ADAPTER *pAd, UINT8 PktType, UINT8 PktSubType,
 	DlListForEach(SearchTxSType, &TxSCtl->TxSTypePerPktType[PktType][PktSubType % TOTAL_PID_HASH_NUMS_PER_PKT_TYPE], TXS_TYPE, List) {
 		if ((SearchTxSType->PktType == PktType) && (SearchTxSType->PktSubType == PktSubType)
 			&& (SearchTxSType->Format == Format)) {
-			MTWF_DBG(pAd, DBG_CAT_TX, DBG_SUBCAT_ALL, DBG_LVL_ERROR, "already registered TxSType (PktType = %d, PktSubType = %d, Format = %d\n", PktType, PktSubType, Format);
+			MTWF_LOG(DBG_CAT_TX, DBG_SUBCAT_ALL, DBG_LVL_ERROR, ("%s: already registered TxSType (PktType = %d, PktSubType = %d, Format = %d\n", __func__, PktType, PktSubType, Format));
 			RTMP_SPIN_UNLOCK_IRQRESTORE(&TxSCtl->TxSTypePerPktTypeLock[PktType][PktSubType % TOTAL_PID_HASH_NUMS_PER_PKT_TYPE], &Flags);
 			os_free_mem(TxSType);
 			return -1;
@@ -345,11 +374,10 @@ INT32 TxSTypeCtlPerPktType(RTMP_ADAPTER *pAd, UINT8 PktType, UINT8 PktSubType, U
 
 			/*indicate which widx might be used for send the kinw of type/subtype pkt.*/
 			if (WlanIdx < 64)
-				TxSCtl->TxSStatusPerWlanIdx[0] |= (1ULL << (UINT64)WlanIdx);
-			else if (WlanIdx >= 64 && WlanIdx < 128) {
-				WlanIdx -= 64;
-				TxSCtl->TxSStatusPerWlanIdx[1] |= (1ULL << (UINT64)WlanIdx);
-			} else {
+				TxSCtl->TxSStatusPerWlanIdx[0] |= (1 << (UINT64)WlanIdx);
+			else if (WlanIdx >= 64 && WlanIdx < 128)
+				TxSCtl->TxSStatusPerWlanIdx[1] |= (1 << (UINT64)WlanIdx);
+			else {
 				TxSCtl->TxSStatusPerWlanIdx[0] = 0xffffffffffffffff;
 				TxSCtl->TxSStatusPerWlanIdx[1] = 0xffffffffffffffff;
 			}
@@ -361,9 +389,9 @@ INT32 TxSTypeCtlPerPktType(RTMP_ADAPTER *pAd, UINT8 PktType, UINT8 PktSubType, U
 		}
 	}
 	RTMP_SPIN_UNLOCK_IRQRESTORE(&TxSCtl->TxSTypePerPktTypeLock[PktType][PktSubType % TOTAL_PID_HASH_NUMS_PER_PKT_TYPE], &Flags);
-	MTWF_DBG(pAd, DBG_CAT_TX, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-			 "can not find TxSType(PktType = %d, PktSubType = %d, Format = %d)\n",
-			  PktType, PktSubType, Format);
+	MTWF_LOG(DBG_CAT_TX, DBG_SUBCAT_ALL, DBG_LVL_OFF,
+			 ("%s: can not find TxSType(PktType = %d, PktSubType = %d, Format = %d)\n",
+			  __func__, PktType, PktSubType, Format));
 	return -1;
 }
 
@@ -371,51 +399,20 @@ INT32 TxSTypeCtlPerPktType(RTMP_ADAPTER *pAd, UINT8 PktType, UINT8 PktSubType, U
 INT32 ParseTxSPacket_v2(RTMP_ADAPTER *pAd, UINT32 Pid, UINT8 Format, CHAR *Data)
 {
 	TXS_STRUC *txs_entry = (TXS_STRUC *)Data;
-#ifndef AUTOMATION
 	TXS_D_0 *TxSD0 = &txs_entry->TxSD0;
-#endif
-#if (defined(WH_EZ_SETUP) || defined(DPP_SUPPORT))
-	TXS_D_2 *TxSD2 = &txs_entry->TxSD2;
-	TXS_D_3 *TxSD3 = &txs_entry->TxSD3;
-	BOOLEAN TxError = (TxSD0->ME || TxSD0->RE || TxSD0->LE || TxSD0->BE || TxSD0->TxOp || TxSD0->PSBit || TxSD0->BAFail);
-#endif
 
 	if (Format == TXS_FORMAT0) {
+#ifdef FTM_SUPPORT
 
-#ifdef DPP_SUPPORT
-		if (Pid == PID_MGMT_DPP_FRAME) {
-			MAC_TABLE_ENTRY	*pEntry = NULL;
-			struct wifi_dev *wdev = NULL;
+		if ((Pid >= PID_FTM_MIN) && (Pid <= PID_FTM_MAX))
+			FtmTXSHandler(pAd, Data);
 
-			pEntry = &pAd->MacTab.Content[TxSD2->TxS_WlanIdx];
-			wdev = pEntry->wdev;
-			wext_send_dpp_frame_tx_status(pAd, wdev, TxError, TxSD3->type_0.TxS_SN);
-		}
-#endif /* DPP_SUPPORT */
+#endif /* FTM_SUPPORT */
 
-#ifdef AUTOMATION
-		if (is_frame_test(pAd, 1) != 0) {
-			TXS_D_2 *TxSD2_ = &txs_entry->TxSD2;
-			TXS_D_3 *TxSD3 = &txs_entry->TxSD3;
-			TXS_D_4 *TxSD4 = &txs_entry->TxSD4;
-
-			pAd->auto_dvt->txs.received_pid = Pid;
-			receive_del_txs_queue(TxSD3->type_0.TxS_SN, Pid, TxSD2_->TxS_WlanIdx, TxSD4->type_0.TimeStamp);
-		}
-#else
 		if (TxSD0->ME || TxSD0->RE || TxSD0->LE || TxSD0->BE || TxSD0->TxOp || TxSD0->PSBit || TxSD0->BAFail) {
-			asic_dump_txs(pAd, Format, Data);
+			DumpTxSFormat(pAd, Format, Data);
 			return -1;
 		}
-#endif /* AUTOMATION */
-
-	} else if (Format == TXS_FORMAT1) {
-#ifdef CONFIG_ATE
-		if (ATE_ON(pAd)) {
-			if ((pAd->ATECtrl.txs_enable) && (pAd->ATECtrl.en_log & fATE_LOG_TXSSHOW))
-				asic_dump_txs(pAd, Format, Data);
-		}
-#endif /* CONFIG_ATE */
 	}
 
 	return 0;
@@ -446,9 +443,9 @@ UINT8 AddTxSStatus(RTMP_ADAPTER *pAd, UINT8 Type, UINT8 PktPid, UINT8 PktType,
 	if (idx >= TXS_STATUS_NUM) {
 		TxSCtl->TxSFailCount++;
 		idx = TXS_STATUS_NUM - 1;
-		MTWF_DBG(pAd, DBG_CAT_TX, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-				 "Cannot get empty TxSPid, use default(%d)\n",
-				  idx);
+		MTWF_LOG(DBG_CAT_TX, DBG_SUBCAT_ALL, DBG_LVL_OFF,
+				 ("%s():Cannot get empty TxSPid, use default(%d)\n",
+				  __func__, idx));
 	}
 
 	return idx;

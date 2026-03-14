@@ -1,18 +1,19 @@
-/*
- * Copyright (c) [2020], MediaTek Inc. All rights reserved.
- *
- * This software/firmware and related documentation ("MediaTek Software") are
- * protected under relevant copyright laws.
- * The information contained herein is confidential and proprietary to
- * MediaTek Inc. and/or its licensors.
- * Except as otherwise provided in the applicable licensing terms with
- * MediaTek Inc. and/or its licensors, any reproduction, modification, use or
- * disclosure of MediaTek Software, and information contained herein, in whole
- * or in part, shall be strictly prohibited.
-*/
 
 /*
  ***************************************************************************
+ * Ralink Tech Inc.
+ * 4F, No. 2 Technology 5th Rd.
+ * Science-based Industrial Park
+ * Hsin-chu, Taiwan, R.O.C.
+ *
+ * (c) Copyright 2002, Ralink Technology, Inc.
+ *
+ * All rights reserved. Ralink's source code is an unpublished work and the
+ * use of a copyright notice does not imply otherwise. This source code
+ * contains confidential trade secret material of Ralink Tech. Any attemp
+ * or participation in deciphering, decoding, reverse engineering or in any
+ * way altering the source code is stricitly prohibited, unless the prior
+ * written consent of Ralink Technology, Inc. is obtained.
  ***************************************************************************
 
     Module Name:
@@ -40,7 +41,7 @@ NET_DEV_STATS *RT28xx_get_wds_ether_stats(PNET_DEV net_dev);
 
 
 /* Register WDS interface */
-VOID RT28xx_WDS_Init(VOID *pAd, UCHAR band_idx, PNET_DEV net_dev)
+VOID RT28xx_WDS_Init(VOID *pAd, PNET_DEV net_dev)
 {
 	RTMP_OS_NETDEV_OP_HOOK netDevOpHook;
 
@@ -51,10 +52,10 @@ VOID RT28xx_WDS_Init(VOID *pAd, UCHAR band_idx, PNET_DEV net_dev)
 	netDevOpHook.ioctl = rt28xx_ioctl;
 	netDevOpHook.get_stats = RT28xx_get_wds_ether_stats;
 	NdisMoveMemory(&netDevOpHook.devAddr[0], RTMP_OS_NETDEV_GET_PHYADDR(net_dev), MAC_ADDR_LEN);
-	MTWF_DBG(pAd, DBG_CAT_AP, CATAP_WDS, DBG_LVL_INFO, "The new WDS interface MAC = "MACSTR"\n",
-			 MAC2STR(netDevOpHook.devAddr));
+	MTWF_LOG(DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("The new WDS interface MAC = %02X:%02X:%02X:%02X:%02X:%02X\n",
+			 PRINT_MAC(netDevOpHook.devAddr)));
 	RTMP_AP_IoctlHandle(pAd, NULL, CMD_RTPRIV_IOCTL_WDS_INIT,
-						0, &netDevOpHook, band_idx);
+						0, &netDevOpHook, 0);
 }
 
 
@@ -62,10 +63,10 @@ INT wds_virtual_if_open(PNET_DEV pDev)
 {
 	VOID *pAd;
 
-	pAd = RTMP_OS_NETDEV_GET_PRIV(pDev);
+	MTWF_LOG(DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_OFF, ("%s: ===> %s\n",
+		RTMP_OS_NETDEV_GET_DEVNAME(pDev), __func__));
 
-	MTWF_DBG(pAd, DBG_CAT_AP, CATAP_WDS, DBG_LVL_INFO, "%s: ===> %s\n",
-		RTMP_OS_NETDEV_GET_DEVNAME(pDev), __func__);
+	pAd = RTMP_OS_NETDEV_GET_PRIV(pDev);
 
 	if (VIRTUAL_IF_INIT(pAd, pDev) != 0)
 		return -1;
@@ -85,11 +86,10 @@ INT wds_virtual_if_close(PNET_DEV pDev)
 {
 	VOID *pAd;
 
+	MTWF_LOG(DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_OFF, ("%s: ===> %s\n",
+		RTMP_OS_NETDEV_GET_DEVNAME(pDev), __func__));
+
 	pAd = RTMP_OS_NETDEV_GET_PRIV(pDev);
-
-	MTWF_DBG(pAd, DBG_CAT_AP, CATAP_WDS, DBG_LVL_INFO, "%s: ===> %s\n",
-		RTMP_OS_NETDEV_GET_DEVNAME(pDev), __func__);
-
 	/* RTMP_OS_NETDEV_CARRIER_OFF(pDev); */
 	RTMP_OS_NETDEV_STOP_QUEUE(pDev);
 

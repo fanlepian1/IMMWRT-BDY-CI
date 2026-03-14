@@ -1,150 +1,175 @@
 /*
- * Copyright (c) [2020], MediaTek Inc. All rights reserved.
- *
- * This software/firmware and related documentation ("MediaTek Software") are
- * protected under relevant copyright laws.
- * The information contained herein is confidential and proprietary to
- * MediaTek Inc. and/or its licensors.
- * Except as otherwise provided in the applicable licensing terms with
- * MediaTek Inc. and/or its licensors, any reproduction, modification, use or
- * disclosure of MediaTek Software, and information contained herein, in whole
- * or in part, shall be strictly prohibited.
-*/
-/*
  ***************************************************************************
+ * MediaTek Inc.
+ *
+ * All rights reserved. source code is an unpublished work and the
+ * use of a copyright notice does not imply otherwise. This source code
+ * contains confidential trade secret material of MediaTek. Any attemp
+ * or participation in deciphering, decoding, reverse engineering or in any
+ * way altering the source code is stricitly prohibited, unless the prior
+ * written consent of MediaTek, Inc. is obtained.
  ***************************************************************************
 
 	Module Name:
 	hw_init.c
 */
 
+#ifdef COMPOS_WIN
+#include "MtConfig.h"
+#if defined(EVENT_TRACING)
+#include "hw_init.tmh"
+#endif
+#elif defined(COMPOS_TESTMODE_WIN)
+#include "config.h"
+#else
 #include "rt_config.h"
+#endif
+
+
+/*Local function*/
+
+
+
+
+#ifdef RTMP_MAC_PCI
+static INT mt_hif_sys_pci_init(RTMP_ADAPTER *pAd)
+{
+	UINT32 mac_val;
+	struct _RTMP_CHIP_OP *ops = hc_get_chip_ops(pAd->hdev_ctrl);
+
+#ifdef MT_MAC
+	if (IS_HIF_TYPE(pAd, HIF_MT)) {
+		mt_asic_init_txrx_ring(pAd);
+		if (ops->hif_set_pcie_read_params
+			#ifdef ERR_RECOVERY
+			&& (IsErrRecoveryInIdleStat(pAd) == FALSE)
+			#endif /* ERR_RECOVERY*/
+			)
+			ops->hif_set_pcie_read_params(pAd);
+	}
+#endif /* MT_MAC */
+	HIF_IO_READ32(pAd, MT_WPDMA_GLO_CFG, &mac_val);
+
+	/* mac_val |= 0xb0; // bit 7/5~4 => 1 */
+	if (IS_MT7637(pAd))
+		mac_val = 0x52001055; /* workaround PDMA issue for WHQA_00022606 */
+	else if (IS_MT7615(pAd) || IS_MT7622(pAd) || IS_P18(pAd) || IS_MT7663(pAd))
+		mac_val = 0x10001870;
+	else
+		mac_val = 0x52000850;
+
+	HIF_IO_WRITE32(pAd, MT_WPDMA_GLO_CFG, mac_val);
+	if (ops->dma_shdl_init)
+		ops->dma_shdl_init(pAd);
+	return NDIS_STATUS_SUCCESS;
+}
+#endif
+
+static INT mt_hif_sys_init(RTMP_ADAPTER *pAd, HIF_INFO_T *pHifInfo)
+{
+#ifdef RTMP_MAC_PCI
+#ifndef COMPOS_TESTMODE_WIN
+
+	if (IS_PCI_INF(pAd) || IS_RBUS_INF(pAd)) {
+		mt_hif_sys_pci_init(pAd);
+	}
+
+#endif
+#endif /* RTMP_MAC_PCI */
+	return NDIS_STATUS_SUCCESS;
+}
+
+
 
 /*HW related init*/
 
 INT32 WfHifHwInit(RTMP_ADAPTER *pAd, HIF_INFO_T *pHifInfo)
 {
 	INT32 ret = NDIS_STATUS_SUCCESS;
+#ifdef MT_MAC
 
-	ret = hif_sys_init(pAd->hdev_ctrl);
+	if (IS_HIF_TYPE(pAd, HIF_MT))
+		ret = mt_hif_sys_init(pAd, pHifInfo);
+
+#endif /* MT_MAC */
 	return ret;
 }
 
 static INT32 WfTopHwInit(RTMP_ADAPTER *pAd)
 {
-	AsicTOPInit(pAd);
-	return NDIS_STATUS_SUCCESS;
+#ifdef MT_MAC
+
+	if (IS_HIF_TYPE(pAd, HIF_MT))
+		return MtAsicTOPInit(pAd);
+
+#endif
+	return FALSE;
 }
 
 static INT32 WfMcuHwInit(RTMP_ADAPTER *pAd)
 {
 	INT32 ret = NDIS_STATUS_SUCCESS;
-
+#ifdef COMPOS_WIN
+	/* #elif defined (COMPOS_TESTMODE_WIN) */
+#else
 	struct _RTMP_CHIP_OP *ops = hc_get_chip_ops(pAd->hdev_ctrl);
-	struct _RTMP_CHIP_CAP *cap = hc_get_chip_cap(pAd->hdev_ctrl);
-
-#ifdef WIFI_RAM_EMI_SUPPORT
-	if (ops->parse_emi_phy_addr)
-		ops->parse_emi_phy_addr(pAd);
-
-	if (ops->fw_ram_emi_dl) {
-		ret = ops->fw_ram_emi_dl(pAd);
-		if (ret != NDIS_STATUS_SUCCESS) {
-			MTWF_DBG(pAd, DBG_CAT_FW, DBG_SUBCAT_ALL, DBG_LVL_ERROR, "emi ram download failed, Status[=0x%08x]\n", ret);
-			return NDIS_STATUS_FAILURE;
-		}
-	}
-#endif /* WIFI_RAM_EMI_SUPPORT */
 
 	if (ops->prepare_fwdl_img)
 		ops->prepare_fwdl_img(pAd);
 
-	/* rxv cap init */
-	if (ops->rxv_cap_init)
-		ops->rxv_cap_init(pAd);
-
 	ret = NICLoadRomPatch(pAd);
 
 	if (ret != NDIS_STATUS_SUCCESS) {
-		MTWF_DBG(pAd, DBG_CAT_FW, DBG_SUBCAT_ALL, DBG_LVL_ERROR, "NICLoadRomPatch failed, Status[=0x%08x]\n", ret);
+		MTWF_LOG(DBG_CAT_FW, DBG_SUBCAT_ALL, DBG_LVL_ERROR, ("%s: NICLoadRomPatch failed, Status[=0x%08x]\n", __func__, ret));
 		return NDIS_STATUS_FAILURE;
 	}
 
-	{
-		UINT32 Value = 0;
-		UINT32 Addr = 0;
-
-#ifdef MT7915_MT7916_COEXIST_COMPATIBLE
-		if (IS_MT7915(pAd)) {
-			Addr = WF_SW_DEF_CR_ICAP_SPECTRUM_MODE_ADDR_MT7915;
-		} else if (IS_MT7916(pAd)) {
-			Addr = WF_SW_DEF_CR_ICAP_SPECTRUM_MODE_ADDR_MT7916;
-		} else {
-			MTWF_DBG(pAd, DBG_CAT_FW, DBG_SUBCAT_ALL, DBG_LVL_ERROR, "Invalid chip id:0x%04x\n", pAd->ChipID);
-			return NDIS_STATUS_FAILURE;
-		}
-#else
-		Addr = WF_SW_DEF_CR_ICAP_SPECTRUM_MODE_ADDR;
 #endif
-#if defined(INTERNAL_CAPTURE_SUPPORT) || defined(WIFI_SPECTRUM_SUPPORT)
+	{
+		UINT32 Value;
+#ifdef WIFI_SPECTRUM_SUPPORT
 		/* Refer to profile setting to decide the sysram partition format */
-		MTWF_DBG(pAd, DBG_CAT_FW, DBG_SUBCAT_ALL, DBG_LVL_INFO,
-				 "\x1b[42m Before NICLoadFirmware, check ICapMode = %d \x1b[m\n", pAd->ICapMode);
+		MTWF_LOG(DBG_CAT_FW, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
+				 ("%s: Before NICLoadFirmware, check ICapMode = %d\n", __func__, pAd->ICapMode));
 
-		if (pAd->ICapMode == 1) {/* ICap */
-			/* We need to set SW_DEF_CR before FW is downloaded in order */
-			/* to determine UMAC/MCU sysram statement during FW init.    */
-			HW_IO_READ32(pAd->hdev_ctrl, Addr, &Value);
-			Value = Value & (~WF_SW_DEF_CR_FWOPMODE);
-			Value = Value | (pAd->ICapMode << WF_SW_DEF_CR_FWOPMODE_SHFT);
-			HW_IO_WRITE32(pAd->hdev_ctrl, Addr, Value);
-		} else if (pAd->ICapMode == 2) { /* Wifi-spectrum */
-			/* We need to set SW_DEF_CR before FW is downloaded in order */
-			/* to determine UMAC/MCU sysram statement during FW init.    */
+		if (pAd->ICapMode == 2) { /* Wifi-spectrum */
 			if (IS_MT7615(pAd)) {
-				HW_IO_READ32(pAd->hdev_ctrl, CONFG_COM1_REG3, &Value);
+				HW_IO_READ32(pAd, CONFG_COM1_REG3, &Value);
 				Value = Value | CONFG_COM1_REG3_FWOPMODE;
-				HW_IO_WRITE32(pAd->hdev_ctrl, CONFG_COM1_REG3, Value);
+				HW_IO_WRITE32(pAd, CONFG_COM1_REG3, Value);
 			} else if (IS_MT7622(pAd)) {
-				HW_IO_READ32(pAd->hdev_ctrl, CONFG_COM2_REG3, &Value);
+				HW_IO_READ32(pAd, CONFG_COM2_REG3, &Value);
 				Value = Value | CONFG_COM2_REG3_FWOPMODE;
-				HW_IO_WRITE32(pAd->hdev_ctrl, CONFG_COM2_REG3, Value);
-			} else {
-				HW_IO_READ32(pAd->hdev_ctrl, Addr, &Value);
-				Value = Value & (~WF_SW_DEF_CR_FWOPMODE);
-				Value = Value | (pAd->ICapMode << WF_SW_DEF_CR_FWOPMODE_SHFT);
-				HW_IO_WRITE32(pAd->hdev_ctrl, Addr, Value);
+				HW_IO_WRITE32(pAd, CONFG_COM2_REG3, Value);
 			}
 		} else
-#endif /* defined(INTERNAL_CAPTURE_SUPPORT) || defined(WIFI_SPECTRUM_SUPPORT) */
+#endif /* WIFI_SPECTRUM_SUPPORT */
 		{
-			/* We need to set SW_DEF_CR before FW is downloaded in order */
-			/* to determine UMAC/MCU sysram statement during FW init.    */
-			if (IS_MT7615(pAd)) {/* Normal */
-				HW_IO_READ32(pAd->hdev_ctrl, CONFG_COM1_REG3, &Value);
+			if (IS_MT7615(pAd)) {
+				HW_IO_READ32(pAd, CONFG_COM1_REG3, &Value);
 				Value = Value & (~CONFG_COM1_REG3_FWOPMODE);
-				HW_IO_WRITE32(pAd->hdev_ctrl, CONFG_COM1_REG3, Value);
+				HW_IO_WRITE32(pAd, CONFG_COM1_REG3, Value);
 			} else if (IS_MT7622(pAd)) {
-				HW_IO_READ32(pAd->hdev_ctrl, CONFG_COM2_REG3, &Value);
+				HW_IO_READ32(pAd, CONFG_COM2_REG3, &Value);
 				Value = Value & (~CONFG_COM2_REG3_FWOPMODE);
-				HW_IO_WRITE32(pAd->hdev_ctrl, CONFG_COM2_REG3, Value);
-			} else {
-				HW_IO_READ32(pAd->hdev_ctrl, Addr, &Value);
-				Value = Value & (~WF_SW_DEF_CR_FWOPMODE);
-				HW_IO_WRITE32(pAd->hdev_ctrl, Addr, Value);
+				HW_IO_WRITE32(pAd, CONFG_COM2_REG3, Value);
 			}
 		}
 	}
 	ret = NICLoadFirmware(pAd);
 
 	if (ret != NDIS_STATUS_SUCCESS) {
-		MTWF_DBG(pAd, DBG_CAT_FW, DBG_SUBCAT_ALL, DBG_LVL_ERROR, "NICLoadFirmware failed, Status[=0x%08x]\n", ret);
+		MTWF_LOG(DBG_CAT_FW, DBG_SUBCAT_ALL, DBG_LVL_ERROR, ("%s: NICLoadFirmware failed, Status[=0x%08x]\n", __func__, ret));
 		return NDIS_STATUS_FAILURE;
 	}
 
 	/*After fw download should disalbe dma schedule bypass mode*/
 #ifdef DMA_SCH_SUPPORT
-	if (chip_wait_hif_dma_idle(pAd, 100, 1000) != TRUE) {
+#if defined(COMPOS_TESTMODE_WIN)
+	/* fix build error for testmode, need to check where testmode disable dma bypass mode */
+#else
+
+	if (AsicWaitPDMAIdle(pAd, 100, 1000) != TRUE) {
 		if (RTMP_TEST_FLAG(pAd, fRTMP_ADAPTER_NIC_NOT_EXIST)) {
 			ret =  NDIS_STATUS_FAILURE;
 			return ret;
@@ -152,11 +177,8 @@ static INT32 WfMcuHwInit(RTMP_ADAPTER *pAd)
 	}
 
 	AsicDMASchedulerInit(pAd, DMA_SCH_LMAC);
+#endif /* defined (COMPOS_TESTMODE_WIN) */
 #endif
-
-	if (cap->MCUType & CR4) {
-		asic_wa_update(pAd);
-	}
 	return ret;
 }
 
@@ -164,8 +186,10 @@ static INT32 WfMcuHwInit(RTMP_ADAPTER *pAd)
 static INT32 WfEPROMHwInit(RTMP_ADAPTER *pAd)
 {
 	INT32 ret = NDIS_STATUS_SUCCESS;
-
+#if defined(COMPOS_WIN)  || defined(COMPOS_TESTMODE_WIN)
+#else
 	NICInitAsicFromEEPROM(pAd);
+#endif
 	return ret;
 }
 
@@ -176,7 +200,7 @@ INT32 WfTopInit(RTMP_ADAPTER *pAd)
 {
 	INT32 ret = NDIS_STATUS_SUCCESS;
 
-	if (WfTopHwInit(pAd) != NDIS_STATUS_SUCCESS)
+	if (WfTopHwInit(pAd) != TRUE)
 		ret = NDIS_STATUS_FAILURE;
 
 	return ret;
@@ -195,18 +219,18 @@ INT32 WfHifInit(RTMP_ADAPTER *pAd)
 
 	WfHifHwInit(pAd, &hifInfo);
 	WLAN_HOOK_CALL(WLAN_HOOK_HIF_INIT, pAd, NULL);
-	MTWF_DBG(pAd, DBG_CAT_INIT, DBG_SUBCAT_ALL, DBG_LVL_INFO, "<--(), Success!\n");
+	MTWF_LOG(DBG_CAT_INIT, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("<--%s(), Success!\n", __func__));
 	return 0;
 err:
 	WfHifSysExit(pAd);
-	MTWF_DBG(pAd, DBG_CAT_INIT, DBG_SUBCAT_ALL, DBG_LVL_INFO, "<--(), Err! status=%d\n", ret);
+	MTWF_LOG(DBG_CAT_INIT, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("<--%s(), Err! status=%d\n", __func__, ret));
 	return ret;
 }
 
 INT32 WfMcuInit(RTMP_ADAPTER *pAd)
 {
-	RTMP_CHIP_CAP *cap = hc_get_chip_cap(pAd->hdev_ctrl);
 	INT32 ret = NDIS_STATUS_SUCCESS;
+
 	ret = WfMcuSysInit(pAd);
 
 	if (ret != NDIS_STATUS_SUCCESS)
@@ -218,67 +242,40 @@ INT32 WfMcuInit(RTMP_ADAPTER *pAd)
 		goto err;
 
 	HWCtrlOpsReg(pAd);
-
-	if (IS_ASIC_CAP(pAd, fASIC_CAP_MCU_OFFLOAD) && cap->txd_flow_ctl)
-		MtCmdCr4Set(pAd, WA_SET_OPTION_TXD_FLOW_CTRL, 1, 0);
-
-	MTWF_DBG(pAd, DBG_CAT_INIT, DBG_SUBCAT_ALL, DBG_LVL_INFO, "<--(), Success!\n");
+	MTWF_LOG(DBG_CAT_INIT, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("<--%s(), Success!\n", __func__));
 	return ret;
 err:
 	WfMcuSysExit(pAd);
-	MTWF_DBG(pAd, DBG_CAT_INIT, DBG_SUBCAT_ALL, DBG_LVL_INFO, "<--(), Err! status=%d\n", ret);
+	MTWF_LOG(DBG_CAT_INIT, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("<--%s(), Err! status=%d\n", __func__, ret));
 	return ret;
-}
-
-static INT mac_init(RTMP_ADAPTER *pAd)
-{
-	struct _RTMP_CHIP_OP *ops = hc_get_chip_ops(pAd->hdev_ctrl);
-
-	MTWF_DBG(pAd, DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_INFO, "-->\n");
-	AsicInitMac(pAd);
-
-	/* re-set specific MAC registers for individual chip */
-	if (ops->AsicMacInit != NULL)
-		ops->AsicMacInit(pAd);
-
-	/* auto-fall back settings */
-	AsicAutoFallbackInit(pAd);
-	AsicSetMacMaxLen(pAd);
-	MTWF_DBG(pAd, DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_INFO, "<--\n");
-	return TRUE;
 }
 
 INT32 WfMacInit(RTMP_ADAPTER *pAd)
 {
-	INT ret = NDIS_STATUS_SUCCESS;
-
-	if (chip_wait_hif_dma_idle(pAd, ALL_DMA, 100, 1000) != TRUE) {
-		if (RTMP_TEST_FLAG(pAd, fRTMP_ADAPTER_NIC_NOT_EXIST)) {
-			ret =  NDIS_STATUS_FAILURE;
-			return ret;
-		}
-	}
-#ifdef DMA_SCH_SUPPORT
-	AsicDMASchedulerInit(pAd, DMA_SCH_LMAC);
+	UINT32 ret = NDIS_STATUS_SUCCESS;
+#if defined(COMPOS_TESTMODE_WIN) && defined(RTMP_SDIO_SUPPORT)
+	/* todo:  This function cause 7637 FPGA SDIO load FW failed, need to check. */
+	return ret;
 #endif
-	mac_init(pAd);
-	asic_init_wtbl(pAd, TRUE);
-#ifdef HDR_TRANS_RX_SUPPORT
-	AsicRxHeaderTransCtl(pAd, TRUE, FALSE, FALSE, TRUE, FALSE);
-	AsicRxHeaderTaranBLCtl(pAd, 0, TRUE, ETH_TYPE_EAPOL);
-	AsicRxHeaderTaranBLCtl(pAd, 1, TRUE, ETH_TYPE_WAI);
-	AsicRxHeaderTaranBLCtl(pAd, 2, TRUE, ETH_TYPE_FASTROAMING);
-#endif
+#ifdef MT_MAC
 
-	if (IS_ASIC_CAP(pAd, fASIC_CAP_MCU_OFFLOAD))
-		AsicAutoBATrigger(pAd, TRUE, BA_TRIGGER_OFFLOAD_TIMEOUT);
+	if (IS_HIF_TYPE(pAd, HIF_MT))
+		ret = mt_nic_asic_init(pAd);
+
+#endif /* MT_MAC */
+	/* Clear raw counters*/
+#if !defined(COMPOS_WIN) && !defined(COMPOS_TESTMODE_WIN)
+	NicResetRawCounters(pAd);
+#endif
 	return ret;
 }
 
 INT32 WfEPROMInit(RTMP_ADAPTER *pAd)
 {
 	INT32 ret = NDIS_STATUS_SUCCESS;
-
+	/* #if  defined(COMPOS_WIN) || defined (COMPOS_TESTMODE_WIN) */
+#if  defined(COMPOS_TESTMODE_WIN)
+#else
 	ret = WfEPROMSysInit(pAd);
 
 	if (ret != NDIS_STATUS_SUCCESS)
@@ -288,14 +285,17 @@ INT32 WfEPROMInit(RTMP_ADAPTER *pAd)
 	return ret;
 err:
 	WfEPROMSysExit(pAd);
+#endif
 	return ret;
 }
 
 INT32 WfPhyInit(RTMP_ADAPTER *pAd)
 {
 	INT32 ret = NDIS_STATUS_SUCCESS;
-
+#if  defined(COMPOS_WIN)  || defined(COMPOS_TESTMODE_WIN)
+#else
 	NICInitBBP(pAd);
+#endif
 	return ret;
 }
 
@@ -308,26 +308,22 @@ INT32 WfInit(RTMP_ADAPTER *pAd)
 	if (ret != NDIS_STATUS_SUCCESS)
 		goto err0;
 
-	MTWF_DBG(pAd, DBG_CAT_INIT, DBG_SUBCAT_ALL, DBG_LVL_INFO, "Top Init Done!\n");
+	MTWF_LOG(DBG_CAT_INIT, DBG_SUBCAT_ALL, DBG_LVL_OFF, ("Top Init Done!\n"));
 	ret = WfHifInit(pAd);
 
 	if (ret != NDIS_STATUS_SUCCESS)
 		goto err0;
 
-	MTWF_DBG(pAd, DBG_CAT_INIT, DBG_SUBCAT_ALL, DBG_LVL_INFO, "Hif Init Done!\n");
+	MTWF_LOG(DBG_CAT_INIT, DBG_SUBCAT_ALL, DBG_LVL_OFF, ("Hif Init Done!\n"));
 	ret = WfMcuInit(pAd);
 
 	if (ret != NDIS_STATUS_SUCCESS)
 		goto err1;
 
-	MTWF_DBG(pAd, DBG_CAT_INIT, DBG_SUBCAT_ALL, DBG_LVL_INFO, "MCU Init Done!\n");
+	MTWF_LOG(DBG_CAT_INIT, DBG_SUBCAT_ALL, DBG_LVL_OFF, ("MCU Init Done!\n"));
 #ifdef RLM_CAL_CACHE_SUPPORT
 	rlmCalCacheApply(pAd, pAd->rlmCalCache);
 #endif /* RLM_CAL_CACHE_SUPPORT */
-
-	/* re-update chip cap after mcu init */
-	chip_update_chip_cap(pAd);
-
 	/*Adjust eeprom + config => apply to HW*/
 	ret = WfEPROMInit(pAd);
 
@@ -342,20 +338,26 @@ INT32 WfInit(RTMP_ADAPTER *pAd)
     RTMPSetBackOffParam(pAd);
 #endif /* defined(MT_MAC) && defined(TXBF_SUPPORT) */
 #endif /* SINGLE_SKU_V2 */
-	MTWF_DBG(pAd, DBG_CAT_INIT, DBG_SUBCAT_ALL, DBG_LVL_INFO, "EEPROM Init Done!\n");
+	MTWF_LOG(DBG_CAT_INIT, DBG_SUBCAT_ALL, DBG_LVL_OFF, ("EEPROM Init Done!\n"));
 	ret = WfMacInit(pAd);
 
 	if (ret != NDIS_STATUS_SUCCESS)
 		goto err3;
 
-	MTWF_DBG(pAd, DBG_CAT_INIT, DBG_SUBCAT_ALL, DBG_LVL_INFO, "MAC Init Done!\n");
+	MTWF_LOG(DBG_CAT_INIT, DBG_SUBCAT_ALL, DBG_LVL_OFF, ("MAC Init Done!\n"));
 	ret = WfPhyInit(pAd);
 
 	if (ret != NDIS_STATUS_SUCCESS)
 		goto err3;
 
-	MTWF_DBG(pAd, DBG_CAT_INIT, DBG_SUBCAT_ALL, DBG_LVL_INFO, "PHY Init Done!\n");
+	MTWF_LOG(DBG_CAT_INIT, DBG_SUBCAT_ALL, DBG_LVL_OFF, ("PHY Init Done!\n"));
 	return ret;
+#if  defined(COMPOS_WIN)  || defined(COMPOS_TESTMODE_WIN)
+err3:
+err2:
+err1:
+err0:
+#else
 err3:
 	WfEPROMSysExit(pAd);
 err2:
@@ -363,7 +365,8 @@ err2:
 err1:
 	WfHifSysExit(pAd);
 err0:
-	MTWF_DBG(pAd, DBG_CAT_INIT, DBG_SUBCAT_ALL, DBG_LVL_ERROR, " initial faild!! ret=%d\n", ret);
+	MTWF_LOG(DBG_CAT_INIT, DBG_SUBCAT_ALL, DBG_LVL_OFF, ("%s(): initial faild!! ret=%d\n", __func__, ret));
+#endif
 	return ret;
 }
 
@@ -372,28 +375,18 @@ err0:
 
 INT32 WfSysPreInit(RTMP_ADAPTER *pAd)
 {
+#ifdef MT7615
 
+	if (IS_MT7615(pAd))
+		mt7615_init(pAd);
 
-#ifdef MT7986
+#endif /* MT7615 */
+#ifdef MT7622
 
-	if (IS_MT7986(pAd))
-		mt7986_init(pAd);
+	if (IS_MT7622(pAd))
+		mt7622_init(pAd);
 
-#endif
-
-#ifdef MT7916
-
-	if (IS_MT7916(pAd))
-		mt7916_init(pAd);
-
-#endif
-
-#ifdef MT7981
-
-	if (IS_MT7981(pAd))
-		mt7981_init(pAd);
-
-#endif
+#endif /* MT7622 */
 
 	wifi_sup_list_register(pAd, WIFI_CAP_CHIP);
 	wifi_sup_list_register(pAd, WIFI_CAP_SEC);
@@ -406,10 +399,12 @@ INT32 WfSysPreInit(RTMP_ADAPTER *pAd)
 INT32 WfSysPosExit(RTMP_ADAPTER *pAd)
 {
 	INT32 ret = NDIS_STATUS_SUCCESS;
-
+#if  defined(COMPOS_WIN)  || defined(COMPOS_TESTMODE_WIN)
+#else
 	WfEPROMSysExit(pAd);
 	WfMcuSysExit(pAd);
 	WfHifSysExit(pAd);
+#endif
 	return ret;
 }
 

@@ -1,16 +1,15 @@
-/*
- * Copyright (c) [2020], MediaTek Inc. All rights reserved.
- *
- * This software/firmware and related documentation ("MediaTek Software") are
- * protected under relevant copyright laws.
- * The information contained herein is confidential and proprietary to
- * MediaTek Inc. and/or its licensors.
- * Except as otherwise provided in the applicable licensing terms with
- * MediaTek Inc. and/or its licensors, any reproduction, modification, use or
- * disclosure of MediaTek Software, and information contained herein, in whole
- * or in part, shall be strictly prohibited.
-*/
 /****************************************************************************
+ * Ralink Tech Inc.
+ * Taiwan, R.O.C.
+ *
+ * (c) Copyright 2002, Ralink Technology, Inc.
+ *
+ * All rights reserved. Ralink's source code is an unpublished work and the
+ * use of a copyright notice does not imply otherwise. This source code
+ * contains confidential trade secret material of Ralink Tech. Any attemp
+ * or participation in deciphering, decoding, reverse engineering or in any
+ * way altering the source code is stricitly prohibited, unless the prior
+ * written consent of Ralink Technology, Inc. is obtained.
  ***************************************************************************/
 
 
@@ -104,7 +103,7 @@ VOID UAPSD_Init(RTMP_ADAPTER *pAd)
 	/* allocate a lock resource for SMP environment */
 	NdisAllocateSpinLock(pAd, &pAd->UAPSDEOSPLock);
 #ifdef UAPSD_DEBUG
-	MTWF_DBG(pAd, DBG_CAT_PS, CATPS_UAPSD, DBG_LVL_INFO, "uapsd> allocate a spinlock!\n");
+	MTWF_LOG(DBG_CAT_PS, CATPS_UAPSD, DBG_LVL_TRACE, ("uapsd> allocate a spinlock!\n"));
 #endif /* UAPSD_DEBUG */
 #ifdef UAPSD_DEBUG
 	gUAPSD_SP_CloseAbnormalNum = 0;
@@ -139,7 +138,7 @@ VOID UAPSD_Release(RTMP_ADAPTER *pAd)
 	/* free the lock resource for SMP environment */
 	NdisFreeSpinLock(&pAd->UAPSDEOSPLock);
 #ifdef UAPSD_DEBUG
-	MTWF_DBG(pAd, DBG_CAT_PS, CATPS_UAPSD, DBG_LVL_INFO, "uapsd> release a spinlock!\n");
+	MTWF_LOG(DBG_CAT_PS, CATPS_UAPSD, DBG_LVL_TRACE, ("uapsd> release a spinlock!\n"));
 #endif /* UAPSD_DEBUG */
 } /* End of UAPSD_Release */
 
@@ -160,23 +159,6 @@ Note:
 */
 VOID RtmpAsicSleepHandle(RTMP_ADAPTER *pAd)
 {
-#ifdef CONFIG_STA_SUPPORT
-	BOOLEAN FlgCanAsicSleep = TRUE;
-#ifdef DOT11Z_TDLS_SUPPORT
-	/* check TDLS condition */
-	FlgCanAsicSleep = TDLS_UAPSDP_AsicCanSleep(pAd);
-#endif /* DOT11Z_TDLS_SUPPORT */
-#ifdef CFG_TDLS_SUPPORT
-	FlgCanAsicSleep = cfg_tdls_UAPSDP_AsicCanSleep(pAd);
-#endif /* CFG_TDLS_SUPPORT */
-
-	/* finally, check if we can sleep */
-	if (FlgCanAsicSleep == TRUE) {
-		/* just mark the flag to FALSE and wait PeerBeacon() to sleep */
-		ASIC_PS_CAN_SLEEP(pAd);
-	}
-
-#endif /* CONFIG_STA_SUPPORT // */
 }
 
 
@@ -206,7 +188,7 @@ VOID UAPSD_SP_Close(RTMP_ADAPTER *pAd, MAC_TABLE_ENTRY *pEntry)
 		if (pEntry->bAPSDFlagSPStart != 0) {
 			/* SP is started for the station */
 #ifdef UAPSD_DEBUG
-			MTWF_DBG(pAd, DBG_CAT_PS, CATPS_UAPSD, DBG_LVL_INFO, "uapsd> [3] close SP!\n");
+			MTWF_LOG(DBG_CAT_PS, CATPS_UAPSD, DBG_LVL_TRACE, ("uapsd> [3] close SP!\n"));
 #endif /* UAPSD_DEBUG */
 
 			if (pEntry->pUAPSDEOSPFrame != NULL) {
@@ -215,9 +197,9 @@ VOID UAPSD_SP_Close(RTMP_ADAPTER *pAd, MAC_TABLE_ENTRY *pEntry)
 				if exists, release it
 				*/
 #ifdef UAPSD_DEBUG
-				MTWF_DBG(pAd, DBG_CAT_PS, CATPS_UAPSD, DBG_LVL_INFO, "uapsd> [3] Free EOSP (UP = %d)!\n",
+				MTWF_LOG(DBG_CAT_PS, CATPS_UAPSD, DBG_LVL_TRACE, ("uapsd> [3] Free EOSP (UP = %d)!\n",
 						 RTMP_GET_PACKET_UP(
-							 QUEUE_ENTRY_TO_PACKET(pEntry->pUAPSDEOSPFrame)));
+							 QUEUE_ENTRY_TO_PACKET(pEntry->pUAPSDEOSPFrame))));
 #endif /* UAPSD_DEBUG */
 				RELEASE_NDIS_PACKET(pAd,
 									QUEUE_ENTRY_TO_PACKET(pEntry->pUAPSDEOSPFrame),
@@ -257,7 +239,6 @@ BOOLEAN UAPSD_SP_IsClosed(RTMP_ADAPTER *pAd, MAC_TABLE_ENTRY *pEntry)
 {
 	BOOLEAN FlgIsSpClosed = TRUE;
 	ULONG flags = 0;
-
 	UAPSD_SEM_LOCK(&pAd->UAPSDEOSPLock, flags);
 
 	if ((pEntry) &&
@@ -294,10 +275,8 @@ VOID UAPSD_AllPacketDeliver(RTMP_ADAPTER *pAd, MAC_TABLE_ENTRY *pEntry)
 	INT32 IdAc, QueId; /* must be signed, can not be unsigned */
 	STA_TR_ENTRY *tr_entry = NULL;
 	ULONG flags = 0;
-	struct tx_rx_ctl *tr_ctl = &pAd->tr_ctl;
-
 	UAPSD_SEM_LOCK(&pAd->UAPSDEOSPLock, flags);
-	tr_entry = &tr_ctl->tr_entry[pEntry->wcid];
+	tr_entry = &pAd->MacTab.tr_entry[pEntry->wcid];
 
 	/* check if the EOSP frame is yet transmitted out */
 	if (pEntry->pUAPSDEOSPFrame != NULL) {
@@ -383,11 +362,11 @@ VOID UAPSD_AssocParse(
 		UAPSD[QID_AC_VI] = pQosInfo->UAPSD_AC_VI;
 		UAPSD[QID_AC_VO] = pQosInfo->UAPSD_AC_VO;
 		pEntry->MaxSPLength = pQosInfo->MaxSPLength;
-		MTWF_DBG(pAd, DBG_CAT_PS, CATPS_UAPSD, DBG_LVL_INFO, "apsd> UAPSD %d %d %d %d!\n",
+		MTWF_LOG(DBG_CAT_PS, CATPS_UAPSD, DBG_LVL_TRACE, ("apsd> UAPSD %d %d %d %d!\n",
 				 pQosInfo->UAPSD_AC_BE, pQosInfo->UAPSD_AC_BK,
-				 pQosInfo->UAPSD_AC_VI, pQosInfo->UAPSD_AC_VO);
-		MTWF_DBG(pAd, DBG_CAT_PS, CATPS_UAPSD, DBG_LVL_INFO, "apsd> MaxSPLength = %d\n",
-				 pEntry->MaxSPLength);
+				 pQosInfo->UAPSD_AC_VI, pQosInfo->UAPSD_AC_VO));
+		MTWF_LOG(DBG_CAT_PS, CATPS_UAPSD, DBG_LVL_TRACE, ("apsd> MaxSPLength = %d\n",
+				 pEntry->MaxSPLength));
 
 		/* use static UAPSD setting of association request frame */
 		for (IdApsd = 0; IdApsd < 4; IdApsd++) {
@@ -408,20 +387,20 @@ VOID UAPSD_AssocParse(
 			(pEntry->bAPSDCapablePerAC[QID_AC_VI] == 1) &&
 			(pEntry->bAPSDCapablePerAC[QID_AC_VO] == 1)) {
 			/* all AC are U-APSD */
-			MTWF_DBG(pAd, DBG_CAT_PS, CATPS_UAPSD, DBG_LVL_INFO, "apsd> all AC are UAPSD\n");
+			MTWF_LOG(DBG_CAT_PS, CATPS_UAPSD, DBG_LVL_TRACE, ("apsd> all AC are UAPSD\n"));
 			pEntry->bAPSDAllAC = 1;
 		} else {
 			/* at least one AC is not U-APSD */
-			MTWF_DBG(pAd, DBG_CAT_PS, CATPS_UAPSD, DBG_LVL_INFO, "apsd> at least one AC is not UAPSD %d %d %d %d\n",
+			MTWF_LOG(DBG_CAT_PS, CATPS_UAPSD, DBG_LVL_TRACE, ("apsd> at least one AC is not UAPSD %d %d %d %d\n",
 					 pEntry->bAPSDCapablePerAC[QID_AC_BE],
 					 pEntry->bAPSDCapablePerAC[QID_AC_BK],
 					 pEntry->bAPSDCapablePerAC[QID_AC_VI],
-					 pEntry->bAPSDCapablePerAC[QID_AC_VO]);
+					 pEntry->bAPSDCapablePerAC[QID_AC_VO]));
 			pEntry->bAPSDAllAC = 0;
 		}
 
 		pEntry->VirtualTimeout = 0;
-		MTWF_DBG(pAd, DBG_CAT_PS, CATPS_UAPSD, DBG_LVL_INFO, "apsd> MaxSPLength = %d\n", pEntry->MaxSPLength);
+		MTWF_LOG(DBG_CAT_PS, CATPS_UAPSD, DBG_LVL_TRACE, ("apsd> MaxSPLength = %d\n", pEntry->MaxSPLength));
 	}
 }
 
@@ -463,7 +442,7 @@ VOID UAPSD_PacketEnqueue(
 	/* check if current queued UAPSD packet number is too much */
 	if (pEntry == NULL) {
 		RELEASE_NDIS_PACKET(pAd, pPacket, NDIS_STATUS_FAILURE);
-		MTWF_DBG(pAd, DBG_CAT_PS, CATPS_UAPSD, DBG_LVL_INFO, "uapsd> pEntry == NULL!\n");
+		MTWF_LOG(DBG_CAT_PS, CATPS_UAPSD, DBG_LVL_TRACE, ("uapsd> pEntry == NULL!\n"));
 		return;
 	}
 
@@ -471,11 +450,11 @@ VOID UAPSD_PacketEnqueue(
 
 	if (pQueUapsd->Number >= MAX_PACKETS_IN_UAPSD_QUEUE) {
 		/* too much queued pkts, free (discard) the tx packet */
-		MTWF_DBG(pAd, DBG_CAT_PS, CATPS_UAPSD, DBG_LVL_INFO,
-				 "uapsd> many(%d) WCID(%d) AC(%d)\n",
+		MTWF_LOG(DBG_CAT_PS, CATPS_UAPSD, DBG_LVL_TRACE,
+				 ("uapsd> many(%d) WCID(%d) AC(%d)\n",
 				  pQueUapsd->Number,
 				  RTMP_GET_PACKET_WCID(pPacket),
-				  IdAc);
+				  IdAc));
 		RELEASE_NDIS_PACKET(pAd, pPacket, NDIS_STATUS_FAILURE);
 	} else {
 		/* queue the tx packet to the U-APSD queue of the AC */
@@ -490,17 +469,528 @@ VOID UAPSD_PacketEnqueue(
 #ifdef UAPSD_DEBUG
 
 		if (RTMP_GET_PACKET_MGMT_PKT(pPacket) == 1)
-			MTWF_DBG(pAd, DBG_CAT_PS, CATPS_UAPSD, DBG_LVL_INFO, "ps> mgmt to uapsd queue...\n");
+			MTWF_LOG(DBG_CAT_PS, CATPS_UAPSD, DBG_LVL_TRACE, ("ps> mgmt to uapsd queue...\n"));
 		else {
-			MTWF_DBG(pAd, DBG_CAT_PS, CATPS_UAPSD, DBG_LVL_INFO,
-					 "ps> data (0x%08lx) (AC%d) to uapsd queue (num of pkt = %u)...\n",
+			MTWF_LOG(DBG_CAT_PS, CATPS_UAPSD, DBG_LVL_TRACE,
+					 ("ps> data (0x%08lx) (AC%d) to uapsd queue (num of pkt = %u)...\n",
 					  (ULONG)pPacket, IdAc,
-					  pQueUapsd->Number);
+					  pQueUapsd->Number));
 		}
 
 #endif /* UAPSD_DEBUG */
 	}
 }
+
+
+#ifdef RTMP_MAC_PCI
+/*
+========================================================================
+Routine Description:
+    Check if we need to close current SP.
+
+Arguments:
+	pAd				Pointer to our adapter
+	pPacket			Completed TX packet
+	pDstMac			Destinated MAC address
+
+Return Value:
+    None
+
+Note:
+    1. We need to call the function in TxDone ISR.
+	2. SMP protection by caller for packet enqueue.
+========================================================================
+*/
+VOID UAPSD_SP_PacketCheck(
+	IN RTMP_ADAPTER *pAd,
+	IN PNDIS_PACKET pPacket,
+	IN UCHAR *pDstMac)
+{
+	MAC_TABLE_ENTRY *pEntry;
+	HEADER_802_11 *pHeader;
+	UINT16 QueId;
+	UCHAR FlgEosp;
+	struct _RTMP_CHIP_CAP *cap = hc_get_chip_cap(pAd->hdev_ctrl);
+	UINT8 TXWISize = cap->TXWISize;
+	STA_TR_ENTRY *tr_entry = NULL;
+	UCHAR PktCB8 = 0;
+#ifdef LINUX
+	unsigned long flags2 = 0;
+#endif /* LINUX */
+#ifdef CONFIG_ATE
+
+	/* Nothing to do in ATE mode */
+	if (ATE_ON(pAd))
+		return;
+
+#endif /* CONFIG_ATE */
+#ifdef ERR_RECOVERY
+
+	if (IsStopingPdma(&pAd->ErrRecoveryCtl))
+		return;
+
+#endif /* ERR_RECOVERY */
+
+	if (pPacket == NULL)
+		return;
+
+	PktCB8 = (UCHAR)PACKET_CB(pPacket, 8);
+
+	/*
+		NOTE: no aggregation function in U-APSD so dont care about
+		pTxD->pNextSkb
+	*/
+
+	if ((RTMP_GET_PACKET_EOSP(pPacket) == FALSE) &&
+		(PktCB8 == 0xFF)) {
+		/*
+			This is non-EOSP null frame. Ignore it.
+		*/
+		return;
+	}
+
+	/* check if the packet is a U-APSD packet */
+	if (RTMP_GET_PACKET_UAPSD_Flag(pPacket) == FALSE)
+		return;
+
+#ifdef UAPSD_DEBUG
+	MTWF_LOG(DBG_CAT_PS, CATPS_UAPSD, DBG_LVL_TRACE, ("\nuapsd> ----> %s(%d)\n",
+			 __func__, __LINE__));
+#endif /* UAPSD_DEBUG */
+	/*
+		Check if all U-APSD packets have been transmitted except
+		the EOSP packet because we must sure the EOSP packet is
+		transmitted at last.
+	*/
+	/* get RA STATION entry */
+	pEntry = NULL;
+
+	if (RTMP_GET_PACKET_MGMT_PKT(pPacket) == 1) {
+		/*
+			Currently, our QoS Null frame is sent through MMRequest(),
+			in the function, only SDPtr0 is used, SDPtr1 is not used,
+			so pDstMac must be got from skb->data + TXWI_SIZE
+		*/
+		pDstMac = GET_OS_PKT_DATAPTR(pPacket) + TXWISize;
+	}
+
+	pHeader = (HEADER_802_11 *)(pDstMac);
+
+	if (pHeader != NULL) {
+		if (((pHeader->FC.Type == FC_TYPE_DATA) &&
+			 (pHeader->FC.SubType == SUBTYPE_QOS_NULL)) ||
+			((pHeader->FC.Type == FC_TYPE_MGMT) &&
+			 (pHeader->FC.SubType == SUBTYPE_ACTION))) {
+			/* the packet is a QoS NULL frame */
+			UAPSD_QoSNullTxMgmtTxDoneHandle(pAd, pPacket, pDstMac, TRUE);
+			return;
+		}
+
+		/* Addr1 = receiver address */
+#ifdef CONFIG_AP_SUPPORT
+		pEntry = MacTableLookup(pAd, pHeader->Addr1);
+#endif
+	}
+
+	FlgEosp = FALSE;
+	UAPSD_SEM_LOCK(&pAd->UAPSDEOSPLock, flags2);
+
+	if ((pEntry != NULL) && (pEntry->bAPSDFlagSpRoughUse != 0)) {
+		/* Note: UAPSDTxNum does NOT include the EOSP packet */
+		tr_entry = &pAd->MacTab.tr_entry[pEntry->wcid];
+#ifdef UAPSD_DEBUG
+		MTWF_LOG(DBG_CAT_PS, CATPS_UAPSD, DBG_LVL_TRACE, ("uapsd> a qos data frame is DMA done (Num = %d)!\n",
+				 pEntry->UAPSDTxNum));
+#endif /* UAPSD_DEBUG */
+
+		if (pEntry->UAPSDTxNum > 0) {
+			/* some UAPSD packets are not yet transmitted */
+			if (pEntry->UAPSDTxNum == 1) {
+				/* this is the last UAPSD packet */
+				if (pEntry->pUAPSDEOSPFrame != NULL) {
+					/* transmit the EOSP frame */
+					PNDIS_PACKET pPkt;
+					pPkt = QUEUE_ENTRY_TO_PACKET(pEntry->pUAPSDEOSPFrame);
+					QueId = RTMP_GET_PACKET_UAPSD_QUE_ID(pPkt);
+
+					if (QueId > QID_AC_VO) {
+						/* should not be here, only for sanity */
+						QueId = QID_AC_BK;
+					}
+
+					if (ge_enq_req(pAd, QUEUE_ENTRY_TO_PACKET(pEntry->pUAPSDEOSPFrame), QueId, tr_entry, NULL) == FALSE) {
+						/* May need to reschedule the EOSP if enq fail */
+						RELEASE_NDIS_PACKET(pAd, QUEUE_ENTRY_TO_PACKET(pEntry->pUAPSDEOSPFrame), NDIS_STATUS_FAILURE);
+						pEntry->bAPSDFlagEOSPOK = 0;
+						pEntry->bAPSDFlagLegacySent = 0;
+						UAPSD_SP_END(pAd, pEntry);
+						UAPSD_SEM_UNLOCK(&pAd->UAPSDEOSPLock, flags2);
+						return;
+					}
+
+					if (tr_entry->tx_queue[QueId].Number != 1) {
+						MTWF_LOG(DBG_CAT_PS, CATPS_UAPSD, DBG_LVL_ERROR, ("uapsd> %s(%d) tx_queue[%d].Number = %d (shall be 1)!!!\n",
+								 __func__, __LINE__, QueId, tr_entry->tx_queue[QueId].Number));
+					}
+
+					pEntry->pUAPSDEOSPFrame = NULL;
+					FlgEosp = TRUE;
+					/*
+						The EOSP frame will be put into ASIC to tx in
+						RTMPHandleTxRingDmaDoneInterrupt(), not
+						the function.
+					*/
+				}
+			}
+
+			/* a UAPSD frame is transmitted so decrease the counter */
+			pEntry->UAPSDTxNum--;
+		} else {
+			/* UAPSDTxNum == 0 so the packet is the EOSP packet */
+			if (pEntry->bAPSDFlagSPStart != 0) {
+				UINT32 IntSrcReg, INT_RX = 0, int_src = 0;
+#ifdef MT_MAC
+
+				if (IS_HIF_TYPE(pAd, HIF_MT)) {
+					INT_RX = MT_INT_RX_DATA;
+					int_src = MT_INT_SOURCE_CSR;
+				}
+
+#endif /* MT_MAC */
+				/* activate RX Done handle thread */
+				/*
+					Maybe some uplink packets are received between
+					EOSP frame start transmission and end
+					transmssion, we must forward them first or we
+					will regard them as new trigger frames.
+
+					We will clear all STATION bAPSDFlagSPStart flag
+					in RX done handler when U-APSD function is
+					enabled.
+
+					I dont want to use another flag to check if do
+					the job because I also need a spin lock to
+					protect the flag, the protection will cause TX
+					DONE & RX DONE relation.
+				*/
+				/* 1: means EOSP is sent to the peer so we can close current SP */
+				/*
+					We can not guarantee RTMPHandleRxDoneInterrupt()
+					will be called before
+					RTMPHandleTxRingDmaDoneInterrupt() in RTMPIsr()
+				*/
+				HIF_IO_READ32(pAd, int_src, &IntSrcReg);
+
+				if ((IntSrcReg & INT_RX) == 0) {
+					/* No any received packet exists so no any uplink packet exists. */
+					/* pEntry->bAPSDFlagSPStart = 0; */
+					pEntry->bAPSDFlagEOSPOK = 0;
+					pEntry->bAPSDFlagLegacySent = 0;
+					UAPSD_SP_END(pAd, pEntry);
+				} else {
+					/*
+						A received packet exists we will handle it
+						in RTMPIsr(), dont worry.
+						But we only handle max 16 received packets
+						in RTMPHandleRxDoneInterrupt so risk exists.
+					*/
+					pEntry->bAPSDFlagEOSPOK = 1;
+				}
+
+#ifdef UAPSD_DEBUG
+				MTWF_LOG(DBG_CAT_PS, CATPS_UAPSD, DBG_LVL_TRACE, ("uapsd> close SP in SP_PacketCheck()!\n"));
+#endif /* UAPSD_DEBUG */
+			}
+		}
+	}
+
+	UAPSD_SEM_UNLOCK(&pAd->UAPSDEOSPLock, flags2);
+
+	/* maybe transmit the EOSP frame */
+	if (FlgEosp == TRUE) {
+		POS_COOKIE pCookie;
+		pCookie = (POS_COOKIE) pAd->OS_Cookie;
+		/*
+			Too many functions call NICUpdateFifoStaCounters() and
+			NICUpdateFifoStaCounters() will call UAPSD_SP_AUE_Handle(),
+			if we call RTMPDeQueuePacket() here, double-IRQ LOCK will
+			occur. so we need to activate a tasklet to send EOSP frame.
+
+			ex: RTMPDeQueuePacket() --> RTMPFreeTXDUponTxDmaDone() -->
+				NICUpdateFifoStaCounters() --> UAPSD_SP_AUE_Handle() -->
+				RTMPDeQueuePacket() ERROR! or
+
+				RTMPHandleTxRingDmaDoneInterrupt() -->
+				RTMP_IRQ_LOCK() -->
+				RTMPFreeTXDUponTxDmaDone() -->
+				NICUpdateFifoStaCounters() -->
+				UAPSD_SP_AUE_Handle() -->
+				RTMPDeQueuePacket() -->
+				DEQUEUE_LOCK() -->
+				RTMP_IRQ_LOCK() ERROR!
+		*/
+
+		if ((IS_HIF_TYPE(pAd, HIF_RLT))
+			|| (IS_HIF_TYPE(pAd, HIF_RTMP)))
+			RTMP_OS_TASKLET_SCHE(&pCookie->uapsd_eosp_sent_task);
+
+	}
+}
+
+
+/*
+========================================================================
+Routine Description:
+	Handle QoS Null Frame Tx Done or Management Tx Done interrupt.
+
+Arguments:
+	pAd				Pointer to our adapter
+	pPacket			Completed TX packet
+	pDstMac			Destinated MAC address
+
+Return Value:
+    None
+
+Note:
+	Only for PCI-based device.
+========================================================================
+*/
+VOID UAPSD_QoSNullTxMgmtTxDoneHandle(
+	IN RTMP_ADAPTER *pAd,
+	IN PNDIS_PACKET pPacket,
+	IN UCHAR *pDstMac,
+	IN BOOLEAN FlgIsLocked)
+{
+	HEADER_802_11  *pHeader;
+	MAC_TABLE_ENTRY  *pEntry;
+	UINT32 IntSrcReg, INT_RX = 0, int_src = 0;
+	ULONG flags = 0;
+#ifdef ERR_RECOVERY
+
+	if (IsStopingPdma(&pAd->ErrRecoveryCtl))
+		return;
+
+#endif /* ERR_RECOVERY */
+
+	if (pPacket == NULL)
+		return;
+
+	/* check if the packet is a U-APSD packet, must be QoS Null frame */
+	if (RTMP_GET_PACKET_UAPSD_Flag(pPacket) != TRUE)
+		return;
+
+	/* check if the packet sub type is QoS Null */
+	if (pDstMac == NULL)
+		return;
+
+#ifdef MT_MAC
+
+	if (IS_HIF_TYPE(pAd, HIF_MT)) {
+		INT_RX = MT_INT_RX_DATA;
+		int_src = MT_INT_SOURCE_CSR;
+	}
+
+#endif /* MT_MAC */
+	pHeader = (HEADER_802_11 *)pDstMac;
+	/* find the destination STATION */
+#ifdef CONFIG_AP_SUPPORT
+	pEntry = MacTableLookup(pAd, pHeader->Addr1);
+#endif
+
+	if ((pHeader->FC.Type == FC_TYPE_DATA) &&
+		(pHeader->FC.SubType == SUBTYPE_QOS_NULL)) {
+		/*
+			Currently, QoS Null type is only used in UAPSD mechanism
+			and no any UAPSD data packet exists
+		*/
+		UAPSD_SEM_LOCK(&pAd->UAPSDEOSPLock, flags);
+
+		if ((pEntry != NULL) &&
+			(pEntry->bAPSDFlagSpRoughUse != 0) &&
+			(pEntry->bAPSDFlagSPStart != 0)) {
+			/* SP is started for the station */
+			if (pEntry->pUAPSDEOSPFrame != NULL) {
+				/* SP will be closed, should not have EOSP frame */
+				RELEASE_NDIS_PACKET(pAd,
+									QUEUE_ENTRY_TO_PACKET(pEntry->pUAPSDEOSPFrame),
+									NDIS_STATUS_FAILURE);
+				pEntry->pUAPSDEOSPFrame = NULL;
+			}
+
+			pEntry->UAPSDTxNum = 0;
+			/* check if rx done interrupt exists */
+			HIF_IO_READ32(pAd, int_src, &IntSrcReg);
+
+			if ((IntSrcReg & INT_RX) == 0) {
+				/* no any new uplink packet is received */
+				/* pEntry->bAPSDFlagSPStart = 0; */
+				pEntry->bAPSDFlagEOSPOK = 0;
+				pEntry->bAPSDFlagLegacySent = 0;
+				UAPSD_SP_END(pAd, pEntry);
+			} else {
+				/*
+					A new uplink packet is received so check if the uplink
+					packet is transmitted from the station and close SP
+					in RxDone().
+				*/
+				pEntry->bAPSDFlagEOSPOK = 1;
+			}
+
+#ifdef UAPSD_DEBUG
+			MTWF_LOG(DBG_CAT_PS, CATPS_UAPSD, DBG_LVL_TRACE, ("uapsd> close SP in QoSNullTxDoneHandle()!\n"));
+#endif /* UAPSD_DEBUG */
+		}
+
+		UAPSD_SEM_UNLOCK(&pAd->UAPSDEOSPLock, flags);
+	} else if ((pHeader->FC.Type == FC_TYPE_MGMT) &&
+			   (pHeader->FC.SubType == SUBTYPE_ACTION)) {
+		UINT16 QueId;
+		UAPSD_SEM_LOCK(&pAd->UAPSDEOSPLock, flags);
+
+		if ((pEntry != NULL) &&
+			(pEntry->bAPSDFlagSpRoughUse != 0) &&
+			(pEntry->bAPSDFlagSPStart != 0)) {
+			BOOLEAN FlgEosp = FALSE;
+			STA_TR_ENTRY *tr_entry = NULL;
+			tr_entry = &pAd->MacTab.tr_entry[pEntry->wcid];
+			/* Note: UAPSDTxNum does NOT include the EOSP packet */
+#ifdef UAPSD_DEBUG
+			MTWF_LOG(DBG_CAT_PS, CATPS_UAPSD, DBG_LVL_TRACE, ("uapsd> a ps mgmt frame is DMA done(Num = %d)!\n",
+					 pEntry->UAPSDTxNum));
+#endif /* UAPSD_DEBUG */
+
+			if (pEntry->UAPSDTxNum > 0) {
+				/* some UAPSD packets are not yet transmitted */
+				if (pEntry->UAPSDTxNum == 1) {
+					/* this is the last UAPSD packet */
+					if (pEntry->pUAPSDEOSPFrame != NULL) {
+						/* so transmit its EOSP frame */
+						PNDIS_PACKET pPkt;
+						pPkt = QUEUE_ENTRY_TO_PACKET(pEntry->pUAPSDEOSPFrame);
+						QueId = RTMP_GET_PACKET_UAPSD_QUE_ID(pPkt);
+
+						if (QueId > QID_AC_VO) {
+							/* should not be here, only for sanity */
+							QueId = QID_AC_BE;
+						}
+
+						if (ge_enq_req(pAd, QUEUE_ENTRY_TO_PACKET(pEntry->pUAPSDEOSPFrame), QueId, tr_entry, NULL) == FALSE) {
+							RELEASE_NDIS_PACKET(pAd, QUEUE_ENTRY_TO_PACKET(pEntry->pUAPSDEOSPFrame), NDIS_STATUS_FAILURE);
+							pEntry->bAPSDFlagEOSPOK = 0;
+							pEntry->bAPSDFlagLegacySent = 0;
+							UAPSD_SP_END(pAd, pEntry);
+							UAPSD_SEM_UNLOCK(&pAd->UAPSDEOSPLock, flags);
+							return;
+						}
+
+						pEntry->pUAPSDEOSPFrame = NULL;
+						FlgEosp = TRUE;
+						/*
+							The EOSP frame will be put into ASIC to tx
+							in RTMPHandleTxRingDmaDoneInterrupt(),
+							not the function.
+						*/
+					}
+				}
+
+				/* a UAPSD frame is transmitted so counter -- */
+				pEntry->UAPSDTxNum--;
+			} else {
+				/* UAPSDTxNum == 0 so the packet is the EOSP packet */
+				if (pEntry->bAPSDFlagSPStart != 0) {
+					/*
+						Activate RX Done handle thread
+
+						Maybe some uplink packets are received between
+						EOSP frame start transmission and end
+						transmssion, we must forward them first or we
+						will regard them as new trigger frames.
+
+						We will clear all STATION bAPSDFlagSPStart flag
+						in RX done handler when U-APSD function is
+						enabled.
+
+						I dont want to use another flag to check if do
+						the job because I also need a spin lock to
+						protect the flag, the protection will cause TX
+						DONE & RX DONE relation.
+
+						1: means EOSP is sent to the peer so we can close
+						current SP.
+
+						We can not guarantee RTMPHandleRxDoneInterrupt()
+						will be called before
+						RTMPHandleTxRingDmaDoneInterrupt() in RTMPIsr().
+					*/
+					UINT32 INT_RX = 0, int_csr = 0;
+#ifdef MT_MAC
+
+					if (IS_HIF_TYPE(pAd, HIF_MT)) {
+						INT_RX = MT_INT_RX_DATA;
+						int_csr = MT_INT_SOURCE_CSR;
+					}
+
+#endif /* MT_MAC */
+					HIF_IO_READ32(pAd, int_src, &IntSrcReg);
+
+					if ((IntSrcReg & INT_RX) == 0) {
+						/*
+							No any received pkt exists so no any uplink pkt exists.
+						*/
+						/* pEntry->bAPSDFlagSPStart = 0; */
+						pEntry->bAPSDFlagEOSPOK = 0;
+						pEntry->bAPSDFlagLegacySent = 0;
+						UAPSD_SP_END(pAd, pEntry);
+#ifdef UAPSD_DEBUG
+						MTWF_LOG(DBG_CAT_PS, CATPS_UAPSD, DBG_LVL_TRACE, ("uapsd> close SP2 in QoSNullTxMgmtTxDoneHandle()!\n"));
+#endif /* UAPSD_DEBUG */
+					} else {
+						/*
+							A received packet exists we will handle it
+							in RTMPIsr(), dont worry.
+							But we only handle max 16 received packets
+							in RTMPHandleRxDoneInterrupt so risk exists.
+						*/
+						pEntry->bAPSDFlagEOSPOK = 1;
+					}
+				}
+			}
+
+			UAPSD_SEM_UNLOCK(&pAd->UAPSDEOSPLock, flags);
+
+			/* maybe transmit the EOSP frame */
+			if (FlgEosp == TRUE) {
+				POS_COOKIE pCookie = (POS_COOKIE) pAd->OS_Cookie;
+				/*
+					Too many functions call NICUpdateFifoStaCounters() and
+					NICUpdateFifoStaCounters() will call UAPSD_SP_AUE_Handle(),
+					if we call RTMPDeQueuePacket() here, double-IRQ LOCK will
+					occur. so we need to activate a tasklet to send EOSP frame.
+
+					ex: RTMPDeQueuePacket() --> RTMPFreeTXDUponTxDmaDone() -->
+						NICUpdateFifoStaCounters() --> UAPSD_SP_AUE_Handle() -->
+						RTMPDeQueuePacket() ERROR! or
+
+						RTMPHandleTxRingDmaDoneInterrupt() -->
+						RTMP_IRQ_LOCK() -->
+						RTMPFreeTXDUponTxDmaDone() -->
+						NICUpdateFifoStaCounters() -->
+						UAPSD_SP_AUE_Handle() -->
+						RTMPDeQueuePacket() -->
+						DEQUEUE_LOCK() -->
+						RTMP_IRQ_LOCK() ERROR!
+				*/
+
+				if ((IS_HIF_TYPE(pAd, HIF_RLT))
+					|| (IS_HIF_TYPE(pAd, HIF_RTMP)))
+					RTMP_OS_TASKLET_SCHE(&pCookie->uapsd_eosp_sent_task);
+
+			}
+		} else
+			UAPSD_SEM_UNLOCK(&pAd->UAPSDEOSPLock, flags);
+	}
+}
+#endif /* RTMP_MAC_PCI */
 
 
 /*
@@ -554,7 +1044,6 @@ VOID UAPSD_SP_AUE_Handle(
 {
 #ifdef UAPSD_SP_ACCURATE
 	USHORT QueId;
-	struct tx_rx_ctl *tr_ctl = &pAd->tr_ctl;
 	STA_TR_ENTRY *tr_entry = NULL;
 
 	if (pEntry == NULL)
@@ -562,7 +1051,7 @@ VOID UAPSD_SP_AUE_Handle(
 
 	if (pEntry->PsMode == PWR_ACTIVE) {
 #ifdef UAPSD_DEBUG
-		MTWF_DBG(pAd, DBG_CAT_PS, CATPS_UAPSD, DBG_LVL_INFO, "uapsd> aux: Station actives! Close SP!\n");
+		MTWF_LOG(DBG_CAT_PS, CATPS_UAPSD, DBG_LVL_TRACE, ("uapsd> aux: Station actives! Close SP!\n"));
 #endif /* UAPSD_DEBUG */
 		/* pEntry->bAPSDFlagSPStart = 0; */
 		pEntry->bAPSDFlagEOSPOK = 0;
@@ -570,12 +1059,11 @@ VOID UAPSD_SP_AUE_Handle(
 		return;
 	}
 
-	tr_entry = &tr_ctl->tr_entry[pEntry->wcid];
+	tr_entry = &pAd->MacTab.tr_entry[pEntry->wcid];
 
 	if (pEntry->PsMode == PWR_SAVE) {
 		BOOLEAN FlgEosp;
 		ULONG flags = 0;
-
 		UAPSD_SEM_LOCK(&pAd->UAPSDEOSPLock, flags);
 
 		if (pEntry->bAPSDFlagSpRoughUse != 0) {
@@ -584,7 +1072,7 @@ VOID UAPSD_SP_AUE_Handle(
 		}
 
 #ifdef UAPSD_DEBUG
-		MTWF_DBG(pAd, DBG_CAT_PS, CATPS_UAPSD, DBG_LVL_INFO, "uapsd> aux: Tx Num = %d\n", pEntry->UAPSDTxNum);
+		MTWF_LOG(DBG_CAT_PS, CATPS_UAPSD, DBG_LVL_TRACE, ("uapsd> aux: Tx Num = %d\n", pEntry->UAPSDTxNum));
 #endif /* UAPSD_DEBUG */
 		FlgEosp = FALSE;
 
@@ -595,7 +1083,7 @@ VOID UAPSD_SP_AUE_Handle(
 			*/
 			pEntry->bAPSDFlagLegacySent = 0;
 #ifdef UAPSD_DEBUG
-			MTWF_DBG(pAd, DBG_CAT_PS, CATPS_UAPSD, DBG_LVL_INFO, "uapsd> legacy PS packet is sent!\n");
+			MTWF_LOG(DBG_CAT_PS, CATPS_UAPSD, DBG_LVL_TRACE, ("uapsd> legacy PS packet is sent!\n"));
 #endif /* UAPSD_DEBUG */
 		} else {
 #ifdef UAPSD_TIMING_RECORD_FUNC
@@ -615,7 +1103,7 @@ VOID UAPSD_SP_AUE_Handle(
 					/* transmit the EOSP frame */
 					PNDIS_PACKET pPkt;
 #ifdef UAPSD_DEBUG
-					MTWF_DBG(pAd, DBG_CAT_PS, CATPS_UAPSD, DBG_LVL_INFO, "uapsd> aux: send EOSP frame...\n");
+					MTWF_LOG(DBG_CAT_PS, CATPS_UAPSD, DBG_LVL_TRACE, ("uapsd> aux: send EOSP frame...\n"));
 #endif /* UAPSD_DEBUG */
 					pPkt = QUEUE_ENTRY_TO_PACKET(pEntry->pUAPSDEOSPFrame);
 					QueId = RTMP_GET_PACKET_UAPSD_QUE_ID(pPkt);
@@ -636,7 +1124,7 @@ VOID UAPSD_SP_AUE_Handle(
 
 						if (pAd->bAPSDFlagSPSuspend == 1) {
 #ifdef UAPSD_DEBUG
-							MTWF_DBG(pAd, DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_INFO, "uapsd> aux: SP is suspend, keep SP if exists!\n");
+							MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("uapsd> aux: SP is suspend, keep SP if exists!\n"));
 #endif /* UAPSD_DEBUG */
 							/* keep SP, not to close SP */
 							pEntry->bAPSDFlagEOSPOK = 1;
@@ -648,7 +1136,7 @@ VOID UAPSD_SP_AUE_Handle(
 							pEntry->bAPSDFlagEOSPOK = 0;
 							UAPSD_SP_END(pAd, pEntry);
 #ifdef UAPSD_DEBUG
-							MTWF_DBG(pAd, DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_INFO, "uapsd> aux: close a SP.\n\n\n");
+							MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("uapsd> aux: close a SP.\n\n\n"));
 #endif /* UAPSD_DEBUG */
 						}
 
@@ -700,7 +1188,7 @@ VOID UAPSD_SP_AUE_Handle(
 			/* UAPSDTxNum == 0 so the packet is the EOSP packet */
 			if (pAd->bAPSDFlagSPSuspend == 1) {
 #ifdef UAPSD_DEBUG
-				MTWF_DBG(pAd, DBG_CAT_PS, CATPS_UAPSD, DBG_LVL_INFO, "uapsd> aux: SP is suspend, keep SP if exists!\n");
+				MTWF_LOG(DBG_CAT_PS, CATPS_UAPSD, DBG_LVL_TRACE, ("uapsd> aux: SP is suspend, keep SP if exists!\n"));
 #endif /* UAPSD_DEBUG */
 				/* keep SP, not to close SP */
 				pEntry->bAPSDFlagEOSPOK = 1;
@@ -712,7 +1200,7 @@ VOID UAPSD_SP_AUE_Handle(
 				pEntry->bAPSDFlagEOSPOK = 0;
 				UAPSD_SP_END(pAd, pEntry);
 #ifdef UAPSD_DEBUG
-				MTWF_DBG(pAd, DBG_CAT_PS, CATPS_UAPSD, DBG_LVL_INFO, "uapsd> aux: close a SP.\n\n\n");
+				MTWF_LOG(DBG_CAT_PS, CATPS_UAPSD, DBG_LVL_TRACE, ("uapsd> aux: close a SP.\n\n\n"));
 #endif /* UAPSD_DEBUG */
 			}
 		}
@@ -721,6 +1209,72 @@ VOID UAPSD_SP_AUE_Handle(
 	}
 
 #endif /* UAPSD_SP_ACCURATE */
+}
+
+
+/*
+========================================================================
+Routine Description:
+    Close current Service Period.
+
+Arguments:
+	pAd				Pointer to our adapter
+
+Return Value:
+    None
+
+Note:
+    When we receive EOSP frame tx done interrupt and a uplink packet
+    from the station simultaneously, we will regard it as a new trigger
+    frame because the packet is received when EOSP frame tx done interrupt.
+
+    We can not sure the uplink packet is sent after old SP or in the old SP.
+    So we must close the old SP in receive done ISR to avoid the problem.
+========================================================================
+*/
+VOID UAPSD_SP_CloseInRVDone(RTMP_ADAPTER *pAd)
+{
+	UINT32 IdEntry;
+	int FirstWcid = 0;
+
+	if (pAd->MacTab.fAnyStationInPsm == FALSE)
+		return; /* no any station is in power save mode */
+
+
+	/* check for all CLIENT's UAPSD Service Period */
+	for (IdEntry = FirstWcid; VALID_UCAST_ENTRY_WCID(pAd, IdEntry); IdEntry++) {
+		MAC_TABLE_ENTRY *pEntry = NULL;
+		ULONG flags = 0;
+
+		if (IdEntry >= MAX_LEN_OF_MAC_TABLE)
+			break;
+
+		pEntry = &pAd->MacTab.Content[IdEntry];
+		UAPSD_SEM_LOCK(&pAd->UAPSDEOSPLock, flags);
+
+		/* check if SP is started and EOSP is transmitted ok */
+		if ((pEntry->bAPSDFlagSPStart != 0) &&
+			(pEntry->bAPSDFlagEOSPOK != 0)) {
+			/*
+				1. SP is started;
+				2. EOSP frame is sent ok.
+			*/
+			/*
+				We close current SP for the STATION so we can receive new
+				trigger frame from the STATION again.
+			*/
+#ifdef UAPSD_DEBUG
+			MTWF_LOG(DBG_CAT_PS, CATPS_UAPSD, DBG_LVL_TRACE, ("uapsd> close SP in %s()!\n",
+					 __func__));
+#endif /* UAPSD_DEBUG */
+			/* pEntry->bAPSDFlagSPStart = 0; */
+			pEntry->bAPSDFlagEOSPOK = 0;
+			pEntry->bAPSDFlagLegacySent = 0;
+			UAPSD_SP_END(pAd, pEntry);
+		}
+
+		UAPSD_SEM_UNLOCK(&pAd->UAPSDEOSPLock, flags);
+	}
 }
 
 
@@ -827,13 +1381,13 @@ VOID UAPSD_TimingRecord(RTMP_ADAPTER *pAd, UINT32 Type)
 
 		/* display average delay */
 		if ((Index % UAPSD_TIMING_RECORD_DISPLAY_TIMES) == 0) {
-			MTWF_DBG(pAd, DBG_CAT_PS, CATPS_UAPSD, DBG_LVL_INFO, "uapsd> Isr2Tasklet=%d, Trig2Queue=%d, Queue2Air=%d micro seconds\n",
+			MTWF_LOG(DBG_CAT_PS, CATPS_UAPSD, DBG_LVL_TRACE, ("uapsd> Isr2Tasklet=%d, Trig2Queue=%d, Queue2Air=%d micro seconds\n",
 					 gUAPSD_TimingSumIsr2Tasklet /
 					 UAPSD_TIMING_RECORD_DISPLAY_TIMES,
 					 gUAPSD_TimingSumTrig2Txqueue /
 					 UAPSD_TIMING_RECORD_DISPLAY_TIMES,
 					 gUAPSD_TimingSumTxqueue2Air /
-					 UAPSD_TIMING_RECORD_DISPLAY_TIMES);
+					 UAPSD_TIMING_RECORD_DISPLAY_TIMES));
 			gUAPSD_TimingSumIsr2Tasklet = 0;
 			gUAPSD_TimingSumTrig2Txqueue = 0;
 			gUAPSD_TimingSumTxqueue2Air = 0;
@@ -847,10 +1401,10 @@ VOID UAPSD_TimingRecord(RTMP_ADAPTER *pAd, UINT32 Type)
 
 		/* stop the record */
 		gUAPSD_TimingFlag = UAPSD_TIMING_CTRL_STOP;
-		MTWF_DBG(pAd, DBG_CAT_PS, CATPS_UAPSD, DBG_LVL_INFO, "sam> Isr->Tasklet:%d, Trig->TxQueue:%d, TxQueue->TxDone:%d\n",
+		MTWF_LOG(DBG_CAT_PS, CATPS_UAPSD, DBG_LVL_TRACE, ("sam> Isr->Tasklet:%d, Trig->TxQueue:%d, TxQueue->TxDone:%d\n",
 				 (UINT32)(gUAPSD_TimingTasklet[Index] - gUAPSD_TimingIsr[Index]),
 				 (UINT32)(gUAPSD_TimingMov2Tx[Index] - gUAPSD_TimingTrgRcv[Index]),
-				 (UINT32)(gUAPSD_TimingTx2Air[Index] - gUAPSD_TimingMov2Tx[Index]));
+				 (UINT32)(gUAPSD_TimingTx2Air[Index] - gUAPSD_TimingMov2Tx[Index])));
 		break;
 	}
 }
@@ -901,7 +1455,6 @@ BOOLEAN UAPSD_PsPollHandle(RTMP_ADAPTER *pAd, MAC_TABLE_ENTRY *pEntry)
 	PNDIS_PACKET	pQuedPkt;
 	UINT32	AcQueId;
 	struct qm_ops *qm_ops = pAd->qm_ops;
-	UINT8 idx;
 	/*
 		AC ID          = VO > VI > BK > BE
 		so we need to change BE & BK
@@ -914,8 +1467,7 @@ BOOLEAN UAPSD_PsPollHandle(RTMP_ADAPTER *pAd, MAC_TABLE_ENTRY *pEntry)
 	BOOLEAN	FlgQueEmpty;
 	INT32	IdAc; /* must be signed, can not use unsigned */
 	UINT32	Aid, QueId = QID_AC_BK;
-	UINT16 wcid = 0;
-	struct tx_rx_ctl *tr_ctl = &pAd->tr_ctl;
+	UCHAR wcid = 0;
 	STA_TR_ENTRY *tr_entry = NULL;
 	ULONG flags = 0;
 
@@ -936,7 +1488,7 @@ BOOLEAN UAPSD_PsPollHandle(RTMP_ADAPTER *pAd, MAC_TABLE_ENTRY *pEntry)
 		return FALSE; /* its service period is not yet ended */
 	}
 
-	tr_entry = &tr_ctl->tr_entry[pEntry->wcid];
+	tr_entry = &pAd->MacTab.tr_entry[pEntry->wcid];
 
 	/* from highest priority AC3 --> AC2 --> AC0 --> lowest priority AC1 */
 	for (IdAc = (WMM_NUM_OF_AC - 1); IdAc >= 0; IdAc--) {
@@ -1015,8 +1567,7 @@ BOOLEAN UAPSD_PsPollHandle(RTMP_ADAPTER *pAd, MAC_TABLE_ENTRY *pEntry)
 	/* reset idle timeout here whenever a trigger frame is received */
 	pEntry->UAPSDQIdleCount = 0;
 	UAPSD_SEM_UNLOCK(&pAd->UAPSDEOSPLock, flags);
-	idx = hif_get_resource_idx(pAd->hdev_ctrl, pEntry->wdev, 0, 0);
-	qm_ops->schedule_tx_que(pAd, idx);
+	qm_ops->schedule_tx_que(pAd);
 	return TRUE;
 }
 
@@ -1112,20 +1663,18 @@ VOID UAPSD_TriggerFrameHandle(RTMP_ADAPTER *pAd, MAC_TABLE_ENTRY *pEntry, UCHAR 
 	BOOLEAN	FlgNullSnd;
 	BOOLEAN	FlgMgmtFrame;
 	UINT32	Aid, QueId;
-	UINT16 wcid = 0;
+	UCHAR wcid = 0;
 	INT32	IdAc; /* must be signed, can not use unsigned */
-	struct tx_rx_ctl *tr_ctl = &pAd->tr_ctl;
 	STA_TR_ENTRY *tr_entry = NULL;
 	ULONG flags = 0;
 #ifdef UAPSD_SP_ACCURATE
 	ULONG	TimeNow;
 #endif /* UAPSD_SP_ACCURATE */
-
 	/* sanity check for Service Period of the STATION */
 	UAPSD_SEM_LOCK(&pAd->UAPSDEOSPLock, flags);
 #ifdef UAPSD_DEBUG
-	MTWF_DBG(pAd, DBG_CAT_PS, CATPS_UAPSD, DBG_LVL_INFO, "\nuapsd> bAPSDFlagLegacySent = %d!\n",
-			 pEntry->bAPSDFlagLegacySent);
+	MTWF_LOG(DBG_CAT_PS, CATPS_UAPSD, DBG_LVL_TRACE, ("\nuapsd> bAPSDFlagLegacySent = %d!\n",
+			 pEntry->bAPSDFlagLegacySent));
 #endif /* UAPSD_DEBUG */
 
 	if (pEntry->bAPSDFlagSPStart != 0) {
@@ -1134,7 +1683,7 @@ VOID UAPSD_TriggerFrameHandle(RTMP_ADAPTER *pAd, MAC_TABLE_ENTRY *pEntry, UCHAR 
 		*/
 		pEntry->ContinueTxFailCnt = 0;
 		/* TODO: shiang-usw, remove upper setting because we need to mirgate to tr_entry! */
-		tr_ctl->tr_entry[pEntry->wcid].ContinueTxFailCnt = 0;
+		pAd->MacTab.tr_entry[pEntry->wcid].ContinueTxFailCnt = 0;
 		/*
 			WMM Specification V1.1 3.6.1.5
 		       A Trigger Frame received by the WMM AP from a WMM STA that
@@ -1146,7 +1695,7 @@ VOID UAPSD_TriggerFrameHandle(RTMP_ADAPTER *pAd, MAC_TABLE_ENTRY *pEntry, UCHAR 
 			normal DATA packet.
 		*/
 #ifdef UAPSD_DEBUG
-		MTWF_DBG(pAd, DBG_CAT_PS, CATPS_UAPSD, DBG_LVL_INFO, "uapsd> sorry! SP is not yet closed!\n");
+		MTWF_LOG(DBG_CAT_PS, CATPS_UAPSD, DBG_LVL_TRACE, ("uapsd> sorry! SP is not yet closed!\n"));
 #endif /* UAPSD_DEBUG */
 #ifdef UAPSD_SP_ACCURATE
 		/*
@@ -1162,9 +1711,10 @@ VOID UAPSD_TriggerFrameHandle(RTMP_ADAPTER *pAd, MAC_TABLE_ENTRY *pEntry, UCHAR 
 
 		if ((TimeNow - pEntry->UAPSDTimeStampLast) >= UAPSD_EPT_SP_INT) {
 #ifdef UAPSD_DEBUG
-			MTWF_DBG(pAd, DBG_CAT_PS, CATPS_UAPSD, DBG_LVL_INFO, "uapsd> SP period is too large so SP is closed first! (%lu %lu %lu)!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n",
+			MTWF_LOG(DBG_CAT_PS, CATPS_UAPSD, DBG_LVL_TRACE, ("uapsd> SP period is too large so SP is closed first!"
+					 " (%lu %lu %lu)!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n",
 					 TimeNow, pEntry->UAPSDTimeStampLast,
-					 (TimeNow - pEntry->UAPSDTimeStampLast));
+					 (TimeNow - pEntry->UAPSDTimeStampLast)));
 			gUAPSD_SP_CloseAbnormalNum++;
 #endif /* UAPSD_DEBUG */
 			UAPSD_SEM_UNLOCK(&pAd->UAPSDEOSPLock, flags);
@@ -1186,7 +1736,7 @@ VOID UAPSD_TriggerFrameHandle(RTMP_ADAPTER *pAd, MAC_TABLE_ENTRY *pEntry, UCHAR 
 #ifdef UAPSD_DEBUG
 
 	if (pEntry->pUAPSDEOSPFrame != NULL) {
-		MTWF_DBG(pAd, DBG_CAT_PS, CATPS_UAPSD, DBG_LVL_INFO, "uapsd> EOSP is not NULL!\n");
+		MTWF_LOG(DBG_CAT_PS, CATPS_UAPSD, DBG_LVL_TRACE, ("uapsd> EOSP is not NULL!\n"));
 		UAPSD_SEM_UNLOCK(&pAd->UAPSDEOSPLock, flags);
 		return;
 	}
@@ -1195,12 +1745,12 @@ VOID UAPSD_TriggerFrameHandle(RTMP_ADAPTER *pAd, MAC_TABLE_ENTRY *pEntry, UCHAR 
 
 	if (pEntry->MaxSPLength >= 4) {
 		/* fatal error, should be 0 ~ 3 so reset it to 0 */
-		MTWF_DBG(pAd, DBG_CAT_PS, CATPS_UAPSD, DBG_LVL_INFO,
-				 "uapsd> MaxSPLength >= 4 (%d)!\n", pEntry->MaxSPLength);
+		MTWF_LOG(DBG_CAT_PS, CATPS_UAPSD, DBG_LVL_TRACE,
+				 ("uapsd> MaxSPLength >= 4 (%d)!\n", pEntry->MaxSPLength));
 		pEntry->MaxSPLength = 0;
 	}
 
-	tr_entry = &tr_ctl->tr_entry[pEntry->wcid];
+	tr_entry = &pAd->MacTab.tr_entry[pEntry->wcid];
 #ifdef UAPSD_SP_ACCURATE
 	/* mark the start time for the SP */
 	UAPSD_TIME_GET(pAd, pEntry->UAPSDTimeStampLast);
@@ -1407,11 +1957,11 @@ VOID UAPSD_TriggerFrameHandle(RTMP_ADAPTER *pAd, MAC_TABLE_ENTRY *pEntry, UCHAR 
 #ifdef UAPSD_DEBUG
 	{
 		ULONG DebugTimeNow;
-
 		UAPSD_TIME_GET(pAd, DebugTimeNow);
-		MTWF_DBG(pAd, DBG_CAT_PS, CATPS_UAPSD, DBG_LVL_INFO, "uapsd> start a SP (Tx Num = %d) (Rough SP = %d) (Has Any Mgmt = %d) (Abnormal = %d) (Time = %lu)\n",
+		MTWF_LOG(DBG_CAT_PS, CATPS_UAPSD, DBG_LVL_TRACE, ("uapsd> start a SP (Tx Num = %d) (Rough SP = %d) "
+				 "(Has Any Mgmt = %d) (Abnormal = %d) (Time = %lu)\n",
 				 TxPktNum, pEntry->bAPSDFlagSpRoughUse, FlgMgmtFrame,
-				 gUAPSD_SP_CloseAbnormalNum, DebugTimeNow);
+				 gUAPSD_SP_CloseAbnormalNum, DebugTimeNow));
 	}
 #endif /* UAPSD_DEBUG */
 
@@ -1421,12 +1971,14 @@ VOID UAPSD_TriggerFrameHandle(RTMP_ADAPTER *pAd, MAC_TABLE_ENTRY *pEntry, UCHAR 
 		pEntry->UAPSDTxNum = 0;
 
 		if (TxPktNum == 0) {
-			FlgNullSnd = TRUE;
+			{
+				FlgNullSnd = TRUE;
+			}
 
 #ifdef UAPSD_DEBUG
-			MTWF_DBG(pAd, DBG_CAT_PS, CATPS_UAPSD, DBG_LVL_INFO,
-					 "uapsd> No data, send a Qos-Null frame with ESOP bit on and UP=%d to end USP\n",
-					  UpOfFrame);
+			MTWF_LOG(DBG_CAT_PS, CATPS_UAPSD, DBG_LVL_TRACE,
+					 ("uapsd> No data, send a Qos-Null frame with ESOP bit on and "
+					  "UP=%d to end USP\n", UpOfFrame));
 #endif /* UAPSD_DEBUG */
 		} else {
 			/* only one packet so send it directly */
@@ -1445,9 +1997,9 @@ VOID UAPSD_TriggerFrameHandle(RTMP_ADAPTER *pAd, MAC_TABLE_ENTRY *pEntry, UCHAR 
 			}
 
 #ifdef UAPSD_DEBUG
-			MTWF_DBG(pAd, DBG_CAT_PS, CATPS_UAPSD, DBG_LVL_INFO,
-					 "uapsd> Only one packet with UP = %d\n",
-					  RTMP_GET_PACKET_UP(pQuedPkt));
+			MTWF_LOG(DBG_CAT_PS, CATPS_UAPSD, DBG_LVL_TRACE,
+					 ("uapsd> Only one packet with UP = %d\n",
+					  RTMP_GET_PACKET_UP(pQuedPkt)));
 #endif /* UAPSD_DEBUG */
 		}
 
@@ -1475,7 +2027,7 @@ VOID UAPSD_TriggerFrameHandle(RTMP_ADAPTER *pAd, MAC_TABLE_ENTRY *pEntry, UCHAR 
 
 	if ((pEntry->pUAPSDEOSPFrame != NULL) &&
 		(RTMP_GET_PACKET_MGMT_PKT(pEntry->pUAPSDEOSPFrame) == 1))
-		MTWF_DBG(pAd, DBG_CAT_PS, CATPS_UAPSD, DBG_LVL_INFO, "uapsd> The EOSP frame is a management frame.\n");
+		MTWF_LOG(DBG_CAT_PS, CATPS_UAPSD, DBG_LVL_TRACE, ("uapsd> The EOSP frame is a management frame.\n"));
 
 #endif /* UAPSD_DEBUG */
 #ifdef UAPSD_SP_ACCURATE
@@ -1507,8 +2059,8 @@ VOID UAPSD_TriggerFrameHandle(RTMP_ADAPTER *pAd, MAC_TABLE_ENTRY *pEntry, UCHAR 
 		(pEntry->bAPSDFlagLegacySent != 0)) {
 		pEntry->UAPSDTxNum++;
 #ifdef UAPSD_DEBUG
-		MTWF_DBG(pAd, DBG_CAT_PS, CATPS_UAPSD, DBG_LVL_INFO, "uapsd> A legacy PS is sent! UAPSDTxNum = %d\n",
-				 pEntry->UAPSDTxNum);
+		MTWF_LOG(DBG_CAT_PS, CATPS_UAPSD, DBG_LVL_TRACE, ("uapsd> A legacy PS is sent! UAPSDTxNum = %d\n",
+				 pEntry->UAPSDTxNum));
 #endif /* UAPSD_DEBUG */
 	}
 
@@ -1544,36 +2096,21 @@ VOID UAPSD_TriggerFrameHandle(RTMP_ADAPTER *pAd, MAC_TABLE_ENTRY *pEntry, UCHAR 
 		RtmpEnqueueNullFrame(pAd, pEntry->Addr, pEntry->CurrTxRate,
 							 Aid, pEntry->func_tb_idx, TRUE, TRUE, UpOfFrame);
 #ifdef UAPSD_DEBUG
-		MTWF_DBG(pAd, DBG_CAT_PS, CATPS_UAPSD, DBG_LVL_INFO, "uapsd> end a SP by a QoS Null frame!\n");
+		MTWF_LOG(DBG_CAT_PS, CATPS_UAPSD, DBG_LVL_TRACE, ("uapsd> end a SP by a QoS Null frame!\n"));
 #endif /* UAPSD_DEBUG */
 	}
 
 #ifdef UAPSD_TIMING_RECORD_FUNC
 	UAPSD_TIMING_RECORD(pAd, UAPSD_TIMING_RECORD_MOVE2TX);
 #endif /* UAPSD_TIMING_RECORD_FUNC */
-
-	/* need to use pEntry->UAPSDTxNum to make sure all packets are Dequeued in USB Throughtput case */
-	RTMPDeQueuePacket(pAd, FALSE, WMM_NUM_OF_AC, pEntry->wcid, pEntry->UAPSDTxNum);
+	{
+		/* need to use pEntry->UAPSDTxNum to make sure all packets are Dequeued in USB Throughtput case */
+		RTMPDeQueuePacket(pAd, FALSE, WMM_NUM_OF_AC, pEntry->wcid, pEntry->UAPSDTxNum);
+	}
 }
 
-#ifdef CONFIG_STA_SUPPORT
 
-VOID uapsd_config_get(struct wifi_dev *wdev, struct uapsd_config *cfg)
-{
-		struct _STA_ADMIN_CONFIG *sta_cfg = GetStaCfgByWdev(wdev->sys_handle, wdev);
-		struct _RTMP_ADAPTER *ad = wdev->sys_handle;
 
-		if (wdev->UapsdInfo.bAPSDCapable
-		&& sta_cfg
-			&& sta_cfg->MlmeAux.APEdcaParm.bAPSDCapable) {
-			cfg->uapsd_en = TRUE;
-			cfg->uapsd_trigger_ac =
-				ad->CommonCfg.bAPSDAC_VO |
-				(ad->CommonCfg.bAPSDAC_VI << 1) |
-				(ad->CommonCfg.bAPSDAC_BK << 2) |
-				(ad->CommonCfg.bAPSDAC_BE << 3);
-		}
-}
-#endif /*CONFIG_STA_SUPPORT*/
+
 #endif /* UAPSD_SUPPORT */
 

@@ -167,7 +167,7 @@ static inline unsigned int DlListLen(struct _DL_LIST *List)
 
 #define DlListForEach(item, list, type, member) \
 	for (item = DlListEntry((list)->Next, type, member); \
-		 item && (&item->member != (list)); \
+		 &item->member != (list); \
 		 item = DlListEntry(item->member.Next, type, member))
 
 #define DlListForEachSafe(item, n, list, type, member) \

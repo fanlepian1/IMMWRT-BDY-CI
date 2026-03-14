@@ -1,17 +1,18 @@
 /*
- * Copyright (c) [2020], MediaTek Inc. All rights reserved.
- *
- * This software/firmware and related documentation ("MediaTek Software") are
- * protected under relevant copyright laws.
- * The information contained herein is confidential and proprietary to
- * MediaTek Inc. and/or its licensors.
- * Except as otherwise provided in the applicable licensing terms with
- * MediaTek Inc. and/or its licensors, any reproduction, modification, use or
- * disclosure of MediaTek Software, and information contained herein, in whole
- * or in part, shall be strictly prohibited.
-*/
-/*
  ***************************************************************************
+ * Ralink Tech Inc.
+ * 4F, No. 2 Technology 5th Rd.
+ * Science-based Industrial Park
+ * Hsin-chu, Taiwan, R.O.C.
+ *
+ * (c) Copyright 2002-2004, Ralink Technology, Inc.
+ *
+ * All rights reserved. Ralink's source code is an unpublished work and the
+ * use of a copyright notice does not imply otherwise. This source code
+ * contains confidential trade secret material of Ralink Tech. Any attemp
+ * or participation in deciphering, decoding, reverse engineering or in any
+ * way altering the source code is stricitly prohibited, unless the prior
+ * written consent of Ralink Technology, Inc. is obtained.
  ***************************************************************************
 
     Module Name:
@@ -41,35 +42,25 @@
 /* For example, linux type definition */
 typedef signed char INT8;
 typedef unsigned char UINT8;
-typedef signed short INT16;
 typedef unsigned short UINT16;
-typedef signed int INT32;
 typedef unsigned int UINT32;
-typedef signed long long INT64;
 typedef unsigned long long UINT64;
+typedef signed short INT16;
+typedef signed int INT32;
+typedef long long INT64;
 
-typedef signed char CHAR;
 typedef unsigned char UCHAR;
-typedef signed short SHORT;
 typedef unsigned short USHORT;
-typedef signed int INT;
 typedef unsigned int UINT;
-typedef signed long LONG;
 typedef unsigned long ULONG;
 #endif /* LINUX */
 
-typedef signed char *PINT8;
 typedef unsigned char *PUINT8;
-typedef signed short *PINT16;
 typedef unsigned short *PUINT16;
-typedef signed int *PINT;
-typedef unsigned int *PUINT;
-typedef signed int *PINT32;
 typedef unsigned int *PUINT32;
-typedef signed long long *PINT64;
-typedef signed long long LONGLONG;
 typedef unsigned long long *PUINT64;
-typedef unsigned long long ULONGLONG;
+typedef signed int *PINT32;
+typedef signed long long *PINT64;
 
 /* modified for fixing compile warning on Sigma 8634 platform */
 /* typedef char STRING; */
@@ -77,15 +68,20 @@ typedef char RTMP_STRING;
 
 typedef signed char CHAR;
 
+typedef signed short SHORT;
+typedef signed int INT;
+typedef signed int *PINT;
+typedef signed long LONG;
+typedef signed long long LONGLONG;
+
+typedef unsigned long long ULONGLONG;
+
 typedef unsigned char BOOLEAN;
 
 #ifdef LINUX
 typedef void VOID;
 #endif /* LINUX */
 
-#if (defined(MWDS) || defined(WH_EVENT_NOTIFIER))
-typedef char *PSTRING;
-#endif
 typedef VOID * PVOID;
 typedef CHAR * PCHAR;
 typedef UCHAR * PUCHAR;
@@ -116,16 +112,16 @@ typedef struct _RTMP_REG_PAIR {
 	UINT32 Value;
 } RTMP_REG_PAIR, *PRTMP_REG_PAIR;
 
-typedef struct _RTMP_MIB_PAIR {
-	UINT32 Counter;
-	UINT64 Value;
-} RTMP_MIB_PAIR, *PRTMP_MIB_PAIR;
-
 typedef struct _REG_CHK_PAIR {
 	UINT32 Register;
 	UINT32 Mask;
 	UINT32 Value;
 } REG_CHK_PAIR;
+
+typedef struct _REG_PAIR {
+	UCHAR Register;
+	UCHAR Value;
+} REG_PAIR, *PREG_PAIR;
 
 typedef struct _REG_PAIR_CHANNEL {
 	UCHAR Register;
@@ -181,7 +177,6 @@ typedef struct _QUEUE_HEADER {
 	PQUEUE_ENTRY Head;
 	PQUEUE_ENTRY Tail;
 	UINT Number;
-	ULONG state;
 } QUEUE_HEADER, *PQUEUE_HEADER;
 
 typedef struct _CR_REG {
@@ -223,6 +218,5 @@ struct mt_dev_priv {
 	unsigned long priv_flags;
 	UCHAR sniffer_mode;
 };
-
 #endif /* __RTMP_TYPE_H__ */
 

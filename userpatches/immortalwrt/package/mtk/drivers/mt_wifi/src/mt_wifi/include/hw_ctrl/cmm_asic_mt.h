@@ -1,17 +1,18 @@
 /*
- * Copyright (c) [2020], MediaTek Inc. All rights reserved.
- *
- * This software/firmware and related documentation ("MediaTek Software") are
- * protected under relevant copyright laws.
- * The information contained herein is confidential and proprietary to
- * MediaTek Inc. and/or its licensors.
- * Except as otherwise provided in the applicable licensing terms with
- * MediaTek Inc. and/or its licensors, any reproduction, modification, use or
- * disclosure of MediaTek Software, and information contained herein, in whole
- * or in part, shall be strictly prohibited.
-*/
-/*
  ***************************************************************************
+ * Ralink Tech Inc.
+ * 4F, No. 2 Technology	5th Rd.
+ * Science-based Industrial Park
+ * Hsin-chu, Taiwan, R.O.C.
+ *
+ * (c) Copyright 2002-2004, Ralink Technology, Inc.
+ *
+ * All rights reserved.	Ralink's source	code is	an unpublished work and the
+ * use of a copyright notice does not imply otherwise. This source code
+ * contains confidential trade secret material of Ralink Tech. Any attemp
+ * or participation in deciphering, decoding, reverse engineering or in any
+ * way altering	the source code	is stricitly prohibited, unless	the prior
+ * written consent of Ralink Technology, Inc. is obtained.
  ***************************************************************************
 
 	Module Name:
@@ -91,7 +92,8 @@ typedef struct {
 typedef struct {
 	UINT8  band_idx;
 	UINT32 pkt_len_thld;
-	UINT32 pkt_num_thld;
+	UINT16 pkt_num_thld;
+	UINT16 retry_limit;
 } MT_RTS_THRESHOLD_T;
 
 #define RDG_DISABLE     0x0
@@ -99,7 +101,7 @@ typedef struct {
 #define RDG_RESPONDER   (1 << 1)
 #define RDG_BOTH        (RDG_INITIATOR|RDG_RESPONDER)
 typedef struct _MT_RDG_CTRL_T {
-	UINT16  WlanIdx;
+	UINT8   WlanIdx;
 	UINT8   BandIdx;
 	UINT8   Init;
 	UINT8   Resp;
@@ -125,17 +127,7 @@ typedef struct _MT_SWITCH_CHANNEL_CFG {
 	UCHAR BandIdx;
 	UCHAR Channel_Band;
     UINT32 OutBandFreq;
-	UCHAR ap_bw;
-	UCHAR ap_central_channel;
-	BOOLEAN bDnlCal;
-	BOOLEAN bRxGainCal;
 } MT_SWITCH_CHANNEL_CFG;
-
-typedef enum {
-	ch_band_g = 0,
-	ch_band_a,
-	ch_band_6g
-} enum_ch_band_t;
 
 typedef enum {
 	RX_STBC_BCN_BC_MC = 1<<0,
@@ -173,15 +165,14 @@ typedef enum _BA_SESSION_TYPE {
 } BA_SESSION_TYPE;
 
 typedef struct _MT_BA_CTRL_T {
-	UINT16 Wcid;
+	UCHAR Wcid;
 	UCHAR Tid;
-	UINT16 BaWinSize;
+	UCHAR BaWinSize;
 	BOOLEAN isAdd;
 	UINT8 band_idx;
 	BA_SESSION_TYPE BaSessionType;
 	UCHAR PeerAddr[MAC_ADDR_LEN];
 	UINT16 Sn;							/*Sequence number for a specific TID*/
-	UCHAR amsdu;
 } MT_BA_CTRL_T, *P_MT_BA_CTRL_T;
 
 typedef enum {
@@ -195,7 +186,7 @@ typedef enum {
 } MT_WCID_TYPE_T;
 
 typedef struct {
-	UINT16 Wcid;
+	USHORT Wcid;
 	USHORT Aid;
 	UINT8 BssidIdx;
 	UINT8 MacAddrIdx;
@@ -222,10 +213,13 @@ typedef struct {
 	BOOLEAN SupportQoS;
 	BOOLEAN DisRHTR;
 	BOOLEAN IsReset;
-#if	defined(A4_CONN) || defined(MBSS_AS_WDS_AP_SUPPORT) || defined(APCLI_AS_WDS_STA_SUPPORT)
+#ifdef A4_CONN
 	BOOLEAN a4_enable;
 #endif
 	BOOLEAN SkipClearPrevSecKey;
+#ifdef MBSS_AS_WDS_AP_SUPPORT
+    BOOLEAN fg4AddrEnable;
+#endif
 } MT_WCID_TABLE_INFO_T;
 
 typedef enum _ENUM_CIPHER_SUIT_T {
@@ -269,7 +263,7 @@ typedef enum {
 typedef struct {
 	BOOLEAN isAdd;
 	UCHAR BssIdx;
-	UINT16 Wcid;
+	UCHAR Wcid;
 	MT_SEC_CIPHER_SUITS_T KeyType;
 	UCHAR KeyIdx;
 	MT_BSS_OP_MODE_T OpMode;
@@ -337,9 +331,10 @@ enum _TID_SN {
 	TID7_SN
 };
 
+char *get_bw_str(int bandwidth);
 VOID MTMlmeLpEnter(struct _RTMP_ADAPTER *pAd, struct wifi_dev *wdev);
 VOID MTMlmeLpExit(struct _RTMP_ADAPTER *pAd, struct wifi_dev *wdev);
-BOOLEAN MTPollTxRxEmpty(struct _RTMP_ADAPTER *pAd, UINT8 pcie_port_or_all);
+VOID MTPollTxRxEmpty(struct _RTMP_ADAPTER *pAd);
 VOID MTHifPolling(struct _RTMP_ADAPTER *pAd, UINT8 ucDbdcIdx);
 VOID MTRadioOn(struct _RTMP_ADAPTER *pAd, struct wifi_dev *wdev);
 VOID MTRadioOff(struct _RTMP_ADAPTER *pAd, struct wifi_dev *wdev);
@@ -347,17 +342,40 @@ VOID MTRadioOff(struct _RTMP_ADAPTER *pAd, struct wifi_dev *wdev);
 VOID MTPciPollTxRxEmpty(struct _RTMP_ADAPTER *pAd);
 #endif /* RTMP_MAC_PCI */
 
+
+UINT32 MtAsicGetCrcErrCnt(struct _RTMP_ADAPTER *pAd);
+UINT32 MtAsicGetPhyErrCnt(struct _RTMP_ADAPTER *pAd);
+UINT32 MtAsicGetCCACnt(struct _RTMP_ADAPTER *pAd);
 UINT32 MtAsicGetChBusyCnt(struct _RTMP_ADAPTER *pAd, UCHAR BandIdx);
+INT MtAsicSetAutoFallBack(struct _RTMP_ADAPTER *pAd, BOOLEAN enable);
 INT32 MtAsicAutoFallbackInit(struct _RTMP_ADAPTER *pAd);
 
+#ifdef COMPOS_WIN
+VOID MtAsicSwitchChannel(struct _RTMP_ADAPTER *pAd, struct _EXT_CMD_CHAN_SWITCH_T CmdChSwitch);
+#else
 VOID MtAsicSwitchChannel(struct _RTMP_ADAPTER *pAd, struct _MT_SWITCH_CHANNEL_CFG SwChCfg);
+#endif /*COMPOS_WIN*/
 
-VOID asic_wrap_protinfo_in_bssinfo(struct _RTMP_ADAPTER *ad, VOID *cookie);
+VOID MtAsicUpdateProtect(struct _RTMP_ADAPTER *pAd, MT_PROTECT_CTRL_T *ProtectCtrl);
+VOID MtAsicUpdateRtsThld(struct _RTMP_ADAPTER *pAd, MT_RTS_THRESHOLD_T *RtsThld);
 
 #ifdef SINGLE_SKU_V2
 VOID MtAsicUpdateSkuTable(RTMP_ADAPTER *pAd, UINT8 *data);
 #endif
 
+VOID MtAsicResetBBPAgent(struct _RTMP_ADAPTER *pAd);
+VOID MtAsicSetBssid(struct _RTMP_ADAPTER *pAd, UCHAR *pBssid, UCHAR curr_bssid_idx);
+INT32 MtAsicSetDevMac(
+	struct _RTMP_ADAPTER *pAd,
+	UINT8 OwnMacIdx,
+	UINT8 *OwnMacAddr,
+	UINT8 BandIdx,
+	UINT8 Active,
+	UINT32 EnableFeature);
+
+#ifdef CONFIG_AP_SUPPORT
+VOID MtAsicSetMbssMode(struct _RTMP_ADAPTER *pAd, UCHAR NumOfBcns);
+#endif /* CONFIG_AP_SUPPORT */
 
 #ifdef APCLI_SUPPORT
 #ifdef MAC_REPEATER_SUPPORT
@@ -366,7 +384,7 @@ VOID MtAsicInsertRepeaterEntry(struct _RTMP_ADAPTER *pAd, UCHAR CliIdx, UCHAR *p
 VOID MtAsicRemoveRepeaterEntry(struct _RTMP_ADAPTER *pAd, UCHAR CliIdx);
 VOID MtAsicInsertRepeaterRootEntry(
 	IN struct _RTMP_ADAPTER *pAd,
-	IN UINT16 Wcid,
+	IN UCHAR Wcid,
 	IN UCHAR *pAddr,
 	IN UCHAR ReptCliIdx);
 #endif /* MAC_REPEATER_SUPPORT */
@@ -378,14 +396,26 @@ VOID MtSetTmrCR(struct _RTMP_ADAPTER *pAd, UCHAR TmrType);
 #endif
 INT MtAsicSetRxFilter(struct _RTMP_ADAPTER *pAd, MT_RX_FILTER_CTRL_T RxFilte);
 
+#ifdef CONFIG_WTBL_TLV_MODE
+INT MtAsicSetRDGByTLV(struct _RTMP_ADAPTER *pAd, BOOLEAN bEnable, UINT8 Wcid);
+#else
+#ifdef DOT11_N_SUPPORT
+INT MtAsicSetRDG(struct _RTMP_ADAPTER *pAd, BOOLEAN bEnable, UCHAR BandIdx);
+INT MtAsicWtblSetRDG(struct _RTMP_ADAPTER *pAd, BOOLEAN bEnable, UINT8 Wcid);
+#endif /* DOT11_N_SUPPORT */
+#endif
+
+VOID MtAsicSetPiggyBack(struct _RTMP_ADAPTER *pAd, BOOLEAN bPiggyBack);
 INT MtAsicSetPreTbtt(struct _RTMP_ADAPTER *pAd, BOOLEAN enable, UCHAR HwBssidIdx);
 INT MtAsicSetGPTimer(struct _RTMP_ADAPTER *pAd, BOOLEAN enable, UINT32 timeout);
-INT MtAsicGetTsfTime(
+INT MtAsicSetChBusyStat(struct _RTMP_ADAPTER *pAd, BOOLEAN enable);
+INT MtAsicGetTsfTimeByDriver(
 	struct _RTMP_ADAPTER *pAd,
 	UINT32 *high_part,
 	UINT32 *low_part,
 	UCHAR HwBssidIdx);
-VOID MtFeLossGet(RTMP_ADAPTER *pAd, UCHAR channel, CHAR *RssiOffset);
+VOID MtAsicRssiGet(struct _RTMP_ADAPTER *pAd, UCHAR Wcid, CHAR *RssiSet);
+VOID MtRssiGet(struct _RTMP_ADAPTER *pAd, UCHAR Wcid, CHAR *RssiSet);
 
 #ifdef CONFIG_AP_SUPPORT
 VOID APCheckBcnQHandler(struct _RTMP_ADAPTER *pAd, INT apidx, BOOLEAN *is_pretbtt_int);
@@ -399,10 +429,10 @@ VOID MtAsicEnableBssSyncByDriver(
 	UCHAR OPMode);
 
 INT MtAsicSetWmmParam(struct _RTMP_ADAPTER *pAd, UCHAR idx, UINT ac, UINT type, UINT val);
+VOID MtAsicSetEdcaParm(struct _RTMP_ADAPTER *pAd, struct _EDCA_PARM *pEdcaParm);
+INT MtAsicSetRetryLimit(struct _RTMP_ADAPTER *pAd, UINT32 type, UINT32 limit);
+UINT32 MtAsicGetRetryLimit(struct _RTMP_ADAPTER *pAd, UINT32 type);
 VOID MtAsicSetSlotTime(struct _RTMP_ADAPTER *pAd, UINT32 SlotTime, UINT32 SifsTime, UCHAR BandIdx);
-#ifdef WIFI_UNIFIED_COMMAND
-VOID MtAsicUniCmdSetSlotTime(struct _RTMP_ADAPTER *pAd, UINT32 SlotTime, UINT32 SifsTime, struct wifi_dev *wdev);
-#endif /* WIFI_UNIFIED_COMMAND */
 
 INT MtAsicSetMacMaxLen(struct _RTMP_ADAPTER *pAd);
 
@@ -417,11 +447,15 @@ INT32 MtAsicSetDevMacByDriver(
 
 INT32 MtAsicSetBssidByDriver(
 	struct _RTMP_ADAPTER *pAd,
-	struct _BSS_INFO_ARGUMENT_T *bss_info_argument);
+	struct _BSS_INFO_ARGUMENT_T bss_info_argument);
+
+INT32 MtAsicSetStaRecByDriver(
+	struct _RTMP_ADAPTER *pAd,
+	STA_REC_CFG_T StaRecCfg);
 
 VOID MtAsicDelWcidTabByDriver(
 	IN struct _RTMP_ADAPTER *pAd,
-	IN UINT16 wcid_idx);
+	IN UCHAR wcid_idx);
 VOID MtAsicUpdateRxWCIDTableByDriver(
 	IN struct _RTMP_ADAPTER *pAd,
 	IN MT_WCID_TABLE_INFO_T WtblInfo);
@@ -434,15 +468,45 @@ VOID MtAsicUpdateRxWCIDTable(
 	IN struct _RTMP_ADAPTER *pAd,
 	IN MT_WCID_TABLE_INFO_T WtblInfo);
 
-VOID MtAsicGetTxTscByDriver(struct _RTMP_ADAPTER *pAd, struct wifi_dev *wdev, UINT32 pn_type_mask, UCHAR *pTxTsc);
-VOID MtAsicTxCntUpdate(struct _RTMP_ADAPTER *pAd, UINT16 wcid, struct _MT_TX_COUNTER *pTxInfo);
-VOID MtAsicSetSMPSByDriver(struct _RTMP_ADAPTER *pAd, UINT16 Wcid, UCHAR Smps);
-VOID MtAsicSetSMPS(struct _RTMP_ADAPTER *pAd, UINT16 wcid, UCHAR smps);
+VOID MtAsicGetTxTscByDriver(struct _RTMP_ADAPTER *pAd, struct wifi_dev *wdev, UCHAR *pTxTsc);
+VOID MtAsicAddSharedKeyEntry(struct _RTMP_ADAPTER *pAd, UCHAR BssIdx, UCHAR KeyIdx, struct _CIPHER_KEY *pKey);
+VOID MtAsicRemoveSharedKeyEntry(struct _RTMP_ADAPTER *pAd, UCHAR BssIndex, UCHAR KeyIdx);
+VOID MtAsicTxCntUpdate(struct _RTMP_ADAPTER *pAd, UCHAR wcid, struct _MT_TX_COUNTER *pTxInfo);
+VOID MtAsicRssiUpdate(struct _RTMP_ADAPTER *pAd);
+VOID MtAsicRcpiReset(struct _RTMP_ADAPTER *pAd, UCHAR ucWcid);
+VOID MtAsicSetSMPSByDriver(struct _RTMP_ADAPTER *pAd, UCHAR Wcid, UCHAR Smps);
+VOID MtAsicSetSMPS(struct _RTMP_ADAPTER *pAd, UCHAR wcid, UCHAR smps);
+UINT16 MtAsicGetTidSnByDriver(struct _RTMP_ADAPTER *pAd, UCHAR wcid, UCHAR tid);
 INT32 MtAsicUpdateBASession(struct _RTMP_ADAPTER *pAd, MT_BA_CTRL_T BaCtrl);
-VOID MtAsicTxCapAndRateTableUpdate(
-	struct _RTMP_ADAPTER *pAd, UINT16 u2Wcid,
-	struct _RA_PHY_CFG_T *prTxPhyCfg,
-	UINT32 *Rate, BOOL fgSpeEn);
+VOID MtAsicTxCapAndRateTableUpdate(struct _RTMP_ADAPTER *pAd, UCHAR ucWcid, struct _RA_PHY_CFG_T *prTxPhyCfg, UINT32 *Rate, BOOLEAN fgSpeEn);
+
+
+VOID MtAsicAddPairwiseKeyEntry(struct _RTMP_ADAPTER *pAd, UCHAR WCID, struct _CIPHER_KEY *pKey);
+
+INT MtAsicSendCommandToMcu(
+	IN struct _RTMP_ADAPTER *pAd,
+	IN UCHAR Command,
+	IN UCHAR Token,
+	IN UCHAR Arg0,
+	IN UCHAR Arg1,
+	IN BOOLEAN in_atomic);
+BOOLEAN MtAsicSendCmdToMcuAndWait(
+	IN struct _RTMP_ADAPTER *pAd,
+	IN UCHAR Command,
+	IN UCHAR Token,
+	IN UCHAR Arg0,
+	IN UCHAR Arg1,
+	IN BOOLEAN in_atomic);
+BOOLEAN MtAsicSendCommandToMcuBBP(
+	IN struct _RTMP_ADAPTER *pAd,
+	IN UCHAR		 Command,
+	IN UCHAR		 Token,
+	IN UCHAR		 Arg0,
+	IN UCHAR		 Arg1,
+	IN BOOLEAN		FlgIsNeedLocked);
+
+VOID MtAsicTurnOffRFClk(struct _RTMP_ADAPTER *pAd, UCHAR Channel);
+
 
 #ifdef STREAM_MODE_SUPPORT
 UINT32 MtStreamModeRegVal(struct _RTMP_ADAPTER *pAd);
@@ -451,8 +515,17 @@ VOID MtAsicStreamModeInit(struct _RTMP_ADAPTER *pAd);
 #endif /* STREAM_MODE_SUPPORT */
 
 
+#ifdef DOT11_N_SUPPORT
+INT MtAsicReadAggCnt(struct _RTMP_ADAPTER *pAd, ULONG *aggCnt, int cnt_len);
+INT MtAsicSetRalinkBurstMode(struct _RTMP_ADAPTER *pAd, BOOLEAN enable);
+#endif /* DOT11_N_SUPPORT */
+
+INT MtAsicWaitMacTxRxIdle(struct _RTMP_ADAPTER *pAd);
 INT32 MtAsicSetMacTxRx(struct _RTMP_ADAPTER *pAd, INT32 TxRx, BOOLEAN Enable, UCHAR BandIdx);
-INT MtAsicResetWPDMARGU(RTMP_ADAPTER *pAd);
+INT MtAsicSetWPDMA(struct _RTMP_ADAPTER *pAd, INT32 TxRx, BOOLEAN enable, UINT8 WPDMABurstSize);
+BOOLEAN MtAsicWaitPDMAIdle(struct _RTMP_ADAPTER *pAd, INT round, INT wait_us);
+BOOLEAN MtAsicResetWPDMA(struct _RTMP_ADAPTER *pAd);
+INT MtAsicSetMacWD(struct _RTMP_ADAPTER *pAd);
 INT MtAsicSetTxStream(struct _RTMP_ADAPTER *pAd, UINT32 StreamNum, UCHAR BandIdx);
 INT MtAsicSetRxStream(struct _RTMP_ADAPTER *pAd, UINT32 StreamNums, UCHAR BandIdx);
 INT MtAsicSetBW(struct _RTMP_ADAPTER *pAd, INT bw, UCHAR BandIdx);
@@ -473,6 +546,12 @@ BOOLEAN MtAsicSetBmcQCR(
 #define BMC_FLUSH       1
 #define BMC_ENABLE      2
 #define BMC_CNT_UPDATE  3
+
+BOOLEAN MtAsicSetBcnQCR(
+	IN struct _RTMP_ADAPTER *pAd,
+	IN UCHAR Operation,
+	IN UCHAR HwBssidIdx,
+	IN UINT32 apidx);
 
 #define BCN_FLUSH       1
 #define BCN_ENABLE      2
@@ -512,36 +591,6 @@ VOID MtAsicSetDmaFQCR(
 #define HQA_RX_STAT_OFDM_SIG_TAG_BAND1		0x18
 #define HQA_RX_ACI_HIT				0x19
 #define HQA_RX_STAT_MAC_FCS_OK_COUNT		0x1A
-#define HQA_RX_STAT_RSSI_BAND1			0x1B
-#define HQA_RX_STAT_RSSI_RX23_BAND1		0x1C
-#define HQA_RX_STAT_ACI_HITL_BAND1		0x1D
-#define HQA_RX_STAT_ACI_HITH_BAND1		0x1E
-
-#ifdef AIR_MONITOR
-/* SMESH */
-#define SMESH_RX_CTL							BIT(20)
-#define SMESH_RX_CTL_OFFSET						20
-#define SMESH_RX_MGT							BIT(19)
-#define SMESH_RX_MGT_OFFSET						19
-#define SMESH_RX_DATA							BIT(18)
-#define SMESH_RX_DATA_OFFSET					18
-#define SMESH_RX_A1								BIT(17)
-#define SMESH_RX_A2								BIT(16)
-#define SMESH_ADDR_EN				BITS(0, 7)
-
-/* MAR1 */
-#define MAR1_MAR_GROUP_MASK			BITS(30, 31)
-#define MAR1_MAR_GROUP_OFFSET			30
-#define MAR1_MAR_HASH_MODE_BSSID1		BIT(30)
-#define MAR1_MAR_HASH_MODE_BSSID2		BIT(31)
-#define MAR1_MAR_HASH_MODE_BSSID3		BITS(30, 31)
-#define MAR1_ADDR_INDEX_MASK			BITS(24, 29)
-#define MAR1_ADDR_INDEX_OFFSET			24
-#define MAR1_READ				0
-#define MAR1_WRITE				BIT(17)
-#define MAR1_ACCESS_START_STATUS		BIT(16)
-#endif
-
 
 UINT32 MtAsicGetRxStat(struct _RTMP_ADAPTER *pAd, UINT type);
 #ifdef CONFIG_ATE
@@ -571,6 +620,12 @@ VOID MtAsicSetBARTxCntLimit(struct _RTMP_ADAPTER *pAd, BOOLEAN Enable, UINT32 Co
 VOID MtAsicSetTxSClassifyFilter(struct _RTMP_ADAPTER *pAd, UINT32 Port, UINT8 DestQ, UINT32 AggNums, UINT32 Filter, UCHAR BandIdx);
 VOID MtAsicInitMac(struct _RTMP_ADAPTER *pAd);
 UINT32 MtAsicGetWmmParam(struct _RTMP_ADAPTER *pAd, UINT32 AcNum, UINT32 EdcaType);
+VOID MtAsicAddRemoveKey(struct _RTMP_ADAPTER *pAd, MT_SECURITY_CTRL SecurityCtrl);
+#if defined(COMPOS_WIN) || defined(COMPOS_TESTMODE_WIN)
+#else
+VOID MtAsicAddRemoveKeyByDriver(struct _RTMP_ADAPTER *pAd, struct _ASIC_SEC_INFO *pInfo);
+#endif
+INT32 MtAsicGetMacInfo(struct _RTMP_ADAPTER *pAd, UINT32 *ChipId, UINT32 *HwVer, UINT32 *FwVer);
 INT32 MtAsicGetAntMode(struct _RTMP_ADAPTER *pAd, UCHAR *AntMode);
 INT32 MtAsicSetDmaByPassMode(struct _RTMP_ADAPTER *pAd, BOOLEAN isByPass);
 BOOLEAN MtAsicGetMcuStatus(struct _RTMP_ADAPTER *pAd, MCU_STAT State);
@@ -585,6 +640,14 @@ VOID MtDmacSetExtTTTTHwCRSetting(struct _RTMP_ADAPTER *pAd, UCHAR mbss_idx, BOOL
 VOID MtDmacSetExtMbssEnableCR(struct _RTMP_ADAPTER *pAd, UCHAR mbss_idx, BOOLEAN enable);
 #endif
 
+#if  defined(MT7615)
+VOID EnhancedPDMAInit(struct _RTMP_ADAPTER *pAd);
+#endif
+
+INT32 MtAsicSetTxQ(struct _RTMP_ADAPTER *pAd, INT WmmSet, INT BandIdx, BOOLEAN Enable);
+
+
+VOID MtAsicSetMbssLPOffset(struct _RTMP_ADAPTER *pAd, UCHAR mbss_idx, BOOLEAN enable);
 VOID MTRestartFW(struct _RTMP_ADAPTER *pAd);
 INT32 MtAsicRxHeaderTransCtl(struct _RTMP_ADAPTER *pAd, BOOLEAN En, BOOLEAN ChkBssid, BOOLEAN InSVlan, BOOLEAN RmVlan, BOOLEAN SwPcP);
 INT32 MtAsicRxHeaderTaranBLCtl(struct _RTMP_ADAPTER *pAd, UINT32 Index, BOOLEAN En, UINT32 EthType);
@@ -609,25 +672,6 @@ VOID MtSmacSetExtMbssEnableCR(struct _RTMP_ADAPTER *pAd, UCHAR mbss_idx, BOOLEAN
 INT MtAsicSetRtsSignalTA(struct _RTMP_ADAPTER *pAd, UINT8 BandIdx, BOOLEAN Enable);
 #endif /*DOT11_VHT_AC*/
 
-INT MtAsicAMPDUEfficiencyAdjustbyFW(struct _RTMP_ADAPTER *ad, struct wifi_dev *wdev, UCHAR wmm_idx, UCHAR aifs_adjust);
-
 INT MtAsicAMPDUEfficiencyAdjust(struct _RTMP_ADAPTER *ad, UCHAR	wmm_idx, UCHAR aifs_adjust);
 #endif /* __CMM_ASIC_MT_H__ */
 INT mt_asic_rts_on_off(struct _RTMP_ADAPTER *ad, UCHAR band_idx, UINT32 rts_num, UINT32 rts_len, BOOLEAN rts_en);
-VOID MtAsicRcpiReset(struct _RTMP_ADAPTER *pAd, UINT16 wcid);
-UINT32 mtd_get_mib_bcn_tx_cnt(RTMP_ADAPTER *pAd, UINT8 band_idx);
-
-#ifdef VLAN_SUPPORT
-INT32 mt_asic_update_vlan_id(struct _RTMP_ADAPTER *ad, UCHAR band_idx, UINT8 omac_idx, UINT16 vid);
-INT32 mt_asic_update_vlan_priority(struct _RTMP_ADAPTER *ad, UCHAR band_idx, UINT8 omac_idx, UINT8 priority);
-INT32 mt_asic_update_vlan_id_by_fw(struct _RTMP_ADAPTER *ad, UCHAR band_idx, UINT8 omac_idx, UINT16 vid);
-INT32 mt_asic_update_vlan_priority_by_fw(struct _RTMP_ADAPTER *ad, UCHAR band_idx, UINT8 omac_idx, UINT8 priority);
-#endif
-
-#ifdef AIR_MONITOR
-INT mtd_set_air_monitor_enable(struct _RTMP_ADAPTER *pAd, BOOLEAN enable, UCHAR band_idx);
-INT mtd_set_air_monitor_rule(struct _RTMP_ADAPTER *pAd, UCHAR *rule, UCHAR band_idx);
-INT mtd_set_air_monitor_idx(struct _RTMP_ADAPTER *pAd, struct wifi_dev *wdev, UCHAR mnt_idx, UCHAR band_idx);
-#endif
-
-

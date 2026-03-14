@@ -27,6 +27,9 @@ typedef struct _RTMP_DMACB {
 	PNDIS_PACKET pNextNdisPacket;
 	NDIS_PHYSICAL_ADDRESS PacketPa;
 	RTMP_DMABUF DmaBuf;
+#ifdef CUT_THROUGH
+	UINT16 token_id;
+#endif /* CUT_THROUGH */
 } RTMP_DMACB, *PRTMP_DMACB ____cacheline_aligned;
 
 #endif

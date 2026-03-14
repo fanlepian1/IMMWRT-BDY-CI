@@ -1,17 +1,18 @@
 /*
- * Copyright (c) [2020], MediaTek Inc. All rights reserved.
- *
- * This software/firmware and related documentation ("MediaTek Software") are
- * protected under relevant copyright laws.
- * The information contained herein is confidential and proprietary to
- * MediaTek Inc. and/or its licensors.
- * Except as otherwise provided in the applicable licensing terms with
- * MediaTek Inc. and/or its licensors, any reproduction, modification, use or
- * disclosure of MediaTek Software, and information contained herein, in whole
- * or in part, shall be strictly prohibited.
-*/
-/*
  ***************************************************************************
+ * Ralink Tech Inc.
+ * 4F, No. 2 Technology 5th Rd.
+ * Science-based Industrial Park
+ * Hsin-chu, Taiwan, R.O.C.
+ *
+ * (c) Copyright 2002-2004, Ralink Technology, Inc.
+ *
+ * All rights reserved. Ralink's source code is an unpublished work and the
+ * use of a copyright notice does not imply otherwise. This source code
+ * contains confidential trade secret material of Ralink Tech. Any attemp
+ * or participation in deciphering, decoding, reverse engineering or in any
+ * way altering the source code is stricitly prohibited, unless the prior
+ * written consent of Ralink Technology, Inc. is obtained.
  ***************************************************************************
 
 	Module Name:
@@ -25,7 +26,9 @@
 #ifndef __TX_PWR_H__
 #define __TX_PWR_H__
 
+#ifdef MT_MAC
 #include "eeprom/mt_tx_pwr.h"
+#endif
 
 #define DEFAULT_BO              4
 #define LIN2DB_ERROR_CODE       (-10000)
@@ -37,6 +40,7 @@
 #define A_BAND_LOW 0
 #define A_BAND_HI 1
 
+#ifdef SINGLE_SKU_V2
 #define	SKU_PHYMODE_CCK_1M_2M				0
 #define	SKU_PHYMODE_CCK_5M_11M				1
 #define	SKU_PHYMODE_OFDM_6M_9M				2
@@ -55,6 +59,7 @@
 #define	SKU_PHYMODE_STBC_MCS2_MCS3			15
 #define	SKU_PHYMODE_STBC_MCS4_MCS5			16
 #define	SKU_PHYMODE_STBC_MCS6_MCS7			17
+#endif /* SINGLE_SKU_V2 */
 
 VOID LoadTssiInfoFromEEPROM(struct _RTMP_ADAPTER *pAd);
 INT32 get_low_mid_hi_index(UINT8 Channel);

@@ -95,7 +95,7 @@ INT32 IKANOS_DataFramesTx(struct sk_buff *pSkb, struct net_device *pNetDev)
 	pSkb->apFlowData.txHandle = &(pAd->IkanosTxInfo);
 	ap2apFlowProcess(pSkb, pNetDev);
 #ifdef IKANOS_DEBUG
-	MTWF_DBG(pAd, DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_INFO, "ikanos> tx no fp\n"); /* debug use */
+	MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_ERROR, ("ikanos> tx no fp\n")); /* debug use */
 #endif /* IKANOS_DEBUG */
 	return rt28xx_send_packets(pSkb, pNetDev);
 }
@@ -164,8 +164,8 @@ static INT32 IKANOS_WlanDataFramesTx(void *_pAdBuf, struct net_device *pNetDev)
 	sk = (struct sk_buff *)translateApbuf2Mbuf(pApBuf);
 
 	if (sk == NULL) {
-		MTWF_DBG(NULL, DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-				 "ikanos> translateApbuf2Mbuf returned NULL!\n");
+		MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
+				 ("ikanos> translateApbuf2Mbuf returned NULL!\n"));
 		return 1;
 	}
 
@@ -215,11 +215,6 @@ static INT32 GetSpecInfoIdxFromBssid(PRTMP_ADAPTER pAd, INT32 FromWhichBSSID)
 	}
 
 #endif /* CONFIG_AP_SUPPORT */
-#ifdef CONFIG_STA_SUPPORT
-	IF_DEV_CONFIG_OPMODE_ON_STA(pAd) {
-		IfIdx = MAIN_MBSSID;
-	}
-#endif /* CONFIG_STA_SUPPORT */
 	return IfIdx; /* return one of MBSS */
 }
 
@@ -254,16 +249,16 @@ static void IKANOS_WlanPktFromAp(apPreHeader_t *pFrame)
 	dev = get_netdev_from_bssid(pAd, apBuf->specInfoElement);
 
 	if (dev == NULL) {
-		MTWF_DBG(pAd, DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-				 "ikanos> ERROR null device ***************\n");
+		MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
+				 ("ikanos> %s: ERROR null device ***************\n", __func__));
 		return;
 	}
 
 	skb = (struct sk_buff *)translateApbuf2Mbuf(apBuf);
 
 	if (skb == NULL) {
-		MTWF_DBG(pAd, DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-				 "ikanos> skb is null *********************\n")
+		MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
+				 ("ikanos> %s: skb is null *********************\n", __func__))
 		return;
 	}
 
@@ -275,7 +270,7 @@ static void IKANOS_WlanPktFromAp(apPreHeader_t *pFrame)
 	skb->apFlowData.rxHandle = &(pAd->IkanosRxInfo[index]);
 	skb->protocol = eth_type_trans(skb, skb->dev);
 #ifdef IKANOS_DEBUG
-	MTWF_DBG(pAd, DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_INFO, "ikanos> rx no fp!\n"); /* debug use */
+	MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_ERROR, ("ikanos> rx no fp!\n")); /* debug use */
 #endif /* IKANOS_DEBUG */
 	netif_rx(skb);
 }

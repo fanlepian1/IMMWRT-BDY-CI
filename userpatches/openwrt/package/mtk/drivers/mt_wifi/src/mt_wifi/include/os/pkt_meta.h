@@ -3,24 +3,13 @@
 */
 
 #define MIN_NET_DEVICE_FOR_MBSSID		0x00		/*0x00,0x10,0x20,0x30 */
-#define MIN_NET_DEVICE_FOR_WDS			MAX_BEACON_NUM
-#define MIN_NET_DEVICE_FOR_APCLI		(MIN_NET_DEVICE_FOR_WDS+0x10)
-#define MIN_NET_DEVICE_FOR_MESH			(MIN_NET_DEVICE_FOR_APCLI+0x10)
-#ifdef CONFIG_STA_SUPPORT
-#define MIN_NET_DEVICE_FOR_DLS			(MIN_NET_DEVICE_FOR_MESH+0x10)
-#define MIN_NET_DEVICE_FOR_TDLS			(MIN_NET_DEVICE_FOR_TDLS+0x10)
-#endif /* CONFIG_STA_SUPPORT */
-#ifdef P2P_SUPPORT
-#define MIN_NET_DEVICE_FOR_P2P_CLI		(MIN_NET_DEVICE_FOR_TDLS + 0x10)
-#define MIN_NET_DEVICE_FOR_P2P_GO			(MIN_NET_DEVICE_FOR_TDLS + 0x20)
-#endif /* P2P_SUPPORT */
+#define MIN_NET_DEVICE_FOR_WDS			0x10		/*0x40,0x50,0x60,0x70 */
+#define MIN_NET_DEVICE_FOR_APCLI		0x20
+#define MIN_NET_DEVICE_FOR_MESH			0x30
 
-#ifdef RT_CFG80211_P2P_CONCURRENT_DEVICE
-#define MIN_NET_DEVICE_FOR_CFG80211_VIF_P2P_CLI      (MIN_NET_DEVICE_FOR_TDLS + 0x21)
-#define MIN_NET_DEVICE_FOR_CFG80211_VIF_P2P_GO       (MIN_NET_DEVICE_FOR_TDLS + 0x22)
-#endif /* RT_CFG80211_P2P_CONCURRENT_DEVICE */
 
-#define NET_DEVICE_REAL_IDX_MASK		(MAX_BEACON_NUM-1)		/* for each operation mode, we maximum support (MAX_BEACON_NUM-1) entities. */
+#define NET_DEVICE_REAL_IDX_MASK		0x0f		/* for each operation mode, we maximum support 15 entities. */
+
 
 /******************************************************************************
 	Packet Meta info fields
@@ -44,11 +33,13 @@
 #define RTMP_GET_PACKET_FRAGMENTS(_p)		(PACKET_CB(_p, 1))
 
 /* [CB_OFF + 2]  */
-#ifdef A4_CONN
-#define RTMP_SET_PACKET_A4_FWDDATA(_p, _flg)   (PACKET_CB(_p, 2) = _flg)
-#define RTMP_GET_PACKET_A4_FWDDATA(_p)         (PACKET_CB(_p, 2))
-#endif
-
+/*
+	0x0 ~ 0xff: index mapping to MAC_TABLE_ENTRY
+				for Tx, search by eth_hdr.addr1
+				for Rx, get from ASIC(RxWI)/search by wlan_hdr.addr2
+*/
+#define RTMP_SET_PACKET_WCID(_p, _wdsidx)		(PACKET_CB(_p, 2) = _wdsidx)
+#define RTMP_GET_PACKET_WCID(_p)				((UCHAR)PACKET_CB(_p, 2))
 
 
 /* [CB_OFF + 3]  */
@@ -129,7 +120,7 @@
 						 RTMP_PACKET_SPECIFIC_DHCP |\
 						 RTMP_PACKET_SPECIFIC_WAI |\
 						 RTMP_PACKET_SPECIFIC_TDLS)) ||\
-		(PACKET_CB(_p, 36) & (RTMP_PACKET_SPECIFIC_ARP)))
+		(PACKET_CB(_p, 33) & (RTMP_PACKET_SPECIFIC_ARP)))
 
 /* VLAN */
 #define RTMP_SET_PACKET_VLAN(_p, _flg)		\
@@ -236,9 +227,11 @@
 #define RTMP_GET_PACKET_TXRATE(_p)			(PACKET_CB(_p, 13))
 
 
-/* Band Index */
-#define RTMP_SET_BAND_IDX(_p, _idx)   		(PACKET_CB(_p, 14) = _idx)
-#define RTMP_GET_BAND_IDX(_p)         		(PACKET_CB(_p, 14))
+/* [CB_OFF + 14]  */
+#ifdef MAC_REPEATER_SUPPORT
+#define RTMP_SET_PKT_MAT_FREE(_p, _flg)	(PACKET_CB(_p, 14) = (_flg))
+#define RTMP_GET_PKT_MAT_FREE(_p)			(PACKET_CB(_p, 14))
+#endif /* MAC_REPEATER_SUPPORT */
 
 
 /* [CB_OFF + 15 ~ 19]  */
@@ -291,16 +284,12 @@
 #define RTMP_SET_TDLS_SPECIFIC_PACKET(_p, _flg)   (PACKET_CB(_p, 23) = _flg)
 #define RTMP_GET_TDLS_SPECIFIC_PACKET(_p)         (PACKET_CB(_p, 23))
 
-/* [CB_OFF + 24 ~ 25]  */
-/*
-	0x0 ~ 0xff: index mapping to MAC_TABLE_ENTRY
-				for Tx, search by eth_hdr.addr1
-				for Rx, get from ASIC(RxWI)/search by wlan_hdr.addr2
-*/
 
-#define RTMP_SET_PACKET_WCID(_p, _wcid)	(*(UINT16 *)&PACKET_CB(_p, 24) = _wcid)
-#define RTMP_GET_PACKET_WCID(_p)		(*(UINT16 *)&PACKET_CB(_p, 24))
-
+/* [CB_OFF + 25]  */
+#ifdef A4_CONN
+#define RTMP_SET_PACKET_A4_FWDDATA(_p, _flg)   (PACKET_CB(_p, 25) = _flg)
+#define RTMP_GET_PACKET_A4_FWDDATA(_p)         (PACKET_CB(_p, 25))
+#endif
 
 /* [CB_OFF + 26]  */
 #ifdef CONFIG_CSO_SUPPORT
@@ -308,26 +297,13 @@
 #define RTMP_GET_TCP_CHKSUM_FAIL(_p)		(PACKET_CB(_p, 26))
 #endif /* CONFIG_CSO_SUPPORT */
 
-/* [CB_OFF + 27]  */
-#ifdef WTBL_TDD_SUPPORT
-#define RTMP_SET_PACKET_PENDING(_p, _idx)   (PACKET_CB(_p, 27) = _idx)
-#define RTMP_GET_PACKET_PENDING(_p)         (PACKET_CB(_p, 27))
-#else /* WTBL_TDD_SUPPORT */
-#define RTMP_SET_PACKET_SW(_p, _idx)   (PACKET_CB(_p, 27) = _idx)
-#define RTMP_GET_PACKET_SW(_p)         (PACKET_CB(_p, 27))
-#endif /* !WTBL_TDD_SUPPORT */
 
-/* [CB_OFF + 28 ~ 31]  */
+/* [CB_OFF + 27 ~ 31]  */
 #ifdef VLAN_SUPPORT
-#define RTMP_SET_VLAN_PCP(_p, _flg)	(PACKET_CB(_p, 28) = (UINT8)((_flg) & 0x00ff))
-#define RTMP_GET_VLAN_PCP(_p)		(PACKET_CB(_p, 28))
+#define RTMP_SET_VLAN_PCP(_p, _flg)	(PACKET_CB(_p, 27) = (UINT8)((_flg) & 0x00ff))
+#define RTMP_GET_VLAN_PCP(_p)		(PACKET_CB(_p, 27))
 #endif /* VLAN_SUPPORT */
 
-/* [CB_OFF + 31]  */
-#ifdef CONFIG_VLAN_GTK_SUPPORT
-#define RTMP_SET_PACKET_VLANGTK(_p, _num)		(PACKET_CB(_p, 31) = _num)
-#define RTMP_GET_PACKET_VLANGTK(_p)			(PACKET_CB(_p, 31))
-#endif
 
 /* [CB_OFF + 32]  */
 /* RTS/CTS-to-self protection method */
@@ -335,32 +311,30 @@
 #define RTMP_GET_PACKET_RTS(_p)				(PACKET_CB(_p, 32))
 /* see RTMP_S(G)ET_PACKET_EMACTAB */
 
-
-
 /* Release not used CB  */
-/* [CB_OFF + 33] */
+/* Move WF_FWD related CB to last two byte */
 #if defined(CONFIG_WIFI_PKT_FWD) || defined(CONFIG_WIFI_PKT_FWD_MODULE)
 /* set link cover packet send by 5G or 2G */
-#define PACKET_BAND_CB				33
+#define PACKET_BAND_CB				36
 #define RTMP_PACKET_SPECIFIC_2G		0x1
 #define RTMP_PACKET_SPECIFIC_5G		0x2
 #define RTMP_PACKET_SPECIFIC_ETHER	0x4
 #define RTMP_PACKET_SPECIFIC_5G_H	0x10
 
-#define RTMP_CLEAN_PACKET_BAND(_p)   (RTPKT_TO_OSPKT(_p)->cb[CB_OFF+33] = 0)
+#define RTMP_CLEAN_PACKET_BAND(_p)   (RTPKT_TO_OSPKT(_p)->cb[CB_OFF+36] = 0)
 
 #define RTMP_SET_PACKET_BAND(_p, _flg)	\
 	do {										\
 		if (_flg)								\
-			PACKET_CB(_p, 33) |= (_flg);		\
+			PACKET_CB(_p, 36) |= (_flg);		\
 		else									\
-			PACKET_CB(_p, 33) &= (~_flg);		\
+			PACKET_CB(_p, 36) &= (~_flg);		\
 	} while (0)
 
-#define RTMP_GET_PACKET_BAND(_p)	(PACKET_CB(_p, 33))
+#define RTMP_GET_PACKET_BAND(_p)	(PACKET_CB(_p, 36))
 
 /* [CB_OFF + 34]: tag the packet received from which net device */
-#define RECV_FROM_CB			34
+#define RECV_FROM_CB			37
 #define H_CHANNEL_BIGGER_THAN   100
 #define RTMP_PACKET_RECV_FROM_2G_CLIENT	0x1
 #define RTMP_PACKET_RECV_FROM_5G_CLIENT	0x2
@@ -369,36 +343,34 @@
 #define RTMP_PACKET_RECV_FROM_5G_H_CLIENT	0x10
 #define RTMP_PACKET_RECV_FROM_5G_H_AP		0x20
 
-#define RTMP_CLEAN_PACKET_RECV_FROM(_p)   (RTPKT_TO_OSPKT(_p)->cb[CB_OFF+34] = 0)
+#define RTMP_CLEAN_PACKET_RECV_FROM(_p)   (RTPKT_TO_OSPKT(_p)->cb[CB_OFF+37] = 0)
 #define RTMP_SET_PACKET_RECV_FROM(_p, _flg)	\
 	do {						\
 		if (_flg)				\
-			PACKET_CB(_p, 34) |= (_flg);	\
+			PACKET_CB(_p, 37) |= (_flg);	\
 		else					\
-			PACKET_CB(_p, 34) &= (~_flg);	\
+			PACKET_CB(_p, 37) &= (~_flg);	\
 	} while (0)
 
-#define RTMP_GET_PACKET_RECV_FROM(_p)        (PACKET_CB(_p, 34))
-#define RTMP_IS_PACKET_APCLI(_p)	((RTPKT_TO_OSPKT(_p)->cb[CB_OFF+34]) & (RTMP_PACKET_RECV_FROM_2G_CLIENT | RTMP_PACKET_RECV_FROM_5G_CLIENT | RTMP_PACKET_RECV_FROM_5G_H_CLIENT))
-#define RTMP_IS_PACKET_AP_APCLI(_p)	((RTPKT_TO_OSPKT(_p)->cb[CB_OFF+34]) != 0)
+#define RTMP_GET_PACKET_RECV_FROM(_p)        (PACKET_CB(_p, 37))
+#define RTMP_IS_PACKET_APCLI(_p)	((RTPKT_TO_OSPKT(_p)->cb[CB_OFF+37]) & (RTMP_PACKET_RECV_FROM_2G_CLIENT | RTMP_PACKET_RECV_FROM_5G_CLIENT | RTMP_PACKET_RECV_FROM_5G_H_CLIENT))
+#define RTMP_IS_PACKET_AP_APCLI(_p)	((RTPKT_TO_OSPKT(_p)->cb[CB_OFF+37]) != 0)
 
 #endif /* CONFIG_WIFI_PKT_FWD */
-#if defined(CONFIG_HOTSPOT_R2) || defined(CONFIG_PROXY_ARP)
+#ifdef CONFIG_HOTSPOT_R2
 #define RTMP_PACKET_DIRECT_TX		0x40
 #define RTMP_SET_PACKET_DIRECT_TX(_p, _flg)	\
 	do {									\
 		if (_flg)								\
-			PACKET_CB(_p, 34) |= (RTMP_PACKET_DIRECT_TX);		\
+			PACKET_CB(_p, 37) |= (RTMP_PACKET_DIRECT_TX);		\
 		else									\
-			PACKET_CB(_p, 34) &= (~RTMP_PACKET_DIRECT_TX);		\
+			PACKET_CB(_p, 37) &= (~RTMP_PACKET_DIRECT_TX);		\
 	} while (0)
 
-#define RTMP_IS_PACKET_DIRECT_TX(_p)	((RTPKT_TO_OSPKT(_p)->cb[CB_OFF+34]) & (RTMP_PACKET_DIRECT_TX))
+#define RTMP_IS_PACKET_DIRECT_TX(_p)	((RTPKT_TO_OSPKT(_p)->cb[CB_OFF + 37]) & (RTMP_PACKET_DIRECT_TX))
 
 #endif /* CONFIG_HOTSPOT_R2 */
 
-
-#define RTMP_SET_PACKET_UP_CB33(_p, _prio)	(PACKET_CB(_p, 33) = _prio)
 
 #define RTMP_SET_PACKET_QUEIDX(_p, _idx)   (RTPKT_TO_OSPKT(_p)->cb[CB_OFF+35] = (_idx))
 #define RTMP_GET_PACKET_QUEIDX(_p)         (RTPKT_TO_OSPKT(_p)->cb[CB_OFF+35])
@@ -412,46 +384,46 @@
 #define RTMP_SET_PACKET_PING(_p, _flg)		\
 	do {															\
 		if (_flg)												\
-			PACKET_CB(_p, 36) |= (RTMP_PACKET_SPECIFIC_PING);	\
+			PACKET_CB(_p, 33) |= (RTMP_PACKET_SPECIFIC_PING);	\
 		else													\
-			PACKET_CB(_p, 36) &= (~RTMP_PACKET_SPECIFIC_PING);	\
+			PACKET_CB(_p, 33) &= (~RTMP_PACKET_SPECIFIC_PING);	\
 	} while (0)
 #define RTMP_GET_PACKET_PING(_p)\
-	(PACKET_CB(_p, 36) & RTMP_PACKET_SPECIFIC_PING)
+	(PACKET_CB(_p, 33) & RTMP_PACKET_SPECIFIC_PING)
 
 /* ARP */
 #define RTMP_SET_PACKET_ARP(_p, _flg)		\
 	do {															\
 		if (_flg)												\
-			PACKET_CB(_p, 36) |= (RTMP_PACKET_SPECIFIC_ARP);	\
+			PACKET_CB(_p, 33) |= (RTMP_PACKET_SPECIFIC_ARP);	\
 		else													\
-			PACKET_CB(_p, 36) &= (~RTMP_PACKET_SPECIFIC_ARP);	\
+			PACKET_CB(_p, 33) &= (~RTMP_PACKET_SPECIFIC_ARP);	\
 	} while (0)
 #define RTMP_GET_PACKET_ARP(_p)\
-	(PACKET_CB(_p, 36) & RTMP_PACKET_SPECIFIC_ARP)
+	(PACKET_CB(_p, 33) & RTMP_PACKET_SPECIFIC_ARP)
 
 /* MCAST CLONE for IGMP */
 #define RTMP_SET_PACKET_MCAST_CLONE(_p, _flg)		\
 	do {															\
 		if (_flg)												\
-			PACKET_CB(_p, 36) |= (RTMP_PACKET_SPECIFIC_MCAST_CLONE);	\
+			PACKET_CB(_p, 33) |= (RTMP_PACKET_SPECIFIC_MCAST_CLONE);	\
 		else													\
-			PACKET_CB(_p, 36) &= (~RTMP_PACKET_SPECIFIC_MCAST_CLONE);	\
+			PACKET_CB(_p, 33) &= (~RTMP_PACKET_SPECIFIC_MCAST_CLONE);	\
 	} while (0)
 #define RTMP_GET_PACKET_MCAST_CLONE(_p)\
-	(PACKET_CB(_p, 36) & RTMP_PACKET_SPECIFIC_MCAST_CLONE)
+	(PACKET_CB(_p, 33) & RTMP_PACKET_SPECIFIC_MCAST_CLONE)
 
 /* High Priority packet */
 #define RTMP_SET_PACKET_HIGH_PRIO(_p, _flg)		\
 	do {															\
 		if (_flg)												\
-			PACKET_CB(_p, 36) |= (RTMP_PACKET_SPECIFIC_HIGH_PRIO);	\
+			PACKET_CB(_p, 33) |= (RTMP_PACKET_SPECIFIC_HIGH_PRIO);	\
 		else													\
-			PACKET_CB(_p, 36) &= (~RTMP_PACKET_SPECIFIC_HIGH_PRIO);	\
+			PACKET_CB(_p, 33) &= (~RTMP_PACKET_SPECIFIC_HIGH_PRIO);	\
 	} while (0)
 #define RTMP_GET_PACKET_HIGH_PRIO(_p)\
-	(PACKET_CB(_p, 36) & RTMP_PACKET_SPECIFIC_HIGH_PRIO)
+	(PACKET_CB(_p, 33) & RTMP_PACKET_SPECIFIC_HIGH_PRIO)
 
 /* Packet type */
-#define RTMP_SET_PACKET_TYPE(_p, _idx)   (RTPKT_TO_OSPKT(_p)->cb[CB_OFF+37] = (_idx))
-#define RTMP_GET_PACKET_TYPE(_p)         (RTPKT_TO_OSPKT(_p)->cb[CB_OFF+37])
+#define RTMP_SET_PACKET_TYPE(_p, _idx)   (RTPKT_TO_OSPKT(_p)->cb[CB_OFF+34] = (_idx))
+#define RTMP_GET_PACKET_TYPE(_p)         (RTPKT_TO_OSPKT(_p)->cb[CB_OFF+34])

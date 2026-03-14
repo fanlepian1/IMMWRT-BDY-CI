@@ -1,17 +1,18 @@
 /*
- * Copyright (c) [2020], MediaTek Inc. All rights reserved.
- *
- * This software/firmware and related documentation ("MediaTek Software") are
- * protected under relevant copyright laws.
- * The information contained herein is confidential and proprietary to
- * MediaTek Inc. and/or its licensors.
- * Except as otherwise provided in the applicable licensing terms with
- * MediaTek Inc. and/or its licensors, any reproduction, modification, use or
- * disclosure of MediaTek Software, and information contained herein, in whole
- * or in part, shall be strictly prohibited.
-*/
-/*
  ***************************************************************************
+ * MediaTek Inc.
+ * 4F, No. 2 Technology 5th Rd.
+ * Science-based Industrial Park
+ * Hsin-chu, Taiwan, R.O.C.
+ *
+ * (c) Copyright 1997-2015, MediaTek, Inc.
+ *
+ * All rights reserved. MediaTek source code is an unpublished work and the
+ * use of a copyright notice does not imply otherwise. This source code
+ * contains confidential trade secret material of MediaTek. Any attemp
+ * or participation in deciphering, decoding, reverse engineering or in any
+ * way altering the source code is stricitly prohibited, unless the prior
+ * written consent of MediaTek Technology, Inc. is obtained.
  ***************************************************************************
 
     Module Name: reduce_tcpack.c
@@ -561,8 +562,7 @@ Note:
 */
 static rack_cnx *add_cnx(RTMP_ADAPTER *pAd, rack_packet *incoming_pkt)
 {
-	rack_cnx *cnx;
-	os_alloc_mem_suspend(NULL, (UCHAR **)&cnx, sizeof(rack_cnx));
+	rack_cnx *cnx = kmalloc(sizeof(rack_cnx), GFP_KERNEL);
 	UINT32 hashIndex = hash_cnx(incoming_pkt);
 
 	if (cnx == NULL)
@@ -612,9 +612,10 @@ Note:
 */
 static VOID delete_cnx(RTMP_ADAPTER *pAd, rack_cnx *cnx)
 {
+	hlist_del(&(cnx->hnode));
+	list_del(&(cnx->list));
+
 	if (cnx) {
-		hlist_del(&(cnx->hnode));
-		list_del(&(cnx->list));
 #if REDUCE_ACK_PKT_CACHE
 
 		if (cnx->cache.raw_pkt != NULL) {
@@ -624,7 +625,7 @@ static VOID delete_cnx(RTMP_ADAPTER *pAd, rack_cnx *cnx)
 		}
 
 #endif
-		os_free_mem(cnx);
+		kfree(cnx);
 	}
 
 	if (pAd->ReduceAckConnections > 0)
@@ -772,14 +773,8 @@ Note:
 BOOLEAN ReduceTcpAck(RTMP_ADAPTER *pAd, PNDIS_PACKET pPacket)
 {
 	BOOLEAN dropped = FALSE, bReduceCandidate = FALSE;
-	MAC_TABLE_ENTRY *pEntry = NULL;
-	UINT16 wcid;
 
 	if (pAd->CommonCfg.ReduceAckEnable) {
-		wcid = RTMP_GET_PACKET_WCID(pPacket);
-		pEntry = &pAd->MacTab.Content[wcid];
-
-		if (pEntry && pEntry->RACKEnalbedSta) {
 		rack_packet incomingPkt;
 		rack_cnx *cnx = NULL, *new_cnx = NULL;
 		BOOLEAN bResult = parse_tcp_packet(pPacket, &incomingPkt);
@@ -889,7 +884,6 @@ BOOLEAN ReduceTcpAck(RTMP_ADAPTER *pAd, PNDIS_PACKET pPacket)
 				MY_UNLOCK(pAd);
 			}
 		}
-		}
 	}
 
 	if (pAd->CommonCfg.ReduceAckEnable == REDUCE_ACK_ENABLE_NO_DROP_MODE)
@@ -917,34 +911,26 @@ Note:
 */
 BOOLEAN ReduceAckUpdateDataCnx(RTMP_ADAPTER *pAd, PNDIS_PACKET pPacket)
 {
-	MAC_TABLE_ENTRY *pEntry = NULL;
-	UINT16 wcid;
-
 	if (pAd->CommonCfg.ReduceAckEnable) {
-		wcid = RTMP_GET_PACKET_WCID(pPacket);
-		pEntry = &pAd->MacTab.Content[wcid];
+		rack_packet incomingPkt;
+		rack_cnx *cnx = NULL;
+		BOOLEAN bResult = parse_tcp_packet(pPacket, &incomingPkt);
 
-		if (pEntry && pEntry->RACKEnalbedSta) {
-			rack_packet incomingPkt;
-			rack_cnx *cnx = NULL;
-			BOOLEAN bResult = parse_tcp_packet(pPacket, &incomingPkt);
+		if (bResult && match_black_list(&incomingPkt) == FALSE) {
+			if (incomingPkt.type == TCP_DATA) {
+				/* incoming an DATA */
+				MY_LOCK(pAd);
+				cnx = find_cnx(pAd, &incomingPkt);
 
-			if (bResult && match_black_list(&incomingPkt) == FALSE) {
-				if (incomingPkt.type == TCP_DATA) {
-					/* incoming an DATA */
-					MY_LOCK(pAd);
-					cnx = find_cnx(pAd, &incomingPkt);
-
-					if (cnx != NULL) {
-						PKT_DPRINT(pAd, &incomingPkt, "incoming data");
-						update_cnx(cnx, &incomingPkt);
-						calculate_bif(cnx);
-						cnx->stats.total_data++;
-						CNX_DPRINT(pAd, cnx, "data-seq update");
-					}
-
-					MY_UNLOCK(pAd);
+				if (cnx != NULL) {
+					PKT_DPRINT(pAd, &incomingPkt, "incoming data");
+					update_cnx(cnx, &incomingPkt);
+					calculate_bif(cnx);
+					cnx->stats.total_data++;
+					CNX_DPRINT(pAd, cnx, "data-seq update");
 				}
+
+				MY_UNLOCK(pAd);
 			}
 		}
 	}
@@ -1157,7 +1143,7 @@ VOID ReduceAckInit(RTMP_ADAPTER *pAd)
 	/* allocate a lock resource for SMP environment */
 	NdisAllocateSpinLock(pAd, &pAd->ReduceAckLock);
 	pAd->ReduceAckConnections = 0;
-	pAd->CommonCfg.ReduceAckEnable = REDUCE_ACK_ENALBE;
+	pAd->CommonCfg.ReduceAckEnable = 0;
 	pAd->CommonCfg.ReduceAckProbability = DEFAULT_REDUCE_PERCENT;
 	pAd->CommonCfg.ReduceAckTimeout = REDUCE_ACK_TIMEOUT;
 	pAd->CommonCfg.ReduceAckCnxTimeout = REDUCE_ACK_CNX_TIMEOUT;
@@ -1166,7 +1152,7 @@ VOID ReduceAckInit(RTMP_ADAPTER *pAd)
 	INIT_DELAYED_WORK(&(pAd->ackFlushWork), ack_flush_task);
 	schedule_delayed_work(&(pAd->cnxFlushWork), REDUCE_ACK_CNX_POLLING_INTERVAL);
 	schedule_delayed_work(&(pAd->ackFlushWork), REDUCE_ACK_POLLING_INTERVAL);
-	MTWF_DBG(NULL, DBG_CAT_TX, DBG_SUBCAT_ALL, DBG_LVL_DEBUG, "%s, ReduceAckInit, inf=%s\n", __func__, pAd->net_dev->name);
+	MTWF_LOG(DBG_CAT_TX, DBG_SUBCAT_ALL, DBG_LVL_INFO, ("%s, ReduceAckInit, inf=%s\n", __func__, pAd->net_dev->name));
 	printk("INIT REDUCE TCP ACK, %s\n", pAd->net_dev->name);
 }
 
@@ -1198,7 +1184,7 @@ VOID ReduceAckExit(RTMP_ADAPTER *pAd)
 	}
 	/* free the lock resource for SMP environment */
 	NdisFreeSpinLock(&pAd->ReduceAckLock);
-	MTWF_DBG(NULL, DBG_CAT_TX, DBG_SUBCAT_ALL, DBG_LVL_DEBUG, "%s, ReduceAckExit, inf=%s)\n", __func__, pAd->net_dev->name);
+	MTWF_LOG(DBG_CAT_TX, DBG_SUBCAT_ALL, DBG_LVL_INFO, ("%s, ReduceAckExit, inf=%s)\n", __func__, pAd->net_dev->name));
 	printk("EXIT REDUCE TCP ACK, %s\n", pAd->net_dev->name);
 }
 
@@ -1223,7 +1209,7 @@ VOID ReduceAckSetEnable(PRTMP_ADAPTER pAdapter, UINT32 enable)
 	COMMON_CONFIG *pComCfg = &pAdapter->CommonCfg;
 	BOOLEAN prvEnable = pComCfg->ReduceAckEnable;
 
-	if (enable > REDUCE_ACK_ENABLE_LAST) {
+	if (enable < REDUCE_ACK_DISABLE || enable > REDUCE_ACK_ENABLE_LAST) {
 		printk("ERROR!! - Valid range is 0 ~ %d", REDUCE_ACK_ENABLE_LAST);
 		return;
 	}
@@ -1240,7 +1226,7 @@ VOID ReduceAckSetEnable(PRTMP_ADAPTER pAdapter, UINT32 enable)
 		MY_UNLOCK(pAdapter);
 	}
 
-	MTWF_DBG(NULL, DBG_CAT_TX, DBG_SUBCAT_ALL, DBG_LVL_DEBUG, "%s, ReduceAckEnable=%d\n",  __func__, pComCfg->ReduceAckEnable);
+	MTWF_LOG(DBG_CAT_TX, DBG_SUBCAT_ALL, DBG_LVL_INFO, ("%s, ReduceAckEnable=%d\n",  __func__, pComCfg->ReduceAckEnable));
 }
 
 /*

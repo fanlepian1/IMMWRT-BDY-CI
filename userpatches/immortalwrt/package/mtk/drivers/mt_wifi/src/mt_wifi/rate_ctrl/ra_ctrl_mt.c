@@ -1,39 +1,44 @@
-/* Copyright Statement:
- *
- * This software/firmware and related documentation ("MediaTek Software") are
- * protected under relevant copyright laws. The information contained herein is
- * confidential and proprietary to MediaTek Inc. and/or its licensors. Without
- * the prior written permission of MediaTek inc. and/or its licensors, any
- * reproduction, modification, use or disclosure of MediaTek Software, and
- * information contained herein, in whole or in part, shall be strictly
- * prohibited.
- *
- * Copyright  (C) [2020]  MediaTek Inc. All rights reserved.
- *
- * BY OPENING THIS FILE, RECEIVER HEREBY UNEQUIVOCALLY ACKNOWLEDGES AND AGREES
- * THAT THE SOFTWARE/FIRMWARE AND ITS DOCUMENTATIONS ("MEDIATEK SOFTWARE")
- * RECEIVED FROM MEDIATEK AND/OR ITS REPRESENTATIVES ARE PROVIDED TO RECEIVER
- * ON AN "AS-IS" BASIS ONLY. MEDIATEK EXPRESSLY DISCLAIMS ANY AND ALL
- * WARRANTIES, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE IMPLIED
- * WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE OR
- * NONINFRINGEMENT. NEITHER DOES MEDIATEK PROVIDE ANY WARRANTY WHATSOEVER WITH
- * RESPECT TO THE SOFTWARE OF ANY THIRD PARTY WHICH MAY BE USED BY,
- * INCORPORATED IN, OR SUPPLIED WITH THE MEDIATEK SOFTWARE, AND RECEIVER AGREES
- * TO LOOK ONLY TO SUCH THIRD PARTY FOR ANY WARRANTY CLAIM RELATING THERETO.
- * RECEIVER EXPRESSLY ACKNOWLEDGES THAT IT IS RECEIVER'S SOLE RESPONSIBILITY TO
- * OBTAIN FROM ANY THIRD PARTY ALL PROPER LICENSES CONTAINED IN MEDIATEK
- * SOFTWARE. MEDIATEK SHALL ALSO NOT BE RESPONSIBLE FOR ANY MEDIATEK SOFTWARE
- * RELEASES MADE TO RECEIVER'S SPECIFICATION OR TO CONFORM TO A PARTICULAR
- * STANDARD OR OPEN FORUM. RECEIVER'S SOLE AND EXCLUSIVE REMEDY AND MEDIATEK'S
- * ENTIRE AND CUMULATIVE LIABILITY WITH RESPECT TO THE MEDIATEK SOFTWARE
- * RELEASED HEREUNDER WILL BE, AT MEDIATEK'S OPTION, TO REVISE OR REPLACE THE
- * MEDIATEK SOFTWARE AT ISSUE, OR REFUND ANY SOFTWARE LICENSE FEES OR SERVICE
- * CHARGE PAID BY RECEIVER TO MEDIATEK FOR SUCH MEDIATEK SOFTWARE AT ISSUE.
- *
- * The following software/firmware and/or related documentation ("MediaTek
- * Software") have been modified by MediaTek Inc. All revisions are subject to
- * any receiver's applicable license agreements with MediaTek Inc.
- */
+/*******************************************************************************
+* Copyright (c) 2014 MediaTek Inc.
+*
+* All rights reserved. Copying, compilation, modification, distribution
+* or any other use whatsoever of this material is strictly prohibited
+* except in accordance with a Software License Agreement with
+* MediaTek Inc.
+********************************************************************************
+*/
+
+/*******************************************************************************
+* LEGAL DISCLAIMER
+*
+* BY OPENING THIS FILE, BUYER HEREBY UNEQUIVOCALLY ACKNOWLEDGES AND
+* AGREES THAT THE SOFTWARE/FIRMWARE AND ITS DOCUMENTATIONS ("MEDIATEK
+* SOFTWARE") RECEIVED FROM MEDIATEK AND/OR ITS REPRESENTATIVES ARE
+* PROVIDED TO BUYER ON AN "AS-IS" BASIS ONLY. MEDIATEK EXPRESSLY
+* DISCLAIMS ANY AND ALL WARRANTIES, EXPRESS OR IMPLIED, INCLUDING BUT NOT
+* LIMITED TO THE IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS FOR A
+* PARTICULAR PURPOSE OR NONINFRINGEMENT. NEITHER DOES MEDIATEK PROVIDE
+* ANY WARRANTY WHATSOEVER WITH RESPECT TO THE SOFTWARE OF ANY THIRD PARTY
+* WHICH MAY BE USED BY, INCORPORATED IN, OR SUPPLIED WITH THE MEDIATEK
+* SOFTWARE, AND BUYER AGREES TO LOOK ONLY TO SUCH THIRD PARTY FOR ANY
+* WARRANTY CLAIM RELATING THERETO. MEDIATEK SHALL ALSO NOT BE RESPONSIBLE
+* FOR ANY MEDIATEK SOFTWARE RELEASES MADE TO BUYER'S SPECIFICATION OR TO
+* CONFORM TO A PARTICULAR STANDARD OR OPEN FORUM.
+*
+* BUYER'S SOLE AND EXCLUSIVE REMEDY AND MEDIATEK'S ENTIRE AND CUMULATIVE
+* LIABILITY WITH RESPECT TO THE MEDIATEK SOFTWARE RELEASED HEREUNDER WILL
+* BE, AT MEDIATEK'S OPTION, TO REVISE OR REPLACE THE MEDIATEK SOFTWARE AT
+* ISSUE, OR REFUND ANY SOFTWARE LICENSE FEES OR SERVICE CHARGE PAID BY
+* BUYER TO MEDIATEK FOR SUCH MEDIATEK SOFTWARE AT ISSUE.
+*
+* THE TRANSACTION CONTEMPLATED HEREUNDER SHALL BE CONSTRUED IN ACCORDANCE
+* WITH THE LAWS OF THE STATE OF CALIFORNIA, USA, EXCLUDING ITS CONFLICT
+* OF LAWS PRINCIPLES.  ANY DISPUTES, CONTROVERSIES OR CLAIMS ARISING
+* THEREOF AND RELATED THERETO SHALL BE SETTLED BY ARBITRATION IN SAN
+* FRANCISCO, CA, UNDER THE RULES OF THE INTERNATIONAL CHAMBER OF COMMERCE
+* (ICC).
+********************************************************************************
+*/
 
 
 /*******************************************************************************
@@ -282,8 +287,7 @@ SetTxRateMtCore(
 				tx_bw = bw_cap;
 		}
 
-		MTWF_DBG(pAd, DBG_CAT_RA, DBG_SUBCAT_ALL, DBG_LVL_DEBUG,
-			"txbw=%d, txmode=%d\n", tx_bw, tx_mode);
+		MTWF_LOG(DBG_CAT_RA, DBG_SUBCAT_ALL, DBG_LVL_INFO, ("%s(): txbw=%d, txmode=%d\n", __func__, tx_bw, tx_mode));
 	}
 
 #endif /* DOT11_VHT_AC */
@@ -295,8 +299,7 @@ SetTxRateMtCore(
 		else
 			pRaEntry->TxPhyCfg.STBC = STBC_NONE;
 
-		if ((pTxRate->ShortGI || pRaCfg->TestbedForceShortGI)
-			&& (pRaEntry->MaxPhyCfg.ShortGI))
+		if ((pTxRate->ShortGI || pRaCfg->TestbedForceShortGI) && (pRaEntry->MaxPhyCfg.ShortGI))
 			pRaEntry->TxPhyCfg.ShortGI = GI_400;
 		else
 			pRaEntry->TxPhyCfg.ShortGI = GI_800;
@@ -317,14 +320,13 @@ SetTxRateMtCore(
 #ifdef DOT11_VHT_AC
 
 	if (tx_mode == MODE_VHT) {
-		if ((CLIENT_STATUS_TEST_FLAG(pRaEntry, fCLIENT_STATUS_SGI80_CAPABLE))
-			&& pTxRate->ShortGI)
+		if ((CLIENT_STATUS_TEST_FLAG(pRaEntry, fCLIENT_STATUS_SGI80_CAPABLE)) &&
+			(pTxRate->ShortGI))
 			pRaEntry->TxPhyCfg.ShortGI = GI_400;
 		else
 			pRaEntry->TxPhyCfg.ShortGI = GI_800;
 
-		if ((CLIENT_STATUS_TEST_FLAG(pRaEntry, fCLIENT_STATUS_VHT_RXSTBC_CAPABLE))
-			&& pTxRate->STBC)
+		if (pTxRate->STBC && (CLIENT_STATUS_TEST_FLAG(pRaEntry, fCLIENT_STATUS_VHT_RXSTBC_CAPABLE)))
 			pRaEntry->TxPhyCfg.STBC = STBC_USE;
 		else
 			pRaEntry->TxPhyCfg.STBC = STBC_NONE;
@@ -406,10 +408,8 @@ SetTxRateMtCore(
 #endif /* DOT11_VHT_AC */
 
 	/* Reexam each bandwidth's SGI support. */
-	if (((pRaEntry->TxPhyCfg.BW == BW_20)
-		&& !CLIENT_STATUS_TEST_FLAG(pRaEntry, fCLIENT_STATUS_SGI20_CAPABLE)) ||
-		((pRaEntry->TxPhyCfg.BW == BW_40)
-		&& !CLIENT_STATUS_TEST_FLAG(pRaEntry, fCLIENT_STATUS_SGI40_CAPABLE)))
+	if (((pRaEntry->TxPhyCfg.BW == BW_20) && !CLIENT_STATUS_TEST_FLAG(pRaEntry, fCLIENT_STATUS_SGI20_CAPABLE)) ||
+		((pRaEntry->TxPhyCfg.BW == BW_40) && !CLIENT_STATUS_TEST_FLAG(pRaEntry, fCLIENT_STATUS_SGI40_CAPABLE)))
 		pRaEntry->TxPhyCfg.ShortGI = GI_800;
 
 #endif /* DOT11_N_SUPPORT */
@@ -463,7 +463,7 @@ NewTxRateMtCore(
 	else
 #endif /* NEW_RATE_ADAPT_SUPPORT */
 	{
-		MTWF_DBG(pAd, DBG_CAT_RA, DBG_SUBCAT_ALL, DBG_LVL_ERROR, "Not GRP table!\n");
+		MTWF_LOG(DBG_CAT_RA, DBG_SUBCAT_ALL, DBG_LVL_ERROR, ("%s:Not GRP table!\n", __func__));
 		return;
 	}
 
@@ -471,8 +471,7 @@ NewTxRateMtCore(
 
 	if (pRaEntry->fgAuthWapiMode) {
 		if (pTable == RateSwitchTableAdapt11N2S) {
-			if ((pRaInternal->ucCurrTxRateIndex >= 14)
-				&& (pRaInternal->ucCurrTxRateIndex <= 16))
+			if ((pRaInternal->ucCurrTxRateIndex >= 14) && (pRaInternal->ucCurrTxRateIndex <= 16))
 				pNextTxRate = PTX_RA_GRP_ENTRY(pTable, 13);
 		}
 	}
@@ -533,7 +532,7 @@ SetTxRateMtCoreAGBS(
 	if (RATE_TABLE_AGBS(pTable))
 		pTxRate = RA_AGBS_ENTRY(pTable, pRaInternal->ucCurrTxRateIndex);
 	else {
-		MTWF_DBG(pAd, DBG_CAT_RA, DBG_SUBCAT_ALL, DBG_LVL_ERROR, "Not AGBS table!\n");
+		MTWF_LOG(DBG_CAT_RA, DBG_SUBCAT_ALL, DBG_LVL_ERROR, ("%s:Not AGBS table!\n", __func__));
 		return;
 	}
 
@@ -548,8 +547,7 @@ SetTxRateMtCoreAGBS(
 			pRaEntry->TxPhyCfg.STBC = STBC_USE;
 
 		/* if (pTxRate->ShortGI || pRaCfg->TestbedForceShortGI) */
-		if (((pRaEntry->ucCERMSD > RA_RMDS_THRD) || (pTxRate->ShortGI)
-			|| (pRaInternal->ucDynamicSGIState == RA_DYNAMIC_SGI_TRY_SUCCESS_STATE)) ||
+		if (((pRaEntry->ucCERMSD > RA_RMDS_THRD) || (pTxRate->ShortGI) || (pRaInternal->ucDynamicSGIState == RA_DYNAMIC_SGI_TRY_SUCCESS_STATE)) ||
 			pRaCfg->TestbedForceShortGI) {
 			if (CLIENT_STATUS_TEST_FLAG(pRaEntry, fCLIENT_STATUS_SGI20_CAPABLE))
 				pRaEntry->TxPhyCfg.ShortGI |= SGI_20;
@@ -567,8 +565,7 @@ SetTxRateMtCoreAGBS(
 			pRaEntry->TxPhyCfg.STBC = STBC_USE;
 
 		/* if (pTxRate->ShortGI */
-		if (((pRaEntry->ucCERMSD > RA_RMDS_THRD) || (pTxRate->ShortGI)
-			|| (pRaInternal->ucDynamicSGIState == RA_DYNAMIC_SGI_TRY_SUCCESS_STATE))) {
+		if (((pRaEntry->ucCERMSD > RA_RMDS_THRD) || (pTxRate->ShortGI) || (pRaInternal->ucDynamicSGIState == RA_DYNAMIC_SGI_TRY_SUCCESS_STATE))) {
 			if (CLIENT_STATUS_TEST_FLAG(pRaEntry, fCLIENT_STATUS_SGI20_CAPABLE))
 				pRaEntry->TxPhyCfg.ShortGI |= SGI_20;
 
@@ -628,15 +625,12 @@ SetTxRateMtCoreAGBS(
 	else
 		pRaEntry->TxPhyCfg.BW = BW_40;
 
-	if (((pRaEntry->ucBBPCurrentBW == BW_80)
-		|| (pRaEntry->ucBBPCurrentBW == BW_160)
-		|| (pRaEntry->ucBBPCurrentBW == BW_8080)) &&
+	if (((pRaEntry->ucBBPCurrentBW == BW_80) || (pRaEntry->ucBBPCurrentBW == BW_160) || (pRaEntry->ucBBPCurrentBW == BW_8080)) &&
 		(pRaEntry->MaxPhyCfg.BW == BW_80) &&
 		(pRaEntry->MaxPhyCfg.MODE == MODE_VHT))
 		pRaEntry->TxPhyCfg.BW = BW_80;
 
-	if (((pRaEntry->ucBBPCurrentBW == BW_160)
-		|| (pRaEntry->ucBBPCurrentBW == BW_8080)) &&
+	if (((pRaEntry->ucBBPCurrentBW == BW_160) || (pRaEntry->ucBBPCurrentBW == BW_8080)) &&
 		(pRaEntry->MaxPhyCfg.BW == BW_160) &&
 		(pRaEntry->MaxPhyCfg.MODE == MODE_VHT))
 		pRaEntry->TxPhyCfg.BW = BW_160;
@@ -676,8 +670,7 @@ SetTxRateMtCoreAGBS(
 			if (ucBwCap <= pRaEntry->MaxPhyCfg.BW)
 				pRaEntry->TxPhyCfg.BW = ucBwCap;
 
-			MTWF_DBG(pAd, DBG_CAT_RA, DBG_SUBCAT_ALL, DBG_LVL_INFO,
-				"TxPhyCfg.BW=%d, ucBwCap=%d\n", pRaEntry->TxPhyCfg.BW, ucBwCap);
+			MTWF_LOG(DBG_CAT_RA, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("%s(): TxPhyCfg.BW=%d, ucBwCap=%d\n", __func__, pRaEntry->TxPhyCfg.BW, ucBwCap));
 		}
 	}
 
@@ -697,8 +690,7 @@ SetTxRateMtCoreAGBS(
 
 	if (pRaCfg->u2MaxPhyRate != 0) {
 		u2PhyRate = raGetPhyRate(pRaEntry->TxPhyCfg.MODE, pRaEntry->TxPhyCfg.MCS,
-								 pRaEntry->TxPhyCfg.VhtNss, pRaEntry->TxPhyCfg.BW,
-								 pRaEntry->TxPhyCfg.ShortGI);
+								 pRaEntry->TxPhyCfg.VhtNss, pRaEntry->TxPhyCfg.BW, pRaEntry->TxPhyCfg.ShortGI);
 
 		if ((pRaCfg->u2MaxPhyRate != 0) && (u2PhyRate > pRaCfg->u2MaxPhyRate)
 			&& (pRaCfg->TestbedForceShortGI == FALSE))
@@ -708,8 +700,7 @@ SetTxRateMtCoreAGBS(
 #endif /*  DOT11_N_SUPPORT */
 
 	if (pRaCfg->ucForceTxStream != 0) {
-		if ((pRaEntry->TxPhyCfg.MODE == MODE_HTMIX)
-			|| (pRaEntry->TxPhyCfg.MODE == MODE_HTMIX)) {
+		if ((pRaEntry->TxPhyCfg.MODE == MODE_HTMIX) || (pRaEntry->TxPhyCfg.MODE == MODE_HTMIX)) {
 			if (pRaEntry->TxPhyCfg.MCS != MCS_32) {
 				nsts += (pRaEntry->TxPhyCfg.MCS >> 3);
 
@@ -776,7 +767,7 @@ raMaxAmsduLenNotifyAGBS(
 	if (RATE_TABLE_AGBS(pTable))
 		pTxRate = RA_AGBS_ENTRY(pTable, pRaInternal->ucCurrTxRateIndex);
 	else {
-		MTWF_DBG(NULL, DBG_CAT_RA, DBG_SUBCAT_ALL, DBG_LVL_ERROR, "Not AGBS table!\n");
+		MTWF_LOG(DBG_CAT_RA, DBG_SUBCAT_ALL, DBG_LVL_ERROR, ("%s:Not AGBS table!\n", __func__));
 		return;
 	}
 
@@ -802,9 +793,8 @@ raMaxAmsduLenNotifyAGBS(
 		break;
 	}
 
-	hemExtEventMaxAMSDULengthUpdate(pRaEntry->u2Wcid, ucMaxAmsduLength);
-	MTWF_DBG(NULL, DBG_CAT_RA, DBG_SUBCAT_ALL, DBG_LVL_INFO,
-		"ucMaxAmsduLength=%d\n", ucMaxAmsduLength);
+	hemExtEventMaxAMSDULengthUpdate(pRaEntry->ucWcid, ucMaxAmsduLength);
+	MTWF_LOG(DBG_CAT_RA, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("ucMaxAmsduLength=%d\n", ucMaxAmsduLength));
 #endif
 #endif /* WIFI_BUILD_RAM */
 }
@@ -874,8 +864,7 @@ raSelectTxRateTable(
 	if (pRaCfg->ucRateAlg == RATE_ALG_GRP) {
 		if (ADAPT_RATE_TABLE(*ppTable) == FALSE) {
 			*ppTable = RateSwitchTableAdapt11B;
-			MTWF_DBG(NULL, DBG_CAT_RA, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-				"Invalid Rate Table, Set to RateSwitchTableAdapt11B.\n");
+			MTWF_LOG(DBG_CAT_RA, DBG_SUBCAT_ALL, DBG_LVL_ERROR, ("%s: Invalid Rate Table, Set to RateSwitchTableAdapt11B.\n", __func__));
 		}
 	}
 
@@ -885,8 +874,7 @@ raSelectTxRateTable(
 	if (pRaCfg->ucRateAlg == RATE_ALG_AGBS) {
 		if (RATE_TABLE_AGBS(*ppTable) == FALSE) {
 			*ppTable = RateSwitchTableAGBS11B;
-			MTWF_DBG(NULL, DBG_CAT_RA, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-				"Invalid Rate Table, Set to RateSwitchTableAGBS11B\n");
+			MTWF_LOG(DBG_CAT_RA, DBG_SUBCAT_ALL, DBG_LVL_ERROR, ("%s: Invalid Rate Table, Set to RateSwitchTableAGBS11B\n", __func__));
 		}
 	}
 
@@ -896,8 +884,7 @@ raSelectTxRateTable(
 		*pTableSize = RATE_TABLE_SIZE(*ppTable);
 		*pInitTxRateIdx = RATE_TABLE_INIT_INDEX(*ppTable);
 	} else
-		MTWF_DBG(NULL, DBG_CAT_RA, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-			"TX rate table is Null!\n");
+		MTWF_LOG(DBG_CAT_RA, DBG_SUBCAT_ALL, DBG_LVL_ERROR, ("%s:TX rate table is Null!\n", __func__));
 }
 
 
@@ -917,7 +904,7 @@ raSelectTxRateTable(
  */
 /*----------------------------------------------------------------------------*/
 UINT_16
-static tx_rate_to_tmi_rate(
+tx_rate_to_tmi_rate(
 	IN UINT_8 mode,
 	IN UINT_8 mcs,
 	IN UINT_8 nss,
@@ -950,6 +937,8 @@ static tx_rate_to_tmi_rate(
 				   (((nss - 1) & TMI_TX_RATE_MASK_NSS) << TMI_TX_RATE_BIT_NSS) |
 				   ((USHORT)(mode << TMI_TX_RATE_BIT_MODE)) |
 				   ((USHORT)(mcs));
+		/* MTWF_LOG(DBG_CAT_RA, DBG_SUBCAT_ALL, DBG_LVL_OFF, ("%s(): mode=%d, mcs=%d, stbc=%d converted tmi_rate=0x%x\n", */
+		/* __FUNCTION__, mode, mcs, stbc, tmi_rate)); */
 		break;
 
 	case MODE_VHT:
@@ -957,8 +946,8 @@ static tx_rate_to_tmi_rate(
 		break;
 
 	default:
-		MTWF_DBG(NULL, DBG_CAT_RA, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-			"Invalid mode(mode=%d)\n", mode);
+		MTWF_LOG(DBG_CAT_RA, DBG_SUBCAT_ALL, DBG_LVL_ERROR, ("%s():Invalid mode(mode=%d)\n",
+				 __func__, mode));
 		break;
 	}
 
@@ -978,7 +967,7 @@ static tx_rate_to_tmi_rate(
  */
 /*----------------------------------------------------------------------------*/
 UINT_8
-static get_nsts_by_mcs(
+get_nsts_by_mcs(
 	UINT_8 phy_mode,
 	UINT_8 mcs,
 	BOOL stbc,
@@ -1051,7 +1040,6 @@ raStbcSettingCheck(
 
 	switch (ucMode) {
 	case MODE_VHT:
-	case HW_HE_SU_MODE:
 		if (ucVhtNss == 1)
 			ucStbc = ucOrigStbc;
 		else
@@ -1178,8 +1166,7 @@ MtAsicMcsLutUpdateCore(
 				mcs = 0;
 				DownRateIdx = 0;
 				ucVhtNss = 0;
-				MTWF_DBG(pAd, DBG_CAT_RA, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-					"Not support legacy table.\n");
+				MTWF_LOG(DBG_CAT_RA, DBG_SUBCAT_ALL, DBG_LVL_ERROR, ("%s: Not support legacy table.\n", __func__));
 			}
 
 			stbc = raStbcSettingCheck(pRaEntry->TxPhyCfg.STBC,
@@ -1204,17 +1191,18 @@ MtAsicMcsLutUpdateCore(
 	} else
 		rate[1] = rate[2] = rate[3] = rate[4] = rate[5] = rate[6] = rate[7] = rate[0];
 
-	AsicTxCapAndRateTableUpdate(pAd, pRaEntry->u2Wcid, &pRaEntry->TxPhyCfg, rate, fgSpeEn);
-	MTWF_DBG(pAd, DBG_CAT_RA, DBG_SUBCAT_ALL, DBG_LVL_INFO, "WCID=%d\n", pRaEntry->u2Wcid);
-	MTWF_DBG(pAd, DBG_CAT_RA, DBG_SUBCAT_ALL, DBG_LVL_INFO,
-			 "\tCurTxRateIdx=%d, Mode/BW/MCS/STBC/LDPC/SGI=%d/%d/%d/%d/%d/%d\n\n",
+	MtAsicTxCapAndRateTableUpdate(pAd, pRaEntry->ucWcid, &pRaEntry->TxPhyCfg, rate, fgSpeEn);
+	MTWF_LOG(DBG_CAT_RA, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("%s():WCID=%d\n",
+			 __func__, pRaEntry->ucWcid));
+	MTWF_LOG(DBG_CAT_RA, DBG_SUBCAT_ALL, DBG_LVL_TRACE,
+			 ("\tCurTxRateIdx=%d, Mode/BW/MCS/STBC/LDPC/SGI=%d/%d/%d/%d/%d/%d\n\n",
 			  pRaInternal->ucCurrTxRateIndex,
 			  pRaEntry->TxPhyCfg.MODE,
 			  pRaEntry->TxPhyCfg.BW,
 			  pRaEntry->TxPhyCfg.MCS,
 			  pRaEntry->TxPhyCfg.STBC,
 			  pRaEntry->TxPhyCfg.ldpc,
-			  pRaEntry->TxPhyCfg.ShortGI);
+			  pRaEntry->TxPhyCfg.ShortGI));
 }
 #endif /* NEW_RATE_ADAPT_SUPPORT */
 
@@ -1270,14 +1258,12 @@ MtAsicMcsLutUpdateCoreAGBS(
 			if (pRaEntry->TxPhyCfg.MODE < MODE_HTMIX)
 				fgSpeEn = TRUE;
 			else {
-				if ((pRaEntry->TxPhyCfg.MODE == MODE_HTMIX)
-					|| (pRaEntry->TxPhyCfg.MODE == MODE_HTGREENFIELD))
+				if ((pRaEntry->TxPhyCfg.MODE == MODE_HTMIX) || (pRaEntry->TxPhyCfg.MODE == MODE_HTGREENFIELD))
 					ucMcs = pRaEntry->TxPhyCfg.MCS & 0x7;
 				else if (pRaEntry->TxPhyCfg.MODE == MODE_VHT)
 					ucMcs = pRaEntry->TxPhyCfg.MCS;
 
-				if ((pRaEntry->TxPhyCfg.BW == BW_160)
-					&& (pRaEntry->TxPhyCfg.MODE == MODE_VHT)) {
+				if ((pRaEntry->TxPhyCfg.BW == BW_160) && (pRaEntry->TxPhyCfg.MODE == MODE_VHT)) {
 					if ((nsts == 1) && (ucMcs <= MCS_6))
 						fgSpeEn = TRUE;
 				} else {
@@ -1309,18 +1295,15 @@ MtAsicMcsLutUpdateCoreAGBS(
 		if (pRaEntry->TxPhyCfg.MODE == MODE_CCK) {
 			pu2FallbackTable = HwFallbackTable11B;
 			u4TableSize = sizeof(HwFallbackTable11B) / 2;
-			MTWF_DBG(pAd, DBG_CAT_RA, DBG_SUBCAT_ALL, DBG_LVL_INFO,
-				"HwFallbackTable11B\n");
+			MTWF_LOG(DBG_CAT_RA, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("HwFallbackTable11B\n"));
 		} else if (pRaInternal->pucTable == RateSwitchTableAGBS11BG) {
 			pu2FallbackTable = HwFallbackTable11BG;
 			u4TableSize = sizeof(HwFallbackTable11BG) / 2;
-			MTWF_DBG(pAd, DBG_CAT_RA, DBG_SUBCAT_ALL, DBG_LVL_INFO,
-				"HwFallbackTable11BG\n");
+			MTWF_LOG(DBG_CAT_RA, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("HwFallbackTable11BG\n"));
 		} else if (pRaEntry->TxPhyCfg.MODE == MODE_OFDM) {
 			pu2FallbackTable = HwFallbackTable11G;
 			u4TableSize = sizeof(HwFallbackTable11G) / 2;
-			MTWF_DBG(pAd, DBG_CAT_RA, DBG_SUBCAT_ALL, DBG_LVL_INFO,
-				"HwFallbackTable11G\n");
+			MTWF_LOG(DBG_CAT_RA, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("HwFallbackTable11G\n"));
 		}
 
 #ifdef DOT11_N_SUPPORT
@@ -1337,34 +1320,29 @@ MtAsicMcsLutUpdateCoreAGBS(
 				case 1:
 					pu2FallbackTable = HwFallbackTableBGN1SS;
 					u4TableSize = sizeof(HwFallbackTableBGN1SS) / 2;
-					MTWF_DBG(pAd, DBG_CAT_RA, DBG_SUBCAT_ALL, DBG_LVL_INFO,
-						"HwFallbackTableBGN1SS\n");
+					MTWF_LOG(DBG_CAT_RA, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("HwFallbackTableBGN1SS\n"));
 					break;
 
 				case 2:
 					pu2FallbackTable = HwFallbackTableBGN2SS;
 					u4TableSize = sizeof(HwFallbackTableBGN2SS) / 2;
-					MTWF_DBG(pAd, DBG_CAT_RA, DBG_SUBCAT_ALL, DBG_LVL_INFO,
-						"HwFallbackTableBGN2SS\n");
+					MTWF_LOG(DBG_CAT_RA, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("HwFallbackTableBGN2SS\n"));
 					break;
 
 				case 3:
 					pu2FallbackTable = HwFallbackTableBGN3SS;
 					u4TableSize = sizeof(HwFallbackTableBGN3SS) / 2;
-					MTWF_DBG(pAd, DBG_CAT_RA, DBG_SUBCAT_ALL, DBG_LVL_INFO,
-						"HwFallbackTableBGN3SS\n");
+					MTWF_LOG(DBG_CAT_RA, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("HwFallbackTableBGN3SS\n"));
 					break;
 
 				case 4:
 					pu2FallbackTable = HwFallbackTableBGN4SS;
 					u4TableSize = sizeof(HwFallbackTableBGN4SS) / 2;
-					MTWF_DBG(pAd, DBG_CAT_RA, DBG_SUBCAT_ALL, DBG_LVL_INFO,
-						"HwFallbackTableBGN4SS\n");
+					MTWF_LOG(DBG_CAT_RA, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("HwFallbackTableBGN4SS\n"));
 					break;
 
 				default:
-					MTWF_DBG(pAd, DBG_CAT_RA, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-						"Unknown Nss%d!\n", ucHtNss);
+					MTWF_LOG(DBG_CAT_RA, DBG_SUBCAT_ALL, DBG_LVL_ERROR, ("Unknow Nss%d!\n", ucHtNss));
 					break;
 				}
 			} else {
@@ -1372,34 +1350,29 @@ MtAsicMcsLutUpdateCoreAGBS(
 				case 1:
 					pu2FallbackTable = HwFallbackTable11N1SS;
 					u4TableSize = sizeof(HwFallbackTable11N1SS) / 2;
-					MTWF_DBG(pAd, DBG_CAT_RA, DBG_SUBCAT_ALL, DBG_LVL_INFO,
-						"HwFallbackTable11N1SS\n");
+					MTWF_LOG(DBG_CAT_RA, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("HwFallbackTable11N1SS\n"));
 					break;
 
 				case 2:
 					pu2FallbackTable = HwFallbackTable11N2SS;
 					u4TableSize = sizeof(HwFallbackTable11N2SS) / 2;
-					MTWF_DBG(pAd, DBG_CAT_RA, DBG_SUBCAT_ALL, DBG_LVL_INFO,
-						"HwFallbackTable11N2SS\n");
+					MTWF_LOG(DBG_CAT_RA, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("HwFallbackTable11N2SS\n"));
 					break;
 
 				case 3:
 					pu2FallbackTable = HwFallbackTable11N3SS;
 					u4TableSize = sizeof(HwFallbackTable11N3SS) / 2;
-					MTWF_DBG(pAd, DBG_CAT_RA, DBG_SUBCAT_ALL, DBG_LVL_INFO,
-						"HwFallbackTable11N3SS\n");
+					MTWF_LOG(DBG_CAT_RA, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("HwFallbackTable11N3SS\n"));
 					break;
 
 				case 4:
 					pu2FallbackTable = HwFallbackTable11N4SS;
 					u4TableSize = sizeof(HwFallbackTable11N4SS) / 2;
-					MTWF_DBG(pAd, DBG_CAT_RA, DBG_SUBCAT_ALL, DBG_LVL_INFO,
-						"HwFallbackTable11N4SS\n");
+					MTWF_LOG(DBG_CAT_RA, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("HwFallbackTable11N4SS\n"));
 					break;
 
 				default:
-					MTWF_DBG(pAd, DBG_CAT_RA, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-						"Unknown Nss%d!\n", ucHtNss);
+					MTWF_LOG(DBG_CAT_RA, DBG_SUBCAT_ALL, DBG_LVL_ERROR, ("Unknow Nss%d!\n", ucHtNss));
 					break;
 				}
 			}
@@ -1411,23 +1384,20 @@ MtAsicMcsLutUpdateCoreAGBS(
 			case 1:
 				pu2FallbackTable = HwFallbackTableVht1SS;
 				u4TableSize = sizeof(HwFallbackTableVht1SS) / 2;
-				MTWF_DBG(pAd, DBG_CAT_RA, DBG_SUBCAT_ALL, DBG_LVL_INFO,
-					"HwFallbackTableVht1SS\n");
+				MTWF_LOG(DBG_CAT_RA, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("HwFallbackTableVht1SS\n"));
 				break;
 
 			case 2:
 				pu2FallbackTable = HwFallbackTableVht2SS;
 				u4TableSize = sizeof(HwFallbackTableVht2SS) / 2;
-				MTWF_DBG(pAd, DBG_CAT_RA, DBG_SUBCAT_ALL, DBG_LVL_INFO,
-					"HwFallbackTableVht2SS\n");
+				MTWF_LOG(DBG_CAT_RA, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("HwFallbackTableVht2SS\n"));
 				break;
 
 			case 3:
 				{
 					pu2FallbackTable = HwFallbackTableVht3SS;
 					u4TableSize = sizeof(HwFallbackTableVht3SS) / 2;
-					MTWF_DBG(pAd, DBG_CAT_RA, DBG_SUBCAT_ALL, DBG_LVL_INFO,
-						"HwFallbackTableVht3SS\n");
+					MTWF_LOG(DBG_CAT_RA, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("HwFallbackTableVht3SS\n"));
 				}
 
 				break;
@@ -1435,13 +1405,11 @@ MtAsicMcsLutUpdateCoreAGBS(
 			case 4:
 				pu2FallbackTable = HwFallbackTableVht4SS;
 				u4TableSize = sizeof(HwFallbackTableVht4SS) / 2;
-				MTWF_DBG(pAd, DBG_CAT_RA, DBG_SUBCAT_ALL, DBG_LVL_INFO,
-					"HwFallbackTableVht4SS\n");
+				MTWF_LOG(DBG_CAT_RA, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("HwFallbackTableVht4SS\n"));
 				break;
 
 			default:
-				MTWF_DBG(pAd, DBG_CAT_RA, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-					"Unknown Nss%d!\n", pRaEntry->TxPhyCfg.VhtNss);
+				MTWF_LOG(DBG_CAT_RA, DBG_SUBCAT_ALL, DBG_LVL_ERROR, ("Unknow Nss%d!\n", pRaEntry->TxPhyCfg.VhtNss));
 				break;
 			}
 		}
@@ -1482,8 +1450,7 @@ MtAsicMcsLutUpdateCoreAGBS(
 
 		if (!fgFound) {
 			rate[1] = rate[2] = rate[3] = rate[4] = rate[5] = rate[6] = rate[7] = rate[0];
-			MTWF_DBG(pAd, DBG_CAT_RA, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-				"Cannot find fallback table!\n");
+			MTWF_LOG(DBG_CAT_RA, DBG_SUBCAT_ALL, DBG_LVL_ERROR, ("Cannot find fallback table!\n"));
 		}
 
 		/* Set CBRN */
@@ -1492,10 +1459,9 @@ MtAsicMcsLutUpdateCoreAGBS(
 	} else
 		rate[1] = rate[2] = rate[3] = rate[4] = rate[5] = rate[6] = rate[7] = rate[0];
 
-	AsicTxCapAndRateTableUpdate(pAd, pRaEntry->u2Wcid, &pRaEntry->TxPhyCfg, rate, fgSpeEn);
-	MTWF_DBG(pAd, DBG_CAT_RA, DBG_SUBCAT_ALL, DBG_LVL_INFO,
-		"DRS: WCID=%d, CurTxRateIdx=%d, Mode/BW/MCS/VHT_NSS/STBC/LDPC/SGI=%d/%d/%d/%d/%d/%d/%d\n",
-			 pRaEntry->u2Wcid,
+	MtAsicTxCapAndRateTableUpdate(pAd, pRaEntry->ucWcid, &pRaEntry->TxPhyCfg, rate, fgSpeEn);
+	MTWF_LOG(DBG_CAT_RA, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("DRS: WCID=%d, %s - CurTxRateIdx=%d, Mode/BW/MCS/VHT_NSS/STBC/LDPC/SGI=%d/%d/%d/%d/%d/%d/%d\n",
+			 pRaEntry->ucWcid, __func__,
 			 pRaInternal->ucCurrTxRateIndex,
 			 pRaEntry->TxPhyCfg.MODE,
 			 pRaEntry->TxPhyCfg.BW,
@@ -1503,7 +1469,7 @@ MtAsicMcsLutUpdateCoreAGBS(
 			 pRaEntry->TxPhyCfg.VhtNss,
 			 pRaEntry->TxPhyCfg.STBC,
 			 pRaEntry->TxPhyCfg.ldpc,
-			 pRaEntry->TxPhyCfg.ShortGI);
+			 pRaEntry->TxPhyCfg.ShortGI));
 }
 #endif /* RATE_ADAPT_AGBS_SUPPORT */
 #endif /* MCS_LUT_SUPPORT */

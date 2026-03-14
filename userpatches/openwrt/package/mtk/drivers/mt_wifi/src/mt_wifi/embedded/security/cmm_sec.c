@@ -1,17 +1,18 @@
 /*
- * Copyright (c) [2020], MediaTek Inc. All rights reserved.
- *
- * This software/firmware and related documentation ("MediaTek Software") are
- * protected under relevant copyright laws.
- * The information contained herein is confidential and proprietary to
- * MediaTek Inc. and/or its licensors.
- * Except as otherwise provided in the applicable licensing terms with
- * MediaTek Inc. and/or its licensors, any reproduction, modification, use or
- * disclosure of MediaTek Software, and information contained herein, in whole
- * or in part, shall be strictly prohibited.
-*/
-/*
  ***************************************************************************
+ * Ralink Tech Inc.
+ * 4F, No. 2 Technology	5th	Rd.
+ * Science-based Industrial	Park
+ * Hsin-chu, Taiwan, R.O.C.
+ *
+ * (c) Copyright 2002-2004, Ralink Technology, Inc.
+ *
+ * All rights reserved.	Ralink's source	code is	an unpublished work	and	the
+ * use of a	copyright notice does not imply	otherwise. This	source code
+ * contains	confidential trade secret material of Ralink Tech. Any attemp
+ * or participation	in deciphering,	decoding, reverse engineering or in	any
+ * way altering	the	source code	is stricitly prohibited, unless	the	prior
+ * written consent of Ralink Technology, Inc. is obtained.
  ***************************************************************************
 
 	Module Name:
@@ -32,9 +33,6 @@ VOID SetWdevAuthMode(
 	UINT32 AKMMap = 0;
 
 	CLEAR_SEC_AKM(AKMMap);
-#ifdef CONFIG_HOTSPOT_R3
-	pSecConfig->bIsWPA2EntOSEN = FALSE;
-#endif
 
 	if (rtstrcasecmp(arg, "OPEN") == TRUE)
 		SET_AKM_OPEN(AKMMap);
@@ -51,10 +49,7 @@ VOID SetWdevAuthMode(
 		SET_AKM_WPANONE(AKMMap);
 	else if (rtstrcasecmp(arg, "WPA2") == TRUE)
 		SET_AKM_WPA2(AKMMap);
-	else if (rtstrcasecmp(arg, "WPA2MIX") == TRUE) {
-		SET_AKM_WPA2(AKMMap);
-		SET_AKM_WPA2_SHA256(AKMMap);
-	} else if (rtstrcasecmp(arg, "WPA2PSK") == TRUE)
+	else if (rtstrcasecmp(arg, "WPA2PSK") == TRUE)
 		SET_AKM_WPA2PSK(AKMMap);
 	else if (rtstrcasecmp(arg, "WPA3") == TRUE) {
 		/* WPA3 code flow is same as WPA2, the usage of SEC_AKM_WPA3 is to force pmf on */
@@ -65,16 +60,12 @@ VOID SetWdevAuthMode(
 	else if (rtstrcasecmp(arg, "WPA3-192") == TRUE)
 		SET_AKM_WPA3_192BIT(AKMMap);
 #endif
-#if defined(DOT11_SAE_SUPPORT) || defined(SUPP_SAE_SUPPORT)
+#ifdef DOT11_SAE_SUPPORT
 	else if (rtstrcasecmp(arg, "WPA3PSK") == TRUE)
 		SET_AKM_SAE_SHA256(AKMMap);
 	else if (rtstrcasecmp(arg, "WPA2PSKWPA3PSK") == TRUE) {
 		SET_AKM_SAE_SHA256(AKMMap);
 		SET_AKM_WPA2PSK(AKMMap);
-	} else if (rtstrcasecmp(arg, "WPA2PSKMIXWPA3PSK") == TRUE) {
-		SET_AKM_SAE_SHA256(AKMMap);
-		SET_AKM_WPA2PSK(AKMMap);
-		SET_AKM_WPA2PSK_SHA256(AKMMap);
 	}
 #endif /* DOT11_SAE_SUPPORT */
 	else if (rtstrcasecmp(arg, "WPA1WPA2") == TRUE) {
@@ -95,48 +86,17 @@ VOID SetWdevAuthMode(
 	} else if (rtstrcasecmp(arg, "OWE") == TRUE) {
 		SET_AKM_OWE(AKMMap);
 	}
-#ifdef OCE_FILS_SUPPORT
-	else if (rtstrcasecmp(arg, "FILS_SHA256") == TRUE) {
-		SET_AKM_WPA2(AKMMap);
-		SET_AKM_FILS_SHA256(AKMMap);
-	} else if (rtstrcasecmp(arg, "FILS_SHA384") == TRUE) {
-		SET_AKM_WPA2(AKMMap);
-		SET_AKM_FILS_SHA384(AKMMap);
-	}
-#endif /* OCE_FILS_SUPPORT */
-#ifdef DPP_SUPPORT
-	else if (rtstrcasecmp(arg, "DPP") == TRUE) {
-		SET_AKM_DPP(AKMMap);
-	} else if (rtstrcasecmp(arg, "DPPWPA2PSK") == TRUE) {
-		SET_AKM_DPP(AKMMap);
-		SET_AKM_WPA2PSK(AKMMap);
-	} else if (rtstrcasecmp(arg, "DPPWPA3PSK") == TRUE) {
-		SET_AKM_DPP(AKMMap);
-		SET_AKM_SAE_SHA256(AKMMap);
-	} else if (rtstrcasecmp(arg, "DPPWPA3PSKWPA2PSK") == TRUE) {
-		SET_AKM_DPP(AKMMap);
-		SET_AKM_SAE_SHA256(AKMMap);
-		SET_AKM_WPA2PSK(AKMMap);
-	}
-#endif /* DPP_SUPPORT */
 
-#ifdef CONFIG_HOTSPOT_R3
-	else if (rtstrcasecmp(arg, "WPA2-Ent-OSEN") == TRUE) {
-		pSecConfig->bIsWPA2EntOSEN = TRUE;
-		SET_AKM_WPA2(AKMMap);
-		SET_AKM_OSEN(AKMMap);
-	}
-#endif
 	else {
-		MTWF_DBG(NULL, DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_ERROR, "Not support (AuthMode=%s, len=%d)\n",
-				 arg, (int) strlen(arg));
+		MTWF_LOG(DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_ERROR, ("%s:: Not support (AuthMode=%s, len=%d)\n",
+				 __func__, arg, (int) strlen(arg)));
 	}
 
 	if (AKMMap != 0x0)
 		pSecConfig->AKMMap = AKMMap;
 
-	MTWF_DBG(NULL, DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_INFO, "%s::AuthMode=0x%x\n",
-			 __func__, pSecConfig->AKMMap);
+	MTWF_LOG(DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("%s::AuthMode=0x%x\n",
+			 __func__, pSecConfig->AKMMap));
 }
 
 
@@ -175,8 +135,8 @@ VOID SetWdevEncrypMode(
 	}
 
 	else {
-		MTWF_DBG(NULL, DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_ERROR, "Not support (EncrypType=%s, len=%d)\n",
-				 arg, (int) strlen(arg));
+		MTWF_LOG(DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_ERROR, ("%s:: Not support (EncrypType=%s, len=%d)\n",
+				 __func__, arg, (int) strlen(arg)));
 	}
 
 	if (Cipher != 0x0) {
@@ -184,8 +144,8 @@ VOID SetWdevEncrypMode(
 		CLEAR_GROUP_CIPHER(pSecConfig);
 	}
 
-	MTWF_DBG(NULL, DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_INFO, "%s::PairwiseCipher=0x%x\n",
-			 __func__, GET_PAIRWISE_CIPHER(pSecConfig));
+	MTWF_LOG(DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("%s::PairwiseCipher=0x%x\n",
+			 __func__, GET_PAIRWISE_CIPHER(pSecConfig)));
 }
 
 
@@ -195,10 +155,9 @@ INT Set_SecAuthMode_Proc(
 {
 	POS_COOKIE pObj = (POS_COOKIE) pAd->OS_Cookie;
 	struct _SECURITY_CONFIG *pSecConfig = pObj->pSecConfig;
-
 	if (pSecConfig == NULL) {
-		MTWF_DBG(pAd, DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_ERROR, "pSecConfig == NULL, arg=%s\n",
-				 arg);
+		MTWF_LOG(DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_OFF, ("%s:: pSecConfig == NULL, arg=%s\n",
+				 __func__, arg));
 		return FALSE;
 	}
 
@@ -214,8 +173,8 @@ INT Set_SecEncrypType_Proc(
 	struct _SECURITY_CONFIG *pSecConfig = pObj->pSecConfig;
 
 	if (pSecConfig == NULL) {
-		MTWF_DBG(pAd, DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_ERROR, "pSecConfig == NULL, arg=%s\n",
-				 arg);
+		MTWF_LOG(DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_OFF, ("%s:: pSecConfig == NULL, arg=%s\n",
+				 __func__, arg));
 		return FALSE;
 	}
 
@@ -232,8 +191,8 @@ INT Set_SecDefaultKeyID_Proc(
 	ULONG KeyIdx;
 
 	if (pSecConfig == NULL) {
-		MTWF_DBG(pAd, DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_ERROR, "pSecConfig == NULL, arg=%s\n",
-				 arg);
+		MTWF_LOG(DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_OFF, ("%s:: pSecConfig == NULL, arg=%s\n",
+				 __func__, arg));
 		return FALSE;
 	}
 
@@ -244,8 +203,8 @@ INT Set_SecDefaultKeyID_Proc(
 	else
 		return FALSE;
 
-	MTWF_DBG(pAd, DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_INFO, "==> DefaultKeyId=%d\n",
-			 pSecConfig->PairwiseKeyId);
+	MTWF_LOG(DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("%s ==> DefaultKeyId=%d\n",
+			 __func__, pSecConfig->PairwiseKeyId));
 	return TRUE;
 }
 
@@ -256,66 +215,21 @@ INT	Set_SecWPAPSK_Proc(
 {
 	POS_COOKIE pObj = (POS_COOKIE) pAd->OS_Cookie;
 	struct _SECURITY_CONFIG *pSecConfig = pObj->pSecConfig;
-	BSS_STRUCT *pMbss = &pAd->ApCfg.MBSSID[pObj->ioctl_if];
-	INT i;
 
 	if (pSecConfig == NULL) {
-		MTWF_DBG(pAd, DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_ERROR, "pSecConfig == NULL, arg=%s\n",
-				 arg);
+		MTWF_LOG(DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_OFF, ("%s:: pSecConfig == NULL, arg=%s\n",
+				 __func__, arg));
 		return FALSE;
 	}
 
 	if (strlen(arg) < 65) {
-		if (strlen(arg) != strlen(pSecConfig->PSK)
-			|| !RTMPEqualMemory(arg, pSecConfig->PSK, strlen(arg))
-			) {
-
-			for (i = 0; i < MAX_PMKID_COUNT; i++) {
-				if ((pAd->ApCfg.PMKIDCache.BSSIDInfo[i].Valid == TRUE)
-					&& (pAd->ApCfg.PMKIDCache.BSSIDInfo[i].Mbssidx == pMbss->mbss_idx)) {
-					pAd->ApCfg.PMKIDCache.BSSIDInfo[i].Valid = FALSE;
-					MTWF_PRINT("%s():Modify PSK and clear PMKID (idx %d)from (mbssidx %d)\n", __func__, i, pMbss->mbss_idx);
-				}
-			}
-		}
-#ifdef CONFIG_STA_SUPPORT
-#ifdef APCLI_SUPPORT
-	if (pObj->ioctl_if_type == INT_APCLI) {
-		UCHAR sta_idx = pObj->ioctl_if;
-		BOOLEAN is_psk_same = 0;
-		UCHAR i = 0;
-
-		 for (i = 0; i < (LEN_PSK + 1); i++) {
-				if (pSecConfig->PSK[i] != arg[i]) {
-					is_psk_same = 0;
-					break;
-				}
-
-				if (pSecConfig->PSK[i] == '\0') {
-					is_psk_same = 1;
-					break;
-				}
-		}
-
-		if (!is_psk_same) {
-			/*PSK has changed we need to clear store apcli pmk cache for AKM's that use PSK*/
-			MTWF_DBG(pAd, DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_INFO,
-						"():Delete pmk cache on password change\n");
-
-#if defined(DOT11_SAE_SUPPORT) || defined(CONFIG_OWE_SUPPORT)
-
-			sta_delete_psk_pmkid_cache_all(pAd, sta_idx);
-#endif
-		}
-	}
-#endif /* APCLI_SUPPORT */
-#endif
 		os_move_mem(pSecConfig->PSK, arg, strlen(arg));
 		pSecConfig->PSK[strlen(arg)] = '\0';
 	} else
 		pSecConfig->PSK[0] = '\0';
 
-	MTWF_DBG(pAd, DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_INFO, "PSK = %s\n", arg);
+	MTWF_LOG(DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("%s: PSK = %s\n",
+			 __func__, arg));
 #ifdef CONFIG_AP_SUPPORT
 #ifdef WSC_AP_SUPPORT
 	IF_DEV_CONFIG_OPMODE_ON_AP(pAd) {
@@ -331,7 +245,7 @@ INT	Set_SecWPAPSK_Proc(
 		else if (pObj->ioctl_if_type == INT_APCLI) {
 			UCHAR    apcli_idx = pObj->ioctl_if;
 
-			pWscControl = &pAd->StaCfg[apcli_idx].wdev.WscControl;
+			pWscControl = &pAd->ApCfg.ApCliTab[apcli_idx].wdev.WscControl;
 		}
 
 #endif /* APCLI_SUPPORT */
@@ -358,13 +272,14 @@ INT Set_SecWEPKey_Proc(
 	struct _SECURITY_CONFIG *pSecConfig = pObj->pSecConfig;
 
 	if (pSecConfig == NULL) {
-		MTWF_DBG(pAd, DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_ERROR, "pSecConfig == NULL, arg=%s\n",
-				 arg);
+		MTWF_LOG(DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_OFF, ("%s:: pSecConfig == NULL, arg=%s\n",
+				 __func__, arg));
 		return FALSE;
 	}
 
 	retVal = ParseWebKey(pSecConfig, arg, KeyId, 0);
-	MTWF_DBG(pAd, DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_INFO, "KeyID=%d, key=%s\n", KeyId, arg);
+	MTWF_LOG(DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("%s::KeyID=%d, key=%s\n",
+			 __func__, KeyId, arg));
 	return retVal;
 }
 
@@ -409,26 +324,12 @@ RTMP_STRING *GetAuthModeStr(
 		return "WEPAUTO";
 	else if (IS_AKM_WPANONE(authMode))
 		return "WPANONE";
-	else if (IS_AKM_FT_WPA2PSK(authMode) && IS_AKM_FT_SAE_SHA256(authMode))
-		return "FT-WPA2PSKWPA3PSK";
 	else if (IS_AKM_WPA1(authMode) && IS_AKM_WPA2(authMode))
 		return "WPA1WPA2";
 	else if (IS_AKM_WPA1PSK(authMode) && IS_AKM_WPA2PSK(authMode))
 		return "WPAPSKWPA2PSK";
-#ifdef	MAP_R3
-	else if (IS_AKM_WPA2PSK(authMode) && IS_AKM_WPA3PSK(authMode) && IS_AKM_DPP(authMode))
-		return "DPPWPA3PSKWPA2PSK";
-	else if (IS_AKM_WPA3PSK(authMode) && IS_AKM_DPP(authMode))
-		return "DPPWPA3PSK";
-	else if (IS_AKM_WPA2PSK(authMode) && IS_AKM_DPP(authMode))
-		return "DPPWPA2PSK";
-#endif
 	else if (IS_AKM_WPA2PSK(authMode) && IS_AKM_WPA3PSK(authMode))
 		return "WPA2PSKWPA3PSK";
-	else if (IS_AKM_WPA2PSK(authMode) && IS_AKM_WPA2PSK_SHA256(authMode) && IS_AKM_WPA3PSK(authMode))
-		return "WPA2PSKMIXWPA3PSK";
-	else if (IS_AKM_FT_SAE_SHA256(authMode))
-		return "FT-SAE";
 	else if (IS_AKM_WPA3PSK(authMode))
 		return "WPA3PSK";
 	else if (IS_AKM_WPA1(authMode))
@@ -443,18 +344,12 @@ RTMP_STRING *GetAuthModeStr(
 		return "WPA3";
 	else if (IS_AKM_WPA2(authMode))
 		return "WPA2";
-	else if (IS_AKM_WPA2(authMode) && IS_AKM_WPA2_SHA256(authMode))
-		return "WPA2MIX";
 	else if (IS_AKM_WPA2PSK(authMode))
 		return "WPA2PSK";
 	else if (IS_AKM_WPA3_192BIT(authMode))
 		return "WPA3-192";
 	else if (IS_AKM_OWE(authMode))
 		return "OWE";
-#ifdef DPP_SUPPORT
-	else if (IS_AKM_DPP(authMode))
-		return "DPP";
-#endif /* DPP_SUPPORT */
 	else
 		return "UNKNOW";
 }
@@ -578,21 +473,12 @@ UINT32 SecEncryModeOldToNew(
 USHORT SecAuthModeNewToOld(
 	IN UINT32 authMode)
 {
-#ifdef CCAPI_API_SUPPORT
-	if (IS_AKM_OPEN(authMode) && IS_AKM_AUTOSWITCH(authMode))
-		return Ndis802_11AuthModeAutoSwitch;
-	else if (IS_AKM_SHARED(authMode))
-		return Ndis802_11AuthModeShared;
-	else if (IS_AKM_OPEN(authMode))
-		return Ndis802_11AuthModeOpen;
-#else
 	if (IS_AKM_OPEN(authMode))
 		return Ndis802_11AuthModeOpen;
 	else if (IS_AKM_SHARED(authMode))
 		return Ndis802_11AuthModeShared;
 	else if (IS_AKM_AUTOSWITCH(authMode))
 		return Ndis802_11AuthModeAutoSwitch;
-#endif
 	else if (IS_AKM_WPANONE(authMode))
 		return Ndis802_11AuthModeWPANone;
 	else if (IS_AKM_WPA1(authMode) && IS_AKM_WPA2(authMode))
@@ -603,31 +489,11 @@ USHORT SecAuthModeNewToOld(
 		return Ndis802_11AuthModeWPA;
 	else if (IS_AKM_WPA1PSK(authMode))
 		return Ndis802_11AuthModeWPAPSK;
-
-#ifdef CCAPI_API_SUPPORT
-	else if (IS_AKM_WPA2(authMode) && IS_AKM_WPA2_SHA256(authMode))
-		return Ndis802_11AuthModeWPA2MIX;
-	else if (IS_AKM_WPA2PSK_SHA256(authMode) && IS_AKM_WPA3PSK(authMode) && IS_AKM_WPA2PSK(authMode))
-		return NdisAuthModeWPA2PSKMIXWPA3PSK;
-	else if (IS_AKM_WPA3PSK(authMode) && IS_AKM_WPA2PSK(authMode))
-		return Ndis802_11AuthModeWPA2PSKWPA3PSK;
-	else if (IS_AKM_WPA3(authMode))
-		return Ndis802_11AuthModeWPA3;
-#endif
-
 	else if (IS_AKM_WPA2(authMode))
 		return Ndis802_11AuthModeWPA2;
 	else if (IS_AKM_WPA2PSK(authMode))
 		return Ndis802_11AuthModeWPA2PSK;
 
-#ifdef CCAPI_API_SUPPORT
-	else if (IS_AKM_WPA3_192BIT(authMode))
-		return Ndis802_11AuthModeWPA3_192;
-	else if (IS_AKM_WPA3PSK(authMode))
-		return Ndis802_11AuthModeWPA3PSK;
-	else if (IS_AKM_OWE (authMode))
-		return Ndis802_11AuthModeOWE;
-#endif/*CCAPI_API_SUPPORT*/
 	else
 		return Ndis802_11AuthModeOpen;
 }
@@ -681,9 +547,9 @@ INT ParseWebKey(
 	IN  INT KeyIdx,
 	IN  INT Keylength)
 {
-	UINT32 KeyLen = Keylength;
+	INT KeyLen = Keylength;
 	SEC_KEY_INFO *pWebKey = &pSecConfig->WepKey[KeyIdx];
-	UINT32 i = 0;
+	INT i = 0;
 
 	if (KeyLen == 0)
 		KeyLen = strlen(buffer);
@@ -708,17 +574,16 @@ INT ParseWebKey(
 		NdisZeroMemory(pWebKey, sizeof(SEC_KEY_INFO));
 		pWebKey->KeyLen = KeyLen / 2;
 		AtoH(buffer, pWebKey->Key, pWebKey->KeyLen);
-		pWebKey->Key[pWebKey->KeyLen] = '\0';
 		break;
 
 	default: /*Invalid argument */
-		MTWF_DBG(NULL, DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_INFO, "%s::(keyIdx=%d):Invalid argument (arg=%s)\n",
-				 __func__, KeyIdx, buffer);
+		MTWF_LOG(DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("%s::(keyIdx=%d):Invalid argument (arg=%s)\n",
+				 __func__, KeyIdx, buffer));
 		return FALSE;
 	}
 
-	MTWF_DBG(NULL, DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_INFO, "%s::(KeyIdx=%d, Alg=0x%x)\n",
-			 __func__, KeyIdx, pSecConfig->PairwiseCipher);
+	MTWF_LOG(DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("%s::(KeyIdx=%d, Alg=0x%x)\n",
+			 __func__, KeyIdx, pSecConfig->PairwiseCipher));
 	return TRUE;
 }
 
@@ -732,7 +597,7 @@ INT SetWdevOwnIPAddr(
 
 	if (rtinet_aton(arg, &ip_addr)) {
 		pSecConfig->own_ip_addr = ip_addr;
-		MTWF_DBG(NULL, DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_INFO, "own_ip_addr=%s(%x)\n", arg, pSecConfig->own_ip_addr);
+		MTWF_LOG(DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("own_ip_addr=%s(%x)\n", arg, pSecConfig->own_ip_addr));
 	}
 
 	return TRUE;
@@ -747,30 +612,26 @@ VOID ReadRadiusParameterFromFile(
 	UINT32 ip_addr;
 	INT i = 0;
 	BOOLEAN bUsePrevFormat = FALSE;
-	UINT offset;
+	USHORT offset;
 	struct wifi_dev *wdev = NULL;
 	struct _SECURITY_CONFIG *pSecConfig = NULL;
-	int ret;
 #ifdef CONFIG_AP_SUPPORT
 	INT apidx;
 #endif /* CONFIG_AP_SUPPORT */
 #ifdef RADIUS_ACCOUNTING_SUPPORT
 	BOOLEAN				bAcctUsePrevFormat = FALSE;
+	/* INT					acct_count[HW_BEACON_MAX_NUM]; */
 #endif /*RADIUS_ACCOUNTING_SUPPORT*/
-	PUCHAR count;
-	UCHAR srv_idx = 0;
-	os_alloc_mem(NULL, (UCHAR **)&count, MAX_MBSSID_NUM(pAd));
-	os_zero_mem(count, MAX_MBSSID_NUM(pAd));
 
 	/* own_ip_addr*/
 	if (RTMPGetKeyParameter("own_ip_addr", tmpbuf, 32, pBuffer, TRUE)) {
 #ifdef CONFIG_AP_SUPPORT
 		IF_DEV_CONFIG_OPMODE_ON_AP(pAd) {
 			for (apidx = 0, macptr = rstrtok(tmpbuf, ";"); (macptr && apidx < pAd->ApCfg.BssidNum); macptr = rstrtok(NULL, ";"), apidx++) {
-				wdev = &pAd->ApCfg.MBSSID[PF_TO_BSS_IDX(pAd, apidx)].wdev;
+				wdev = &pAd->ApCfg.MBSSID[apidx].wdev;
 				pSecConfig = &wdev->SecConfig;
-				MTWF_DBG(pAd, DBG_CAT_CFG, DBG_SUBCAT_ALL, DBG_LVL_INFO, "I/F(%s%d) ==> ",
-						 INF_MBSSID_DEV_NAME, apidx);
+				MTWF_LOG(DBG_CAT_CFG, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("I/F(%s%d) ==> ",
+						 INF_MBSSID_DEV_NAME, apidx));
 				SetWdevOwnIPAddr(pSecConfig, macptr);
 			}
 
@@ -781,7 +642,7 @@ VOID ReadRadiusParameterFromFile(
 				* in this point, let all bss set the same own_ip_addr for safe
 				*/
 				for (apidx = 1; apidx < pAd->ApCfg.BssidNum; apidx++) {
-					pSecConfig = &pAd->ApCfg.MBSSID[PF_TO_BSS_IDX(pAd, apidx)].wdev.SecConfig;
+					pSecConfig = &pAd->ApCfg.MBSSID[apidx].wdev.SecConfig;
 					pSecConfig->own_ip_addr = pAd->ApCfg.MBSSID[0].wdev.SecConfig.own_ip_addr;
 				}
 			}
@@ -793,25 +654,24 @@ VOID ReadRadiusParameterFromFile(
 #ifdef CONFIG_AP_SUPPORT
 		IF_DEV_CONFIG_OPMODE_ON_AP(pAd) {
 			for (apidx = 0, macptr = rstrtok(tmpbuf, ";");
-				 (macptr && apidx < pAd->ApCfg.BssidNum);
-				 macptr = rstrtok(NULL, ";"), apidx++) {
-				wdev = &pAd->ApCfg.MBSSID[PF_TO_BSS_IDX(pAd, apidx)].wdev;
+				(macptr && apidx < pAd->ApCfg.BssidNum);
+				macptr = rstrtok(NULL, ";"), apidx++) {
+
+				wdev = &pAd->ApCfg.MBSSID[apidx].wdev;
 				pSecConfig = &wdev->SecConfig;
-
-				MTWF_DBG(pAd, DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_INFO,
-						"I/F(%s%d) ==> ", INF_MBSSID_DEV_NAME, apidx);
-
+				MTWF_LOG(DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_TRACE,
+						("I/F(%s%d) ==> ", INF_MBSSID_DEV_NAME, apidx));
 
 				pSecConfig->own_radius_port = simple_strtol(macptr, 0, 10);
 			}
 
 			/* Apply to remaining MBSS*/
 			if (apidx >= 1) {
-				/*
-				*	own_radius_port is global setting , let all bss set the same own_radius_port
-				*/
+			/*
+			*	own_radius_port is global setting , let all bss set the same own_radius_port
+			*/
 				for (apidx = 1; apidx < pAd->ApCfg.BssidNum; apidx++) {
-					pSecConfig = &pAd->ApCfg.MBSSID[PF_TO_BSS_IDX(pAd, apidx)].wdev.SecConfig;
+					pSecConfig = &pAd->ApCfg.MBSSID[apidx].wdev.SecConfig;
 					pSecConfig->own_radius_port =
 						pAd->ApCfg.MBSSID[0].wdev.SecConfig.own_radius_port;
 				}
@@ -825,20 +685,20 @@ VOID ReadRadiusParameterFromFile(
 #ifdef CONFIG_AP_SUPPORT
 		IF_DEV_CONFIG_OPMODE_ON_AP(pAd) {
 			for (apidx = 0, macptr = rstrtok(tmpbuf, ";"); (macptr && apidx < pAd->ApCfg.BssidNum); macptr = rstrtok(NULL, ";"), apidx++) {
-				wdev = &pAd->ApCfg.MBSSID[PF_TO_BSS_IDX(pAd, apidx)].wdev;
+				wdev = &pAd->ApCfg.MBSSID[apidx].wdev;
 				pSecConfig = &wdev->SecConfig;
 				pSecConfig->session_timeout_interval = os_str_tol(macptr, 0, 10);
-				MTWF_DBG(pAd, DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_INFO, "I/F(%s%d) ==> session_timeout_interval=%d\n",
-						 INF_MBSSID_DEV_NAME, apidx, pSecConfig->session_timeout_interval);
+				MTWF_LOG(DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("I/F(%s%d) ==> session_timeout_interval=%d\n",
+						 INF_MBSSID_DEV_NAME, apidx, pSecConfig->session_timeout_interval));
 			}
 
 			/* Apply to remaining MBSS*/
 			if (apidx == 1) {
 				for (apidx = 1; apidx < pAd->ApCfg.BssidNum; apidx++) {
-					pSecConfig = &pAd->ApCfg.MBSSID[PF_TO_BSS_IDX(pAd, apidx)].wdev.SecConfig;
+					pSecConfig = &pAd->ApCfg.MBSSID[apidx].wdev.SecConfig;
 					pSecConfig->session_timeout_interval = pAd->ApCfg.MBSSID[0].wdev.SecConfig.session_timeout_interval;
-					MTWF_DBG(pAd, DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_INFO, "I/F(%s%d) ==> session_timeout_interval=%d\n",
-							 INF_MBSSID_DEV_NAME, apidx, pSecConfig->session_timeout_interval);
+					MTWF_LOG(DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("I/F(%s%d) ==> session_timeout_interval=%d\n",
+							 INF_MBSSID_DEV_NAME, apidx, pSecConfig->session_timeout_interval));
 				}
 			}
 		}
@@ -850,20 +710,20 @@ VOID ReadRadiusParameterFromFile(
 #ifdef CONFIG_AP_SUPPORT
 		IF_DEV_CONFIG_OPMODE_ON_AP(pAd) {
 			for (apidx = 0, macptr = rstrtok(tmpbuf, ";"); (macptr && apidx < pAd->ApCfg.BssidNum); macptr = rstrtok(NULL, ";"), apidx++) {
-				wdev = &pAd->ApCfg.MBSSID[PF_TO_BSS_IDX(pAd, apidx)].wdev;
+				wdev = &pAd->ApCfg.MBSSID[apidx].wdev;
 				pSecConfig = &wdev->SecConfig;
 				pSecConfig->quiet_interval = os_str_tol(macptr, 0, 10);
-				MTWF_DBG(pAd, DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_INFO, "I/F(%s%d) ==> quiet_interval=%d\n",
-						 INF_MBSSID_DEV_NAME, apidx, pSecConfig->quiet_interval);
+				MTWF_LOG(DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("I/F(%s%d) ==> quiet_interval=%d\n",
+						 INF_MBSSID_DEV_NAME, apidx, pSecConfig->quiet_interval));
 			}
 
 			/* Apply to remaining MBSS*/
 			if (apidx == 1) {
 				for (apidx = 1; apidx < pAd->ApCfg.BssidNum; apidx++) {
-					pSecConfig = &pAd->ApCfg.MBSSID[PF_TO_BSS_IDX(pAd, apidx)].wdev.SecConfig;
+					pSecConfig = &pAd->ApCfg.MBSSID[apidx].wdev.SecConfig;
 					pSecConfig->quiet_interval = pAd->ApCfg.MBSSID[0].wdev.SecConfig.quiet_interval;
-					MTWF_DBG(pAd, DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_INFO, "I/F(%s%d) ==> quiet_interval=%d\n",
-							 INF_MBSSID_DEV_NAME, apidx, pSecConfig->quiet_interval);
+					MTWF_LOG(DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("I/F(%s%d) ==> quiet_interval=%d\n",
+							 INF_MBSSID_DEV_NAME, apidx, pSecConfig->quiet_interval));
 				}
 			}
 		}
@@ -875,14 +735,14 @@ VOID ReadRadiusParameterFromFile(
 #ifdef CONFIG_AP_SUPPORT
 		IF_DEV_CONFIG_OPMODE_ON_AP(pAd) {
 			for (apidx = 0, macptr = rstrtok(tmpbuf, ";"); (macptr && apidx < pAd->ApCfg.BssidNum); macptr = rstrtok(NULL, ";"), apidx++) {
-				wdev = &pAd->ApCfg.MBSSID[PF_TO_BSS_IDX(pAd, apidx)].wdev;
+				wdev = &pAd->ApCfg.MBSSID[apidx].wdev;
 				pSecConfig = &wdev->SecConfig;
 
 				if (strlen(macptr) > 0 && strlen(macptr) <= IFNAMSIZ) {
 					pSecConfig->EAPifname_len = strlen(macptr);
 					NdisMoveMemory(pSecConfig->EAPifname, macptr, strlen(macptr));
-					MTWF_DBG(pAd, DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_INFO, "I/F(%s%d) ==> EAPifname=%s, len=%d\n",
-							 INF_MBSSID_DEV_NAME, apidx, pSecConfig->EAPifname, pSecConfig->EAPifname_len);
+					MTWF_LOG(DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("I/F(%s%d) ==> EAPifname=%s, len=%d\n",
+							 INF_MBSSID_DEV_NAME, apidx, pSecConfig->EAPifname, pSecConfig->EAPifname_len));
 				}
 			}
 		}
@@ -894,14 +754,14 @@ VOID ReadRadiusParameterFromFile(
 #ifdef CONFIG_AP_SUPPORT
 		IF_DEV_CONFIG_OPMODE_ON_AP(pAd) {
 			for (apidx = 0, macptr = rstrtok(tmpbuf, ";"); (macptr && apidx < pAd->ApCfg.BssidNum); macptr = rstrtok(NULL, ";"), apidx++) {
-				wdev = &pAd->ApCfg.MBSSID[PF_TO_BSS_IDX(pAd, apidx)].wdev;
+				wdev = &pAd->ApCfg.MBSSID[apidx].wdev;
 				pSecConfig = &wdev->SecConfig;
 
 				if (strlen(macptr) > 0 && strlen(macptr) <= IFNAMSIZ) {
 					pSecConfig->PreAuthifname_len = strlen(macptr);
 					NdisMoveMemory(pSecConfig->PreAuthifname, macptr, strlen(macptr));
-					MTWF_DBG(pAd, DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_INFO, "I/F(%s%d) ==> PreAuthifname=%s, len=%d\n",
-							 INF_MBSSID_DEV_NAME, apidx, pSecConfig->PreAuthifname, pSecConfig->PreAuthifname_len);
+					MTWF_LOG(DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("I/F(%s%d) ==> PreAuthifname=%s, len=%d\n",
+							 INF_MBSSID_DEV_NAME, apidx, pSecConfig->PreAuthifname, pSecConfig->PreAuthifname_len));
 				}
 			}
 		}
@@ -913,7 +773,7 @@ VOID ReadRadiusParameterFromFile(
 #ifdef CONFIG_AP_SUPPORT
 		IF_DEV_CONFIG_OPMODE_ON_AP(pAd) {
 			for (apidx = 0, macptr = rstrtok(tmpbuf, ";"); (macptr && apidx < pAd->ApCfg.BssidNum); macptr = rstrtok(NULL, ";"), apidx++) {
-				wdev = &pAd->ApCfg.MBSSID[PF_TO_BSS_IDX(pAd, apidx)].wdev;
+				wdev = &pAd->ApCfg.MBSSID[apidx].wdev;
 				pSecConfig = &wdev->SecConfig;
 
 				if (os_str_tol(macptr, 0, 10) != 0)  /*Enable*/
@@ -921,8 +781,8 @@ VOID ReadRadiusParameterFromFile(
 				else /*Disable*/
 					pSecConfig->PreAuth = FALSE;
 
-				MTWF_DBG(pAd, DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_INFO, "I/F(%s%d) ==> PreAuth=%d\n",
-						 INF_MBSSID_DEV_NAME, apidx, pSecConfig->PreAuth);
+				MTWF_LOG(DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("I/F(%s%d) ==> PreAuth=%d\n",
+						 INF_MBSSID_DEV_NAME, apidx, pSecConfig->PreAuth));
 			}
 		}
 #endif /* CONFIG_AP_SUPPORT */
@@ -933,7 +793,7 @@ VOID ReadRadiusParameterFromFile(
 #ifdef CONFIG_AP_SUPPORT
 		IF_DEV_CONFIG_OPMODE_ON_AP(pAd) {
 			for (apidx = 0, macptr = rstrtok(tmpbuf, ";"); (macptr && apidx < pAd->ApCfg.BssidNum); macptr = rstrtok(NULL, ";"), apidx++) {
-				wdev = &pAd->ApCfg.MBSSID[PF_TO_BSS_IDX(pAd, apidx)].wdev;
+				wdev = &pAd->ApCfg.MBSSID[apidx].wdev;
 				pSecConfig = &wdev->SecConfig;
 
 				if (os_str_tol(macptr, 0, 10) != 0)  /*Enable*/
@@ -941,8 +801,8 @@ VOID ReadRadiusParameterFromFile(
 				else /*Disable*/
 					pSecConfig->IEEE8021X = FALSE;
 
-				MTWF_DBG(pAd, DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_INFO, "IF(%s%d) ==> IEEE8021X=%d\n",
-						 INF_MBSSID_DEV_NAME, apidx, pSecConfig->IEEE8021X);
+				MTWF_LOG(DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("IF(%s%d) ==> IEEE8021X=%d\n",
+						 INF_MBSSID_DEV_NAME, apidx, pSecConfig->IEEE8021X));
 			}
 		}
 #endif /* CONFIG_AP_SUPPORT */
@@ -970,11 +830,11 @@ VOID ReadRadiusParameterFromFile(
 	if (RTMPGetKeyParameter("radius_acct_authentic", tmpbuf, 32, pBuffer, TRUE)) {
 		IF_DEV_CONFIG_OPMODE_ON_AP(pAd) {
 			for (apidx = 0, macptr = rstrtok(tmpbuf, ";"); (macptr && apidx < pAd->ApCfg.BssidNum); macptr = rstrtok(NULL, ";"), apidx++) {
-				wdev = &pAd->ApCfg.MBSSID[PF_TO_BSS_IDX(pAd, apidx)].wdev;
+				wdev = &pAd->ApCfg.MBSSID[apidx].wdev;
 				pSecConfig = &wdev->SecConfig;
 				pSecConfig->radius_acct_authentic = os_str_tol(macptr, 0, 10);
-				MTWF_DBG(pAd, DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_INFO, "IF(%s%d) ==> radius_acct_authentic=%d\n",
-						 INF_MBSSID_DEV_NAME, apidx, pSecConfig->radius_acct_authentic);
+				MTWF_LOG(DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("IF(%s%d) ==> radius_acct_authentic=%d\n",
+						 INF_MBSSID_DEV_NAME, apidx, pSecConfig->radius_acct_authentic));
 			}
 		}
 	}
@@ -983,11 +843,11 @@ VOID ReadRadiusParameterFromFile(
 	if (RTMPGetKeyParameter("acct_interim_interval", tmpbuf, 32, pBuffer, TRUE)) {
 		IF_DEV_CONFIG_OPMODE_ON_AP(pAd) {
 			for (apidx = 0, macptr = rstrtok(tmpbuf, ";"); (macptr && apidx < pAd->ApCfg.BssidNum); macptr = rstrtok(NULL, ";"), apidx++) {
-				wdev = &pAd->ApCfg.MBSSID[PF_TO_BSS_IDX(pAd, apidx)].wdev;
+				wdev = &pAd->ApCfg.MBSSID[apidx].wdev;
 				pSecConfig = &wdev->SecConfig;
 				pSecConfig->acct_interim_interval = os_str_tol(macptr, 0, 10);
-				MTWF_DBG(pAd, DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_INFO, "IF(%s%d) ==> acct_interim_interval=%d\n",
-						 INF_MBSSID_DEV_NAME, apidx, pSecConfig->acct_interim_interval);
+				MTWF_LOG(DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("IF(%s%d) ==> acct_interim_interval=%d\n",
+						 INF_MBSSID_DEV_NAME, apidx, pSecConfig->acct_interim_interval));
 			}
 		}
 	}
@@ -996,11 +856,11 @@ VOID ReadRadiusParameterFromFile(
 	if (RTMPGetKeyParameter("acct_enable", tmpbuf, 32, pBuffer, TRUE)) {
 		IF_DEV_CONFIG_OPMODE_ON_AP(pAd) {
 			for (apidx = 0, macptr = rstrtok(tmpbuf, ";"); (macptr && apidx < pAd->ApCfg.BssidNum); macptr = rstrtok(NULL, ";"), apidx++) {
-				wdev = &pAd->ApCfg.MBSSID[PF_TO_BSS_IDX(pAd, apidx)].wdev;
+				wdev = &pAd->ApCfg.MBSSID[apidx].wdev;
 				pSecConfig = &wdev->SecConfig;
 				pSecConfig->acct_enable = os_str_tol(macptr, 0, 10);
-				MTWF_DBG(pAd, DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_INFO, "IF(%s%d) ==> acct_enable=%d\n",
-						 INF_MBSSID_DEV_NAME, apidx, pSecConfig->acct_enable);
+				MTWF_LOG(DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("IF(%s%d) ==> acct_enable=%d\n",
+						 INF_MBSSID_DEV_NAME, apidx, pSecConfig->acct_enable));
 			}
 		}
 	}
@@ -1011,43 +871,40 @@ VOID ReadRadiusParameterFromFile(
 
 	while (RTMPGetKeyParameterWithOffset("RADIUS_Server", tmpbuf, &offset, 256, pBuffer, TRUE)) {
 		for (apidx = 0, macptr = rstrtok(tmpbuf, ";"); (macptr && apidx < MAX_MBSSID_NUM(pAd)); macptr = rstrtok(NULL, ";"), apidx++) {
-			wdev = &pAd->ApCfg.MBSSID[PF_TO_BSS_IDX(pAd, apidx)].wdev;
+			wdev = &pAd->ApCfg.MBSSID[apidx].wdev;
 			pSecConfig = &wdev->SecConfig;
+
 			if (rtinet_aton(macptr, &ip_addr) && (pSecConfig->radius_srv_num < MAX_RADIUS_SRV_NUM)) {
-				pSecConfig->radius_srv_info[pSecConfig->radius_srv_num].radius_ip = ip_addr;
-				MTWF_DBG(pAd, DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_INFO, "IF(%s%d) ==> radius_ip(seq-%d)=%s\n",
-						 INF_MBSSID_DEV_NAME, apidx, pSecConfig->radius_srv_num, macptr);
+				pSecConfig->radius_srv_info[0].radius_ip = ip_addr;
+				MTWF_LOG(DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("IF(%s%d) ==> radius_ip(seq-%d)=%s\n",
+						 INF_MBSSID_DEV_NAME, apidx, pSecConfig->radius_srv_num, macptr));
 				pSecConfig->radius_srv_num++;
 			}
 		}
 	}
+
 	/* RADIUS_Port */
 	offset = 0;
 
 	while (RTMPGetKeyParameterWithOffset("RADIUS_Port", tmpbuf, &offset, 256, pBuffer, TRUE)) {
 		for (apidx = 0, macptr = rstrtok(tmpbuf, ";"); (macptr && apidx < MAX_MBSSID_NUM(pAd)); macptr = rstrtok(NULL, ";"), apidx++) {
-			wdev = &pAd->ApCfg.MBSSID[PF_TO_BSS_IDX(pAd, apidx)].wdev;
+			wdev = &pAd->ApCfg.MBSSID[apidx].wdev;
 			pSecConfig = &wdev->SecConfig;
-			if (count[apidx] < pSecConfig->radius_srv_num) {
-				srv_idx = count[apidx];
-				pSecConfig->radius_srv_info[srv_idx].radius_port = (UINT32) os_str_tol(macptr, 0, 10);
-				MTWF_DBG(pAd, DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_INFO, "IF(%s%d) ==> radius_port(seq-%d)=%d\n",
-					INF_MBSSID_DEV_NAME, apidx, 0, pSecConfig->radius_srv_info[0].radius_port);
-				count[apidx]++;
-			}
+			pSecConfig->radius_srv_info[0].radius_port = (UINT32) os_str_tol(macptr, 0, 10);
+			MTWF_LOG(DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("IF(%s%d) ==> radius_port(seq-%d)=%d\n",
+					 INF_MBSSID_DEV_NAME, apidx, 0, pSecConfig->radius_srv_info[0].radius_port));
 		}
 	}
-	os_free_mem(count);
 
 	/* RADIUS_Key  */
 	offset = 0;
 
 	while (RTMPGetKeyParameterWithOffset("RADIUS_Key", tmpbuf, &offset, 256, pBuffer, TRUE)) {
-		if (strlen(tmpbuf) > pAd->ApCfg.BssidNum)
+		if (strlen(tmpbuf) > 0)
 			bUsePrevFormat = TRUE;
 
 		for (apidx = 0, macptr = rstrtok(tmpbuf, ";"); (macptr && apidx < MAX_MBSSID_NUM(pAd)); macptr = rstrtok(NULL, ";"), apidx++) {
-			wdev = &pAd->ApCfg.MBSSID[PF_TO_BSS_IDX(pAd, apidx)].wdev;
+			wdev = &pAd->ApCfg.MBSSID[apidx].wdev;
 			pSecConfig = &wdev->SecConfig;
 
 			if (strlen(macptr) > 0) {
@@ -1055,35 +912,27 @@ VOID ReadRadiusParameterFromFile(
 
 				p_radius_srv_info->radius_key_len = strlen(macptr) > 64 ? 64 : strlen(macptr);
 				NdisMoveMemory(p_radius_srv_info->radius_key, macptr, p_radius_srv_info->radius_key_len);
-				MTWF_DBG(pAd, DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_INFO, "IF(%s%d) ==> radius_key(seq-%d)=%s, len=%d\n",
-						 INF_MBSSID_DEV_NAME, apidx, 0, macptr, p_radius_srv_info->radius_key_len);
+				MTWF_LOG(DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("IF(%s%d) ==> radius_key(seq-%d)=%s, len=%d\n",
+						 INF_MBSSID_DEV_NAME, apidx, 0, macptr, p_radius_srv_info->radius_key_len));
 			}
 		}
 	}
 
 	if (!bUsePrevFormat) {
 		for (i = 0; i < MAX_MBSSID_NUM(pAd); i++) {
-			ret = snprintf(tok_str, sizeof(tok_str), "RADIUS_Key%d", i + 1);
-			if (os_snprintf_error(sizeof(tok_str), ret))
-				MTWF_DBG(pAd, DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-					"tok_str snprintf error!\n");
-
+			snprintf(tok_str, sizeof(tok_str), "RADIUS_Key%d", i + 1);
 			offset = 0;
-			wdev = &pAd->ApCfg.MBSSID[PF_TO_BSS_IDX(pAd, i)].wdev;
+			wdev = &pAd->ApCfg.MBSSID[i].wdev;
 			pSecConfig = &wdev->SecConfig;
-			srv_idx = 0;
 
 			while (RTMPGetKeyParameterWithOffset(tok_str, tmpbuf, &offset, 128, pBuffer, FALSE)) {
 				if (strlen(tmpbuf) > 0) {
-					if (srv_idx < pSecConfig->radius_srv_num) {
-						RADIUS_SRV_INFO *p_radius_srv_info = &pSecConfig->radius_srv_info[srv_idx];
+					RADIUS_SRV_INFO *p_radius_srv_info = &pSecConfig->radius_srv_info[0];
 
-						p_radius_srv_info->radius_key_len = strlen(tmpbuf) > 64 ? 64 : strlen(tmpbuf);
-						NdisMoveMemory(p_radius_srv_info->radius_key, tmpbuf, p_radius_srv_info->radius_key_len);
-						MTWF_DBG(pAd, DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_INFO, "IF(%s%d) ==> radius_key(seq-%d)=%s, len=%d\n",
-							INF_MBSSID_DEV_NAME, i, 0, p_radius_srv_info->radius_key, p_radius_srv_info->radius_key_len);
-						srv_idx++;
-					}
+					p_radius_srv_info->radius_key_len = strlen(tmpbuf) > 64 ? 64 : strlen(tmpbuf);
+					NdisMoveMemory(p_radius_srv_info->radius_key, tmpbuf, p_radius_srv_info->radius_key_len);
+					MTWF_LOG(DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("IF(%s%d) ==> radius_key(seq-%d)=%s, len=%d\n",
+							 INF_MBSSID_DEV_NAME, i, 0, p_radius_srv_info->radius_key, p_radius_srv_info->radius_key_len));
 				}
 			}
 		}
@@ -1091,19 +940,16 @@ VOID ReadRadiusParameterFromFile(
 
 	/* NasIdX, X indicate the interface index(1~8) */
 	for (i = 0; i < MAX_MBSSID_NUM(pAd); i++) {
-		wdev = &pAd->ApCfg.MBSSID[PF_TO_BSS_IDX(pAd, i)].wdev;
+		wdev = &pAd->ApCfg.MBSSID[i].wdev;
 		pSecConfig = &wdev->SecConfig;
-		ret = snprintf(tok_str, sizeof(tok_str), "NasId%d", i + 1);
-		if (os_snprintf_error(sizeof(tok_str), ret))
-				MTWF_DBG(pAd, DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-					"tok_str2 snprintf error!\n");
+		snprintf(tok_str, sizeof(tok_str), "NasId%d", i + 1);
 
 		if (RTMPGetKeyParameter(tok_str, tmpbuf, 33, pBuffer, FALSE)) {
 			if (strlen(tmpbuf) > 0) {
 				pSecConfig->NasIdLen = strlen(tmpbuf) > IFNAMSIZ ? IFNAMSIZ : strlen(tmpbuf);
 				NdisMoveMemory(pSecConfig->NasId, tmpbuf, pSecConfig->NasIdLen);
-				MTWF_DBG(pAd, DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_INFO, "IF(%s%d) ==> NAS-ID=%s, len=%d\n",
-						 INF_MBSSID_DEV_NAME, i, pSecConfig->NasId, pSecConfig->NasIdLen);
+				MTWF_LOG(DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("IF(%s%d) ==> NAS-ID=%s, len=%d\n",
+						 INF_MBSSID_DEV_NAME, i, pSecConfig->NasId, pSecConfig->NasIdLen));
 			}
 		}
 	}
@@ -1114,13 +960,13 @@ VOID ReadRadiusParameterFromFile(
 
 	while (RTMPGetKeyParameterWithOffset("RADIUS_Acct_Server", tmpbuf, &offset, 256, pBuffer, TRUE)) {
 		for (apidx = 0, macptr = rstrtok(tmpbuf, ";"); (macptr && apidx < MAX_MBSSID_NUM(pAd)); macptr = rstrtok(NULL, ";"), apidx++) {
-			wdev = &pAd->ApCfg.MBSSID[PF_TO_BSS_IDX(pAd, apidx)].wdev;
+			wdev = &pAd->ApCfg.MBSSID[apidx].wdev;
 			pSecConfig = &wdev->SecConfig;
 
 			if (rtinet_aton(macptr, &ip_addr) && (pSecConfig->radius_acct_srv_num < MAX_RADIUS_SRV_NUM)) {
 				pSecConfig->radius_acct_srv_info[pSecConfig->radius_acct_srv_num].radius_ip = ip_addr;
-				MTWF_DBG(pAd, DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_INFO, "IF(%s%d) ==> radius_acct_ip(seq-%d)=%s\n",
-						 INF_MBSSID_DEV_NAME, apidx, pSecConfig->radius_acct_srv_num, macptr);
+				MTWF_LOG(DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("IF(%s%d) ==> radius_acct_ip(seq-%d)=%s\n",
+						 INF_MBSSID_DEV_NAME, apidx, pSecConfig->radius_acct_srv_num, macptr));
 				pSecConfig->radius_acct_srv_num++;
 			}
 		}
@@ -1131,11 +977,11 @@ VOID ReadRadiusParameterFromFile(
 
 	while (RTMPGetKeyParameterWithOffset("RADIUS_Acct_Port", tmpbuf, &offset, 256, pBuffer, TRUE)) {
 		for (apidx = 0, macptr = rstrtok(tmpbuf, ";"); (macptr && apidx < MAX_MBSSID_NUM(pAd)); macptr = rstrtok(NULL, ";"), apidx++) {
-			wdev = &pAd->ApCfg.MBSSID[PF_TO_BSS_IDX(pAd, apidx)].wdev;
+			wdev = &pAd->ApCfg.MBSSID[apidx].wdev;
 			pSecConfig = &wdev->SecConfig;
 			pSecConfig->radius_acct_srv_info[0].radius_port = (UINT32) os_str_tol(macptr, 0, 10);	/* TODO: idx */
-			MTWF_DBG(pAd, DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_INFO, "IF(%s%d) ==> radius_acct_port(seq-%d)=%d\n",
-					 INF_MBSSID_DEV_NAME, apidx, 0, pSecConfig->radius_acct_srv_info[0].radius_port);
+			MTWF_LOG(DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("IF(%s%d) ==> radius_acct_port(seq-%d)=%d\n",
+					 INF_MBSSID_DEV_NAME, apidx, 0, pSecConfig->radius_acct_srv_info[0].radius_port));
 		}
 	}
 
@@ -1147,7 +993,7 @@ VOID ReadRadiusParameterFromFile(
 			bAcctUsePrevFormat = TRUE;
 
 		for (apidx = 0, macptr = rstrtok(tmpbuf, ";"); (macptr && apidx < MAX_MBSSID_NUM(pAd)); macptr = rstrtok(NULL, ";"), apidx++) {
-			wdev = &pAd->ApCfg.MBSSID[PF_TO_BSS_IDX(pAd, apidx)].wdev;
+			wdev = &pAd->ApCfg.MBSSID[apidx].wdev;
 			pSecConfig = &wdev->SecConfig;
 
 			if (strlen(macptr) > 0) {
@@ -1155,20 +1001,17 @@ VOID ReadRadiusParameterFromFile(
 
 				p_radius_srv_info->radius_key_len = strlen(macptr) > 64 ? 64 : strlen(macptr);
 				NdisMoveMemory(p_radius_srv_info->radius_key, macptr, p_radius_srv_info->radius_key_len);
-				MTWF_DBG(pAd, DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_INFO, "IF(%s%d) ==> radius_acct_key(seq-%d)=%s, len=%d\n",
-						 INF_MBSSID_DEV_NAME, apidx, 0, macptr, p_radius_srv_info->radius_key_len);
+				MTWF_LOG(DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("IF(%s%d) ==> radius_acct_key(seq-%d)=%s, len=%d\n",
+						 INF_MBSSID_DEV_NAME, apidx, 0, macptr, p_radius_srv_info->radius_key_len));
 			}
 		}
 	}
 
 	if (!bAcctUsePrevFormat) {
 		for (i = 0; i < MAX_MBSSID_NUM(pAd); i++) {
-			ret = snprintf(tok_str, sizeof(tok_str), "RADIUS_Acct_Key%d", i + 1);
-			if (os_snprintf_error(sizeof(tok_str), ret))
-				MTWF_DBG(pAd, DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-					"tok_str3 snprintf error!\n");
+			snprintf(tok_str, sizeof(tok_str), "RADIUS_Acct_Key%d", i + 1);
 			offset = 0;
-			wdev = &pAd->ApCfg.MBSSID[PF_TO_BSS_IDX(pAd, i)].wdev;
+			wdev = &pAd->ApCfg.MBSSID[i].wdev;
 			pSecConfig = &wdev->SecConfig;
 
 			while (RTMPGetKeyParameterWithOffset(tok_str, tmpbuf, &offset, 128, pBuffer, FALSE)) {
@@ -1177,8 +1020,8 @@ VOID ReadRadiusParameterFromFile(
 
 					p_radius_srv_info->radius_key_len = strlen(tmpbuf) > 64 ? 64 : strlen(tmpbuf);
 					NdisMoveMemory(p_radius_srv_info->radius_key, tmpbuf, p_radius_srv_info->radius_key_len);
-					MTWF_DBG(pAd, DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_INFO, "IF(%s%d) ==> radius_acct_key(seq-%d)=%s, len=%d\n",
-							 INF_MBSSID_DEV_NAME, i, 0, p_radius_srv_info->radius_key, p_radius_srv_info->radius_key_len);
+					MTWF_LOG(DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("IF(%s%d) ==> radius_acct_key(seq-%d)=%s, len=%d\n",
+							 INF_MBSSID_DEV_NAME, i, 0, p_radius_srv_info->radius_key, p_radius_srv_info->radius_key_len));
 				}
 			}
 		}
@@ -1201,30 +1044,28 @@ VOID Dot1xIoctlQueryRadiusConf(
 	UCHAR main_apidx = (UCHAR) pObj->ioctl_if;
 	UCHAR last_apidx = pAd->ApCfg.BssidNum - 1;
 
-
-	MTWF_DBG(pAd, DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_INFO, "==>\n");
+	MTWF_LOG(DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("%s==>\n", __func__));
 
 #ifdef MULTI_PROFILE
-
 	if ((main_apidx == BSS0)
 		&& (is_multi_profile_enable(pAd) == TRUE))
 		last_apidx = multi_profile_get_pf1_num(pAd) - 1;
-
 #endif
-
 	if ((main_apidx > pAd->ApCfg.BssidNum - 1)
 		|| (main_apidx > last_apidx)) {
-		MTWF_DBG(pAd, DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_ERROR, "Invalid MBSSID index(%d)!\n",
-			main_apidx);
-		return;
+	    MTWF_LOG(DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_ERROR, ("%s():Invalid MBSSID index(%d)!\n",
+		    __func__, main_apidx));
+	    return;
 	}
 
+
 	pSecConfigMain = &pAd->ApCfg.MBSSID[main_apidx].wdev.SecConfig;
+
 	/* Allocate memory */
 	os_alloc_mem(NULL, (PUCHAR *)&mpool, sizeof(DOT1X_CMM_CONF));
 
 	if (mpool == NULL) {
-		MTWF_DBG(pAd, DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_ERROR, "!!!out of resource!!!\n");
+		MTWF_LOG(DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_ERROR, ("!!!%s: out of resource!!!\n", __func__));
 		return;
 	}
 
@@ -1244,7 +1085,7 @@ VOID Dot1xIoctlQueryRadiusConf(
 	pConf->quiet_interval = pSecConfigMain->quiet_interval;
 
 	for (apidx = main_apidx; apidx <= last_apidx; apidx++) {
-		struct _SECURITY_CONFIG *pSecConfig = &pAd->ApCfg.MBSSID[PF_TO_BSS_IDX(pAd, apidx)].wdev.SecConfig;
+		struct _SECURITY_CONFIG *pSecConfig = &pAd->ApCfg.MBSSID[apidx].wdev.SecConfig;
 		UCHAR apidx_locate = apidx - main_apidx;
 		PDOT1X_BSS_INFO p1xBssInfo = &pConf->Dot1xBssInfo[apidx_locate];
 #ifdef RADIUS_ACCOUNTING_SUPPORT
@@ -1337,7 +1178,7 @@ VOID Dot1xIoctlQueryRadiusConf(
 	wrq->u.data.length = sizeof(DOT1X_CMM_CONF);
 
 	if (copy_to_user(wrq->u.data.pointer, pConf, wrq->u.data.length))
-		MTWF_DBG(pAd, DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_ERROR, "copy_to_user() fail\n");
+		MTWF_LOG(DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_ERROR, ("%s: copy_to_user() fail\n", __func__));
 
 	os_free_mem(mpool);
 }
@@ -1348,27 +1189,20 @@ VOID Dot1xIoctlRadiusData(
 {
 	POS_COOKIE pObj = (POS_COOKIE) pAd->OS_Cookie;
 	struct _SECURITY_CONFIG *pSecConfig = NULL;
-	UCHAR *pPkt;
 
-	MTWF_DBG(pAd, DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_INFO, "IF(ra%d)\n", pObj->ioctl_if);
+	MTWF_LOG(DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("%s, IF(ra%d)\n", __func__, pObj->ioctl_if));
 
 	if (pObj->ioctl_if > pAd->ApCfg.BssidNum) {
-		MTWF_DBG(pAd, DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_ERROR, "Invalid MBSSID index(%d)!\n",
-				 pObj->ioctl_if);
+		MTWF_LOG(DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_ERROR, ("%s():Invalid MBSSID index(%d)!\n",
+				 __func__, pObj->ioctl_if));
 		return;
 	}
 
-	os_alloc_mem(pAd, (UCHAR **)&pPkt, wrq->u.data.length);
-	if (pPkt) {
-		if (copy_from_user(pPkt, wrq->u.data.pointer, wrq->u.data.length) == 0) {
-			pSecConfig = &pAd->ApCfg.MBSSID[pObj->ioctl_if].wdev.SecConfig;
+	pSecConfig = &pAd->ApCfg.MBSSID[pObj->ioctl_if].wdev.SecConfig;
 
-			if (IS_AKM_1X(pSecConfig->AKMMap)
-					|| (pSecConfig->IEEE8021X == TRUE))
-				WpaSend(pAd, (PUCHAR)pPkt, wrq->u.data.length);
-		}
-		os_free_mem(pPkt);
-	}
+	if (IS_AKM_1X(pSecConfig->AKMMap)
+		|| (pSecConfig->IEEE8021X == TRUE))
+		WpaSend(pAd, (PUCHAR)wrq->u.data.pointer, wrq->u.data.length);
 }
 
 
@@ -1392,33 +1226,22 @@ VOID Dot1xIoctlAddWPAKey(
 	struct _SECURITY_CONFIG *pSecConfig = NULL;
 	struct wifi_dev *wdev = NULL;
 	POS_COOKIE pObj = (POS_COOKIE) pAd->OS_Cookie;
-	struct tx_rx_ctl *tr_ctl = &pAd->tr_ctl;
 
 	apidx =	(UCHAR) pObj->ioctl_if;
-	MTWF_DBG(pAd, DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_INFO, "IF(ra%d)\n", apidx);
-	os_alloc_mem(pAd, (UCHAR **)&pKey, wrq->u.data.length);
-	if (pKey == NULL)
-		return;
-
-	if (copy_from_user(pKey, wrq->u.data.pointer, wrq->u.data.length)) {
-		MTWF_DBG(pAd, DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_INFO, "copy from user failed\n");
-		os_free_mem(pKey);
-		return;
-	}
-
+	MTWF_LOG(DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("%s-IF(ra%d)\n", __func__, apidx));
+	pKey = (PNDIS_AP_802_11_KEY) wrq->u.data.pointer;
 	pSecConfig = &pAd->ApCfg.MBSSID[apidx].wdev.SecConfig;
 	wdev = &pAd->ApCfg.MBSSID[apidx].wdev;
 
 	if (IS_AKM_1X(pSecConfig->AKMMap)) {
-		if ((pKey->KeyLength == 32) || (pKey->KeyLength == 64)) {
-			UCHAR key_len = LEN_PMK;
+		UCHAR key_len = LEN_PMK;
 
+		if ((pKey->KeyLength == 32) || (pKey->KeyLength == 64)) {
 			pEntry = MacTableLookup(pAd, pKey->addr);
 
 			if (pEntry != NULL) {
 				INT k_offset = 0;
 #ifdef DOT11R_FT_SUPPORT
-
 				/* The key shall be the second 256 bits of the MSK. */
 				if (IS_FT_RSN_STA(pEntry) && pKey->KeyLength == 64)
 					k_offset = 32;
@@ -1427,12 +1250,6 @@ VOID Dot1xIoctlAddWPAKey(
 				if (IS_AKM_WPA3_192BIT(pSecConfig->AKMMap) && (pKey->KeyLength == 64))
 					key_len = LEN_PMK_SHA384;
 
-
-#ifdef OCE_FILS_SUPPORT
-				if (IS_AKM_FILS_SHA384(pEntry->SecConfig.AKMMap) && pKey->KeyLength == 64)
-					key_len = LEN_PMK_SHA384;
-#endif /* OCE_FILS_SUPPORT */
-
 				NdisMoveMemory(pSecConfig->PMK, pKey->KeyMaterial + k_offset, key_len);
 				hex_dump("PMK", pSecConfig->PMK, key_len);
 			}
@@ -1440,22 +1257,21 @@ VOID Dot1xIoctlAddWPAKey(
 	} else {	/* Old WEP stuff */
 		ASIC_SEC_INFO Info = {0};
 
-		if (pKey->KeyLength > 16) {
-			os_free_mem(pKey);
+		if (pKey->KeyLength > 16)
 			return;
-		}
+
 		KeyIdx = pKey->KeyIndex & 0x0fffffff;
 
 		if (KeyIdx < 4) {
 			/* For Group key setting */
 			if (pKey->KeyIndex & 0x80000000) {
-				UINT16 Wcid;
+				UINT8 Wcid;
 				/* Default key for tx (shared key) */
 				pSecConfig->GroupKeyId = (UCHAR) KeyIdx;
 
 				/* set key material and key length */
 				if (pKey->KeyLength > 16) {
-					MTWF_DBG(pAd, DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_ERROR, "-IF(ra%d) : Key length too long %d\n", apidx, pKey->KeyLength);
+					MTWF_LOG(DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_ERROR, ("%s-IF(ra%d) : Key length too long %d\n", __func__, apidx, pKey->KeyLength));
 					pKey->KeyLength = 16;
 				}
 
@@ -1511,7 +1327,7 @@ VOID Dot1xIoctlAddWPAKey(
 					os_move_mem(&Info.Key, &pSecConfig->WepKey[Info.KeyIdx], sizeof(SEC_KEY_INFO));
 					/* HW_ADDREMOVE_KEYTABLE(pAd, &Info); */
 					/* open 802.1x port control and privacy filter */
-					tr_entry = &tr_ctl->tr_entry[pEntry->wcid];
+					tr_entry = &pAd->MacTab.tr_entry[pEntry->wcid];
 					tr_entry->PortSecured = WPA_802_1X_PORT_SECURED;
 					pEntry->PrivacyFilter = Ndis802_11PrivFilterAcceptAll;
 					WifiSysUpdatePortSecur(pAd, pEntry, &Info);
@@ -1519,7 +1335,6 @@ VOID Dot1xIoctlAddWPAKey(
 			}
 		}
 	}
-	os_free_mem(pKey);
 }
 
 
@@ -1537,16 +1352,15 @@ VOID Dot1xIoctlStaticWepCopy(
 	IN RTMP_IOCTL_INPUT_STRUCT * wrq)
 {
 	MAC_TABLE_ENTRY  *pEntry;
-	UCHAR MacAddr[MAC_ADDR_LEN] = {0};
+	UCHAR MacAddr[MAC_ADDR_LEN];
 	UCHAR apidx;
 	POS_COOKIE pObj = (POS_COOKIE) pAd->OS_Cookie;
-	struct tx_rx_ctl *tr_ctl = &pAd->tr_ctl;
 
 	apidx =	(UCHAR) pObj->ioctl_if;
-	MTWF_DBG(pAd, DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_INFO, "RTMPIoctlStaticWepCopy-IF(ra%d)\n", apidx);
+	MTWF_LOG(DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("RTMPIoctlStaticWepCopy-IF(ra%d)\n", apidx));
 
 	if (wrq->u.data.length != sizeof(MacAddr)) {
-		MTWF_DBG(pAd, DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_ERROR, "RTMPIoctlStaticWepCopy: the length isn't match (%d)\n", wrq->u.data.length);
+		MTWF_LOG(DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_ERROR, ("RTMPIoctlStaticWepCopy: the length isn't match (%d)\n", wrq->u.data.length));
 		return;
 	} else {
 		UINT32 len;
@@ -1555,21 +1369,13 @@ VOID Dot1xIoctlStaticWepCopy(
 		pEntry = MacTableLookup(pAd, MacAddr);
 
 		if (!pEntry) {
-			MTWF_DBG(pAd, DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_ERROR, "RTMPIoctlStaticWepCopy: the mac address isn't match\n");
+			MTWF_LOG(DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_ERROR, ("RTMPIoctlStaticWepCopy: the mac address isn't match\n"));
 			return;
 		} else {
 			struct _SECURITY_CONFIG *pSecConfigEnrty = NULL;
 			struct _SECURITY_CONFIG *pSecConfigProfile = NULL;
 			STA_TR_ENTRY *tr_entry = NULL;
 			ASIC_SEC_INFO Info = {0};
-
-#ifdef OCE_FILS_SUPPORT
-			if (IS_AKM_FILS(pEntry->SecConfig.AKMMap)) {
-				MTWF_DBG(pAd, DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-					"RTMPIoctlStaticWepCopy: skip for FILS\n");
-				return;
-			}
-#endif /* OCE_FILS_SUPPORT */
 
 			pSecConfigProfile = &pAd->ApCfg.MBSSID[apidx].wdev.SecConfig;
 			pSecConfigEnrty = &pEntry->SecConfig;
@@ -1588,7 +1394,7 @@ VOID Dot1xIoctlStaticWepCopy(
 			os_move_mem(&Info.PeerAddr[0], pEntry->Addr, MAC_ADDR_LEN);
 			/* HW_ADDREMOVE_KEYTABLE(pAd, &Info); */
 			/* open 802.1x port control and privacy filter */
-			tr_entry = &tr_ctl->tr_entry[pEntry->wcid];
+			tr_entry = &pAd->MacTab.tr_entry[pEntry->wcid];
 			tr_entry->PortSecured = WPA_802_1X_PORT_SECURED;
 			pEntry->PrivacyFilter = Ndis802_11PrivFilterAcceptAll;
 			WifiSysUpdatePortSecur(pAd, pEntry, &Info);
@@ -1609,7 +1415,6 @@ VOID ReadApcliSecParameterFromFile(
 {
 	RTMP_STRING *macptr;
 	INT i, idx;
-	int ret;
 #ifdef DBDC_MODE
 	INT apcli_idx;
 	RTMP_STRING tok_str[16];
@@ -1621,13 +1426,11 @@ VOID ReadApcliSecParameterFromFile(
 		RTMP_STRING *orig_tmpbuf;
 
 		orig_tmpbuf = tmpbuf;
-
 		for (i = 0, macptr = rstrtok(tmpbuf, ";"); (macptr && i < MAX_APCLI_NUM); macptr = rstrtok(NULL, ";"), i++) {
 			if ((i == 0) && (macptr != orig_tmpbuf))
 				i = 1;
-
-			pSecConfig = &pAd->StaCfg[i].wdev.SecConfig;
-			MTWF_DBG(pAd, DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_INFO, "I/F(apcli%d) ==> ", i);
+			pSecConfig = &pAd->ApCfg.ApCliTab[i].wdev.SecConfig;
+			MTWF_LOG(DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("I/F(apcli%d) ==> ", i));
 			SetWdevAuthMode(pSecConfig, macptr);
 		}
 	}
@@ -1637,13 +1440,11 @@ VOID ReadApcliSecParameterFromFile(
 		RTMP_STRING *orig_tmpbuf;
 
 		orig_tmpbuf = tmpbuf;
-
 		for (i = 0, macptr = rstrtok(tmpbuf, ";"); (macptr && i < MAX_APCLI_NUM); macptr = rstrtok(NULL, ";"), i++) {
 			if ((i == 0) && (macptr != orig_tmpbuf))
 				i = 1;
-
-			pSecConfig = &pAd->StaCfg[i].wdev.SecConfig;
-			MTWF_DBG(pAd, DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_INFO, "I/F(apcli%d) ==> ", i);
+			pSecConfig = &pAd->ApCfg.ApCliTab[i].wdev.SecConfig;
+			MTWF_LOG(DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("I/F(apcli%d) ==> ", i));
 			SetWdevEncrypMode(pSecConfig, macptr);
 		}
 	}
@@ -1651,19 +1452,13 @@ VOID ReadApcliSecParameterFromFile(
 #ifdef DBDC_MODE
 
 	for (apcli_idx = 0; apcli_idx < MAX_APCLI_NUM; apcli_idx++) {
-		pSecConfig = &pAd->StaCfg[apcli_idx].wdev.SecConfig;
+		pSecConfig = &pAd->ApCfg.ApCliTab[apcli_idx].wdev.SecConfig;
 
-		if (apcli_idx == 0) {
-			ret = snprintf(tok_str, sizeof(tok_str), "ApCliWPAPSK");
-			if (os_snprintf_error(sizeof(tok_str), ret))
-				MTWF_DBG(pAd, DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-					"tok_str4 snprintf error!\n");
-		} else {
-			ret = snprintf(tok_str, sizeof(tok_str), "ApCliWPAPSK%d", apcli_idx);
-			if (os_snprintf_error(sizeof(tok_str), ret))
-				MTWF_DBG(pAd, DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-					"tok_str5 snprintf error!\n");
-		}
+		if (apcli_idx == 0)
+			snprintf(tok_str, sizeof(tok_str), "ApCliWPAPSK");
+		else
+			snprintf(tok_str, sizeof(tok_str), "ApCliWPAPSK%d", apcli_idx);
+
 		if (RTMPGetKeyParameter(tok_str, tmpbuf, 65, pBuffer, FALSE)) {
 			if (strlen(tmpbuf) < 65) {
 				os_move_mem(pSecConfig->PSK, tmpbuf, strlen(tmpbuf));
@@ -1678,7 +1473,7 @@ VOID ReadApcliSecParameterFromFile(
 	/*ApCliWPAPSK*/
 	if (RTMPGetKeyParameter("ApCliWPAPSK", tmpbuf, 255, pBuffer, FALSE)) {
 		for (i = 0, macptr = rstrtok(tmpbuf, ";"); (macptr && i < MAX_APCLI_NUM); macptr = rstrtok(NULL, ";"), i++) {
-			pSecConfig = &pAd->StaCfg[i].wdev.SecConfig;
+			pSecConfig = &pAd->ApCfg.ApCliTab[i].wdev.SecConfig;
 
 			if (strlen(macptr) < 65) {
 				os_move_mem(pSecConfig->PSK, macptr, strlen(macptr));
@@ -1696,12 +1491,10 @@ VOID ReadApcliSecParameterFromFile(
 		RTMP_STRING *orig_tmpbuf;
 
 		orig_tmpbuf = tmpbuf;
-
 		for (i = 0, macptr = rstrtok(tmpbuf, ";"); (macptr && i < MAX_APCLI_NUM); macptr = rstrtok(NULL, ";"), i++) {
 			if ((i == 0) && (macptr != orig_tmpbuf))
 				i = 1;
-
-			pSecConfig = &pAd->StaCfg[i].wdev.SecConfig;
+			pSecConfig = &pAd->ApCfg.ApCliTab[i].wdev.SecConfig;
 			KeyIdx = os_str_tol(macptr, 0, 10);
 
 			if ((KeyIdx >= 1) && (KeyIdx <= 4))
@@ -1709,8 +1502,8 @@ VOID ReadApcliSecParameterFromFile(
 			else
 				pSecConfig->PairwiseKeyId = 0;
 
-			MTWF_DBG(pAd, DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_INFO, "I/F(apcli%d)) ==> DefaultKeyId=%d\n",
-					 i, pSecConfig->PairwiseKeyId);
+			MTWF_LOG(DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("I/F(apcli%d)) ==> DefaultKeyId=%d\n",
+					 i, pSecConfig->PairwiseKeyId));
 		}
 	}
 
@@ -1719,10 +1512,7 @@ VOID ReadApcliSecParameterFromFile(
 		RTMP_STRING tok_str[16];
 		ULONG KeyType[MAX_APCLI_NUM];
 
-		ret = snprintf(tok_str, sizeof(tok_str),	"ApCliKey%dType", idx + 1);
-		if (os_snprintf_error(sizeof(tok_str), ret))
-				MTWF_DBG(pAd, DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-					"tok_str6 snprintf error!\n");
+		snprintf(tok_str, sizeof(tok_str),	"ApCliKey%dType", idx + 1);
 
 		/*ApCliKey1Type*/
 		if (RTMPGetKeyParameter(tok_str, tmpbuf, 128, pBuffer, TRUE)) {
@@ -1732,33 +1522,24 @@ VOID ReadApcliSecParameterFromFile(
 #ifdef DBDC_MODE
 			IF_DEV_CONFIG_OPMODE_ON_AP(pAd) {
 				for (i = 0; i < MAX_APCLI_NUM; i++) {
-					if (i == 0) {
-						ret = snprintf(tok_str, sizeof(tok_str), "ApCliKey%dStr", idx + 1);
-						if (os_snprintf_error(sizeof(tok_str), ret))
-							MTWF_DBG(pAd, DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-								"tok_str7 snprintf error!\n");
-					} else {
-						ret = snprintf(tok_str, sizeof(tok_str), "ApCliKey%dStr%d", idx + 1, i);
-						if (os_snprintf_error(sizeof(tok_str), ret))
-							MTWF_DBG(pAd, DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-								"tok_str8 snprintf error!\n");
-					}
+					if (i == 0)
+						snprintf(tok_str, sizeof(tok_str), "ApCliKey%dStr", idx + 1);
+					else
+						snprintf(tok_str, sizeof(tok_str), "ApCliKey%dStr%d", idx + 1, i);
+
 					if (RTMPGetKeyParameter(tok_str, tmpbuf, 128, pBuffer, FALSE)) {
-						pSecConfig = &pAd->StaCfg[i].wdev.SecConfig;
+						pSecConfig = &pAd->ApCfg.ApCliTab[i].wdev.SecConfig;
 						ParseWebKey(pSecConfig, tmpbuf, idx, 0);
 					}
 				}
 			}
 #else
-			ret = snprintf(tok_str, sizeof(tok_str), "ApCliKey%dStr", idx + 1);
-			if (os_snprintf_error(sizeof(tok_str), ret))
-				MTWF_DBG(pAd, DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-					"tok_str9 snprintf error!\n");
+			snprintf(tok_str, sizeof(tok_str), "ApCliKey%dStr", idx + 1);
 
 			/*ApCliKey1Str*/
 			if (RTMPGetKeyParameter(tok_str, tmpbuf, 512, pBuffer, FALSE)) {
 				for (i = 0, macptr = rstrtok(tmpbuf, ";"); (macptr && i < MAX_APCLI_NUM); macptr = rstrtok(NULL, ";"), i++) {
-					pSecConfig = &pAd->StaCfg[i].wdev.SecConfig;
+					pSecConfig = &pAd->ApCfg.ApCliTab[i].wdev.SecConfig;
 					ParseWebKey(pSecConfig, macptr, idx, 0);
 				}
 			}
@@ -1766,212 +1547,7 @@ VOID ReadApcliSecParameterFromFile(
 #endif
 		}
 	}
-
-#ifdef DOT11_SAE_SUPPORT
-	/*ApCliPweMethod*/
-	if (RTMPGetKeyParameter("ApCliPweMethod", tmpbuf, 255, pBuffer, TRUE)) {
-		RTMP_STRING *orig_tmpbuf;
-
-		orig_tmpbuf = tmpbuf;
-
-		for (i = 0, macptr = rstrtok(tmpbuf, ";"); (macptr && i < MAX_APCLI_NUM); macptr = rstrtok(NULL, ";"), i++) {
-			if ((i == 0) && (macptr != orig_tmpbuf))
-				i = 1;
-
-			pSecConfig = &pAd->StaCfg[i].wdev.SecConfig;
-			MTWF_DBG(pAd, DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_INFO, "I/F(apcli%d) ==> ", i);
-			pSecConfig->sae_cap.gen_pwe_method = os_str_tol(macptr, 0, 10);
-		}
-	} else {
-		for (i = 0; i < MAX_APCLI_NUM; i++)
-			pAd->StaCfg[i].wdev.SecConfig.sae_cap.gen_pwe_method = PWE_MIXED;
-	}
-
-	/*ApCliSAEPK*/
-	if (RTMPGetKeyParameter("ApCliSAEPK", tmpbuf, 255, pBuffer, TRUE)) {
-		RTMP_STRING *orig_tmpbuf;
-
-		orig_tmpbuf = tmpbuf;
-
-		for (i = 0, macptr = rstrtok(tmpbuf, ";"); (macptr && i < MAX_APCLI_NUM); macptr = rstrtok(NULL, ";"), i++) {
-			if ((i == 0) && (macptr != orig_tmpbuf))
-				i = 1;
-
-			pSecConfig = &pAd->StaCfg[i].wdev.SecConfig;
-			MTWF_DBG(pAd, DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_INFO, "I/F(apcli%d) ==> ", i);
-			pSecConfig->sae_cap.sae_pk_en = os_str_tol(macptr, 0, 10);
-		}
-	} else {
-		for (i = 0; i < MAX_APCLI_NUM; i++)
-			pAd->StaCfg[i].wdev.SecConfig.sae_cap.sae_pk_en = SAE_PK_DISABLE;
-	}
-
-	/*ApCliSAEGroup*/
-	if (RTMPGetKeyParameter("ApCliSAEGroup", tmpbuf, 255, pBuffer, TRUE)) {
-		RTMP_STRING *orig_tmpbuf;
-
-		orig_tmpbuf = tmpbuf;
-
-		for (i = 0, macptr = rstrtok(tmpbuf, ";"); (macptr && i < MAX_APCLI_NUM); macptr = rstrtok(NULL, ";"), i++) {
-			UCHAR group;
-			if ((i == 0) && (macptr != orig_tmpbuf))
-				i = 1;
-
-			MTWF_DBG(pAd, DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_INFO, "I/F(apcli%d) ==> ", i);
-			group = os_str_tol(macptr, 0, 10);
-			if (group != 19 && group != 20 && group != 21)
-				group = SAE_DEFAULT_GROUP;
-			pAd->StaCfg[i].sae_cfg_group = group;
-		}
-	} else {
-		for (i = 0; i < MAX_APCLI_NUM; i++)
-			pAd->StaCfg[i].sae_cfg_group = SAE_DEFAULT_GROUP;
-	}
-#endif
-	/* ApCliTransDisableSupported */
-	if (RTMPGetKeyParameter("ApCliTransDisableSupported", tmpbuf, 255, pBuffer, TRUE)) {
-		RTMP_STRING *orig_tmpbuf;
-
-		orig_tmpbuf = tmpbuf;
-
-		for (i = 0, macptr = rstrtok(tmpbuf, ";"); (macptr && i < MAX_APCLI_NUM); macptr = rstrtok(NULL, ";"), i++) {
-			if ((i == 0) && (macptr != orig_tmpbuf))
-				i = 1;
-
-			MTWF_DBG(pAd, DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_INFO, "I/F(apcli%d) ==>", i);
-
-			pAd->StaCfg[i].ApCliTransDisableSupported = os_str_tol(macptr, 0, 10);
-
-			MTWF_DBG(pAd, DBG_CAT_CFG, DBG_SUBCAT_ALL, DBG_LVL_INFO, "i:%d ApCliTransDisableSupported :%d\n",
-					i, pAd->StaCfg[i].ApCliTransDisableSupported);
-
-			if (pAd->StaCfg[i].ApCliTransDisableSupported)
-				NdisZeroMemory(&(pAd->StaCfg[i].ApCli_tti_bitmap), sizeof(struct transition_disable_bitmap));
-		}
-	} else {
-		for (i = 0; i < MAX_APCLI_NUM; i++)
-			pAd->StaCfg[i].ApCliTransDisableSupported = 0;
-	}
-	/* ApCliOCVSupport */
-	if (RTMPGetKeyParameter("ApCliOCVSupport", tmpbuf, 255, pBuffer, TRUE)) {
-
-		RTMP_STRING *orig_tmpbuf;
-		struct _SECURITY_CONFIG *pSecConfig = NULL;
-
-		orig_tmpbuf = tmpbuf;
-
-		for (i = 0, macptr = rstrtok(tmpbuf, ";"); (macptr && i < MAX_APCLI_NUM); macptr = rstrtok(NULL, ";"), i++) {
-			if ((i == 0) && (macptr != orig_tmpbuf))
-				i = 1;
-
-			MTWF_DBG(pAd, DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_INFO, "I/F(apcli%d) ==> ", i);
-			pSecConfig = &pAd->StaCfg[i].wdev.SecConfig;
-
-			if (pSecConfig)
-				pSecConfig->apcli_ocv_support = os_str_tol(macptr, 0, 10);
-
-			MTWF_DBG(pAd, DBG_CAT_CFG, DBG_SUBCAT_ALL,
-				DBG_LVL_INFO, "i:%d  pSecConfig->ocv_support:%d\n",
-				i,  pSecConfig->apcli_ocv_support);
-
-		}
-	} else {
-		for (i = 0; i < MAX_APCLI_NUM; i++)
-			pAd->StaCfg[i].wdev.SecConfig.apcli_ocv_support = 0;
-	}
-	/* ApCliPESupport */
-	if (RTMPGetKeyParameter("ApCliPESupport", tmpbuf, 255, pBuffer, TRUE)) {
-
-		RTMP_STRING *orig_tmpbuf;
-		struct _SECURITY_CONFIG *pSecConfig = NULL;
-
-		orig_tmpbuf = tmpbuf;
-
-		for (i = 0, macptr = rstrtok(tmpbuf, ";"); (macptr && i < MAX_APCLI_NUM); macptr = rstrtok(NULL, ";"), i++) {
-			if ((i == 0) && (macptr != orig_tmpbuf))
-				i = 1;
-
-			MTWF_DBG(pAd, DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_INFO, "I/F(apcli%d) ==> ", i);
-			pSecConfig = &pAd->StaCfg[i].wdev.SecConfig;
-
-			if (pSecConfig)
-				pSecConfig->apcli_pe_support = os_str_tol(macptr, 0, 10);
-
-			MTWF_DBG(pAd, DBG_CAT_CFG, DBG_SUBCAT_ALL,
-				DBG_LVL_INFO, "i:%d  pSecConfig->apcli_pe_support:%d\n",
-				i,  pSecConfig->apcli_pe_support);
-
-		}
-	} else {
-		for (i = 0; i < MAX_APCLI_NUM; i++) {
-			pAd->StaCfg[i].wdev.SecConfig.apcli_pe_support = 0;
-			NdisZeroMemory(pAd->StaCfg[i].wdev.SecConfig.pe_latest_connected_macaddr, MAC_ADDR_LEN);
-			NdisZeroMemory(pAd->StaCfg[i].wdev.SecConfig.pe_latest_connected_Ssid, MAX_LEN_OF_SSID);
-			pAd->StaCfg[i].wdev.SecConfig.pe_latest_connected_SsidLen = 0;
-		}
-	}
-#ifdef BCN_PROTECTION_SUPPORT
-	/* ApCliBcnProt Support */
-	if (RTMPGetKeyParameter("ApCliBcnProt", tmpbuf, 255, pBuffer, TRUE)) {
-
-		RTMP_STRING *orig_tmpbuf;
-		struct _SECURITY_CONFIG *pSecConfig = NULL;
-
-		orig_tmpbuf = tmpbuf;
-
-		for (i = 0, macptr = rstrtok(tmpbuf, ";"); (macptr && i < MAX_APCLI_NUM); macptr = rstrtok(NULL, ";"), i++) {
-			if ((i == 0) && (macptr != orig_tmpbuf))
-				i = 1;
-
-			MTWF_DBG(pAd, DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_INFO, "I/F(apcli%d) ==> ", i);
-			pSecConfig = &pAd->StaCfg[i].wdev.SecConfig;
-
-			if (pSecConfig)
-				pSecConfig->apcli_bcnprot = os_str_tol(macptr, 0, 10);
-
-			MTWF_DBG(pAd, DBG_CAT_CFG, DBG_SUBCAT_ALL,
-				DBG_LVL_INFO, "i:%d  pSecConfig->apcli_bcnprot:%d\n",
-				i,  pSecConfig->apcli_bcnprot);
-
-		}
-	} else {
-		for (i = 0; i < MAX_APCLI_NUM; i++)
-			pAd->StaCfg[i].wdev.SecConfig.apcli_bcnprot = 0;
-	}
-#endif
 }
-INT Set_ApCli_Trans_Disable_Proc(
-	IN PRTMP_ADAPTER pAd,
-	IN RTMP_STRING * arg)
-{
-	POS_COOKIE pObj;
-	UCHAR *pTransDisable = NULL;
-	UCHAR TransDisable = 0;
-	UINT32 staidx = 0;
-
-	if (strlen(arg) == 0)
-	return FALSE;
-
-	pObj = (POS_COOKIE) pAd->OS_Cookie;
-	if (pObj->ioctl_if < 0 || pObj->ioctl_if >= pAd->MSTANum) {
-		 MTWF_DBG(pAd, DBG_CAT_CFG, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-			"pObj->ioctl_if is invalid value\n");
-			return FALSE;
-	}
-
-	staidx = pObj->ioctl_if;
-	pTransDisable = &pAd->StaCfg[staidx].ApCliTransDisableSupported;
-
-	TransDisable = os_str_tol(arg, 0, 10);
-
-	*pTransDisable = (UCHAR) TransDisable;
-	NdisZeroMemory(&(pAd->StaCfg[staidx].ApCli_tti_bitmap), sizeof(struct transition_disable_bitmap));
-	MTWF_DBG(pAd, DBG_CAT_CFG, DBG_SUBCAT_ALL, DBG_LVL_INFO, "[SAE] ApCliTransdisable is=%d \n",
-				TransDisable);
-
-	return TRUE;
-}
-
 #endif /* APCLI_SUPPORT */
 
 
@@ -1985,20 +1561,13 @@ VOID ReadWDSSecParameterFromFile(
 	INT i, idx;
 	BOOLEAN	bUsePrevFormat = FALSE;
 	struct _SECURITY_CONFIG *pSecConfig = NULL;
-	int ret;
-#ifdef DBDC_MODE
-	INT band1_wds_start_index = 0;
 
-	band1_wds_start_index = pAd->WdsTab.wds_num[DBDC_BAND0];
-#endif
 	/* WDS direct insert Key to Asic, not need do 4-way */
 	/* WdsEncrypType */
 	if (RTMPGetKeyParameter("WdsEncrypType", tmpbuf, 255, pBuffer, TRUE)) {
 		for (i = 0, macptr = rstrtok(tmpbuf, ";"); (macptr && i < MAX_WDS_ENTRY); macptr = rstrtok(NULL, ";"), i++) {
-			if(i == pAd->WdsTab.wds_num[DBDC_BAND0])
-				i = MAX_WDS_PER_BAND;
 			pSecConfig = &pAd->WdsTab.WdsEntry[i].wdev.SecConfig;
-			MTWF_DBG(pAd, DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_INFO, "I/F(wds%d) ==> ", i);
+			MTWF_LOG(DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("I/F(wds%d) ==> ", i));
 			SetWdevEncrypMode(pSecConfig, macptr);
 		}
 	}
@@ -2021,9 +1590,7 @@ VOID ReadWDSSecParameterFromFile(
 	if (RTMPGetKeyParameter("WdsDefaultKeyID", tmpbuf, 255, pBuffer, TRUE)) {
 		ULONG KeyIdx = 0;
 
-		for (i = 0, macptr = rstrtok(tmpbuf, ";"); (macptr && i < MAX_WDS_ENTRY); macptr = rstrtok(NULL, ";"), i++) {
-			if(i == pAd->WdsTab.wds_num[DBDC_BAND0])
-				i = MAX_WDS_PER_BAND;
+		for (i = 0, macptr = rstrtok(tmpbuf, ";"); (macptr && i < MAX_APCLI_NUM); macptr = rstrtok(NULL, ";"), i++) {
 			pSecConfig = &pAd->WdsTab.WdsEntry[i].wdev.SecConfig;
 			KeyIdx = os_str_tol(macptr, 0, 10);
 
@@ -2032,710 +1599,39 @@ VOID ReadWDSSecParameterFromFile(
 			else
 				pSecConfig->PairwiseKeyId = 0;
 
-			MTWF_DBG(pAd, DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_INFO, "I/F(wds%d)) ==> DefaultKeyId=%d\n",
-					 i, pSecConfig->PairwiseKeyId);
+			MTWF_LOG(DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("I/F(wds%d)) ==> DefaultKeyId=%d\n",
+					 i, pSecConfig->PairwiseKeyId));
 		}
 	}
 
 	/*WdsXKey */
 	if (bUsePrevFormat == FALSE) {
-		i = 0;
-		for (idx = 0; idx < MAX_WDS_PER_BAND; idx++) {
+		for (idx = 0; idx < MAX_WDS_ENTRY; idx++) {
 			RTMP_STRING tok_str[16];
 
-			ret = snprintf(tok_str, sizeof(tok_str),	"Wds%dKey", idx);
-			if (os_snprintf_error(sizeof(tok_str), ret))
-				MTWF_DBG(pAd, DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-					"tok_str10 snprintf error!\n");
+			snprintf(tok_str, sizeof(tok_str),	"Wds%dKey", idx);
+			pSecConfig = &pAd->WdsTab.WdsEntry[idx].wdev.SecConfig;
 
 			if (RTMPGetKeyParameter(tok_str, tmpbuf, 128, pBuffer, FALSE)) {
-#ifdef DBDC_MODE
-				INT wds_entry_idx;
-				if(strpbrk(tmpbuf, ";") == tmpbuf)
-					i = MAX_WDS_PER_BAND;
-				else
-					i = 0;
-				for (macptr = rstrtok(tmpbuf, ";"); macptr; macptr = rstrtok(NULL, ";"), i += MAX_WDS_PER_BAND) {
-					wds_entry_idx = i + idx;
-					pSecConfig = &pAd->WdsTab.WdsEntry[wds_entry_idx].wdev.SecConfig;
-					MTWF_DBG(pAd, DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_DEBUG,
-						 "I/F(wds%d)) ==> Key string=%s\n", wds_entry_idx, macptr);
-#else
-				for (macptr = rstrtok(tmpbuf, ";"); macptr && (i < MAX_WDS_ENTRY); macptr = rstrtok(NULL, ";"), i++) {
-					pSecConfig = &pAd->WdsTab.WdsEntry[i].wdev.SecConfig;
-					MTWF_DBG(pAd, DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_DEBUG,
-						"I/F(wds%d)) ==> Key string=%s\n", i, macptr);
-#endif
-							if (IS_CIPHER_WEP(pSecConfig->PairwiseCipher))
-								ParseWebKey(pSecConfig, macptr, pSecConfig->PairwiseKeyId, 0);
-					else if (IS_CIPHER_TKIP(pSecConfig->PairwiseCipher)
-							 || IS_CIPHER_CCMP128(pSecConfig->PairwiseCipher)
-							 || IS_CIPHER_CCMP256(pSecConfig->PairwiseCipher)
-							 || IS_CIPHER_GCMP128(pSecConfig->PairwiseCipher)
-							 || IS_CIPHER_GCMP256(pSecConfig->PairwiseCipher)) {
-						if (strlen(macptr) < 65) {
-							os_move_mem(pSecConfig->PSK, macptr, strlen(macptr));
-							pSecConfig->PSK[strlen(macptr)] = '\0';
-						} else
-							pSecConfig->PSK[0] = '\0';
-					}
+				if (IS_CIPHER_WEP(pSecConfig->PairwiseCipher))
+					ParseWebKey(pSecConfig, tmpbuf, pSecConfig->PairwiseKeyId, 0);
+				else if (IS_CIPHER_TKIP(pSecConfig->PairwiseCipher)
+						 || IS_CIPHER_CCMP128(pSecConfig->PairwiseCipher)
+						 || IS_CIPHER_CCMP256(pSecConfig->PairwiseCipher)
+						 || IS_CIPHER_GCMP128(pSecConfig->PairwiseCipher)
+						 || IS_CIPHER_GCMP256(pSecConfig->PairwiseCipher)) {
+					if (strlen(tmpbuf) < 65) {
+						os_move_mem(pSecConfig->PSK, tmpbuf, strlen(tmpbuf));
+						pSecConfig->PSK[strlen(tmpbuf)] = '\0';
+					} else
+						pSecConfig->PSK[0] = '\0';
 				}
 			}
 		}
 	}
+
 }
 #endif /* WDS_SUPPORT */
-
-#if defined(DOT11_SAE_SUPPORT) || defined(SUPP_SAE_SUPPORT)
-UCHAR str_to_bin(
-	IN RTMP_STRING *str,
-	OUT UCHAR *bin,
-	INOUT UINT32 *bin_sz)
-{
-	UINT32 i = 0;
-	UCHAR v = 0;
-	UINT32 len = 0;
-	UINT32 max_len = *bin_sz;
-
-	for (i = 0; str[i] != '\0' && len <= *bin_sz; i++) {
-		if (str[i] >= 'a')
-			v += str[i] - 'a' + 10;
-		else
-			v += str[i] - '0';
-
-		if (i % 2 == 0)
-			v <<= 4;
-		else {
-			bin[i / 2] = v;
-			len++;
-			v = 0;
-		}
-	}
-
-	*bin_sz = len;
-
-	return (len == max_len && str[i] != '\0') ? FALSE : TRUE;
-}
-
-VOID sae_pwd_id_deinit(IN PRTMP_ADAPTER pAd)
-{
-#ifdef CONFIG_AP_SUPPORT
-	UINT i = 0;
-
-	for (i = 0; i < pAd->ApCfg.BssidNum; i++) {
-		struct _SECURITY_CONFIG *sec_cfg = &pAd->ApCfg.MBSSID[PF_TO_BSS_IDX(pAd, i)].wdev.SecConfig;
-		struct pwd_id_list *pwd_id_ins = &sec_cfg->pwd_id_list_head;
-		struct pwd_id_list *pwd_id_tmp = NULL;
-
-		if (sec_cfg->pwd_id_cnt == 0)
-			continue;
-		while (DlListEmpty(&pwd_id_ins->list)) {
-			pwd_id_tmp = DlListFirst(&pwd_id_ins->list, struct pwd_id_list, list);
-			if (pwd_id_tmp != NULL) {/*ALPS05331068*/
-				DlListDel(&pwd_id_tmp->list);
-				os_free_mem(pwd_id_tmp);
-			}
-		}
-
-		sec_cfg->pwd_id_cnt = 0;
-	}
-#endif /* CONFIG_AP_SUPPORT */
-}
-
-
-VOID insert_pwd_id(struct _SECURITY_CONFIG *sec_cfg, struct pwd_id_list *pwd_id_list_head, RTMP_STRING *arg)
-{
-	RTMP_STRING *pwdid;
-	RTMP_STRING *pwd;
-	ULONG len = 0;
-	struct pwd_id_list *pwd_id_ins = NULL;
-
-	if (arg == NULL)
-		return;
-
-	pwd = rstrtok(arg, ":");
-	pwdid = rstrtok(NULL, ":");
-
-	if (pwd == NULL) {
-		MTWF_DBG(NULL, DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_ERROR, "null pwd\n");
-		return;
-	}
-	if (pwdid == NULL) {
-		MTWF_DBG(NULL, DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_ERROR, "null pwdid\n");
-		os_zero_mem(sec_cfg->PSK, sizeof(sec_cfg->PSK));
-		os_move_mem(sec_cfg->PSK, pwd, strlen(pwd));
-		sec_cfg->sae_cap.pwd_id_only = FALSE;
-		return;
-	}
-
-	os_alloc_mem(NULL, (UCHAR **)&pwd_id_ins, sizeof(struct pwd_id_list));
-	os_zero_mem(pwd_id_ins, sizeof(struct pwd_id_list));
-
-	len = strlen(pwd);
-	os_move_mem(pwd_id_ins->pwd, pwd, len);
-	pwd_id_ins->pwd[len] = '\0';
-
-	len = strlen(pwdid);
-	os_move_mem(pwd_id_ins->pwd_id, pwdid, len);
-	pwd_id_ins->pwd_id[len] = '\0';
-
-	DlListAddTail(&pwd_id_list_head->list, &pwd_id_ins->list);
-	sec_cfg->pwd_id_cnt++;
-}
-
-static VOID rm_new_line(
-	RTMP_STRING * str)
-{
-	UINT32 i;
-	UINT32 j;
-
-	for (i = 0, j = 0; i < strlen(str); i++) {
-		if (str[i] == '\n')
-			continue;
-		str[j++] = str[i];
-	}
-	str[j] = '\0';
-}
-
-
-static VOID read_sae_parma_from_file(
-	IN PRTMP_ADAPTER pAd,
-	IN RTMP_STRING *tmpbuf,
-	IN RTMP_STRING *pBuffer)
-{
-	INT i = 0;
-	struct _SECURITY_CONFIG *sec_cfg = NULL;
-	RTMP_STRING *macptr;
-	int ret;
-
-	if (RTMPGetKeyParameter("PweMethod", tmpbuf, MAX_PARAMETER_LEN, pBuffer, TRUE)) {
-#ifndef HOSTAPD_WPA3_SUPPORT
-#ifdef CONFIG_AP_SUPPORT
-		IF_DEV_CONFIG_OPMODE_ON_AP(pAd) {
-			for (i = 0, macptr = rstrtok(tmpbuf, ";"); (macptr && i < pAd->ApCfg.BssidNum); macptr = rstrtok(NULL, ";"), i++) {
-				UCHAR pwe_method = 0;
-
-				sec_cfg = &pAd->ApCfg.MBSSID[PF_TO_BSS_IDX(pAd, i)].wdev.SecConfig;
-				MTWF_DBG(pAd, DBG_CAT_SEC, CATSEC_SAE, DBG_LVL_INFO, "I/F(%s%d) ==> ",
-						 INF_MBSSID_DEV_NAME, i);
-				if (macptr)
-					pwe_method = os_str_tol(macptr, 0, 10);
-
-				if (pwe_method > MAX_PWE_METHOD) {
-					MTWF_DBG(pAd, DBG_CAT_SEC, CATSEC_SAE, DBG_LVL_ERROR,
-						"pwe method should not be %d",
-						 pwe_method);
-				}
-				sec_cfg->sae_cap.gen_pwe_method = pwe_method;
-			}
-		}
-#endif /* CONFIG_AP_SUPPORT */
-#endif /*HOSTAPD_WPA3_SUPPORT*/
-
-#ifdef CONFIG_STA_SUPPORT
-		IF_DEV_CONFIG_OPMODE_ON_STA(pAd) {
-			for (i = 0, macptr = rstrtok(tmpbuf, ";"); (macptr && i < MAX_MULTI_STA); macptr = rstrtok(NULL, ";"), i++) {
-				UCHAR pwe_method = 0;
-
-				sec_cfg = &pAd->StaCfg[i].wdev.SecConfig;
-				MTWF_DBG(pAd, DBG_CAT_SEC, CATSEC_SAE, DBG_LVL_INFO, "I/F(%s%d) ==> ",
-						 INF_MBSSID_DEV_NAME, i);
-				if (pwe_method > MAX_PWE_METHOD) {
-					MTWF_DBG(pAd, DBG_CAT_SEC, CATSEC_SAE, DBG_LVL_ERROR,
-						"pwe method should not be %d",
-						 pwe_method);
-				}
-				sec_cfg->sae_cap.gen_pwe_method = pwe_method;
-			}
-		}
-#endif /* CONFIG_STA_SUPPORT */
-	} else {
-#ifndef HOSTAPD_WPA3_SUPPORT
-#ifdef CONFIG_AP_SUPPORT
-			IF_DEV_CONFIG_OPMODE_ON_AP(pAd) {
-				i = 0;
-				while (i < MAX_MBSSID_NUM(pAd))
-					pAd->ApCfg.MBSSID[PF_TO_BSS_IDX(pAd, i++)].wdev.SecConfig.sae_cap.gen_pwe_method = PWE_MIXED;
-			}
-#endif /* CONFIG_AP_SUPPORT */
-#endif /*HOSTAPD_WPA3_SUPPORT*/
-
-#ifdef CONFIG_STA_SUPPORT
-			IF_DEV_CONFIG_OPMODE_ON_STA(pAd) {
-				i = 0;
-				while (i < MAX_MULTI_STA)
-					pAd->StaCfg[i++].wdev.SecConfig.sae_cap.gen_pwe_method = PWE_MIXED;
-			}
-#endif /* CONFIG_STA_SUPPORT */
-		}
-
-	if (RTMPGetKeyParameter("PWDIDR", tmpbuf, MAX_PARAMETER_LEN, pBuffer, TRUE)) {
-#ifndef HOSTAPD_WPA3_SUPPORT
-#ifdef CONFIG_AP_SUPPORT
-		IF_DEV_CONFIG_OPMODE_ON_AP(pAd) {
-			for (i = 0, macptr = rstrtok(tmpbuf, ";"); (macptr && i < pAd->ApCfg.BssidNum); macptr = rstrtok(NULL, ";"), i++) {
-				UCHAR pwd_id_only = 0;
-				sec_cfg = &pAd->ApCfg.MBSSID[PF_TO_BSS_IDX(pAd, i)].wdev.SecConfig;
-				MTWF_DBG(pAd, DBG_CAT_SEC, CATSEC_SAE, DBG_LVL_INFO, "I/F(%s%d) ==> ",
-						 INF_MBSSID_DEV_NAME, i);
-				if (macptr)
-					pwd_id_only = os_str_tol(macptr, 0, 10);
-				sec_cfg->sae_cap.pwd_id_only = (pwd_id_only) ? TRUE : FALSE;
-			}
-		}
-#endif /* CONFIG_AP_SUPPORT */
-#endif /*HOSTAPD_WPA3_SUPPORT*/
-#ifdef CONFIG_STA_SUPPORT
-		IF_DEV_CONFIG_OPMODE_ON_STA(pAd) {
-			for (i = 0, macptr = rstrtok(tmpbuf, ";"); (macptr && i < MAX_MULTI_STA); macptr = rstrtok(NULL, ";"), i++) {
-				UCHAR pwd_id_only = 0;
-				sec_cfg = &pAd->StaCfg[i].wdev.SecConfig;
-				MTWF_DBG(pAd, DBG_CAT_SEC, CATSEC_SAE, DBG_LVL_INFO, "I/F(%s%d) ==> ",
-						 INF_MBSSID_DEV_NAME, i);
-				if (macptr)
-					pwd_id_only = os_str_tol(macptr, 0, 10);
-				sec_cfg->sae_cap.pwd_id_only = (pwd_id_only) ? TRUE : FALSE;
-			}
-		}
-#endif /* CONFIG_STA_SUPPORT */
-	} else {
-#ifndef HOSTAPD_WPA3_SUPPORT
-#ifdef CONFIG_AP_SUPPORT
-			IF_DEV_CONFIG_OPMODE_ON_AP(pAd) {
-				i = 0;
-				while (i < MAX_MBSSID_NUM(pAd))
-					pAd->ApCfg.MBSSID[PF_TO_BSS_IDX(pAd, i++)].wdev.SecConfig.sae_cap.pwd_id_only = FALSE;
-			}
-#endif /* CONFIG_AP_SUPPORT */
-#endif /*HOSTAPD_WPA3_SUPPORT*/
-#ifdef CONFIG_STA_SUPPORT
-			IF_DEV_CONFIG_OPMODE_ON_STA(pAd) {
-				i = 0;
-				while (i < MAX_MULTI_STA)
-					pAd->StaCfg[i++].wdev.SecConfig.sae_cap.pwd_id_only = FALSE;
-			}
-#endif /* CONFIG_STA_SUPPORT */
-		}
-#ifndef HOSTAPD_WPA3_SUPPORT
-#ifdef CONFIG_AP_SUPPORT
-	IF_DEV_CONFIG_OPMODE_ON_AP(pAd) {
-		RTMP_STRING *macptr2;
-		RTMP_STRING tok_str[16];
-
-		for (i = 0; i < pAd->ApCfg.BssidNum; i++) {
-			ret = snprintf(tok_str, sizeof(tok_str), "PWDID%d", i + 1);
-			if (os_snprintf_error(sizeof(tok_str), ret))
-				MTWF_DBG(pAd, DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-					"tok_str11 snprintf error!\n");
-
-			if (RTMPGetKeyParameter(tok_str, tmpbuf, MAX_PARAMETER_LEN, pBuffer, FALSE)) {
-				sec_cfg = &pAd->ApCfg.MBSSID[PF_TO_BSS_IDX(pAd, i)].wdev.SecConfig;
-				DlListInit(&sec_cfg->pwd_id_list_head.list);
-				macptr = tmpbuf;
-				do {
-					macptr = rstrtok(macptr, ";");
-					macptr2 = rstrtok(NULL, "\0");
-
-					insert_pwd_id(sec_cfg, &sec_cfg->pwd_id_list_head, macptr);
-					macptr = macptr2;
-				} while (macptr);
-			}
-		}
-	}
-#endif /* CONFIG_AP_SUPPORT */
-#endif /*HOSTAPD_WPA3_SUPPORT*/
-
-	if (RTMPGetKeyParameter("SAEPK", tmpbuf, MAX_PARAMETER_LEN, pBuffer, TRUE)) {
-#ifndef HOSTAPD_WPA3_SUPPORT
-#ifdef CONFIG_AP_SUPPORT
-		IF_DEV_CONFIG_OPMODE_ON_AP(pAd) {
-			for (i = 0, macptr = rstrtok(tmpbuf, ";"); (macptr && i < pAd->ApCfg.BssidNum); macptr = rstrtok(NULL, ";"), i++) {
-				UCHAR sae_pk_en = 0;
-
-				sec_cfg = &pAd->ApCfg.MBSSID[PF_TO_BSS_IDX(pAd, i)].wdev.SecConfig;
-				MTWF_DBG(pAd, DBG_CAT_SEC, CATSEC_SAE, DBG_LVL_INFO, "I/F(%s%d) ==> ",
-						 INF_MBSSID_DEV_NAME, i);
-				if (macptr)
-					sae_pk_en = os_str_tol(macptr, 0, 10);
-
-				if (sae_pk_en >= MAX_SAE_PK_EN) {
-					MTWF_DBG(pAd, DBG_CAT_SEC, CATSEC_SAE, DBG_LVL_ERROR,
-						"sae_pk_en should not be %d",
-						 sae_pk_en);
-				}
-				sec_cfg->sae_cap.sae_pk_en = sae_pk_en;
-			}
-		}
-#endif /* CONFIG_AP_SUPPORT */
-#endif /*HOSTAPD_WPA3_SUPPORT*/
-#ifdef CONFIG_STA_SUPPORT
-		IF_DEV_CONFIG_OPMODE_ON_STA(pAd) {
-			for (i = 0, macptr = rstrtok(tmpbuf, ";"); (macptr && i < MAX_MULTI_STA); macptr = rstrtok(NULL, ";"), i++) {
-				UCHAR sae_pk_en = 0;
-
-				sec_cfg = &pAd->StaCfg[i].wdev.SecConfig;
-				MTWF_DBG(pAd, DBG_CAT_SEC, CATSEC_SAE, DBG_LVL_INFO, "I/F(%s%d) ==> ",
-						 INF_MBSSID_DEV_NAME, i);
-				if (sae_pk_en >= MAX_SAE_PK_EN) {
-					MTWF_DBG(pAd, DBG_CAT_SEC, CATSEC_SAE, DBG_LVL_ERROR,
-						"sae_pk_en should not be %d",
-						 sae_pk_en);
-				}
-				sec_cfg->sae_cap.sae_pk_en = sae_pk_en;
-			}
-		}
-#endif /* CONFIG_STA_SUPPORT */
-	} else {
-#ifndef HOSTAPD_WPA3_SUPPORT
-#ifdef CONFIG_AP_SUPPORT
-		IF_DEV_CONFIG_OPMODE_ON_AP(pAd) {
-			i = 0;
-			while (i < MAX_MBSSID_NUM(pAd))
-				pAd->ApCfg.MBSSID[PF_TO_BSS_IDX(pAd, i++)].wdev.SecConfig.sae_cap.sae_pk_en = SAE_PK_DISABLE;
-		}
-#endif /* CONFIG_AP_SUPPORT */
-#endif /*HOSTAPD_WPA3_SUPPORT*/
-#ifdef CONFIG_STA_SUPPORT
-		IF_DEV_CONFIG_OPMODE_ON_STA(pAd) {
-			i = 0;
-			while (i < MAX_MULTI_STA)
-				pAd->StaCfg[i++].wdev.SecConfig.sae_cap.sae_pk_en = SAE_PK_DISABLE;
-		}
-#endif /* CONFIG_STA_SUPPORT */
-	}
-
-	if (RTMPGetKeyParameter("SAEPKInputMode", tmpbuf, MAX_PARAMETER_LEN, pBuffer, TRUE)) {
-#ifndef HOSTAPD_WPA3_SUPPORT
-#ifdef CONFIG_AP_SUPPORT
-		IF_DEV_CONFIG_OPMODE_ON_AP(pAd) {
-			for (i = 0, macptr = rstrtok(tmpbuf, ";"); (macptr && i < pAd->ApCfg.BssidNum); macptr = rstrtok(NULL, ";"), i++) {
-				UCHAR key_input_mode = 0;
-
-				sec_cfg = &pAd->ApCfg.MBSSID[PF_TO_BSS_IDX(pAd, i)].wdev.SecConfig;
-				MTWF_DBG(pAd, DBG_CAT_SEC, CATSEC_SAE, DBG_LVL_INFO, "I/F(%s%d) ==> ",
-						 INF_MBSSID_DEV_NAME, i);
-				if (macptr)
-					key_input_mode = os_str_tol(macptr, 0, 10);
-
-				if (key_input_mode >= MAX_SAE_PK_KEY_INPUT_MODE) {
-					MTWF_DBG(pAd, DBG_CAT_SEC, CATSEC_SAE, DBG_LVL_ERROR,
-						"key_input_mode should not be %d",
-						 key_input_mode);
-				}
-				sec_cfg->sae_cap.key_input_mode = key_input_mode;
-			}
-		}
-#endif /* CONFIG_AP_SUPPORT */
-#endif /*HOSTAPD_WPA3_SUPPORT*/
-	} else {
-#ifndef HOSTAPD_WPA3_SUPPORT
-#ifdef CONFIG_AP_SUPPORT
-		IF_DEV_CONFIG_OPMODE_ON_AP(pAd) {
-			i = 0;
-			while (i < MAX_MBSSID_NUM(pAd))
-				pAd->ApCfg.MBSSID[PF_TO_BSS_IDX(pAd, i++)].wdev.SecConfig.sae_cap.key_input_mode = SAE_PK_KEY_INPUT_MODE_HEX;
-		}
-#endif /* CONFIG_AP_SUPPORT */
-#endif /*HOSTAPD_WPA3_SUPPORT*/
-	}
-
-#ifndef HOSTAPD_WPA3_SUPPORT
-#ifdef CONFIG_AP_SUPPORT
-	IF_DEV_CONFIG_OPMODE_ON_AP(pAd) {
-		RTMP_STRING tok_str[19];
-		RTMP_STRING head_str[] = "-----BEGIN EC PRIVATE KEY-----";
-		RTMP_STRING tail_str[] = "-----END EC PRIVATE KEY-----";
-
-		for (i = 0; i < pAd->ApCfg.BssidNum; i++) {
-			ret = snprintf(tok_str, sizeof(tok_str), "SAEPKKeyFilePath%d", i + 1);
-			if (os_snprintf_error(sizeof(tok_str), ret))
-				MTWF_DBG(pAd, DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-					"tok_str12 snprintf error!\n");
-
-			if (RTMPGetKeyParameter(tok_str, tmpbuf, MAX_PARAMETER_LEN, pBuffer, FALSE)) {
-				RTMP_OS_FD_EXT srcf;
-				INT retval;
-				ULONG buf_size = 500;
-				RTMP_STRING *buffer = NULL;
-				RTMP_STRING *ptr = NULL;
-				UCHAR is_found = FALSE;
-				UCHAR out[130] = {0};
-				UINT32 out_len;
-
-				sec_cfg = &pAd->ApCfg.MBSSID[PF_TO_BSS_IDX(pAd, i)].wdev.SecConfig;
-
-				if (sec_cfg->sae_cap.key_input_mode != SAE_PK_KEY_INPUT_MODE_FILE_EC_PRIVATE)
-					continue;
-
-				MTWF_DBG(pAd, DBG_CAT_SEC, CATSEC_SAE, DBG_LVL_INFO, "Open file \"%s\"\n", tmpbuf);
-
-				os_alloc_mem(pAd, (UCHAR **)&buffer, buf_size);
-
-				if (!buffer)
-					continue;
-
-				srcf = os_file_open(tmpbuf, O_RDONLY, 0);
-
-				if (srcf.Status)
-					MTWF_DBG(pAd, DBG_CAT_SEC, CATSEC_SAE, DBG_LVL_ERROR, "Open file \"%s\" failed!\n", tmpbuf);
-				else {
-					retval = os_file_read(srcf, buffer, buf_size - 1);
-
-					if (retval > 0) {
-						ptr = rtstrstr(buffer, tail_str);
-
-						if (NdisEqualMemory(buffer, head_str, strlen(head_str)) &&
-							ptr != NULL) {
-							ptr[0] = '\0';
-							ptr = buffer + strlen(head_str);
-							rm_new_line(ptr);
-							is_found = TRUE;
-						}
-
-					if (is_found && !sae_pk_pem_decode(&sec_cfg->sae_pk, ptr, out, &out_len))
-								sec_cfg->sae_cap.key_input_mode = SAE_PK_KEY_INPUT_MODE_HEX;
-
-						retval = NDIS_STATUS_SUCCESS;
-					} else {
-						sec_cfg->sae_cap.key_input_mode = SAE_PK_KEY_INPUT_MODE_HEX;
-						MTWF_DBG(pAd, DBG_CAT_SEC, CATSEC_SAE, DBG_LVL_ERROR, "Read file \"%s\" failed(errCode=%d)!\n", tmpbuf, retval);
-					}
-
-					if (os_file_close(srcf) != 0) {
-						retval = NDIS_STATUS_FAILURE;
-						MTWF_DBG(pAd, DBG_CAT_SEC, CATSEC_SAE, DBG_LVL_ERROR, "Close file \"%s\" failed(errCode=%d)!\n", tmpbuf, retval);
-					}
-				}
-
-				os_free_mem(buffer);
-			}
-		}
-	}
-#endif /* CONFIG_AP_SUPPORT */
-
-#ifdef CONFIG_AP_SUPPORT
-	IF_DEV_CONFIG_OPMODE_ON_AP(pAd) {
-		RTMP_STRING tok_str[16];
-
-		for (i = 0; i < pAd->ApCfg.BssidNum; i++) {
-			ret = snprintf(tok_str, sizeof(tok_str), "SAEPKKey%d", i + 1);
-			if (os_snprintf_error(sizeof(tok_str), ret))
-				MTWF_DBG(pAd, DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-					"tok_str13 snprintf error!\n");
-
-			if (RTMPGetKeyParameter(tok_str, tmpbuf, MAX_PARAMETER_LEN, pBuffer, FALSE)) {
-				UCHAR pri_key_bin[68];
-				UINT32 pri_key_len = sizeof(pri_key_bin);
-
-				sec_cfg = &pAd->ApCfg.MBSSID[PF_TO_BSS_IDX(pAd, i)].wdev.SecConfig;
-
-				if (sec_cfg->sae_cap.key_input_mode != SAE_PK_KEY_INPUT_MODE_HEX)
-					continue;
-
-				str_to_bin(tmpbuf, pri_key_bin, &pri_key_len);
-
-				if (pri_key_len != 0) {
-					os_alloc_mem(NULL, (UCHAR **) &sec_cfg->sae_pk.fixed_pri_key, pri_key_len);
-					os_move_mem(sec_cfg->sae_pk.fixed_pri_key, pri_key_bin, pri_key_len);
-					sec_cfg->sae_pk.fixed_pri_key_len = pri_key_len;
-				}
-
-				hex_dump_with_cat_and_lvl("SAEPKKey", pri_key_bin, pri_key_len, DBG_CAT_SEC, CATSEC_SAE, DBG_LVL_INFO);
-			}
-		}
-	}
-#endif /* CONFIG_AP_SUPPORT */
-
-
-#ifdef CONFIG_AP_SUPPORT
-	IF_DEV_CONFIG_OPMODE_ON_AP(pAd) {
-		RTMP_STRING tok_str[16];
-
-		for (i = 0; i < pAd->ApCfg.BssidNum; i++) {
-			ret = snprintf(tok_str, sizeof(tok_str), "SAEPKStartM%d", i + 1);
-			if (os_snprintf_error(sizeof(tok_str), ret))
-				MTWF_DBG(pAd, DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-					"tok_str14 snprintf error!\n");
-
-			if (RTMPGetKeyParameter(tok_str, tmpbuf, MAX_PARAMETER_LEN, pBuffer, FALSE)) {
-				UCHAR modifier[SAE_PK_MODIFIER_BYTES_LEN];
-				UINT32 modifier_len = SAE_PK_MODIFIER_BYTES_LEN;
-
-				sec_cfg = &pAd->ApCfg.MBSSID[PF_TO_BSS_IDX(pAd, i)].wdev.SecConfig;
-
-				str_to_bin(tmpbuf, modifier, &modifier_len);
-
-				if (modifier_len == SAE_PK_MODIFIER_BYTES_LEN) {
-					os_alloc_mem(NULL, (UCHAR **) &sec_cfg->sae_pk.fixed_start_modifier, SAE_PK_MODIFIER_BYTES_LEN);
-					os_move_mem(sec_cfg->sae_pk.fixed_start_modifier, modifier, SAE_PK_MODIFIER_BYTES_LEN);
-				}
-
-
-				hex_dump_with_cat_and_lvl("SAEPKStartM", modifier, modifier_len, DBG_CAT_SEC, CATSEC_SAE, DBG_LVL_INFO);
-			}
-		}
-	}
-#endif /* CONFIG_AP_SUPPORT */
-
-	if (RTMPGetKeyParameter("SAEPKSec", tmpbuf, MAX_PARAMETER_LEN, pBuffer, TRUE)) {
-#ifdef CONFIG_AP_SUPPORT
-		IF_DEV_CONFIG_OPMODE_ON_AP(pAd) {
-			for (i = 0, macptr = rstrtok(tmpbuf, ";"); (macptr && i < pAd->ApCfg.BssidNum); macptr = rstrtok(NULL, ";"), i++) {
-				sec_cfg = &pAd->ApCfg.MBSSID[PF_TO_BSS_IDX(pAd, i)].wdev.SecConfig;
-				sec_cfg->sae_pk.sec = os_str_tol(macptr, 0, 10);
-			}
-		}
-#endif /* CONFIG_AP_SUPPORT */
-	} else {
-#ifdef CONFIG_AP_SUPPORT
-		IF_DEV_CONFIG_OPMODE_ON_AP(pAd) {
-			i = 0;
-			while (i < MAX_MBSSID_NUM(pAd))
-				pAd->ApCfg.MBSSID[PF_TO_BSS_IDX(pAd, i++)].wdev.SecConfig.sae_pk.sec = SAE_PK_AUTO_GEN_DEF_SEC;
-		}
-#endif /* CONFIG_AP_SUPPORT */
-	}
-
-	if (RTMPGetKeyParameter("SAEPKLambda", tmpbuf, MAX_PARAMETER_LEN, pBuffer, TRUE)) {
-#ifdef CONFIG_AP_SUPPORT
-		IF_DEV_CONFIG_OPMODE_ON_AP(pAd) {
-			for (i = 0, macptr = rstrtok(tmpbuf, ";"); (macptr && i < pAd->ApCfg.BssidNum); macptr = rstrtok(NULL, ";"), i++) {
-				sec_cfg = &pAd->ApCfg.MBSSID[PF_TO_BSS_IDX(pAd, i)].wdev.SecConfig;
-				sec_cfg->sae_pk.lambda = os_str_tol(macptr, 0, 10);
-			}
-		}
-#endif /* CONFIG_AP_SUPPORT */
-	} else {
-#ifdef CONFIG_AP_SUPPORT
-		IF_DEV_CONFIG_OPMODE_ON_AP(pAd) {
-			i = 0;
-			while (i < MAX_MBSSID_NUM(pAd))
-				pAd->ApCfg.MBSSID[PF_TO_BSS_IDX(pAd, i++)].wdev.SecConfig.sae_pk.lambda = SAE_PK_AUTO_GEN_DEF_LAMBDA;
-		}
-#endif /* CONFIG_AP_SUPPORT */
-	}
-
-	if (RTMPGetKeyParameter("SAEPKGroup", tmpbuf, MAX_PARAMETER_LEN, pBuffer, TRUE)) {
-#ifdef CONFIG_AP_SUPPORT
-		IF_DEV_CONFIG_OPMODE_ON_AP(pAd) {
-			for (i = 0, macptr = rstrtok(tmpbuf, ";"); (macptr && i < pAd->ApCfg.BssidNum); macptr = rstrtok(NULL, ";"), i++) {
-				sec_cfg = &pAd->ApCfg.MBSSID[PF_TO_BSS_IDX(pAd, i)].wdev.SecConfig;
-
-				if (sec_cfg->sae_cap.key_input_mode != SAE_PK_KEY_INPUT_MODE_HEX)
-					continue;
-
-				sec_cfg->sae_pk.group_id = os_str_tol(macptr, 0, 10);
-			}
-		}
-#endif /* CONFIG_AP_SUPPORT */
-	} else {
-#ifdef CONFIG_AP_SUPPORT
-		IF_DEV_CONFIG_OPMODE_ON_AP(pAd) {
-			i = 0;
-			while (i < MAX_MBSSID_NUM(pAd))
-				pAd->ApCfg.MBSSID[PF_TO_BSS_IDX(pAd, i++)].wdev.SecConfig.sae_pk.group_id = SAE_DEFAULT_GROUP;
-		}
-#endif /* CONFIG_AP_SUPPORT */
-	}
-	/* test or testbed behavior only */
-	if (RTMPGetKeyParameter("SAEPKCfg", tmpbuf, MAX_PARAMETER_LEN, pBuffer, TRUE)) {
-#ifdef CONFIG_AP_SUPPORT
-		IF_DEV_CONFIG_OPMODE_ON_AP(pAd) {
-			for (i = 0, macptr = rstrtok(tmpbuf, ";"); (macptr && i < pAd->ApCfg.BssidNum); macptr = rstrtok(NULL, ";"), i++) {
-				UCHAR sae_pk_test = 0;
-
-				sae_pk_test = os_str_tol(macptr, 0, 16);
-				sec_cfg = &pAd->ApCfg.MBSSID[PF_TO_BSS_IDX(pAd, i)].wdev.SecConfig;
-				sec_cfg->sae_pk.sae_pk_test_ctrl = sae_pk_test;
-			}
-		}
-#endif /* CONFIG_AP_SUPPORT */
-	} else {
-#ifdef CONFIG_AP_SUPPORT
-		IF_DEV_CONFIG_OPMODE_ON_AP(pAd) {
-			i = 0;
-			while (i < MAX_MBSSID_NUM(pAd))
-				pAd->ApCfg.MBSSID[PF_TO_BSS_IDX(pAd, i++)].wdev.SecConfig.sae_pk.sae_pk_test_ctrl = 0;
-		}
-#endif /* CONFIG_AP_SUPPORT */
-	}
-#endif /*HOSTAPD_WPA3_SUPPORT*/
-}
-#endif
-
-static VOID read_ocv_parma_from_file(
-	IN PRTMP_ADAPTER pAd,
-	IN RTMP_STRING *tmpbuf,
-	IN RTMP_STRING *pBuffer)
-{
-#ifdef CONFIG_AP_SUPPORT
-	INT i = 0;
-	struct _SECURITY_CONFIG *sec_cfg = NULL;
-	RTMP_STRING *macptr;
-#endif /* CONFIG_AP_SUPPORT */
-
-	if (RTMPGetKeyParameter("OCVSupport", tmpbuf, MAX_PARAMETER_LEN, pBuffer, TRUE)) {
-#ifdef CONFIG_AP_SUPPORT
-		IF_DEV_CONFIG_OPMODE_ON_AP(pAd) {
-			for (i = 0, macptr = rstrtok(tmpbuf, ";"); (macptr && i < pAd->ApCfg.BssidNum); macptr = rstrtok(NULL, ";"), i++) {
-				UCHAR ocv_support = 0;
-
-				sec_cfg = &pAd->ApCfg.MBSSID[PF_TO_BSS_IDX(pAd, i)].wdev.SecConfig;
-				MTWF_DBG(pAd, DBG_CAT_SEC, CATSEC_SAE, DBG_LVL_INFO, "I/F(%s%d) ==> ",
-						 INF_MBSSID_DEV_NAME, i);
-				if (macptr)
-					ocv_support = os_str_tol(macptr, 0, 10);
-
-				sec_cfg->ocv_support = ocv_support;
-			}
-		}
-#endif /* CONFIG_AP_SUPPORT */
-	} else {
-#ifdef CONFIG_AP_SUPPORT
-			IF_DEV_CONFIG_OPMODE_ON_AP(pAd) {
-				i = 0;
-				while (i < MAX_MBSSID_NUM(pAd))
-					pAd->ApCfg.MBSSID[PF_TO_BSS_IDX(pAd, i++)].wdev.SecConfig.ocv_support = 0;
-			}
-#endif /* CONFIG_AP_SUPPORT */
-	}
-}
-
-static VOID read_td_parma_from_file(
-	IN PRTMP_ADAPTER pAd,
-	IN RTMP_STRING * tmpbuf,
-	IN RTMP_STRING * pBuffer)
-{
-#ifdef CONFIG_AP_SUPPORT
-	INT i = 0;
-	struct _SECURITY_CONFIG *sec_cfg = NULL;
-	RTMP_STRING *macptr;
-#endif /* CONFIG_AP_SUPPORT */
-
-	if (RTMPGetKeyParameter("TransitionDisable", tmpbuf, MAX_PARAMETER_LEN, pBuffer, TRUE)) {
-#ifdef CONFIG_AP_SUPPORT
-		IF_DEV_CONFIG_OPMODE_ON_AP(pAd) {
-			for (i = 0, macptr = rstrtok(tmpbuf, ";"); (macptr && i < pAd->ApCfg.BssidNum); macptr = rstrtok(NULL, ";"), i++) {
-				sec_cfg = &pAd->ApCfg.MBSSID[PF_TO_BSS_IDX(pAd, i)].wdev.SecConfig;
-				MTWF_DBG(pAd, DBG_CAT_SEC, CATSEC_SAE, DBG_LVL_INFO, "I/F(%s%d) ==> ",
-						 INF_MBSSID_DEV_NAME, i);
-				if (macptr) {
-					sec_cfg->td_value_fixed_en = TRUE;
-					sec_cfg->td_value = os_str_tol(macptr, 0, 10);
-				}
-			}
-		}
-#endif /* CONFIG_AP_SUPPORT */
-	} else {
-#ifdef CONFIG_AP_SUPPORT
-			IF_DEV_CONFIG_OPMODE_ON_AP(pAd) {
-				i = 0;
-				while (i < MAX_MBSSID_NUM(pAd))
-					pAd->ApCfg.MBSSID[PF_TO_BSS_IDX(pAd, i++)].wdev.SecConfig.td_value_fixed_en = FALSE;
-			}
-#endif /* CONFIG_AP_SUPPORT */
-	}
-}
 
 
 VOID ReadSecurityParameterFromFile(
@@ -2744,13 +1640,9 @@ VOID ReadSecurityParameterFromFile(
 	IN RTMP_STRING *pBuffer)
 {
 	RTMP_STRING *macptr;
-	int ret;
 #ifdef CONFIG_AP_SUPPORT
 	INT apidx;
 #endif /* CONFIG_AP_SUPPORT */
-#ifdef CONFIG_STA_SUPPORT
-	INT staidx;
-#endif /* CONFIG_STA_SUPPORT */
 	INT idx;
 	struct wifi_dev *wdev = NULL;
 	struct _SECURITY_CONFIG *pSecConfig = NULL;
@@ -2760,27 +1652,15 @@ VOID ReadSecurityParameterFromFile(
 #ifdef CONFIG_AP_SUPPORT
 		IF_DEV_CONFIG_OPMODE_ON_AP(pAd) {
 			for (apidx = 0, macptr = rstrtok(tmpbuf, ";"); (macptr && apidx < pAd->ApCfg.BssidNum); macptr = rstrtok(NULL, ";"), apidx++) {
-				wdev = &pAd->ApCfg.MBSSID[PF_TO_BSS_IDX(pAd, apidx)].wdev;
+				wdev = &pAd->ApCfg.MBSSID[apidx].wdev;
 				pSecConfig = &wdev->SecConfig;
-				MTWF_DBG(pAd, DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_INFO, "I/F(%s%d) ==> ",
-						 INF_MBSSID_DEV_NAME, apidx);
+				MTWF_LOG(DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("I/F(%s%d) ==> ",
+						 INF_MBSSID_DEV_NAME, apidx));
 				SetWdevAuthMode(pSecConfig, macptr);
 				wdev->PortSecured = WPA_802_1X_PORT_NOT_SECURED;
 			}
 		}
 #endif /* CONFIG_AP_SUPPORT */
-#ifdef CONFIG_STA_SUPPORT
-		IF_DEV_CONFIG_OPMODE_ON_STA(pAd) {
-			for (staidx = 0, macptr = rstrtok(tmpbuf, ";"); (macptr && staidx < MAX_MULTI_STA); macptr = rstrtok(NULL, ";"), staidx++) {
-				wdev = &pAd->StaCfg[staidx].wdev;
-				pSecConfig = &wdev->SecConfig;
-				MTWF_DBG(pAd, DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_INFO, "I/F(%s%d) ==> ",
-						 INF_MBSSID_DEV_NAME, staidx);
-				SetWdevAuthMode(pSecConfig, macptr);
-				wdev->PortSecured = WPA_802_1X_PORT_NOT_SECURED;
-			}
-		}
-#endif /* CONFIG_STA_SUPPORT */
 	}
 
 	/*EncrypType*/
@@ -2788,23 +1668,13 @@ VOID ReadSecurityParameterFromFile(
 #ifdef CONFIG_AP_SUPPORT
 		IF_DEV_CONFIG_OPMODE_ON_AP(pAd) {
 			for (apidx = 0, macptr = rstrtok(tmpbuf, ";"); macptr; macptr = rstrtok(NULL, ";"), apidx++) {
-				pSecConfig = &pAd->ApCfg.MBSSID[PF_TO_BSS_IDX(pAd, apidx)].wdev.SecConfig;
-				MTWF_DBG(pAd, DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_INFO, "I/F(%s%d) ==> ",
-						 INF_MBSSID_DEV_NAME, apidx);
+				pSecConfig = &pAd->ApCfg.MBSSID[apidx].wdev.SecConfig;
+				MTWF_LOG(DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("I/F(%s%d) ==> ",
+						 INF_MBSSID_DEV_NAME, apidx));
 				SetWdevEncrypMode(pSecConfig, macptr);
 			}
 		}
 #endif /* CONFIG_AP_SUPPORT */
-#ifdef CONFIG_STA_SUPPORT
-		IF_DEV_CONFIG_OPMODE_ON_STA(pAd) {
-			for (staidx = 0, macptr = rstrtok(tmpbuf, ";"); (macptr && staidx < MAX_MULTI_STA); macptr = rstrtok(NULL, ";"), staidx++) {
-				pSecConfig = &pAd->StaCfg[staidx].wdev.SecConfig;
-				MTWF_DBG(pAd, DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_INFO, "I/F(%s%d) ==> ",
-						 INF_MBSSID_DEV_NAME, staidx);
-				SetWdevEncrypMode(pSecConfig, macptr);
-			}
-		}
-#endif /* CONFIG_STA_SUPPORT */
 	}
 
 	/* Web DefaultKeyID */
@@ -2813,7 +1683,7 @@ VOID ReadSecurityParameterFromFile(
 #ifdef CONFIG_AP_SUPPORT
 		IF_DEV_CONFIG_OPMODE_ON_AP(pAd) {
 			for (apidx = 0, macptr = rstrtok(tmpbuf, ";"); macptr; macptr = rstrtok(NULL, ";"), apidx++) {
-				pSecConfig = &pAd->ApCfg.MBSSID[PF_TO_BSS_IDX(pAd, apidx)].wdev.SecConfig;
+				pSecConfig = &pAd->ApCfg.MBSSID[apidx].wdev.SecConfig;
 				KeyIdx = os_str_tol(macptr, 0, 10);
 
 				if ((KeyIdx >= 1) && (KeyIdx <= 4))
@@ -2821,39 +1691,20 @@ VOID ReadSecurityParameterFromFile(
 				else
 					pSecConfig->PairwiseKeyId = 0;
 
-				MTWF_DBG(pAd, DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_INFO, "I/F(%s%d)) ==> DefaultKeyId=%d\n",
-						 INF_MBSSID_DEV_NAME, apidx, pSecConfig->PairwiseKeyId);
+				MTWF_LOG(DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("I/F(%s%d)) ==> DefaultKeyId=%d\n",
+						 INF_MBSSID_DEV_NAME, apidx, pSecConfig->PairwiseKeyId));
 			}
 		}
 #endif /* CONFIG_AP_SUPPORT */
-#ifdef CONFIG_STA_SUPPORT
-		IF_DEV_CONFIG_OPMODE_ON_STA(pAd) {
-			for (staidx = 0, macptr = rstrtok(tmpbuf, ";"); (macptr && staidx < MAX_MULTI_STA); macptr = rstrtok(NULL, ";"), staidx++) {
-				pSecConfig = &pAd->StaCfg[staidx].wdev.SecConfig;
-				KeyIdx = os_str_tol(tmpbuf, 0, 10);
-
-				if ((KeyIdx >= 1) && (KeyIdx <= 4))
-					pSecConfig->PairwiseKeyId = (UCHAR) (KeyIdx - 1);
-				else
-					pSecConfig->PairwiseKeyId = 0;
-
-				MTWF_DBG(pAd, DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_INFO, "I/F(%s%d)) ==> DefaultKeyId=%d\n",
-						 INF_MBSSID_DEV_NAME, staidx, pSecConfig->PairwiseKeyId);
-			}
-		}
-#endif /* CONFIG_STA_SUPPORT */
 	}
 
 	/* KeyType, KeyStr for WEP  */
 	for (idx = 0; idx < 4; idx++) {
 		INT i = 0;
 		RTMP_STRING tok_str[16];
-		ULONG KeyType[MAX_BEACON_NUM];
+		ULONG KeyType[HW_BEACON_MAX_NUM];
 
-		ret = snprintf(tok_str, sizeof(tok_str), "Key%dType", idx + 1);
-		if (os_snprintf_error(sizeof(tok_str), ret))
-				MTWF_DBG(pAd, DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-					"tok_str15 snprintf error!\n");
+		snprintf(tok_str, sizeof(tok_str), "Key%dType", idx + 1);
 
 		if (RTMPGetKeyParameter(tok_str, tmpbuf, MAX_PARAMETER_LEN, pBuffer, TRUE)) {
 			for (i = 0, macptr = rstrtok(tmpbuf, ";"); macptr; macptr = rstrtok(NULL, ";"), i++)
@@ -2865,12 +1716,10 @@ VOID ReadSecurityParameterFromFile(
 				BOOLEAN bKeyxStryIsUsed = FALSE;
 
 				for (i = 0; i < pAd->ApCfg.BssidNum; i++) {
-					ret = snprintf(tok_str, sizeof(tok_str), "Key%dStr%d", idx + 1, i + 1);
-					if (os_snprintf_error(sizeof(tok_str), ret))
-						MTWF_DBG(pAd, DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-							"tok_str16 snprintf error!\n");
+					snprintf(tok_str, sizeof(tok_str), "Key%dStr%d", idx + 1, i + 1);
+
 					if (RTMPGetKeyParameter(tok_str, tmpbuf, MAX_PARAMETER_LEN, pBuffer, FALSE)) {
-						pSecConfig = &pAd->ApCfg.MBSSID[PF_TO_BSS_IDX(pAd, i)].wdev.SecConfig;
+						pSecConfig = &pAd->ApCfg.MBSSID[i].wdev.SecConfig;
 						ParseWebKey(pSecConfig, tmpbuf, idx, 0);
 
 						if (bKeyxStryIsUsed == FALSE)
@@ -2879,10 +1728,7 @@ VOID ReadSecurityParameterFromFile(
 				}
 
 				if (bKeyxStryIsUsed == FALSE) {
-					ret = snprintf(tok_str, sizeof(tok_str), "Key%dStr", idx + 1);
-					if (os_snprintf_error(sizeof(tok_str), ret))
-						MTWF_DBG(pAd, DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-							"tok_str17 snprintf error!\n");
+					snprintf(tok_str, sizeof(tok_str), "Key%dStr", idx + 1);
 
 					if (RTMPGetKeyParameter(tok_str, tmpbuf, MAX_PARAMETER_LEN, pBuffer, FALSE)) {
 						if (pAd->ApCfg.BssidNum == 1) {
@@ -2891,7 +1737,7 @@ VOID ReadSecurityParameterFromFile(
 						} else {
 							/* Anyway, we still do the legacy dissection of the whole KeyxStr string.*/
 							for (i = 0, macptr = rstrtok(tmpbuf, ";"); macptr; macptr = rstrtok(NULL, ";"), i++) {
-								pSecConfig = &pAd->ApCfg.MBSSID[PF_TO_BSS_IDX(pAd, i)].wdev.SecConfig;
+								pSecConfig = &pAd->ApCfg.MBSSID[i].wdev.SecConfig;
 								ParseWebKey(pSecConfig, macptr, idx, 0);
 							}
 						}
@@ -2899,51 +1745,10 @@ VOID ReadSecurityParameterFromFile(
 				}
 			}
 #endif /* CONFIG_AP_SUPPORT */
-#ifdef CONFIG_STA_SUPPORT
-			IF_DEV_CONFIG_OPMODE_ON_STA(pAd) {
-				BOOLEAN bKeyxStryIsUsed = FALSE;
-
-				for (staidx = 0; staidx < MAX_MULTI_STA; staidx++) {
-					ret = snprintf(tok_str, sizeof(tok_str), "Key%dStr%d", idx + 1, i + 1);
-					if (os_snprintf_error(sizeof(tok_str), ret))
-						MTWF_DBG(pAd, DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-							"tok_str18 snprintf error!\n");
-					if (RTMPGetKeyParameter(tok_str, tmpbuf, MAX_PARAMETER_LEN, pBuffer, FALSE)) {
-						pSecConfig = &pAd->StaCfg[staidx].wdev.SecConfig;
-						ParseWebKey(pSecConfig, tmpbuf, idx, 0);
-
-						if (bKeyxStryIsUsed == FALSE)
-							bKeyxStryIsUsed = TRUE;
-					}
-				}
-
-				if (bKeyxStryIsUsed == FALSE) {
-					ret = snprintf(tok_str, sizeof(tok_str), "Key%dStr", idx + 1);
-					if (os_snprintf_error(sizeof(tok_str), ret))
-						MTWF_DBG(pAd, DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-							"tok_str19 snprintf error!\n");
-					if (RTMPGetKeyParameter(tok_str, tmpbuf, MAX_PARAMETER_LEN, pBuffer, FALSE)) {
-						if (pAd->MSTANum == 1) {
-							pSecConfig = &pAd->StaCfg[MAIN_MSTA_ID].wdev.SecConfig;
-							ParseWebKey(pSecConfig, tmpbuf, idx, 0);
-						} else {
-							/* Anyway, we still do the legacy dissection of the whole KeyxStr string.*/
-							for (staidx = 0, macptr = rstrtok(tmpbuf, ";"); (macptr && staidx < MAX_MULTI_STA); macptr = rstrtok(NULL, ";"), staidx++) {
-								pSecConfig = &pAd->StaCfg[staidx].wdev.SecConfig;
-								ParseWebKey(pSecConfig, macptr, idx, 0);
-							}
-						}
-					}
-				}
-			}
-#endif /* CONFIG_STA_SUPPORT */
 		}
 	}
 
 	ReadWPAParameterFromFile(pAd, tmpbuf, pBuffer);
-#ifdef DOT11_SAE_SUPPORT
-	read_sae_parma_from_file(pAd, tmpbuf, pBuffer);
-#endif
 #ifdef DOT1X_SUPPORT
 	ReadRadiusParameterFromFile(pAd, tmpbuf, pBuffer);
 #endif /* DOT1X_SUPPORT */
@@ -2956,42 +1761,35 @@ VOID ReadSecurityParameterFromFile(
 #ifdef DOT11W_PMF_SUPPORT
 	rtmp_read_pmf_parameters_from_file(pAd, tmpbuf, pBuffer);
 #endif /* DOT11W_PMF_SUPPORT */
-#ifdef BCN_PROTECTION_SUPPORT
-	read_bcn_prot_parma_from_file(pAd, tmpbuf, pBuffer);
-#endif
-	read_ocv_parma_from_file(pAd, tmpbuf, pBuffer);
-	read_td_parma_from_file(pAd, tmpbuf, pBuffer);
 }
 
 
-INT32 fill_wtbl_key_info_struc(
+VOID fill_wtbl_key_info_struc(
 	IN struct _ASIC_SEC_INFO *pInfo,
 	OUT CMD_WTBL_SECURITY_KEY_T * rWtblSecurityKey)
 {
 	if (IS_REMOVEKEY_OPERATION(pInfo)) {
-		rWtblSecurityKey->ucAddRemove = CMD_SEC_KEY_REMOVE_KEY_OP;
+		rWtblSecurityKey->ucAddRemove = 1;
 		rWtblSecurityKey->ucKeyLen = sizeof(rWtblSecurityKey->aucKeyMaterial);
 	} else {   /* Add Key */
 		SEC_KEY_INFO *pSecKey = &pInfo->Key;
 
-		rWtblSecurityKey->ucAddRemove = CMD_SEC_KEY_ADD_KEY_OP;
+		rWtblSecurityKey->ucAddRemove = 0;
 		rWtblSecurityKey->ucKeyId = pInfo->KeyIdx;
 
-		if (pSecKey->KeyLen > sizeof(rWtblSecurityKey->aucKeyMaterial)) {
-			MTWF_DBG(NULL, DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-				"KeyLen is larger than the aucKeyMaterial\n");
-			return NDIS_STATUS_FAILURE;
-		} else
+		if (pSecKey->KeyLen > sizeof(rWtblSecurityKey->aucKeyMaterial))
+			rWtblSecurityKey->ucKeyLen = sizeof(rWtblSecurityKey->aucKeyMaterial);
+		else
 			rWtblSecurityKey->ucKeyLen = pSecKey->KeyLen;
 
 		os_move_mem(rWtblSecurityKey->aucKeyMaterial, pSecKey->Key, rWtblSecurityKey->ucKeyLen);
 
 		if (IS_CIPHER_WEP(pInfo->Cipher)) {
-			if (rWtblSecurityKey->ucKeyLen == LEN_WEP40)
+			if (rWtblSecurityKey->ucKeyLen == 5)
 				rWtblSecurityKey->ucAlgorithmId = CIPHER_SUIT_WEP_40;
-			else if (rWtblSecurityKey->ucKeyLen == LEN_WEP104)
+			else if (rWtblSecurityKey->ucKeyLen == 13)
 				rWtblSecurityKey->ucAlgorithmId = CIPHER_SUIT_WEP_104;
-			else if (rWtblSecurityKey->ucKeyLen == LEN_WEP128)
+			else if (rWtblSecurityKey->ucKeyLen == 16)
 				rWtblSecurityKey->ucAlgorithmId = CIPHER_SUIT_WEP_128;
 		} else if (IS_CIPHER_TKIP(pInfo->Cipher)) {
 			rWtblSecurityKey->ucAlgorithmId = CIPHER_SUIT_TKIP_W_MIC;
@@ -3007,9 +1805,9 @@ INT32 fill_wtbl_key_info_struc(
 			rWtblSecurityKey->ucAlgorithmId = CIPHER_SUIT_GCMP_256;
 
 		else {
-			MTWF_DBG(NULL, DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_ERROR, "Not support Cipher[0x%x]\n",
-					 pInfo->Cipher);
-			return NDIS_STATUS_FAILURE;
+			MTWF_LOG(DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_OFF, ("%s(%d): Not support Cipher[0x%x]\n",
+					 __func__, __LINE__, pInfo->Cipher));
+			return;
 		}
 
 		if ((pInfo->Direction == SEC_ASIC_KEY_TX)
@@ -3027,225 +1825,6 @@ INT32 fill_wtbl_key_info_struc(
 				rWtblSecurityKey->ucIkv = 1;
 		}
 	}
-
-	return NDIS_STATUS_SUCCESS;
-}
-
-
-#ifdef WIFI_UNIFIED_COMMAND
-INT32 fill_uni_cmd_wtbl_key_info_struc_v2(
-	IN struct _ASIC_SEC_INFO *pInfo,
-	OUT P_CMD_WTBL_SECURITY_KEY_V2_T rWtblSecurityKey)
-{
-	rWtblSecurityKey->ucEntryCount = 0;
-	if (IS_REMOVEKEY_OPERATION(pInfo)) {
-		rWtblSecurityKey->ucAddRemove = CMD_SEC_KEY_REMOVE_KEY_OP;
-	} else {   /* Add Key */
-		SEC_KEY_INFO *pSecKey = &pInfo->Key;
-		UINT8 *buf = rWtblSecurityKey->aucBuffer;
-		UNI_CMD_WTBL_SEC_CIPHER_GENERAL_T *wtbl_cipher = (UNI_CMD_WTBL_SEC_CIPHER_GENERAL_T *)buf;
-		UCHAR is_igtk_exist = FALSE;
-
-		rWtblSecurityKey->ucAddRemove = CMD_SEC_KEY_ADD_KEY_OP;
-		wtbl_cipher->ucKeyIdx = pInfo->KeyIdx;
-		wtbl_cipher->ucSubLength = sizeof(UNI_CMD_WTBL_SEC_CIPHER_GENERAL_T);
-
-		if (IS_CIPHER_BIP_CMAC128(pInfo->Cipher) ||
-			(IS_CIPHER_CCMP128(pInfo->Cipher) && pSecKey->KeyLen == 32)) {
-			is_igtk_exist = TRUE;
-			pSecKey->KeyLen = LEN_CCMP128_TK;
-		}
-
-		if (pSecKey->KeyLen > sizeof(wtbl_cipher->aucKeyMaterial)) {
-			MTWF_DBG(NULL, DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-				"KeyLen is larger than the aucKeyMaterial\n");
-			return NDIS_STATUS_FAILURE;
-		} else
-			wtbl_cipher->ucKeyLength = pSecKey->KeyLen;
-
-		os_move_mem(wtbl_cipher->aucKeyMaterial, pSecKey->Key, wtbl_cipher->ucKeyLength);
-
-		hex_dump_with_cat_and_lvl("install key:", wtbl_cipher->aucKeyMaterial, wtbl_cipher->ucKeyLength,
-						DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_INFO);
-
-		if ((pInfo->Cipher)) {
-			if (pSecKey->KeyLen == LEN_WEP40)
-				wtbl_cipher->ucCipherId = SEC_CIPHER_ID_WEP40;
-			else if (pSecKey->KeyLen == LEN_WEP104)
-				wtbl_cipher->ucCipherId = SEC_CIPHER_ID_WEP104;
-			else if (pSecKey->KeyLen == LEN_WEP128)
-				wtbl_cipher->ucCipherId = SEC_CIPHER_ID_WEP128;
-		} else if (IS_CIPHER_TKIP(pInfo->Cipher)) {
-			wtbl_cipher->ucCipherId = SEC_CIPHER_ID_TKIP;
-			os_move_mem(&wtbl_cipher->aucKeyMaterial[16], pSecKey->RxMic, LEN_TKIP_MIC);
-			os_move_mem(&wtbl_cipher->aucKeyMaterial[24], pSecKey->TxMic, LEN_TKIP_MIC);
-		} else if (IS_CIPHER_CCMP128(pInfo->Cipher))
-			wtbl_cipher->ucCipherId = SEC_CIPHER_ID_CCMP128;
-		else if (IS_CIPHER_CCMP256(pInfo->Cipher))
-			wtbl_cipher->ucCipherId = SEC_CIPHER_ID_CCMP256;
-		else if (IS_CIPHER_GCMP128(pInfo->Cipher))
-			wtbl_cipher->ucCipherId = SEC_CIPHER_ID_GCMP128;
-		else if (IS_CIPHER_GCMP256(pInfo->Cipher))
-			wtbl_cipher->ucCipherId = SEC_CIPHER_ID_GCMP256;
-		else {
-			MTWF_DBG(NULL, DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_ERROR, "Not support Cipher[0x%x]\n",
-					 pInfo->Cipher);
-			return NDIS_STATUS_FAILURE;
-		}
-
-		MTWF_DBG(NULL, DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_INFO,
-				"%s: ucCipherId = %d, ucKeyIdx = %d\n", __func__, wtbl_cipher->ucCipherId, wtbl_cipher->ucKeyIdx);
-
-		/* TODO: Check following values */
-		wtbl_cipher->u2WlanIndex = cpu2le16(0);
-		wtbl_cipher->ucMgmtProtection = 0;
-		wtbl_cipher->fgNeedRsp = 0;
-
-		rWtblSecurityKey->ucEntryCount++;
-		buf += wtbl_cipher->ucSubLength;
-
-		if (is_igtk_exist) {
-			UNI_CMD_WTBL_SEC_CIPHER_GENERAL_T *wtbl_bip = (UNI_CMD_WTBL_SEC_CIPHER_GENERAL_T *)buf;
-
-			wtbl_bip->ucSubLength = sizeof(UNI_CMD_WTBL_SEC_CIPHER_GENERAL_T);
-			wtbl_bip->ucCipherId = SEC_CIPHER_ID_BIP_CMAC_128;
-			wtbl_bip->ucKeyLength = pInfo->IGTKKeyLen;
-			wtbl_bip->ucKeyIdx = pInfo->igtk_key_idx;
-			os_move_mem(wtbl_bip->aucKeyMaterial, pInfo->IGTK, pInfo->IGTKKeyLen);
-			hex_dump_with_cat_and_lvl("install igtk key:", wtbl_bip->aucKeyMaterial, pInfo->IGTKKeyLen,
-							DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_INFO);
-
-			/* TODO: Check following values */
-			wtbl_cipher->u2WlanIndex = cpu2le16(0);
-			wtbl_cipher->ucMgmtProtection = 0;
-			wtbl_cipher->fgNeedRsp = 0;
-
-
-			rWtblSecurityKey->ucEntryCount++;
-
-			buf += wtbl_bip->ucSubLength;
-		}
-
-		if (pInfo->bigtk_key_len) {
-			UNI_CMD_WTBL_SEC_CIPHER_GENERAL_T *wtbl_bip = (UNI_CMD_WTBL_SEC_CIPHER_GENERAL_T *)buf;
-
-			wtbl_bip->ucSubLength = sizeof(UNI_CMD_WTBL_SEC_CIPHER_GENERAL_T);
-			wtbl_bip->ucCipherId = SEC_CIPHER_ID_BIP_CMAC_128;
-			wtbl_bip->ucKeyLength = pInfo->bigtk_key_len;
-			wtbl_bip->ucKeyIdx = pInfo->bigtk_key_idx;
-			os_move_mem(wtbl_bip->aucKeyMaterial, pInfo->bigtk, pInfo->bigtk_key_len);
-			hex_dump_with_cat_and_lvl("install bigtk key:", wtbl_bip->aucKeyMaterial, pInfo->bigtk_key_len,
-							DBG_CAT_SEC, CATSEC_BCNPROT, DBG_LVL_INFO);
-
-			/* TODO: Check following values */
-			wtbl_cipher->u2WlanIndex = cpu2le16(0);
-			wtbl_cipher->ucMgmtProtection = 0;
-			wtbl_cipher->fgNeedRsp = 0;
-
-			rWtblSecurityKey->ucEntryCount++;
-		}
-	}
-
-	return NDIS_STATUS_SUCCESS;
-}
-#endif /* WIFI_UNIFIED_COMMAND */
-
-INT32 fill_wtbl_key_info_struc_v2(
-	IN struct _ASIC_SEC_INFO *pInfo,
-	OUT CMD_WTBL_SECURITY_KEY_V2_T * rWtblSecurityKey)
-{
-	rWtblSecurityKey->ucEntryCount = 0;
-	if (IS_REMOVEKEY_OPERATION(pInfo)) {
-		rWtblSecurityKey->ucAddRemove = CMD_SEC_KEY_REMOVE_KEY_OP;
-	} else {   /* Add Key */
-		SEC_KEY_INFO *pSecKey = &pInfo->Key;
-		UINT8 *buf = rWtblSecurityKey->aucBuffer;
-		CMD_WTBL_SEC_CIPHER_GENERAL_T *wtbl_cipher = (CMD_WTBL_SEC_CIPHER_GENERAL_T *)buf;
-		UCHAR is_igtk_exist = FALSE;
-
-		rWtblSecurityKey->ucAddRemove = CMD_SEC_KEY_ADD_KEY_OP;
-		wtbl_cipher->ucKeyIdx = pInfo->KeyIdx;
-		wtbl_cipher->ucSubLength = sizeof(CMD_WTBL_SEC_CIPHER_GENERAL_T);
-
-		if (IS_CIPHER_BIP_CMAC128(pInfo->Cipher) ||
-			(IS_CIPHER_CCMP128(pInfo->Cipher) && pSecKey->KeyLen == 32)) {
-			is_igtk_exist = TRUE;
-			pSecKey->KeyLen = LEN_CCMP128_TK;
-		}
-
-		if (pSecKey->KeyLen > sizeof(wtbl_cipher->aucKeyMaterial)) {
-			MTWF_DBG(NULL, DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-				"KeyLen is larger than the aucKeyMaterial\n");
-			return NDIS_STATUS_FAILURE;
-		} else
-			wtbl_cipher->ucKeyLength = pSecKey->KeyLen;
-
-		os_move_mem(wtbl_cipher->aucKeyMaterial, pSecKey->Key, wtbl_cipher->ucKeyLength);
-
-		hex_dump_with_cat_and_lvl("install key:", wtbl_cipher->aucKeyMaterial, wtbl_cipher->ucKeyLength,
-						DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_INFO);
-
-		if (IS_CIPHER_WEP(pInfo->Cipher)) {
-			if (pSecKey->KeyLen == LEN_WEP40)
-				wtbl_cipher->ucCipherId = SEC_CIPHER_ID_WEP40;
-			else if (pSecKey->KeyLen == LEN_WEP104)
-				wtbl_cipher->ucCipherId = SEC_CIPHER_ID_WEP104;
-			else if (pSecKey->KeyLen == LEN_WEP128)
-				wtbl_cipher->ucCipherId = SEC_CIPHER_ID_WEP128;
-		} else if (IS_CIPHER_TKIP(pInfo->Cipher)) {
-			wtbl_cipher->ucCipherId = SEC_CIPHER_ID_TKIP;
-			os_move_mem(&wtbl_cipher->aucKeyMaterial[16], pSecKey->RxMic, LEN_TKIP_MIC);
-			os_move_mem(&wtbl_cipher->aucKeyMaterial[24], pSecKey->TxMic, LEN_TKIP_MIC);
-		} else if (IS_CIPHER_CCMP128(pInfo->Cipher))
-			wtbl_cipher->ucCipherId = SEC_CIPHER_ID_CCMP128;
-		else if (IS_CIPHER_CCMP256(pInfo->Cipher))
-			wtbl_cipher->ucCipherId = SEC_CIPHER_ID_CCMP256;
-		else if (IS_CIPHER_GCMP128(pInfo->Cipher))
-			wtbl_cipher->ucCipherId = SEC_CIPHER_ID_GCMP128;
-		else if (IS_CIPHER_GCMP256(pInfo->Cipher))
-			wtbl_cipher->ucCipherId = SEC_CIPHER_ID_GCMP256;
-		else {
-			MTWF_DBG(NULL, DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_ERROR, " Not support Cipher[0x%x]\n",
-					 pInfo->Cipher);
-			return NDIS_STATUS_FAILURE;
-		}
-
-		MTWF_DBG(NULL, DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_INFO,
-				"%s: ucCipherId = %d, ucKeyIdx = %d\n", __func__, wtbl_cipher->ucCipherId, wtbl_cipher->ucKeyIdx);
-
-		rWtblSecurityKey->ucEntryCount++;
-		buf += wtbl_cipher->ucSubLength;
-
-		if (is_igtk_exist) {
-			CMD_WTBL_SEC_CIPHER_BIP_T *wtbl_bip = (CMD_WTBL_SEC_CIPHER_BIP_T *)buf;
-
-			wtbl_bip->ucSubLength = sizeof(CMD_WTBL_SEC_CIPHER_BIP_T);
-			wtbl_bip->ucCipherId = SEC_CIPHER_ID_BIP_CMAC_128;
-			wtbl_bip->ucKeyLength = pInfo->IGTKKeyLen;
-			wtbl_bip->ucKeyIdx = pInfo->igtk_key_idx;
-			os_move_mem(wtbl_bip->aucKeyMaterial, pInfo->IGTK, pInfo->IGTKKeyLen);
-			hex_dump_with_cat_and_lvl("install igtk key:", wtbl_bip->aucKeyMaterial, pInfo->IGTKKeyLen,
-							DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_INFO);
-			rWtblSecurityKey->ucEntryCount++;
-
-			buf += wtbl_bip->ucSubLength;
-		}
-
-		if (pInfo->bigtk_key_len) {
-			CMD_WTBL_SEC_CIPHER_BIP_T *wtbl_bip = (CMD_WTBL_SEC_CIPHER_BIP_T *)buf;
-
-			wtbl_bip->ucSubLength = sizeof(CMD_WTBL_SEC_CIPHER_BIP_T);
-			wtbl_bip->ucCipherId = SEC_CIPHER_ID_BIP_CMAC_128;
-			wtbl_bip->ucKeyLength = pInfo->bigtk_key_len;
-			wtbl_bip->ucKeyIdx = pInfo->bigtk_key_idx;
-			os_move_mem(wtbl_bip->aucKeyMaterial, pInfo->bigtk, pInfo->bigtk_key_len);
-			hex_dump_with_cat_and_lvl("install bigtk key:", wtbl_bip->aucKeyMaterial, pInfo->bigtk_key_len,
-							DBG_CAT_SEC, CATSEC_BCNPROT, DBG_LVL_INFO);
-			rWtblSecurityKey->ucEntryCount++;
-		}
-	}
-
-	return NDIS_STATUS_SUCCESS;
 }
 
 VOID process_pmkid(
@@ -3257,6 +1836,9 @@ VOID process_pmkid(
 	if (CacheIdx != INVALID_PMKID_IDX) {
 		/* Enqueue a EAPOL-start message with the pEntry for WPAPSK State Machine */
 		if ((entry->EnqueueEapolStartTimerRunning == EAPOL_START_DISABLE
+#ifdef HOSTAPD_SUPPORT
+			&& wdev->Hostapd == Hostapd_Disable
+#endif /*HOSTAPD_SUPPORT*/
 			)
 #ifdef WSC_AP_SUPPORT
 			&& !entry->bWscCapable
@@ -3277,15 +1859,18 @@ VOID process_pmkid(
 
 		store_pmkid_cache_in_sec_config(pAd, entry, CacheIdx);
 
-		MTWF_DBG(pAd, DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_INFO,
-				"ASSOC - 2.PMKID matched and start key cache algorithm\n");
+		MTWF_LOG(DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
+				("ASSOC - 2.PMKID matched and start key cache algorithm\n"));
 	} else {
 		store_pmkid_cache_in_sec_config(pAd, entry, INVALID_PMKID_IDX);
-		MTWF_DBG(pAd, DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-			 "ASSOC - 2.PMKID not found\n");
+		MTWF_LOG(DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
+			 ("ASSOC - 2.PMKID not found\n"));
 
 		/* Enqueue a EAPOL-start message to trigger EAP SM */
 		if (entry->EnqueueEapolStartTimerRunning == EAPOL_START_DISABLE
+#ifdef HOSTAPD_SUPPORT
+			&& wdev->Hostapd == Hostapd_Disable
+#endif/*HOSTAPD_SUPPORT*/
 		) {
 			entry->EnqueueEapolStartTimerRunning = EAPOL_START_1X;
 			RTMPSetTimer(&entry->SecConfig.StartFor4WayTimer, ENQUEUE_EAPOL_START_TIMER);
@@ -3299,12 +1884,12 @@ VOID store_pmkid_cache_in_sec_config(
 	IN INT32 cache_idx)
 {
 	if (!pEntry) {
-		MTWF_DBG(pAd, DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-			"pEntry is null\n");
+		MTWF_LOG(DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
+			("%s(): pEntry is null\n", __func__));
 		return;
 	}
 
-	MTWF_DBG(pAd, DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_DEBUG, "EntryType = %d\n", pEntry->EntryType);
+	MTWF_LOG(DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_LOUD, ("EntryType = %d\n", pEntry->EntryType));
 
 	if (cache_idx == INVALID_PMKID_IDX) {
 		pEntry->SecConfig.pmkid = NULL;
@@ -3314,18 +1899,6 @@ VOID store_pmkid_cache_in_sec_config(
 #ifdef CONFIG_AP_SUPPORT
 				pEntry->SecConfig.pmkid = pAd->ApCfg.PMKIDCache.BSSIDInfo[cache_idx].PMKID;
 				pEntry->SecConfig.pmk_cache = pAd->ApCfg.PMKIDCache.BSSIDInfo[cache_idx].PMK;
-#endif
-#ifdef CONFIG_STA_SUPPORT
-			{
-				PSTA_ADMIN_CONFIG pStaCfg = GetStaCfgByWdev(pAd, pEntry->wdev);
-
-				if (pStaCfg) {
-					pEntry->SecConfig.pmkid = pStaCfg->SavedPMK[cache_idx].PMKID;
-					pEntry->SecConfig.pmk_cache = pStaCfg->SavedPMK[cache_idx].PMK;
-				} else
-					MTWF_DBG(pAd, DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-							"pStaCfg is null\n");
-			}
 #endif
 		}
 	}
@@ -3339,235 +1912,4 @@ UCHAR is_pmkid_cache_in_sec_config(
 	else
 		return FALSE;
 }
-
-/* input: wdev->SecConfig */
-#ifdef HOSTAPD_WPA3R3_SUPPORT
-INT build_rsnxe_ie(
-	IN struct wifi_dev *wdev,
-	IN struct _SECURITY_CONFIG *sec_cfg,
-	IN UCHAR *buf)
-#else
-INT build_rsnxe_ie(
-	IN struct _SECURITY_CONFIG *sec_cfg,
-	IN UCHAR *buf)
-#endif
-{
-	INT extend_length = 0;
-	UCHAR ie = IE_RSNXE;
-	UCHAR ie_len = 1;
-	UCHAR cap = 0;
-
-#ifdef HOSTAPD_WPA3R3_SUPPORT
-	if (wdev == NULL) {
-		MTWF_DBG(NULL, DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-				"wdev is NULL\n");
-		return 0;
-	}
-	/* Add RSNXE capability only for interface operating in AP mode
-	 * This capability is received from hostapd */
-	if (wdev->wdev_type == WDEV_TYPE_AP) {
-		cap = sec_cfg->RSNXE_Val;
-		MTWF_DBG(NULL, DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_INFO,
-				"%s :RSNXE_Val:%d\n", __func__, sec_cfg->RSNXE_Val);
-	} else {
-#endif
-	/* remove it if any other authmode also use rsnxe */
-	if (!IS_AKM_SAE(sec_cfg->AKMMap))
-		return 0;
-
-#ifdef DOT11_SAE_SUPPORT
-	if (IS_AKM_SAE(sec_cfg->AKMMap) &&
-		sec_cfg->sae_cap.gen_pwe_method != PWE_LOOPING_ONLY)
-		cap |= (1 << IE_RSNXE_CAPAB_SAE_H2E);
-
-	if (IS_AKM_SAE(sec_cfg->AKMMap) && sec_cfg->sae_cap.sae_pk_en != SAE_PK_DISABLE)
-		cap |= (1 << IE_RSNXE_CAPAB_SAE_PK);
-#endif /* DOT11_SAE_SUPPORT */
-#ifdef HOSTAPD_WPA3R3_SUPPORT
-	}
-#endif
-
-	if (cap == 0)
-		return 0;
-
-	if (buf == NULL)
-		return sizeof(ie) + sizeof(ie_len) + sizeof(cap);
-
-	NdisMoveMemory(buf + extend_length, &ie, sizeof(ie));
-	extend_length += sizeof(ie);
-	NdisMoveMemory(buf + extend_length, &ie_len, sizeof(ie_len));
-	extend_length += sizeof(ie_len);
-	NdisMoveMemory(buf + extend_length, &cap, sizeof(cap));
-	extend_length += sizeof(cap);
-
-	return extend_length;
-}
-
-
-/* input: pEntry->SecConfig */
-UINT parse_rsnxe_ie(
-	IN struct _SECURITY_CONFIG *sec_cfg,
-	IN UCHAR *rsnxe_ie,
-	IN UCHAR rsnxe_ie_len,
-	IN UCHAR need_copy)
-{
-#ifdef DOT11_SAE_SUPPORT
-	if (IS_AKM_SAE(sec_cfg->AKMMap) && sec_cfg->sae_conn_type) {
-		if (rsnxe_ie[1] == 0 || !(rsnxe_ie[2] & (1 << IE_RSNXE_CAPAB_SAE_H2E))) {
-			MTWF_DBG(NULL, DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-				"IE_RSNXE_CAPAB_SAE_H2E should not be 0\n");
-			return MLME_UNSPECIFY_FAIL;
-		}
-	}
-
-	if (IS_AKM_SAE(sec_cfg->AKMMap) && sec_cfg->sae_conn_type == SAE_CONNECTION_TYPE_SAEPK) {
-		if (rsnxe_ie[1] == 0 || !(rsnxe_ie[2] & (1 << IE_RSNXE_CAPAB_SAE_PK))) {
-			MTWF_DBG(NULL, DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-				"IE_RSNXE_CAPAB_SAE_PK should not be 0\n");
-			return MLME_UNSPECIFY_FAIL;
-		}
-	}
-
-	if (need_copy) {
-		NdisMoveMemory(sec_cfg->rsnxe_content, rsnxe_ie, rsnxe_ie_len);
-		sec_cfg->rsnxe_len = rsnxe_ie_len;
-	} else if (sec_cfg->rsnxe_len == 0) {
-		MTWF_DBG(NULL, DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-				"fail due to sec_cfg->rsnxe_len == 0\n");
-		return MLME_UNSPECIFY_FAIL;
-	} else if (NdisCmpMemory(sec_cfg->rsnxe_content, rsnxe_ie, rsnxe_ie_len) != 0) {
-		MTWF_DBG(NULL, DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-				"rsnxe compare fail\n");
-		return MLME_UNSPECIFY_FAIL;
-	}
-#endif
-	return MLME_SUCCESS;
-}
-
-/* not support oct now */
-VOID build_oci_common_field(
-	IN struct _RTMP_ADAPTER *ad,
-	IN struct wifi_dev *wdev,
-	IN UCHAR oct_support,
-	OUT UCHAR *buf,
-	OUT ULONG *buf_len)
-{
-	buf[0] = get_regulatory_class(ad, wdev->channel, wdev->PhyMode, wdev); /* Operating Class */
-	buf[1] = (wpa3_test_ctrl == 12) ? wpa3_test_ctrl2 : wdev->channel; /*wlan_operate_get_prim_ch(wdev)*/ /* Primary Channel Number */
-	buf[2] = wlan_operate_get_cen_ch_2(wdev); /* Frequency Segment 1 Channel Number */
-
-	*buf_len = 3;
-
-	if (oct_support)
-		; /* not support now */
-}
-
-VOID build_oci_ie(
-	IN struct _RTMP_ADAPTER *ad,
-	IN struct wifi_dev *wdev,
-	OUT UCHAR *buf,
-	OUT ULONG *buf_len)
-{
-	ULONG len;
-
-	if (wdev == NULL)
-		return;
-
-	buf[0] = IE_WLAN_EXTENSION;
-	buf[2] = EID_EXT_OCI;
-
-	build_oci_common_field(ad, wdev, TRUE, buf + 3, &len);
-	buf[1] = len + 1;
-	*buf_len = len + 3;
-
-	hex_dump_with_cat_and_lvl("oci ie", buf,
-		*buf_len, DBG_CAT_SEC, CATSEC_OCV, DBG_LVL_INFO); /* todo: change to trace*/
-}
-
-UCHAR parse_oci_common_field(
-	IN struct _RTMP_ADAPTER *ad,
-	IN struct wifi_dev *wdev,
-	IN UCHAR oct_support,
-	IN UCHAR *buf,
-	IN ULONG buf_len)
-{
-	UCHAR bw = wlan_operate_get_bw(wdev);
-	UCHAR spacing;
-
-	hex_dump_with_cat_and_lvl("peer oci", buf, buf_len, DBG_CAT_SEC, CATSEC_OCV, DBG_LVL_INFO);
-
-	if (buf_len < 3) {
-		MTWF_DBG(ad, DBG_CAT_SEC, CATSEC_OCV, DBG_LVL_ERROR,
-			"invalid oci len(%lu)\n",
-			buf_len);
-		return FALSE;
-	}
-
-	if (!is_channel_in_channelset_by_reg_class(ad, buf[0], wdev->PhyMode, wdev->channel)) {
-		MTWF_DBG(ad, DBG_CAT_SEC, CATSEC_OCV, DBG_LVL_ERROR,
-			"operating class(%d) check fail, chanel isn't in channel list\n",
-			buf[0]);
-		return FALSE;
-	}
-
-	if (get_spacing_by_reg_class(ad, buf[0], wdev->PhyMode, &spacing) == FALSE) {
-		MTWF_DBG(ad, DBG_CAT_SEC, CATSEC_OCV, DBG_LVL_ERROR,
-			"get reg_class table fail(op class = %d)\n",
-			buf[0]);
-		return FALSE;
-	}
-
-	if (bw > spacing) {
-		MTWF_DBG(ad, DBG_CAT_SEC, CATSEC_OCV, DBG_LVL_ERROR,
-			"bandwidth mismatch (peer: %d, our: %d)\n",
-			spacing, bw);
-		return FALSE;
-	}
-
-	if (buf[1] != wdev->channel) {
-		MTWF_DBG(ad, DBG_CAT_SEC, CATSEC_OCV, DBG_LVL_ERROR,
-			"primary ch(%d) check fail, primary ch(%d)\n",
-			buf[1], wdev->channel);
-		return FALSE;
-	}
-
-	if (buf[2] != wlan_operate_get_cen_ch_2(wdev)) {
-		MTWF_DBG(ad, DBG_CAT_SEC, CATSEC_OCV, DBG_LVL_ERROR,
-			"second central ch(%d) check fail, second central ch(%d)\n",
-			buf[2], wlan_operate_get_cen_ch_2(wdev));
-		return FALSE;
-	}
-
-	if (!oct_support && buf_len > 3) {
-		MTWF_DBG(ad, DBG_CAT_SEC, CATSEC_OCV, DBG_LVL_ERROR,
-			"oci field len is wrong\n");
-		return FALSE;
-	}
-
-	return TRUE;
-}
-
-UCHAR parse_oci_ie(
-	IN struct _RTMP_ADAPTER *ad,
-	IN struct wifi_dev *wdev,
-	IN UCHAR *buf,
-	IN ULONG buf_len)
-{
-
-	if (buf_len < MIN_OCI_LEN) {
-		MTWF_DBG(ad, DBG_CAT_SEC, CATSEC_OCV, DBG_LVL_ERROR,
-				"buf_len(%lu) is less than min oci len\n", buf_len);
-		return FALSE;
-	}
-
-	if (buf[0] != IE_WLAN_EXTENSION ||
-		buf[2] != EID_EXT_OCI) {
-		hex_dump_with_cat_and_lvl("oci_ie fail, peer oci ie", buf,
-			buf_len, DBG_CAT_SEC, CATSEC_OCV, DBG_LVL_ERROR);
-		return FALSE;
-	}
-
-	return parse_oci_common_field(ad, wdev, TRUE, buf + 3, buf[1] - 1);
-}
-
 

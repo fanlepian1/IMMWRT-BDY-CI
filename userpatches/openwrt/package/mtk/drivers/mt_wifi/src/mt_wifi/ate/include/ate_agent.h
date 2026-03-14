@@ -1,17 +1,13 @@
 /*
- * Copyright (c) [2020], MediaTek Inc. All rights reserved.
- *
- * This software/firmware and related documentation ("MediaTek Software") are
- * protected under relevant copyright laws.
- * The information contained herein is confidential and proprietary to
- * MediaTek Inc. and/or its licensors.
- * Except as otherwise provided in the applicable licensing terms with
- * MediaTek Inc. and/or its licensors, any reproduction, modification, use or
- * disclosure of MediaTek Software, and information contained herein, in whole
- * or in part, shall be strictly prohibited.
-*/
-/*
  ***************************************************************************
+ * MediaTek Inc.
+ *
+ * All rights reserved. source code is an unpublished work and the
+ * use of a copyright notice does not imply otherwise. This source code
+ * contains confidential trade secret material of MediaTek. Any attemp
+ * or participation in deciphering, decoding, reverse engineering or in any
+ * way altering the source code is stricitly prohibited, unless the prior
+ * written consent of MediaTek, Inc. is obtained.
  ***************************************************************************
 
 	Module Name:
@@ -44,7 +40,6 @@ VOID rt_ee_write_all(struct _RTMP_ADAPTER pAd, UINT16 *Data);
 VOID rt_ee_write_bulk(struct _RTMP_ADAPTER pAd, UINT16 *Data, UINT16 offset, UINT16 length);
 INT32 SetATEQid(struct _RTMP_ADAPTER *pAd, RTMP_STRING *Arg);
 INT32 SetATEDeqCnt(struct _RTMP_ADAPTER *pAd, RTMP_STRING *Arg);
-INT32 SetATERxUser(struct _RTMP_ADAPTER *pAd, RTMP_STRING *arg);
 INT32 SetATEMPSDump(struct _RTMP_ADAPTER *pAd, RTMP_STRING *arg);
 INT32 SetATEMPSPhyMode(struct _RTMP_ADAPTER *pAd, RTMP_STRING *arg);
 INT32 SetATEMPSRate(struct _RTMP_ADAPTER *pAd, RTMP_STRING *arg);
@@ -76,14 +71,17 @@ INT32 SetATEForceTxPower(struct _RTMP_ADAPTER *pAd, RTMP_STRING *Arg);
 INT32 SetATETxPowerEvaluation(struct _RTMP_ADAPTER *pAd, RTMP_STRING *Arg);
 INT32 SetATETxAntenna(struct _RTMP_ADAPTER *pAd, RTMP_STRING *Arg);
 INT32 SetATERxAntenna(struct _RTMP_ADAPTER *pAd, RTMP_STRING *Arg);
+INT32 SetATERFPower(struct _RTMP_ADAPTER *pAd, RTMP_STRING *Arg);
+INT32 SetATEDigitalPower(struct _RTMP_ADAPTER *pAd, RTMP_STRING *Arg);
+INT32 SetATEDCOffset_I(struct _RTMP_ADAPTER *pAd, RTMP_STRING *Arg);
+INT32 SetATEDCOffset_Q(struct _RTMP_ADAPTER *pAd, RTMP_STRING *Arg);
 INT32 Default_Set_ATE_TX_FREQ_OFFSET_Proc(struct _RTMP_ADAPTER *pAd, RTMP_STRING *Arg);
 INT32 SetATETxFreqOffset(struct _RTMP_ADAPTER *pAd, RTMP_STRING *Arg);
-INT32 GetATETxFreqOffset(struct _RTMP_ADAPTER *pAd, RTMP_STRING *Arg);
 INT32 Default_Set_ATE_TX_BW_Proc(struct _RTMP_ADAPTER *pAd, RTMP_STRING *Arg);
 INT32 SetATETxLength(struct _RTMP_ADAPTER *pAd, RTMP_STRING *Arg);
 INT32 SetATETxCount(struct _RTMP_ADAPTER *pAd, RTMP_STRING *Arg);
 INT32 SetATETxMcs(struct _RTMP_ADAPTER *pAd, RTMP_STRING *Arg);
-INT32 SetATETxNss(struct _RTMP_ADAPTER *pAd, RTMP_STRING *Arg);
+INT32 SetATEVhtNss(struct _RTMP_ADAPTER *pAd, RTMP_STRING *Arg);
 INT32 SetATETxLdpc(struct _RTMP_ADAPTER *pAd, RTMP_STRING *Arg);
 INT32 SetATETxStbc(struct _RTMP_ADAPTER *pAd, RTMP_STRING *Arg);
 INT32 SetATETxMode(struct _RTMP_ADAPTER *pAd, RTMP_STRING *Arg);
@@ -97,11 +95,6 @@ INT32 SetATELoadE2pFromBuf(struct _RTMP_ADAPTER *pAd, RTMP_STRING *Arg);
 INT32 SetATEReadE2p(struct _RTMP_ADAPTER *pAd, RTMP_STRING *Arg);
 INT32 SetATEAutoAlc(struct _RTMP_ADAPTER *pAd, RTMP_STRING *Arg);
 INT32 SetATETxGi(struct _RTMP_ADAPTER *pAd, RTMP_STRING *Arg);
-INT32 set_ate_max_pe(RTMP_ADAPTER *pAd, RTMP_STRING *Arg);
-INT32 set_ate_ru_info(RTMP_ADAPTER *pAd, RTMP_STRING *Arg);
-INT32 set_ate_ru_rx_aid(RTMP_ADAPTER *ad, RTMP_STRING *Arg);
-INT32 set_ate_retry(RTMP_ADAPTER *ad, RTMP_STRING *Arg);
-INT32 set_ate_tx_policy(RTMP_ADAPTER *ad, RTMP_STRING *Arg);
 INT32 SetATETempSensor(struct _RTMP_ADAPTER *pAd, RTMP_STRING *Arg);
 INT32 SetATEIpg(struct _RTMP_ADAPTER *pAd, RTMP_STRING *Arg);
 INT32 SetATEPayload(struct _RTMP_ADAPTER *pAd, RTMP_STRING *Arg);
@@ -130,12 +123,10 @@ INT32 SetATEEBfTx(struct _RTMP_ADAPTER *pAd, RTMP_STRING *Arg);
 INT32 SetATEEBFCE(struct _RTMP_ADAPTER *pAd, RTMP_STRING *Arg);
 INT32 SetATEEBFCEInfo(struct _RTMP_ADAPTER *pAd, RTMP_STRING *Arg);
 INT32 SetATEEBFCEHelp(struct _RTMP_ADAPTER *pAd, RTMP_STRING *Arg);
-INT32 MT_ATEComposePkt(struct _RTMP_ADAPTER *pAd, UCHAR *buf, UINT32 band_idx, UINT16 sta_idx);
+INT32 MT_ATEGenPkt(struct _RTMP_ADAPTER *pAd, UCHAR *buf, UINT32 band_idx);
 #endif /* TXBF_SUPPORT && MT_MAC */
 INT32 SetATETtr(struct _RTMP_ADAPTER *pAd, RTMP_STRING *Arg);
 INT32 SetATEShow(struct _RTMP_ADAPTER *pAd, RTMP_STRING *Arg);
-INT32 ShowATERUInfo(RTMP_ADAPTER *pAd, RTMP_STRING *arg);
-INT32 ShowATETxDoneInfo(RTMP_ADAPTER *pAd, RTMP_STRING *arg);
 INT32 SetATEHelp(struct _RTMP_ADAPTER *pAd, RTMP_STRING *Arg);
 INT32 ATESampleRssi(struct _RTMP_ADAPTER *pAd, RXWI_STRUC *pRxWI);
 VOID  ATEPeriodicExec(PVOID SystemSpecific1, PVOID FunctionContext, PVOID SystemSpecific2, PVOID SystemSpecific3);
@@ -144,9 +135,7 @@ INT32 SetATEChannel(struct _RTMP_ADAPTER *pAd, RTMP_STRING *Arg);
 INT32 set_ate_duty_cycle(struct _RTMP_ADAPTER *pAd, RTMP_STRING *Arg);
 INT32 set_ate_pkt_tx_time(struct _RTMP_ADAPTER *pAd, RTMP_STRING *Arg);
 INT32 set_ate_control_band_idx(struct _RTMP_ADAPTER *pAd, RTMP_STRING *Arg);
-INT32 set_ate_show_rx_stat(RTMP_ADAPTER *pAd, RTMP_STRING *Arg);
-INT32 set_ate_rx_stat_reset(RTMP_ADAPTER *pAd, RTMP_STRING *Arg);
-#ifdef DOT11_VHT_AC
+#ifdef MT7615
 INT32 set_ate_channel_ext(struct _RTMP_ADAPTER *pAd, RTMP_STRING *arg);
 INT32 set_ate_start_tx_ext(struct _RTMP_ADAPTER *pAd, RTMP_STRING *arg);
 #endif /* MT7615 */
@@ -155,7 +144,7 @@ INT32 MT_ATEInit(struct _RTMP_ADAPTER *pAd);
 INT32 MT_ATEExit(struct _RTMP_ADAPTER *pAd);
 PNDIS_PACKET ATEPayloadInit(struct _RTMP_ADAPTER *pAd, UINT32 TxIdx);
 INT32 ATEPayloadAlloc(struct _RTMP_ADAPTER *pAd, UINT32 Index);
-VOID EEReadAll(struct _RTMP_ADAPTER *pAd, UINT16 *Data, UINT32 size);
+VOID EEReadAll(struct _RTMP_ADAPTER *pAd, UINT16 *Data, UINT16 size);
 VOID rtmp_ate_init(struct _RTMP_ADAPTER *pAd);
 VOID RTMPCfgTssiGainFromEEPROM(struct _RTMP_ADAPTER *pAd);
 #ifdef SINGLE_SKU_V2

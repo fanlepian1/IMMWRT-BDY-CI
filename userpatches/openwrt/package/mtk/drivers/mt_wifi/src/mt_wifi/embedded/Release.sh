@@ -1,55 +1,11 @@
-#!/bin/sh
-
-# Release.sh can be run with some parameters.
-# sh Release.sh $WiFiMode $ChipName $OS_TARGET $BuildMode
-# Ex: sh Release.sh AP mt7663 LINUX auto_build
-
-if [ "${1}" == "AP" ]; then
-    WiFiMode=AP
-elif [ "${1}" == "STA" ]; then
-    WiFiMode=STA
-elif [ "${1}" == "APSTA" ]; then
-    WiFiMode=APSTA
-else
-    echo "Driver Release: wifi mode is not specified, default wifi mode is AP"
-    WiFiMode=AP
-fi
-
-if [ "${2}" == "mt7663" -o "${2}" == "MT7663" ]; then
-    ChipName=mt7663
-elif [ "${2}" == "mt7615" -o "${2}" == "MT7615" ]; then
-    ChipName=mt7615
-elif [ "${2}" == "mt7626" -o "${2}" == "MT7626" ]; then
-    ChipName=mt7626
-elif [ "${2}" == "mt7629" -o "${2}" == "MT7629" ]; then
-    ChipName=mt7629
-else
-    echo "Driver Release: wifi chipset is not specified, default wifi chipset is mt7663"
-    ChipName=mt7663
-fi
-
-if [ "${3}" == "vxworks" -o "${3}" == "VXWORKS" ]; then
-    echo "Driver Release: specify the OS is vxworks"
-    OS_TARGET=VXWORKS
-else
-    OS_TARGET=LINUX
-fi
-
-if [ "${4}" == "auto_build" ]; then
-    BuildMode="auto_build"
-else
-    BuildMode=""
-fi
-
 OSABL=NO
 EmbeddedDir=`pwd`
-WiFiDir=../
 BaseCodeDir=`dirname $EmbeddedDir`
-BinDir=`dirname $BaseCodeDir`/bin
-#DriverVersion="V4.1.0.0"
-DriverVersion=`grep AP_DRIVER_VERSION ${WiFiDir}/include/os/rt_linux.h | head -1 | sed -e 's/.*\t//g; s/"//g'`
+ChipName="mt7615"
+WiFiMode=AP
+DriverVersion="V4.4.0.2"
 Release="DPA"
-#Note=$1
+Note=$1
 Description="Formal release."
 release_profile=Release.log
 ###### Fixed Settings ######
@@ -61,7 +17,7 @@ Hour=`date +%H`
 Minute=`date +%M`
 HomeDir=`dirname $BaseCodeDir`
 #ModuleName=mt$ChipName\_wifi_$DriverVersion
-ModulePrefix=`echo $ChipName | tr '[:lower:]' '[:upper:]'`_LinuxAP
+ModulePrefix=MT7615_LinuxAP
 ModuleName=$ModulePrefix\_$DriverVersion
 WorkDir=$HomeDir/release
 TargetDir=$WorkDir/$ModuleName\_$Date\_$Hour$Minute
@@ -79,15 +35,6 @@ if [ ! -d $BaseCodeDir ] ; then
 fi
 
 cp -a $BaseCodeDir $TargetDir
-
-#rm/copy the bin folder
-if [ -d $WorkDir/bin ] ; then
-    echo "bin folder ($WorkDir/bin) exist, del first!."
-    rm -rf $WorkDir/bin
-fi
-
-cp -a $BinDir $WorkDir
-
 if [ ! -d $TargetDir ] ; then
     echo "Error: TargetDir ($TargetDir) does not exist."
     exit 1;
@@ -120,18 +67,14 @@ for i in $Release; do
 	## Regenerate Firmware ##
 	#rm -rf include/mcu/mt7628_firmware.h
 	#rm -rf include/mcu/mt7628_e2_firmware.h
-	if [ $ChipName == "mt7629" ]; then
-		make build_tools CHIPSET=mt7626
-	else
-		make build_tools CHIPSET=$ChipName
-	fi
+	make build_tools CHIPSET=$ChipName
 	## Regenerate SKU tables ##
-	#make build_sku_tables CHIPSET=$ChipName
+	make build_sku_tables CHIPSET=$ChipName
 
-if [ "$BuildMode" != "auto_build" ]; then
-	make release WIFI_MODE=$WiFiMode CHIPSET=$ChipName TARGET=$OS_TARGET RELEASE=$i
+if [ "$1" != "auto_build" ]; then
+	make release WIFI_MODE=$WiFiMode CHIPSET=$ChipName RELEASE=$i
 else
-	make release WIFI_MODE=$WiFiMode CHIPSET=$ChipName TARGET=$OS_TARGET RELEASE=$i AUTO_BUILD=y
+	make release WIFI_MODE=$WiFiMode CHIPSET=$ChipName RELEASE=$i AUTO_BUILD=y
 fi
 
 	if [ -d $i ]; then
@@ -151,19 +94,20 @@ fi
 			rm -rf doc/*History*.txt doc/*README* doc/RT_WIFI_Revision_History_2010_April.xls doc/RT2860card.readme
 			rm -rf Makefile.OSABL threadX.MakeFile vxworks.makefile History.txt RT2860AP.dat
 			rm -rf os/linux/Makefile.2880.*
-			rm -rf Release.sh load.4 load.6 load unload
+			rm -rf Release.sh load.4 load.6 load unload	
 			#rm -rf Makefile
 			cd $TargetDir/embedded
 		#fi
+		
 		### Generate profile for release ###
 		echo $ModulePrefix > $ReleaseDir/$release_profile
 		echo $DriverVersion >> $ReleaseDir/$release_profile
 		echo $Date >> $ReleaseDir/$release_profile
 		cp Pack_Release.sh $ReleaseDir/embedded
 		##Copy sku_tables .dat to release package##
-		#cp -R $TargetDir/txpwr/sku_tables $ReleaseDir/txpwr/
+		cp -R $TargetDir/txpwr/sku_tables $ReleaseDir/txpwr/
 		cd $ReleaseDir/embedded
-		sh Pack_Release.sh $ChipName $BuildMode
+		sh Pack_Release.sh $1
 
     	#tar -jcvf $ReleaseDir.tar.bz2 $ReleaseDir
 	else

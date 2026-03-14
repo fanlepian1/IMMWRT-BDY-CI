@@ -1,16 +1,15 @@
-/*
- * Copyright (c) [2020], MediaTek Inc. All rights reserved.
- *
- * This software/firmware and related documentation ("MediaTek Software") are
- * protected under relevant copyright laws.
- * The information contained herein is confidential and proprietary to
- * MediaTek Inc. and/or its licensors.
- * Except as otherwise provided in the applicable licensing terms with
- * MediaTek Inc. and/or its licensors, any reproduction, modification, use or
- * disclosure of MediaTek Software, and information contained herein, in whole
- * or in part, shall be strictly prohibited.
-*/
 /****************************************************************************
+ * Ralink Tech Inc.
+ * Taiwan, R.O.C.
+ *
+ * (c) Copyright 2002, Ralink Technology, Inc.
+ *
+ * All rights reserved. Ralink's source code is an unpublished work and the
+ * use of a copyright notice does not imply otherwise. This source code
+ * contains confidential trade secret material of Ralink Tech. Any attemp
+ * or participation in deciphering, decoding, reverse engineering or in any
+ * way altering the source code is stricitly prohibited, unless the prior
+ * written consent of Ralink Technology, Inc. is obtained.
  ***************************************************************************/
 
 /****************************************************************************
@@ -123,14 +122,6 @@ static const UINT64 SHA384_DefaultHashValue[8] = {
 };
 #endif /* SHA384_SUPPORT */
 
-#ifdef SHA512_SUPPORT
-static const UINT64 SHA512_DefaultHashValue[8] = {
-	0x6a09e667f3bcc908, 0xbb67ae8584caa73b, 0x3c6ef372fe94f82b, 0xa54ff53a5f1d36f1,
-	0x510e527fade682d1, 0x9b05688c2b3e6c1f, 0x1f83d9abfb41bd6b, 0x5be0cd19137e2179
-};
-#endif /* SHA384_SUPPORT */
-
-
 
 #ifdef SHA1_SUPPORT
 /*
@@ -177,16 +168,9 @@ VOID RT_SHA1_Hash(
 	IN  SHA1_CTX_STRUC * pSHA_CTX)
 {
 	UINT32 W_i, t;
-	UINT32 *W;
+	UINT32 W[80];
 	UINT32 a, b, c, d, e, T, f_t = 0;
 	/* Prepare the message schedule, {W_i}, 0 < t < 15 */
-	os_alloc_mem(NULL, (UCHAR **)&W, 80*sizeof(UINT32));
-
-	if (!W) {
-		MTWF_DBG(NULL, DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_ERROR, "Allocate memory failed!");
-		return;
-	}
-	NdisZeroMemory(W, 80*sizeof(UINT32));
 	NdisMoveMemory(W, pSHA_CTX->Block, SHA1_BLOCK_SIZE);
 
 	for (W_i = 0; W_i < 16; W_i++)
@@ -252,9 +236,6 @@ VOID RT_SHA1_Hash(
 	pSHA_CTX->HashValue[4] += e;
 	NdisZeroMemory(pSHA_CTX->Block, SHA1_BLOCK_SIZE);
 	pSHA_CTX->BlockLen = 0;
-
-	if (W)
-		os_free_mem(W);
 } /* End of RT_SHA1_Hash */
 
 
@@ -427,16 +408,9 @@ VOID RT_SHA256_Hash(
 	IN  SHA256_CTX_STRUC * pSHA_CTX)
 {
 	UINT32 W_i, t;
-	UINT32 *W;
+	UINT32 W[64];
 	UINT32 a, b, c, d, e, f, g, h, T1, T2;
 	/* Prepare the message schedule, {W_i}, 0 < t < 15 */
-	os_alloc_mem(NULL, (UCHAR **)&W, 64*sizeof(UINT32));
-
-	if (!W) {
-		MTWF_DBG(NULL, DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_ERROR, "Allocate memory failed!");
-		return;
-	}
-	NdisZeroMemory(W, 64*sizeof(UINT32));
 	NdisMoveMemory(W, pSHA_CTX->Block, SHA256_BLOCK_SIZE);
 
 	for (W_i = 0; W_i < 16; W_i++)
@@ -483,9 +457,6 @@ VOID RT_SHA256_Hash(
 	pSHA_CTX->HashValue[7] += h;
 	NdisZeroMemory(pSHA_CTX->Block, SHA256_BLOCK_SIZE);
 	pSHA_CTX->BlockLen = 0;
-
-	if (W)
-		os_free_mem(W);
 } /* End of RT_SHA256_Hash */
 
 
@@ -675,16 +646,9 @@ VOID RT_SHA384_Hash(
 	IN  SHA384_CTX_STRUC * pSHA_CTX)
 {
 	UINT32 W_i, t;
-	UINT64 *W;
+	UINT64 W[80];
 	UINT64 a, b, c, d, e, f, g, h, T1, T2;
 	/* Prepare the message schedule, {W_i}, 0 < t < 15 */
-	os_alloc_mem(NULL, (UCHAR **)&W, 80*sizeof(UINT64));
-
-	if (!W) {
-		MTWF_DBG(NULL, DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_ERROR, "Allocate memory failed!");
-		return;
-	}
-	NdisZeroMemory(W, 80*sizeof(UINT64));
 	NdisMoveMemory(W, pSHA_CTX->Block, SHA384_BLOCK_SIZE);
 
 	for (W_i = 0; W_i < 16; W_i++)
@@ -730,9 +694,6 @@ VOID RT_SHA384_Hash(
 	pSHA_CTX->HashValue[7] += h;
 	NdisZeroMemory(pSHA_CTX->Block, SHA384_BLOCK_SIZE);
 	pSHA_CTX->BlockLen = 0;
-
-	if (W)
-		os_free_mem(W);
 } /* End of RT_SHA384_Hash */
 
 
@@ -809,8 +770,8 @@ VOID RT_SHA384_End(
 	/* Append bit 1 to end of the message */
 	NdisFillMemory(pSHA_CTX->Block + pSHA_CTX->BlockLen, 1, 0x80);
 
-	/* 112 = 128(SHA384_BLOCK_SIZE) - 16 - 1: append 1 bit(1 byte) and message length (16 bytes) */
-	if (pSHA_CTX->BlockLen > 112)
+	/* 119 = 128(SHA256_BLOCK_SIZE) - 16 - 1: append 1 bit(1 byte) and message length (16 bytes) */
+	if (pSHA_CTX->BlockLen > 119)
 		RT_SHA384_Hash(pSHA_CTX);
 
 	/* End of if */
@@ -875,253 +836,6 @@ VOID rt_sha384_vector(
 }
 
 #endif /* SHA384_SUPPORT */
-
-#ifdef SHA512_SUPPORT
-/*
-========================================================================
-Routine Description:
-    Initial SHA512_CTX_STRUC
-
-Arguments:
-    pSHA_CTX    Pointer to SHA512_CTX_STRUC
-
-Return Value:
-    None
-
-Note:
-    None
-========================================================================
-*/
-VOID RT_SHA512_Init(
-	IN  SHA512_CTX_STRUC *pSHA_CTX)
-{
-	NdisMoveMemory(pSHA_CTX->HashValue, SHA512_DefaultHashValue, sizeof(SHA512_DefaultHashValue));
-	NdisZeroMemory(pSHA_CTX->Block, SHA512_BLOCK_SIZE);
-	pSHA_CTX->MessageLen = 0;
-	pSHA_CTX->BlockLen = 0;
-} /* End of RT_SHA512_Init */
-
-
-/*
-========================================================================
-Routine Description:
-    SHA512 computation for one block (1024 bits)
-
-Arguments:
-    pSHA_CTX    Pointer to SHA512_CTX_STRUC
-
-Return Value:
-    None
-
-Note:
-    None
-========================================================================
-*/
-VOID RT_SHA512_Hash(
-	IN  SHA512_CTX_STRUC *pSHA_CTX)
-{
-	UINT32 W_i, t;
-	UINT64 *W;
-	UINT64 a, b, c, d, e, f, g, h, T1, T2;
-	/* Prepare the message schedule, {W_i}, 0 < t < 15 */
-	os_alloc_mem(NULL, (UCHAR **)&W, 80*sizeof(UINT64));
-
-	if (!W) {
-		MTWF_DBG(NULL, DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_ERROR, "Allocate memory failed!");
-		return;
-	}
-	NdisZeroMemory(W, 80*sizeof(UINT64));
-	NdisMoveMemory(W, pSHA_CTX->Block, SHA512_BLOCK_SIZE);
-
-	for (W_i = 0; W_i < 16; W_i++)
-		W[W_i] = cpu2be64(W[W_i]); /* Endian Swap */
-
-	/* End of for */
-	/* SHA512 hash computation */
-	/* Initialize the working variables */
-	a = pSHA_CTX->HashValue[0];
-	b = pSHA_CTX->HashValue[1];
-	c = pSHA_CTX->HashValue[2];
-	d = pSHA_CTX->HashValue[3];
-	e = pSHA_CTX->HashValue[4];
-	f = pSHA_CTX->HashValue[5];
-	g = pSHA_CTX->HashValue[6];
-	h = pSHA_CTX->HashValue[7];
-
-	/* 64 rounds */
-	for (t = 0; t < 80; t++) {
-		if (t > 15) /* Prepare the message schedule, {W_i}, 16 < t < 79 */
-			W[t] = Sigma_512_1(W[t-2]) + W[t-7] + Sigma_512_0(W[t-15]) + W[t-16];
-
-		T1 = h + Zsigma_512_1(e) + Ch(e, f, g) + SHA384_K[t] + W[t];
-		T2 = Zsigma_512_0(a) + Maj(a, b, c);
-		h = g;
-		g = f;
-		f = e;
-		e = d + T1;
-		d = c;
-		c = b;
-		b = a;
-		a = T1 + T2;
-	} /* End of for */
-
-	/* Compute the i^th intermediate hash value H^(i) */
-	pSHA_CTX->HashValue[0] += a;
-	pSHA_CTX->HashValue[1] += b;
-	pSHA_CTX->HashValue[2] += c;
-	pSHA_CTX->HashValue[3] += d;
-	pSHA_CTX->HashValue[4] += e;
-	pSHA_CTX->HashValue[5] += f;
-	pSHA_CTX->HashValue[6] += g;
-	pSHA_CTX->HashValue[7] += h;
-	NdisZeroMemory(pSHA_CTX->Block, SHA512_BLOCK_SIZE);
-	pSHA_CTX->BlockLen = 0;
-
-	if (W)
-		os_free_mem(W);
-} /* End of RT_SHA512_Hash */
-
-
-/*
-========================================================================
-Routine Description:
-    The message is appended to block. If block size > 128 bytes, the SHA512_Hash
-will be called.
-
-Arguments:
-    pSHA_CTX    Pointer to SHA512_CTX_STRUC
-    message     Message context
-    messageLen  The length of message in bytes
-
-Return Value:
-    None
-
-Note:
-    None
-========================================================================
-*/
-VOID RT_SHA512_Append(
-	IN  SHA512_CTX_STRUC *pSHA_CTX,
-	IN  const UINT8 Message[],
-	IN  UINT MessageLen)
-{
-	UINT appendLen = 0;
-	UINT diffLen   = 0;
-
-	while (appendLen != MessageLen) {
-		diffLen = MessageLen - appendLen;
-
-		if ((pSHA_CTX->BlockLen + diffLen) <  SHA512_BLOCK_SIZE) {
-			NdisMoveMemory(pSHA_CTX->Block + pSHA_CTX->BlockLen,
-						   Message + appendLen, diffLen);
-			pSHA_CTX->BlockLen += diffLen;
-			appendLen += diffLen;
-		} else {
-			NdisMoveMemory(pSHA_CTX->Block + pSHA_CTX->BlockLen,
-						   Message + appendLen, SHA512_BLOCK_SIZE - pSHA_CTX->BlockLen);
-			appendLen += (SHA512_BLOCK_SIZE - pSHA_CTX->BlockLen);
-			pSHA_CTX->BlockLen = SHA512_BLOCK_SIZE;
-			RT_SHA512_Hash(pSHA_CTX);
-		} /* End of if */
-	} /* End of while */
-
-	pSHA_CTX->MessageLen += MessageLen;
-} /* End of RT_SHA512_Append */
-
-
-/*
-========================================================================
-Routine Description:
-    1. Append bit 1 to end of the message
-    2. Append the length of message in rightmost 128 bits
-    3. Transform the Hash Value to digest message
-
-Arguments:
-    pSHA_CTX        Pointer to SHA512_CTX_STRUC
-
-Return Value:
-    digestMessage   Digest message
-
-Note:
-    None
-========================================================================
-*/
-VOID RT_SHA512_End(
-	IN  SHA512_CTX_STRUC *pSHA_CTX,
-	OUT UINT8 DigestMessage[])
-{
-	UINT index;
-	UINT64 message_length_bits;
-	/* Append bit 1 to end of the message */
-	NdisFillMemory(pSHA_CTX->Block + pSHA_CTX->BlockLen, 1, 0x80);
-
-	/* 112 = 128(SHA512_BLOCK_SIZE) - 16 - 1: append 1 bit(1 byte) and message length (16 bytes) */
-	if (pSHA_CTX->BlockLen > 112)
-		RT_SHA512_Hash(pSHA_CTX);
-
-	/* End of if */
-	/* Append the length of message in rightmost 128 bits */
-	message_length_bits = pSHA_CTX->MessageLen*8;
-	message_length_bits = cpu2be64(message_length_bits);
-	NdisMoveMemory(&pSHA_CTX->Block[120], &message_length_bits, 8);
-	RT_SHA512_Hash(pSHA_CTX);
-
-	/* Return message digest, transform the UINT64 hash value to bytes */
-	for (index = 0; index < 8; index++)
-		pSHA_CTX->HashValue[index] = cpu2be64(pSHA_CTX->HashValue[index]);
-
-	/* End of for */
-	NdisMoveMemory(DigestMessage, pSHA_CTX->HashValue, SHA512_DIGEST_SIZE);
-} /* End of RT_SHA512_End */
-
-
-/*
-========================================================================
-Routine Description:
-    SHA512 algorithm
-
-Arguments:
-    message         Message context
-    messageLen      The length of message in bytes
-
-Return Value:
-    digestMessage   Digest message
-
-Note:
-    None
-========================================================================
-*/
-VOID RT_SHA512(
-	IN  const UINT8 Message[],
-	IN  UINT MessageLen,
-	OUT UINT8 DigestMessage[])
-{
-	SHA512_CTX_STRUC sha_ctx;
-
-	NdisZeroMemory(&sha_ctx, sizeof(SHA512_CTX_STRUC));
-	RT_SHA512_Init(&sha_ctx);
-	RT_SHA512_Append(&sha_ctx, Message, MessageLen);
-	RT_SHA512_End(&sha_ctx, DigestMessage);
-} /* End of RT_SHA512 */
-
-VOID rt_sha512_vector(
-	IN UCHAR num,
-	IN const unsigned char **message,
-	IN UINT *messageLen,
-	OUT UINT8 *digestmessage)
-{
-	SHA512_CTX_STRUC sha_ctx;
-	UCHAR i;
-
-	NdisZeroMemory(&sha_ctx, sizeof(SHA512_CTX_STRUC));
-	RT_SHA512_Init(&sha_ctx);
-	for (i = 0; i < num; i++)
-		RT_SHA512_Append(&sha_ctx, message[i], messageLen[i]);
-	RT_SHA512_End(&sha_ctx, digestmessage);
-}
-
-#endif /* SHA512_SUPPORT */
-
 
 
 

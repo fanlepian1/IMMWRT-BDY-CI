@@ -1,17 +1,13 @@
 /*
- * Copyright (c) [2020], MediaTek Inc. All rights reserved.
- *
- * This software/firmware and related documentation ("MediaTek Software") are
- * protected under relevant copyright laws.
- * The information contained herein is confidential and proprietary to
- * MediaTek Inc. and/or its licensors.
- * Except as otherwise provided in the applicable licensing terms with
- * MediaTek Inc. and/or its licensors, any reproduction, modification, use or
- * disclosure of MediaTek Software, and information contained herein, in whole
- * or in part, shall be strictly prohibited.
-*/
-/*
  ***************************************************************************
+ * MediaTek Inc.
+ *
+ * All rights reserved. source code is an unpublished work and the
+ * use of a copyright notice does not imply otherwise. This source code
+ * contains confidential trade secret material of MediaTek. Any attemp
+ * or participation in deciphering, decoding, reverse engineering or in any
+ * way altering the source code is stricitly prohibited, unless the prior
+ * written consent of MediaTek, Inc. is obtained.
  ***************************************************************************
 
 	Module Name:
@@ -19,7 +15,7 @@
 */
 
 #ifndef _BAND_STEERING_DEF_H_
-#define __BAND_STEERING_DEF_H__
+#define _BAND_STEERING_DEF_H_
 
 #ifdef BAND_STEERING
 #ifndef DOT11_N_SUPPORT
@@ -64,7 +60,7 @@ typedef struct _BS_LIST_ENTRY {
 typedef struct _bndstrg_nvram_client {
 	UINT8 Addr[MAC_ADDR_LEN];
 	UINT8 Manipulable;
-	UINT16 PhyMode;
+	UINT8 PhyMode;
 	UINT8 Band;
 	UINT8 Nss;
 } BNDSTRG_NVRAM_CLIENT, *PBNDSTRG_NVRAM_CLIENT;
@@ -83,17 +79,6 @@ enum PhyMode {
 #define BND_STRG_MAX_WHITELIST_ENTRY	16
 #define BND_STRG_MAX_BLACKLIST_ENTRY	4
 
-typedef struct GNU_PACKED _BNDSTRG_NEIGHBOR_REP_INFO {
-	CHAR Idx;
-	CHAR Ssid[MAX_LEN_OF_SSID+1];
-	UINT8 Bssid[MAC_ADDR_LEN];
-	UINT32 BssidInfo;
-	UINT8 RegulatoryClass;
-	UINT8 ChNum;
-	UINT8 PhyType;
-	UINT8 Oct[0];
-} BNDSTRG_NEIGHBOR_REP_INFO, *BNDSTRG_PNEIGHBOR_REP_INFO;
-
 typedef struct _BND_STRG_CLI_TABLE {
 	BOOLEAN bInitialized;
 	BOOLEAN bEnabled;
@@ -108,6 +93,10 @@ typedef struct _BND_STRG_CLI_TABLE {
 #ifdef BND_STRG_DBG
 	UCHAR MonitorAddr[MAC_ADDR_LEN];
 #endif /* BND_STRG_DBG */
+#ifdef VENDOR_FEATURE5_SUPPORT
+	BNDSTRG_NVRAM_CLIENT nvram_entry[NVRAM_TABLE_SIZE];
+	UINT8 bndstrg_nvram_client_count;
+#endif /* VENDOR_FEATURE5_SUPPORT */
 	UINT8		Band;
 	UINT8		Channel;
 	BOOLEAN     bVHTCapable;
@@ -115,7 +104,7 @@ typedef struct _BND_STRG_CLI_TABLE {
 	INT8		ActiveCount;
 	UINT32		DaemonPid;
 #ifdef DOT11K_RRM_SUPPORT
-	BNDSTRG_NEIGHBOR_REP_INFO NeighborRepInfo[MAX_BEACON_NUM];
+	RRM_NEIGHBOR_REP_INFO NeighborRepInfo;
 #endif
 	UINT8		BndStrgMode;
 /* WPS_BandSteering Support */
@@ -186,6 +175,7 @@ struct bnd_msg_heartbeat {
 
 struct bnd_msg_cli_probe {
 	BOOLEAN bAllowStaConnectInHt;
+	BOOLEAN bIosCapable;   /* For IOS immediately connect */
 	UINT8	bVHTCapable;
 	UINT8	Nss;
 	CHAR	Rssi[4];
@@ -202,7 +192,6 @@ struct bnd_msg_cli_assoc {
 	UINT8	BTMSupport;
 /* WPS_BandSteering Support */
 	BOOLEAN bWpsAssoc;
-	UINT8   IfIndex;
 };
 
 struct bnd_msg_cli_delete {
@@ -292,7 +281,6 @@ struct bnd_msg_inf_status_req {
 
 struct bnd_msg_inf_status_rsp {
     BOOLEAN bInfReady;
-	UINT8 Idx;
     UINT8 Channel;
     BOOLEAN bVHTCapable;
     ULONG table_src_addr;

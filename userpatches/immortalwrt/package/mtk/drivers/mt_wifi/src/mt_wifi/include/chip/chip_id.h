@@ -1,16 +1,16 @@
-/*
- * Copyright (c) [2020], MediaTek Inc. All rights reserved.
- *
- * This software/firmware and related documentation ("MediaTek Software") are
- * protected under relevant copyright laws.
- * The information contained herein is confidential and proprietary to
- * MediaTek Inc. and/or its licensors.
- * Except as otherwise provided in the applicable licensing terms with
- * MediaTek Inc. and/or its licensors, any reproduction, modification, use or
- * disclosure of MediaTek Software, and information contained herein, in whole
- * or in part, shall be strictly prohibited.
-*/
 /****************************************************************************
+ * Ralink Tech Inc.
+ * 4F, No. 2 Technology 5th Rd.
+ * Science-based Industrial Park
+ * Hsin-chu, Taiwan, R.O.C.
+ * (c) Copyright 2002, Ralink Technology, Inc.
+ *
+ * All rights reserved. Ralink's source code is an unpublished work and the
+ * use of a copyright notice does not imply otherwise. This source code
+ * contains confidential trade secret material of Ralink Tech. Any attemp
+ * or participation in deciphering, decoding, reverse engineering or in any
+ * way altering the source code is stricitly prohibited, unless the prior
+ * written consent of Ralink Technology, Inc. is obtained.
  ****************************************************************************
 
     Module Name:
@@ -31,14 +31,6 @@
 #define MTK_PCI_VENDOR_ID		0x14C3
 #define P18_PCI_VENDOR_ID       0x0E8D /* CONNAC S4 PCIe daughter board */
 #define MT7663_PCI_VENDOR_ID       0x14C3 /* CONNAC S4 PCIe daughter board */
-#define AXE_PCI_VENDOR_ID       0x14C3 /* CONNAC S4 PCIe daughter board */
-#define MT7626_PCI_VENDOR_ID       0x14C3 /* CONNAC S4 PCIe daughter board */
-#define MT7915_PCI_VENDOR_ID       0x14C3
-#define MT7916_PCI_VENDOR_ID       0x14C3
-#define MT7981_PCI_VENDOR_ID       0x14C3
-#define MT7986_PCI_VENDOR_ID       0x14C3
-#define MT7906_PCI_VENDOR_ID       0x14C3
-#define MT790A_PCI_VENDOR_ID       0x14C3
 
 #define NIC2860_PCI_DEVICE_ID	0x0601
 #define NIC2860_PCIe_DEVICE_ID	0x0681
@@ -82,6 +74,7 @@
 #define NIC7632_PCIe_DEVICE_ID 0x7632
 #define NIC7662_PCIe_DEVICE_ID 0x7662
 
+
 #define NIC7601_PCIe_DEVICE_ID 0x7601
 
 #define NIC8592_PCIe_DEVICE_ID	0x8592
@@ -96,17 +89,5 @@
 
 #define NICP18_PCIe_DEVICE_ID	0x3280 /* CONNAC S4 PCIe daughter board */
 #define NIC7663_PCIe_DEVICE_ID   0x7663 /* CONNAC S4 PCIe daughter board */
-
-#define NICAXE_PCIe_DEVICE_ID   0x6867 /* CONNAC S4 PCIe daughter board */
-#define NIC7626_PCIe_DEVICE_ID   0x7626 /* CONNAC S4 PCIe daughter board */
-#define NIC7915_PCIe_DEVICE_ID   0x7915
-#define NIC7916_PCIe_DEVICE_ID   0x7916
-#define NIC7906_PCIe_DEVICE_ID   0x7906
-#define NIC790A_PCIe_DEVICE_ID   0x790A
-#define NIC7986_PCIe_DEVICE_ID   0x7986
-#define NIC7986_FPGA_PCIe_DEVICE_ID   0x0789
-#define NIC7981_PCIe_DEVICE_ID   0x7981
-#define NIC7981_FPGA_PCIe_DEVICE_ID   0x0790
-
 #endif /* __CHIP_ID_H__ */
 

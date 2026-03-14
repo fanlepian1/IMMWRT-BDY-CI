@@ -1,17 +1,18 @@
 /*
- * Copyright (c) [2020], MediaTek Inc. All rights reserved.
- *
- * This software/firmware and related documentation ("MediaTek Software") are
- * protected under relevant copyright laws.
- * The information contained herein is confidential and proprietary to
- * MediaTek Inc. and/or its licensors.
- * Except as otherwise provided in the applicable licensing terms with
- * MediaTek Inc. and/or its licensors, any reproduction, modification, use or
- * disclosure of MediaTek Software, and information contained herein, in whole
- * or in part, shall be strictly prohibited.
-*/
-/*
  ***************************************************************************
+ * Ralink Tech Inc.
+ * 4F, No. 2 Technology 5th Rd.
+ * Science-based Industrial Park
+ * Hsin-chu, Taiwan, R.O.C.
+ *
+ * (c) Copyright 2002-2011, Ralink Technology, Inc.
+ *
+ * All rights reserved. Ralink's source code is an unpublished work and the
+ * use of a copyright notice does not imply otherwise. This source code
+ * contains confidential trade secret material of Ralink Tech. Any attemp
+ * or participation in deciphering, decoding, reverse engineering or in any
+ * way altering the source code is stricitly prohibited, unless the prior
+ * written consent of Ralink Technology, Inc. is obtained.
  ***************************************************************************
 
 	Module Name:
@@ -26,8 +27,6 @@
 #ifndef __HOTSPOT_H__
 #define __HOTSPOT_H__
 
-#if defined(CONFIG_HOTSPOT) || defined(CONFIG_PROXY_ARP)
-#ifdef CONFIG_HOTSPOT
 #ifndef CONFIG_DOT11V_WNM
 #error "For HOTSPOT2.0 feature, you must define the compile flag -DCONFIG_DOT11V_WNM"
 #endif
@@ -35,11 +34,9 @@
 #ifndef CONFIG_DOT11U_INTERWORKING
 #error "For HOTSPOT2.0 feature, you must define the compile flag -DCONFIG_DOT11U_INTERWORKING"
 #endif
-#endif
 
 #include "rtmp.h"
 
-#ifdef CONFIG_HOTSPOT
 #define HSCTRL_MACHINE_BASE 0
 
 enum HSCTRL_STATE {
@@ -66,14 +63,12 @@ typedef struct GNU_PACKED _HSCTRL_EVENT_DATA {
 typedef struct _QOS_MAP_TABLE_T {
 	UINT8			ucPoolValid;
 	UINT8			ucDscpExceptionCount;
-	UINT32          u4Ac;
 	UINT16			au2DscpRange[8];
 	UINT16			au2DscpException[21];
 } QOS_MAP_TABLE_T, *P_QOS_MAP_TABLE_T;
-#endif
+
 
 typedef struct _HOTSPOT_CTRL {
-#ifdef CONFIG_HOTSPOT
 	UINT32 HSIndicationIELen;
 	UINT32 P2PIELen;
 	UINT32 QosMapSetIELen;
@@ -84,11 +79,8 @@ typedef struct _HOTSPOT_CTRL {
 	PUCHAR RoamingConsortiumIE;
 	PUCHAR HSIndicationIE;
 	PUCHAR P2PIE;
-	NDIS_SPIN_LOCK IeLock;
 	BOOLEAN  HSDaemonReady;
-#endif
 	BOOLEAN HotSpotEnable;
-#ifdef CONFIG_HOTSPOT
 	enum HSCTRL_STATE HSCtrlState;
 	BOOLEAN IsHessid;
 	UCHAR Hessid[MAC_ADDR_LEN];
@@ -102,13 +94,10 @@ typedef struct _HOTSPOT_CTRL {
 	UCHAR	QLoadTestEnable;	/* for BSS Load IE Test */
 	UCHAR	QLoadCU;			/* for BSS Load IE Test */
 	USHORT	QLoadStaCnt;		/* for BSS Load IE Test */
-#endif
 	UINT8	HotspotBSSFlags;	/* for 7615 offload to CR4 */
-#ifdef CONFIG_HOTSPOT
 	BOOLEAN QosMapAddToPool;
 	UINT8	QosMapPoolID;		/* per BSS default DSCP pool map ID */
 	BOOLEAN bHSOnOff;  /* for recording wdev HS on/off status, to prevent HSCtrlOn or HSCtrlOff gets insanly called repeatedly */
-#endif
 } HOTSPOT_CTRL, *PHOTSPOT_CTRL;
 
 /* for 7615 offload to CR4 */
@@ -131,7 +120,7 @@ enum HS_R2_UPDATE_TYPE {
 #define IS_QOSMAP_ENABLE(ucHotspotBssFlags) ((ucHotspotBssFlags & fgQosMapEnable) != 0)
 #define IS_PROXYARP_ASAN_ENABLE(ucHotspotBssFlags) ((ucHotspotBssFlags & (fgHotspotEnable|fgProxyArpEnable|fgASANEnable|fgDGAFDisable)) != 0)
 
-#ifdef CONFIG_HOTSPOT
+
 enum {
 	L2FilterDisable,
 	L2FilterBuiltIn,
@@ -160,12 +149,10 @@ BOOLEAN HotSpotEnable(
 	IN PRTMP_ADAPTER pAd,
 	IN MLME_QUEUE_ELEM * Elem,
 	IN INT Type);
-#endif
 
 VOID HSCtrlExit(
 	IN PRTMP_ADAPTER pAd);
 
-#ifdef CONFIG_HOTSPOT
 VOID HSCtrlHalt(
 	IN PRTMP_ADAPTER pAd);
 
@@ -199,6 +186,11 @@ VOID HotspotAPReload(
 VOID hotspot_update_ap_qload_to_bcn(
 	IN RTMP_ADAPTER * pAd);
 
+BOOLEAN hotspot_check_dhcp_arp(
+	IN RTMP_ADAPTER * pAd,
+	IN PNDIS_PACKET	pPacket
+);
+
 INT Set_HotSpot_Param(
 	IN PRTMP_ADAPTER pAd,
 	UINT32 Param,
@@ -207,11 +199,6 @@ INT Set_HotSpot_Param(
 VOID hotspot_bssflag_dump(
 	UINT8 ucHotspotBSSFlags);
 
-#endif
-BOOLEAN hotspot_check_dhcp_arp(
-	IN RTMP_ADAPTER *pAd,
-	IN PNDIS_PACKET	pPacket
-);
 VOID hotspot_update_bssflag(
 	RTMP_ADAPTER * pAd,
 	UINT8 flag,
@@ -220,10 +207,8 @@ VOID hotspot_update_bssflag(
 
 VOID hotspot_update_bss_info_to_cr4(
 	RTMP_ADAPTER * pAd,
-	UCHAR APIndex,
-	UINT8 BssIndex);
+	UCHAR APIndex);
 
-#ifdef CONFIG_HOTSPOT
 VOID hotspot_add_qos_map_pool_to_cr4(
 	RTMP_ADAPTER * pAd,
 	UINT8 PoolID);
@@ -263,15 +248,5 @@ struct _sta_hs_info {
 	USHORT	ppsmo_id;
 };
 #endif
-
-#ifdef CONFIG_HOTSPOT_R3
-typedef struct GNU_PACKED _sta_hs_consortium_oi {
-	UINT32 sta_wcid;
-	UCHAR oi_len;
-	UCHAR selected_roaming_consortium_oi[5];
-} STA_HS_CONSORTIUM_OI, *PSTA_HS_CONSORTIUM_OI;
-#endif /* CONFIG_HOTSPOT_R3 */
-#endif /*HOTSPOT*/
-#endif /*HOTSPOT or PROXY ARP */
 #endif /* __HOTSPOT_H__ */
 

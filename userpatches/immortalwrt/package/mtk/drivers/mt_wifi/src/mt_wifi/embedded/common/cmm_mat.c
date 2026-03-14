@@ -1,17 +1,18 @@
 /*
- * Copyright (c) [2020], MediaTek Inc. All rights reserved.
- *
- * This software/firmware and related documentation ("MediaTek Software") are
- * protected under relevant copyright laws.
- * The information contained herein is confidential and proprietary to
- * MediaTek Inc. and/or its licensors.
- * Except as otherwise provided in the applicable licensing terms with
- * MediaTek Inc. and/or its licensors, any reproduction, modification, use or
- * disclosure of MediaTek Software, and information contained herein, in whole
- * or in part, shall be strictly prohibited.
-*/
-/*
  ***************************************************************************
+ * Ralink Tech Inc.
+ * 4F, No. 2 Technology 5th Rd.
+ * Science-based Industrial Park
+ * Hsin-chu, Taiwan, R.O.C.
+ *
+ * (c) Copyright 2002-2007, Ralink Technology, Inc.
+ *
+ * All rights reserved. Ralink's source code is an unpublished work and the
+ * use of a copyright notice does not imply otherwise. This source code
+ * contains confidential trade secret material of Ralink Tech. Any attemp
+ * or participation in deciphering, decoding, reverse engineering or in any
+ * way altering the source code is stricitly prohibited, unless the prior
+ * written consent of Ralink Technology, Inc. is obtained.
  ***************************************************************************
 
     Module Name:
@@ -27,7 +28,7 @@
     Revision History:
     Who             When            What
     --------------  ----------      ----------------------------------------------
-    Shiang		02-26-2007      Init version
+    Shiang 		02-26-2007      Init version
 */
 
 #ifdef MAT_SUPPORT
@@ -75,7 +76,6 @@ NDIS_STATUS MATDBEntryFree(
 {
 #ifdef KMALLOC_BATCH
 	MATNodeEntry *pPtr, *pMATNodeEntryPoll;
-
 	pMATNodeEntryPoll = (MATNodeEntry *)pAd->MatCfg.MATNodeEntryPoll;
 	pPtr = (MATNodeEntry *)NodeEntry;
 	NdisZeroMemory(pPtr, sizeof(MATNodeEntry));
@@ -96,7 +96,6 @@ PUCHAR MATDBEntryAlloc(IN MAT_STRUCT * pMatStruct, IN UINT32 size)
 {
 #ifdef KMALLOC_BATCH
 	MATNodeEntry *pPtr = NULL, *pMATNodeEntryPoll;
-
 	pMATNodeEntryPoll = (MATNodeEntry *)pMatStruct->pMATNodeEntryPoll;
 
 	if (pMATNodeEntryPoll->next) {
@@ -106,7 +105,6 @@ PUCHAR MATDBEntryAlloc(IN MAT_STRUCT * pMatStruct, IN UINT32 size)
 
 #else
 	UCHAR *pPtr = NULL;
-
 	os_alloc_mem(NULL, (PUCHAR *)&pPtr, size);
 #endif
 	return (PUCHAR)pPtr;
@@ -117,18 +115,17 @@ VOID dumpPkt(PUCHAR pHeader, int len)
 {
 	int i;
 	RTMP_STRING *tmp;
-
 	tmp = (RTMP_STRING *)pHeader;
-	MTWF_DBG(NULL, DBG_CAT_PROTO, CATPROTO_MAT, DBG_LVL_INFO, "--StartDump\n");
+	MTWF_LOG(DBG_CAT_PROTO, CATPROTO_MAT, DBG_LVL_OFF, ("--StartDump\n"));
 
 	for (i = 0; i < len; i++) {
 		if ((i % 16 == 0) && (i != 0))
-			MTWF_DBG(NULL, DBG_CAT_PROTO, CATPROTO_MAT, DBG_LVL_INFO, "\n");
+			MTWF_LOG(DBG_CAT_PROTO, CATPROTO_MAT, DBG_LVL_OFF, ("\n"));
 
-		MTWF_DBG(NULL, DBG_CAT_PROTO, CATPROTO_MAT, DBG_LVL_INFO, "%02x ", tmp[i] & 0xff);
+		MTWF_LOG(DBG_CAT_PROTO, CATPROTO_MAT, DBG_LVL_OFF, ("%02x ", tmp[i] & 0xff));
 	}
 
-	MTWF_DBG(NULL, DBG_CAT_PROTO, CATPROTO_MAT, DBG_LVL_INFO, "\n--EndDump\n");
+	MTWF_LOG(DBG_CAT_PROTO, CATPROTO_MAT, DBG_LVL_OFF, ("\n--EndDump\n"));
 	return;
 }
 
@@ -164,7 +161,7 @@ PUCHAR MATEngineTxHandle(
 	IN PRTMP_ADAPTER	pAd,
 	IN PNDIS_PACKET	    pPkt,
 	IN UINT				ifIdx,
-	IN UINT32	entry_type)
+	IN UCHAR    OpMode)
 {
 	PUCHAR		pLayerHdr = NULL, pPktHdr = NULL,  pMacAddr = NULL;
 	UINT16		protoType, protoType_ori;
@@ -172,7 +169,6 @@ PUCHAR MATEngineTxHandle(
 	struct _MATProtoOps	*pHandle = NULL;
 	PUCHAR  retSkb = NULL;
 	BOOLEAN bVLANPkt = FALSE;
-	UCHAR ZeroMac[MAC_ADDR_LEN] = {0};
 
 	if (pAd->MatCfg.status != MAT_ENGINE_STAT_INITED)
 		return NULL;
@@ -199,30 +195,26 @@ PUCHAR MATEngineTxHandle(
 		if (protoType == MATProtoTb[i].protocol) {
 			pHandle = MATProtoTb[i].pHandle;	/* the pHandle must not be null! */
 			pLayerHdr = bVLANPkt ? (pPktHdr + MAT_VLAN_ETH_HDR_LEN) : (pPktHdr + MAT_ETHER_HDR_LEN);
-
-			switch (entry_type) {
-#ifdef CONFIG_STA_SUPPORT
-			case ENTRY_AP: /*Device is client, connecting to peer AP*/
-				pMacAddr = &pAd->StaCfg[ifIdx].wdev.if_addr[0];
-				break;
-#endif /* CONFIG_STA_SUPPORT */
+#ifdef CONFIG_AP_SUPPORT
+#ifdef APCLI_SUPPORT
+			IF_DEV_CONFIG_OPMODE_ON_AP(pAd) {
 #ifdef MAC_REPEATER_SUPPORT
-			case ENTRY_REPEATER: /*Device is repeater, connecting to RootAP*/
-				pMacAddr = &pAd->ApCfg.pRepeaterCliPool[ifIdx].CurrentAddress[0];
-				break;
+				UCHAR tempIdx = ifIdx;
+				UCHAR CliIdx = 0xFF;
+
+				if (tempIdx >= REPT_MLME_START_IDX) {
+					CliIdx = tempIdx - REPT_MLME_START_IDX;
+					pMacAddr = &pAd->ApCfg.pRepeaterCliPool[CliIdx].CurrentAddress[0];
+				} else
 #endif /* MAC_REPEATER_SUPPORT */
-			default:
-				MTWF_DBG(pAd, DBG_CAT_CLIENT, DBG_SUBCAT_ALL, DBG_LVL_ERROR, "\033[1;31m Unexpexted Entry Type \033[0m\n");
-				/* assign ZERO MAC ADDR*/
-				pMacAddr = ZeroMac;
-				break;
+					pMacAddr = &pAd->ApCfg.ApCliTab[ifIdx].wdev.if_addr[0];
 			}
+#endif /* APCLI_SUPPORT */
+#endif /* CONFIG_AP_SUPPORT */
 
 			if (pHandle->tx != NULL)
 				retSkb = pHandle->tx((PVOID)&pAd->MatCfg, RTPKT_TO_OSPKT(pPkt), pLayerHdr, pMacAddr);
 
-			if (retSkb && ((PNDIS_PACKET)retSkb != pPkt))
-				RELEASE_NDIS_PACKET(pAd, pPkt, NDIS_STATUS_SUCCESS);
 			return retSkb;
 		}
 	}
@@ -318,13 +310,13 @@ BOOLEAN MATPktRxNeedConvert(
 		/* Check if the packet will be send to apcli interface. */
 		while (i < MAX_APCLI_NUM) {
 			/*BSSID match the ApCliBssid ?(from a valid AP) */
-			if ((pAd->StaCfg[i].ApcliInfStat.Valid == TRUE)
-				&& (net_dev == pAd->StaCfg[i].wdev.if_dev)
+			if ((pAd->ApCfg.ApCliTab[i].Valid == TRUE)
+				&& (net_dev == pAd->ApCfg.ApCliTab[i].wdev.if_dev)
 #ifdef A4_CONN
-				&& (IS_APCLI_A4(&pAd->StaCfg[i]) == FALSE)
+				&& (IS_APCLI_A4(&pAd->ApCfg.ApCliTab[i]) == FALSE)
 #endif /* A4_CONN */
 			){
-				/* MTWF_DBG(pAd, DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_ERROR, "MATPktRxNeedConvert TRUE for ApCliTab[%d]\n",i); */
+				//MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_WARN,("MATPktRxNeedConvert TRUE for ApCliTab[%d]\n",i));
 				return TRUE;
 			}
 
@@ -334,21 +326,6 @@ BOOLEAN MATPktRxNeedConvert(
 #endif /* APCLI_SUPPORT */
 	}
 #endif /* CONFIG_AP_SUPPORT */
-#ifdef CONFIG_STA_SUPPORT
-#ifdef ETH_CONVERT_SUPPORT
-	IF_DEV_CONFIG_OPMODE_ON_STA(pAd) {
-#ifdef P2P_SUPPORT
-
-		if (P2P_INF_ON(pAd) && (RtmpOsNetPrivGet(net_dev) == INT_P2P))
-			return FALSE;
-
-#endif /* P2P_SUPPORT */
-
-		if (pAd->EthConvert.ECMode & ETH_CONVERT_MODE_DONGLE)
-			return TRUE;
-	}
-#endif /* ETH_CONVERT_SUPPORT */
-#endif /* CONFIG_STA_SUPPORT */
 	return FALSE;
 }
 
@@ -380,7 +357,6 @@ NDIS_STATUS MATEngineExit(
 
 #endif
 	pAd->MatCfg.status = MAT_ENGINE_STAT_EXITED;
-	pAd->MatCfg.nodeCount = 0;
 	return TRUE;
 }
 
@@ -400,7 +376,6 @@ NDIS_STATUS MATEngineInit(
 
 	if (pAd->MatCfg.pMATNodeEntryPoll != NULL) {
 		MATNodeEntry *pPtr = NULL;
-
 		NdisZeroMemory(pAd->MatCfg.pMATNodeEntryPoll, sizeof(MATNodeEntry) * MAX_MAT_NODE_ENTRY_NUM);
 		pPtr = pAd->MatCfg.pMATNodeEntryPoll;
 
@@ -420,15 +395,15 @@ NDIS_STATUS MATEngineInit(
 		pHandle = MATProtoTb[i].pHandle;
 		ASSERT(pHandle);
 
-		if ((pHandle != NULL) && (pHandle->init != NULL)) {
+		if (pHandle->init != NULL) {
 			status = pHandle->init(&pAd->MatCfg);
 
 			if (status == FALSE) {
-				MTWF_DBG(pAd, DBG_CAT_PROTO, CATPROTO_MAT, DBG_LVL_ERROR, "MATEngine Init Protocol (0x%x) failed, Stop the MAT Funciton initialization failed!\n", MATProtoTb[i].protocol);
+				MTWF_LOG(DBG_CAT_PROTO, CATPROTO_MAT, DBG_LVL_ERROR, ("MATEngine Init Protocol (0x%x) failed, Stop the MAT Funciton initialization failed!\n", MATProtoTb[i].protocol));
 				goto init_failed;
 			}
 
-			MTWF_DBG(pAd, DBG_CAT_PROTO, CATPROTO_MAT, DBG_LVL_INFO, "MATEngine Init Protocol (0x%04x) success!\n", MATProtoTb[i].protocol);
+			MTWF_LOG(DBG_CAT_PROTO, CATPROTO_MAT, DBG_LVL_TRACE, ("MATEngine Init Protocol (0x%04x) success!\n", MATProtoTb[i].protocol));
 		}
 	}
 

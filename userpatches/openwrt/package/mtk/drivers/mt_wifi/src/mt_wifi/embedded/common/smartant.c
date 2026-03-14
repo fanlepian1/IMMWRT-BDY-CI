@@ -1,17 +1,18 @@
 /*
- * Copyright (c) [2020], MediaTek Inc. All rights reserved.
- *
- * This software/firmware and related documentation ("MediaTek Software") are
- * protected under relevant copyright laws.
- * The information contained herein is confidential and proprietary to
- * MediaTek Inc. and/or its licensors.
- * Except as otherwise provided in the applicable licensing terms with
- * MediaTek Inc. and/or its licensors, any reproduction, modification, use or
- * disclosure of MediaTek Software, and information contained herein, in whole
- * or in part, shall be strictly prohibited.
-*/
-/*
  ***************************************************************************
+ * Ralink Tech Inc.
+ * 4F, No. 2 Technology 5th Rd.
+ * Science-based Industrial Park
+ * Hsin-chu, Taiwan, R.O.C.
+ *
+ * (c) Copyright 2002-2004, Ralink Technology, Inc.
+ *
+ * All rights reserved. Ralink's source code is an unpublished work and the
+ * use of a copyright notice does not imply otherwise. This source code
+ * contains confidential trade secret material of Ralink Tech. Any attemp
+ * or participation in deciphering, decoding, reverse engineering or in any
+ * way altering the source code is stricitly prohibited, unless the prior
+ * written consent of Ralink Technology, Inc. is obtained.
  ***************************************************************************
 
 	Module Name:
@@ -209,8 +210,8 @@ BOOLEAN is_valid_train_entry(
 
 	if (pMacEntry == NULL) {
 		MTWF_LOG(DBG_CAT_HW, CATHW_SA, DBG_LVL_OFF,
-				 ("%s():Cannot found Sta("MACSTR") in MacTable\n",
-				  __func__, MAC2STR(pSAStaEntry->macAddr)));
+				 ("%s():Cannot found Sta(%02x:%02x:%02x:%02x:%02x:%02x) in MacTable\n",
+				  __func__, PRINT_MAC(pSAStaEntry->macAddr)));
 		return FALSE;
 	}
 
@@ -292,12 +293,12 @@ VOID sa_calc_rx_signal_info(
 				pEntry->avgPreSNR[i] = 0;
 		}
 
-		MTWF_DBG(pAd, DBG_CAT_HW, CATHW_SA, DBG_LVL_INFO,
-				 "Wcid:%d RSSI=%d,%d,%d cntRSSI=%d,%d,%d, prevRssi=%d\n",
+		MTWF_LOG(DBG_CAT_HW, CATHW_SA, DBG_LVL_TRACE,
+				 ("Wcid:%d RSSI=%d,%d,%d cntRSSI=%d,%d,%d, prevRssi=%d\n",
 				  pEntry->wcid,
 				  pEntry->avgRssi[0], pEntry->avgRssi[1], pEntry->avgRssi[2],
 				  pEntry->cntRSSI[0], pEntry->cntRSSI[1], pEntry->cntRSSI[2],
-				  pEntry->prevAvgRssi[0]);
+				  pEntry->prevAvgRssi[0]));
 	}
 }
 
@@ -313,7 +314,7 @@ VOID sa_dump_stat_result(
 	if (pEntry->hwTxSucCnt)
 		HwPER = (pEntry->hwTxRtyCnt * 1000) / pEntry->hwTxSucCnt;
 
-	printk(""MACSTR"    ", MAC2STR(pEntry->Addr));
+	printk("%02x:%02x:%02x:%02x:%02x:%02x    ", PRINT_MAC(pEntry->Addr));
 	printk("%6d  %6d  %6d  %6d\t%d",
 		   pEntry->saTxCnt, pEntry->hwTxSucCnt,
 		   pEntry->hwTxRtyCnt, pEntry->saRxCnt, HwPER);
@@ -580,9 +581,9 @@ int sa_gpio_write(
 	if ((regVal & 0x400) != 0x400) {
 		regVal |= 0x400;
 		RTMP_SYS_IO_WRITE32(SA_REG_GPIO_MODE, regVal);
-		MTWF_DBG(NULL, DBG_CAT_HW, CATHW_SA, DBG_LVL_DEBUG, "Change as GPIO Mode(0x%x)\n", regVal);
+		MTWF_LOG(DBG_CAT_HW, CATHW_SA, DBG_LVL_INFO, ("Change as GPIO Mode(0x%x)\n", regVal));
 		RTMP_SYS_IO_READ32(SA_REG_GPIO_MODE, &regVal);
-		MTWF_DBG(NULL, DBG_CAT_HW, CATHW_SA, DBG_LVL_DEBUG, "After Change, now GPIO_MODE value is 0x%x\n", regVal);
+		MTWF_LOG(DBG_CAT_HW, CATHW_SA, DBG_LVL_INFO, ("After Change, now GPIO_MODE value is 0x%x\n", regVal));
 	}
 
 	/* Check the gpio direction */
@@ -591,8 +592,8 @@ int sa_gpio_write(
 
 	if ((regVal & SA_REG_GPIO_DIR_OUTPUT_MASK) != SA_REG_GPIO_DIR_OUTPUT_MASK) {
 		RTMP_SYS_IO_WRITE32(regAddr, (regVal | SA_REG_GPIO_DIR_OUTPUT_MASK));
-		MTWF_DBG(NULL, DBG_CAT_HW, CATHW_SA, DBG_LVL_DEBUG, "The GPIO output direction value is 0x%x, change to 0x%x!\n",
-				 regVal, regVal | SA_REG_GPIO_DIR_OUTPUT_MASK);
+		MTWF_LOG(DBG_CAT_HW, CATHW_SA, DBG_LVL_INFO, ("The GPIO output direction value is 0x%x, change to 0x%x!\n",
+				 regVal, regVal | SA_REG_GPIO_DIR_OUTPUT_MASK));
 	}
 
 	/* Read the original GPIO value first */
@@ -603,8 +604,8 @@ int sa_gpio_write(
 	newAntCfg &= SA_REG_GPIO_DIR_OUTPUT_MASK;
 	regVal |= newAntCfg;
 	RTMP_SYS_IO_WRITE32(regAddr, regVal);
-	MTWF_DBG(NULL, DBG_CAT_HW, CATHW_SA, DBG_LVL_DEBUG,
-			 "Write the AntPattern(addr=0x%x, val=0x%x)\n", regAddr, regVal);
+	MTWF_LOG(DBG_CAT_HW, CATHW_SA, DBG_LVL_INFO,
+			 ("Write the AntPattern(addr=0x%x, val=0x%x)\n", regAddr, regVal));
 	RTMP_SYS_IO_READ32(regAddr, &regVal);
 	/* MTWF_LOG(DBG_CAT_HW, CATHW_SA, DBG_LVL_OFF, ("After Cfg, GPIOVal=0x%x!\n",regVal)); */
 	return TRUE;
@@ -865,9 +866,9 @@ INT sa_set_ant_weight(
 	if (antPattern == 0)
 		bSetAll = TRUE;
 
-	MTWF_DBG(NULL, DBG_CAT_HW, CATHW_SA, DBG_LVL_DEBUG,
-			 "%s():set weight(%d) for antenna pattern(0x%x)\n",
-			  __func__, weight, antPattern);
+	MTWF_LOG(DBG_CAT_HW, CATHW_SA, DBG_LVL_INFO,
+			 ("%s():set weight(%d) for antenna pattern(0x%x)\n",
+			  __func__, weight, antPattern));
 
 	for (cnt = 0; cnt < pSAParam->trainSeqCnt; cnt++) {
 		pCurLog = (RTMP_SA_TRAIN_LOG_ELEMENT *)(pTrainEntry->pTrainInfo + cnt);
@@ -973,7 +974,7 @@ INT sa_init_train_entry(
 	offset = (unsigned int)(&(((RTMP_SA_TRAINING_PARAM *)NULL)->pMacEntry));
 	cleanLen = sizeof(RTMP_SA_TRAINING_PARAM) - offset;
 	NdisZeroMemory((PUCHAR)(&pTrainEntry->pMacEntry), cleanLen);
-	MTWF_LOG(DBG_CAT_HW, CATHW_SA, DBG_LVL_OFF, ("%s():sizeof(RTMP_SA_TRAINING_PARAM)=%d, offset=%d, cleanLen=%d!\n",
+	MTWF_LOG(DBG_CAT_HW, CATHW_SA, DBG_LVL_OFF, ("%s():sizeof(RTMP_SA_TRAINING_PARAM)=%zu, offset=%d, cleanLen=%d!\n",
 			 __func__, sizeof(RTMP_SA_TRAINING_PARAM), offset, cleanLen));
 	/* some necessary defualt setting for TrainEntry */
 	pTrainEntry->trainStage = SA_INVALID_STAGE;
@@ -1036,9 +1037,9 @@ BOOLEAN sa_del_train_entry(
 	BOOLEAN bDeleted = FALSE;
 
 	if (pMacAddr) {
-		MTWF_DBG(pAd, DBG_CAT_HW, CATHW_SA, DBG_LVL_INFO,
-				 "%s():Try to del mac("MACSTR"), bForced=%d!\n",
-				  __func__, MAC2STR(pMacAddr), bForced);
+		MTWF_LOG(DBG_CAT_HW, CATHW_SA, DBG_LVL_TRACE,
+				 ("%s():Try to del mac(%02x:%02x:%02x:%02x:%02x:%02x), bForced=%d!\n",
+				  __func__, PRINT_MAC(pMacAddr), bForced));
 	}
 
 	for (idx = 0; idx < SA_ENTRY_MAX_NUM; idx++) {
@@ -1047,9 +1048,9 @@ BOOLEAN sa_del_train_entry(
 		if (NdisEqualMemory(&pTrainEntry->macAddr[0], pMacAddr, MAC_ADDR_LEN)) {
 			unsigned int cleanLen, offset;
 			PUCHAR cleanPtr;
-			MTWF_DBG(pAd, DBG_CAT_HW, CATHW_SA, DBG_LVL_INFO,
-					 "%s():find matched trainEntry(Idx=%d), bTraining=%d!\n",
-					  __func__, idx, pTrainEntry->bTraining);
+			MTWF_LOG(DBG_CAT_HW, CATHW_SA, DBG_LVL_TRACE,
+					 ("%s():find matched trainEntry(Idx=%d), bTraining=%d!\n",
+					  __func__, idx, pTrainEntry->bTraining));
 
 			if (pTrainEntry->pMacEntry) {
 				pMacEntry = pTrainEntry->pMacEntry;
@@ -1100,8 +1101,8 @@ BOOLEAN sa_select_target_train_entry(
 	pTrainEntry = &pSAParam->trainEntry[0];
 
 	if (pTrainEntry->bStatic == TRUE) {
-		MTWF_DBG(pAd, DBG_CAT_HW, CATHW_SA, DBG_LVL_INFO,
-				 "%s():static target,ignore the selection!\n", __func__);
+		MTWF_LOG(DBG_CAT_HW, CATHW_SA, DBG_LVL_TRACE,
+				 ("%s():static target,ignore the selection!\n", __func__));
 		return FALSE;
 	}
 
@@ -1111,9 +1112,9 @@ BOOLEAN sa_select_target_train_entry(
 		pEntry = &pAd->MacTab.Content[macIdx];
 
 		if (IS_ENTRY_CLIENT(pEntry) && (pEntry->Sst == SST_ASSOC)) {
-			MTWF_DBG(pAd, DBG_CAT_HW, CATHW_SA, DBG_LVL_INFO,
-					 "STA("MACSTR"): RSSI=%d\n",
-					  MAC2STR(pEntry->Addr), pEntry->avgRssi[0]);
+			MTWF_LOG(DBG_CAT_HW, CATHW_SA, DBG_LVL_TRACE,
+					 ("STA(%02x:%02x:%02x:%02x:%02x:%02x): RSSI=%d\n",
+					  PRINT_MAC(pEntry->Addr), pEntry->avgRssi[0]));
 
 			/* ignore the station which has no RSSI result yet */
 			if (pEntry->avgRssi[0] == 0)
@@ -1139,8 +1140,8 @@ BOOLEAN sa_select_target_train_entry(
 
 	if (pCandEntry) {
 		MTWF_LOG(DBG_CAT_HW, CATHW_SA, DBG_LVL_OFF,
-				 ("After Selection, target TrainEntry is "MACSTR"(RSSI=%d)\n",
-				  MAC2STR(pCandEntry->Addr), pCandEntry->avgRssi[0]));
+				 ("After Selection, target TrainEntry is %02x:%02x:%02x:%02x:%02x:%02x(RSSI=%d)\n",
+				  PRINT_MAC(pCandEntry->Addr), pCandEntry->avgRssi[0]));
 		sa_init_train_entry(pAd, pSAParam, pTrainEntry, pTrainEntry->pTrainInfo, &pCandEntry->Addr[0]);
 		return TRUE;
 	} else {
@@ -1174,9 +1175,9 @@ UCHAR sa_get_trainup_per_by_mcs(UCHAR *pRateTb, UCHAR mcs)
 		pCurrTxRate = (RTMP_RA_LEGACY_TB *) &pRateTb[(tbIdx + 1) * entryStep];
 
 		if (pCurrTxRate->CurrMCS == mcs) {
-			MTWF_DBG(pAd, DBG_CAT_HW, CATHW_SA, DBG_LVL_INFO,
-					 "The trainUp PER of MCS(%d) is %d\n",
-					  mcs, pCurrTxRate->TrainUp);
+			MTWF_LOG(DBG_CAT_HW, CATHW_SA, DBG_LVL_TRACE,
+					 ("The trainUp PER of MCS(%d) is %d\n",
+					  mcs, pCurrTxRate->TrainUp));
 			return pCurrTxRate->TrainUp;
 		}
 	}
@@ -1246,8 +1247,8 @@ int sa_train_db_init(
 		return FALSE;
 	}
 
-	MTWF_LOG(DBG_CAT_HW, CATHW_SA, DBG_LVL_OFF, ("AllocTrainMemDone(addr=0x%lx,entrySize=%d,totalSize=%d)\n",
-			 (ULONG)pSAParam->pTrainMem,
+	MTWF_LOG(DBG_CAT_HW, CATHW_SA, DBG_LVL_OFF, ("AllocTrainMemDone(addr=0x%lx,entrySize=%zu,totalSize=%d)\n",
+			 (ULONG) pSAParam->pTrainMem,
 			 sizeof(RTMP_SA_TRAIN_LOG_ELEMENT),
 			 memSize * SA_ENTRY_MAX_NUM));
 	/* Set new parameters */
@@ -1394,8 +1395,8 @@ RTMP_SA_TRAIN_LOG_ELEMENT *sa_cand_method_3(
 	int cnt;
 	/* pass 1, check all candidates and get with low PER(i.e., PER < 8) */
 	pCanLog = pTrainEntry->pTrainInfo;
-	MTWF_DBG(NULL, DBG_CAT_HW, CATHW_SA, DBG_LVL_DEBUG,
-			 "\tPhase 1(PER threshold=%d):\n", pSAParam->trainCond);
+	MTWF_LOG(DBG_CAT_HW, CATHW_SA, DBG_LVL_INFO,
+			 ("\tPhase 1(PER threshold=%d):\n", pSAParam->trainCond));
 
 	for (cnt = 0; cnt < pSAParam->trainSeqCnt; cnt++) {
 		pCurLog = (RTMP_SA_TRAIN_LOG_ELEMENT *)(pTrainEntry->pTrainInfo + cnt);
@@ -1415,14 +1416,14 @@ RTMP_SA_TRAIN_LOG_ELEMENT *sa_cand_method_3(
 				pCurLog->candWeight = ANT_WEIGHT_SCAN_ALL;
 		}
 
-		MTWF_DBG(pAd, DBG_CAT_HW, CATHW_SA, DBG_LVL_INFO,
-				 "\t\tAntPattern:0x%x,txCnt:%d,PER:%d,weight:%d\n",
+		MTWF_LOG(DBG_CAT_HW, CATHW_SA, DBG_LVL_TRACE,
+				 ("\t\tAntPattern:0x%x,txCnt:%d,PER:%d,weight:%d\n",
 				  pCurLog->antPattern, pCurLog->txCnt, pCurLog->PER,
-				  pCurLog->candWeight);
+				  pCurLog->candWeight));
 	}
 
 	/* phase 2, get the real candidate depends on weight and txCnt */
-	MTWF_DBG(NULL, DBG_CAT_HW, CATHW_SA, DBG_LVL_DEBUG, "\tPhase 2:\n");
+	MTWF_LOG(DBG_CAT_HW, CATHW_SA, DBG_LVL_INFO, ("\tPhase 2:\n"));
 	pCanLog = NULL;
 
 	for (cnt = 0; cnt < pSAParam->trainSeqCnt; cnt++) {
@@ -1444,14 +1445,14 @@ RTMP_SA_TRAIN_LOG_ELEMENT *sa_cand_method_3(
 		}
 
 		if (pCanLog) {
-			MTWF_DBG(NULL, DBG_CAT_HW, CATHW_SA, DBG_LVL_DEBUG,
-					 "\t\tpCurLog(0x%x-%d), pCanLog(0x%x-%d)\n",
+			MTWF_LOG(DBG_CAT_HW, CATHW_SA, DBG_LVL_INFO,
+					 ("\t\tpCurLog(0x%x-%d), pCanLog(0x%x-%d)\n",
 					  pCurLog->antPattern, pCurLog->candWeight,
-					  pCanLog->antPattern, pCanLog->candWeight);
+					  pCanLog->antPattern, pCanLog->candWeight));
 		} else {
-			MTWF_DBG(NULL, DBG_CAT_HW, CATHW_SA, DBG_LVL_DEBUG,
-					 "\t\tpCurLog(0x%x-%d), ignore\n",
-					  pCurLog->antPattern, pCurLog->candWeight);
+			MTWF_LOG(DBG_CAT_HW, CATHW_SA, DBG_LVL_INFO,
+					 ("\t\tpCurLog(0x%x-%d), ignore\n",
+					  pCurLog->antPattern, pCurLog->candWeight));
 		}
 	}
 
@@ -1506,9 +1507,9 @@ RTMP_SA_TRAIN_LOG_ELEMENT *sa_cand_method_4(
 	}
 
 	avgTxNoRtyCnt = totalTxNoRtyCnt / tpCnt;
-	MTWF_DBG(NULL, DBG_CAT_HW, CATHW_SA, DBG_LVL_DEBUG,
-			 "\tPhase 1, AvgTxNoRtyCnt=%d(total=%d,cnt=%d)\n",
-			  avgTxNoRtyCnt, totalTxNoRtyCnt, tpCnt);
+	MTWF_LOG(DBG_CAT_HW, CATHW_SA, DBG_LVL_INFO,
+			 ("\tPhase 1, AvgTxNoRtyCnt=%d(total=%d,cnt=%d)\n",
+			  avgTxNoRtyCnt, totalTxNoRtyCnt, tpCnt));
 	/*
 		phase 2,
 			(a).filter the antenna pattern whose txCnt lower than average txcnt
@@ -1828,6 +1829,7 @@ VOID sa_trainInfo_update(
 	TX_STA_CNT1_STRUC staTxCnt1;
 	/* MTWF_LOG(DBG_CAT_HW, CATHW_SA, DBG_LVL_TRACE, ("\tUpdate TrainInfo of Ant(0x%x-%d)=>\n", */
 	/* pTrainEntry->curAntPattern, pTrainEntry->patternOffset)); */
+	NicGetTxRawCounters(pAd, &staTxCnt0, &staTxCnt1);
 	sa_read_clean_train_result(pTrainEntry, pCurLog);
 	/* sa_rssi_update(pAd, pTrainEntry->pMacEntry, antCnt); */
 	/* MTWF_LOG(DBG_CAT_HW, CATHW_SA, DBG_LVL_TRACE, ("\t<=Update TrainInfo of Ant(0x%x-%d)\n", */
@@ -1965,7 +1967,12 @@ INT sa_ant_adaptation(
 		TX_STA_CNT1_STRUC		StaTx1;
 #endif /* SA_LUMP_SUM // */
 		/* phase 1. save previously info to the TrainInfo */
+#ifdef SA_LUMP_SUM
+		/* Update statistic counter */
+		NicGetTxRawCounters(pAd, &TxStaCnt0, &StaTx1);
+#else
 		NICUpdateFifoStaCounters(pAd);
+#endif /* SA_LUMP_SUM // */
 		/* update all rx signals */
 		RtmpSAUpdateRxSignal(pAd);
 		tmpLogPtr = (RTMP_SA_TRAIN_LOG_ELEMENT *)(pTrainEntry->pTrainInfo + pTrainEntry->patternOffset);
@@ -2045,24 +2052,24 @@ INT sa_ant_adaptation(
 			if (pSAParam->saMode == SA_MODE_AUTO) {
 				MAC_TABLE_ENTRY *pEntry = pTrainEntry->pMacEntry;
 				/* int cnt; */
-				MTWF_DBG(pAd, DBG_CAT_HW, CATHW_SA, DBG_LVL_INFO,
-						 "Modify trainStage for AutoMode\n");
-				MTWF_DBG(pAd, DBG_CAT_HW, CATHW_SA, DBG_LVL_INFO,
-						 "\tBefore:trainStage=%s,initAnt=0x%x,confirmAnt=0x%x!\n",
+				MTWF_LOG(DBG_CAT_HW, CATHW_SA, DBG_LVL_TRACE,
+						 ("Modify trainStage for AutoMode\n"));
+				MTWF_LOG(DBG_CAT_HW, CATHW_SA, DBG_LVL_TRACE,
+						 ("\tBefore:trainStage=%s,initAnt=0x%x,confirmAnt=0x%x!\n",
 						  saStage[pTrainEntry->trainStage],
 						  pTrainEntry->ant_init_stage,
-						  pTrainEntry->ant_confirm_stage);
+						  pTrainEntry->ant_confirm_stage));
 
 				if (pTrainEntry->trainStage == SA_INIT_STAGE) {
 					if (pSAParam->bSkipConfStage) {
-						MTWF_DBG(pAd, DBG_CAT_HW, CATHW_SA, DBG_LVL_INFO,
-								 "\t\tskip confirm stage, Change from Init to Monitor stage:\n");
+						MTWF_LOG(DBG_CAT_HW, CATHW_SA, DBG_LVL_TRACE,
+								 ("\t\tskip confirm stage, Change from Init to Monitor stage:\n"));
 						pTrainEntry->ant_init_stage = pTrainEntry->canAntPattern;
 						pTrainEntry->ant_confirm_stage = pTrainEntry->canAntPattern;
 						pTrainEntry->trainStage = SA_MONITOR_STAGE;
 					} else {
-						MTWF_DBG(pAd, DBG_CAT_HW, CATHW_SA, DBG_LVL_INFO,
-								 "\t\tChange from Init to Confirm stage:\n");
+						MTWF_LOG(DBG_CAT_HW, CATHW_SA, DBG_LVL_TRACE,
+								 ("\t\tChange from Init to Confirm stage:\n"));
 						pTrainEntry->ant_init_stage = pTrainEntry->canAntPattern;
 						pTrainEntry->trainStage = SA_CONFIRM_STAGE;
 						pTrainEntry->ant_confirm_stage = 0;
@@ -2083,10 +2090,10 @@ INT sa_ant_adaptation(
 								pEntry->baseAvgRSSI[i] = ConvertToRssi(pAd, pCanLog->sumRSSI[i] / pCanLog->cntRSSI[i], i);
 							}
 
-							MTWF_DBG(pAd, DBG_CAT_HW, CATHW_SA, DBG_LVL_INFO,
-									 "\t\t\tAnt%d:Rssi=%d(cnt=%d, sum=%d)\n",
+							MTWF_LOG(DBG_CAT_HW, CATHW_SA, DBG_LVL_TRACE,
+									 ("\t\t\tAnt%d:Rssi=%d(cnt=%d, sum=%d)\n",
 									  i, pEntry->baseAvgRSSI[i],
-									  pCanLog->cntRSSI[i], pCanLog->sumRSSI[i]);
+									  pCanLog->cntRSSI[i], pCanLog->sumRSSI[i]));
 						}
 					}
 				} else if (pTrainEntry->trainStage == SA_CONFIRM_STAGE) {
@@ -2105,7 +2112,7 @@ INT sa_ant_adaptation(
 						pTrainEntry->trainStage = SA_MONITOR_STAGE;
 						/* reset original RSSI and copy the pCanLog->RSSI to baseRSSI[] */
 						reset_mac_entry_stats(pEntry);
-						MTWF_DBG(pAd, DBG_CAT_HW, CATHW_SA, DBG_LVL_INFO, "\t\tChange from Confirm to Monitor stage:\n");
+						MTWF_LOG(DBG_CAT_HW, CATHW_SA, DBG_LVL_TRACE, ("\t\tChange from Confirm to Monitor stage:\n"));
 
 						if (pCanLog) {
 							int i;
@@ -2115,20 +2122,20 @@ INT sa_ant_adaptation(
 								if (pCanLog->sumRSSI[i])
 									pEntry->baseAvgRSSI[i] = ConvertToRssi(pAd, pCanLog->sumRSSI[i] / pCanLog->cntRSSI[i], i);
 
-								MTWF_DBG(pAd, DBG_CAT_HW, CATHW_SA, DBG_LVL_INFO,
-										 "\t\t\tAnt%d:Rssi=%d(cnt=%d, sum=%d)\n",
+								MTWF_LOG(DBG_CAT_HW, CATHW_SA, DBG_LVL_TRACE,
+										 ("\t\t\tAnt%d:Rssi=%d(cnt=%d, sum=%d)\n",
 										  i, pEntry->baseAvgRSSI[i],
-										  pCanLog->cntRSSI[i], pCanLog->sumRSSI[i]);
+										  pCanLog->cntRSSI[i], pCanLog->sumRSSI[i]));
 							}
 						}
 					}
 				}
 
-				MTWF_DBG(pAd, DBG_CAT_HW, CATHW_SA, DBG_LVL_INFO,
-						 "\tAfter:trainStage=%d,initAnt=0x%x,confirmAnt=0x%x!\n",
+				MTWF_LOG(DBG_CAT_HW, CATHW_SA, DBG_LVL_TRACE,
+						 ("\tAfter:trainStage=%d,initAnt=0x%x,confirmAnt=0x%x!\n",
 						  pTrainEntry->trainStage,
 						  pTrainEntry->ant_init_stage,
-						  pTrainEntry->ant_confirm_stage);
+						  pTrainEntry->ant_confirm_stage));
 			}
 
 ignoreIt:
@@ -2224,10 +2231,10 @@ INT RtmpSAChkAndGo(
 
 	if (pSAParam->bStaChange || pSAParam->bRssiChange) {
 		BOOLEAN bCancel;
-		MTWF_DBG(pAd, DBG_CAT_HW, CATHW_SA, DBG_LVL_INFO,
-				 "%s():StaChange=%d,RssiChange=%d!\n",
+		MTWF_LOG(DBG_CAT_HW, CATHW_SA, DBG_LVL_TRACE,
+				 ("%s():StaChange=%d,RssiChange=%d!\n",
 				  __func__, pSAParam->bStaChange,
-				  pSAParam->bRssiChange);
+				  pSAParam->bRssiChange));
 
 		if (pTrainEntry->bTraining == TRUE)
 			RTMPCancelTimer(&pSAParam->saSwitchTimer, &bCancel);
@@ -2269,19 +2276,19 @@ INT RtmpSAChkAndGo(
 
 		if (pTrainEntry->bTraining == TRUE) {
 			RTMP_IRQ_UNLOCK(&pAd->smartAntLock, irqFlag);
-			MTWF_DBG(NULL, DBG_CAT_HW, CATHW_SA, DBG_LVL_DEBUG,
-					 "%s():Entry in SA Training, Skip the check!\n",
-					  __func__);
+			MTWF_LOG(DBG_CAT_HW, CATHW_SA, DBG_LVL_INFO,
+					 ("%s():Entry in SA Training, Skip the check!\n",
+					  __func__));
 			return FALSE;
 		}
 
 		/* Update the train log and calculate the RSSI first */
 		if (pTrainEntry->trainStage != SA_INVALID_STAGE) {
-			MTWF_DBG(pAd, DBG_CAT_HW, CATHW_SA, DBG_LVL_INFO,
-					 "%s(0x%lx):wcid:%d,TS(%s),cAnt(0x%x-%d),bAnt(0x%x-%d),get RSSI Values!\n",
+			MTWF_LOG(DBG_CAT_HW, CATHW_SA, DBG_LVL_TRACE,
+					 ("%s(0x%lx):wcid:%d,TS(%s),cAnt(0x%x-%d),bAnt(0x%x-%d),get RSSI Values!\n",
 					  __func__, nowTime, pMacEntry->wcid, saStage[pTrainEntry->trainStage],
 					  pTrainEntry->curAntPattern, pTrainEntry->patternOffset,
-					  pTrainEntry->antBaseInfo.antPattern, pTrainEntry->antBaseInfo.patternOffset);
+					  pTrainEntry->antBaseInfo.antPattern, pTrainEntry->antBaseInfo.patternOffset));
 			sa_trainInfo_update(pAd, pTrainEntry, pTrainEntry->pCurTrainInfo, pSAParam->txNss);
 		}
 
@@ -2304,11 +2311,11 @@ INT RtmpSAChkAndGo(
 				}
 			}
 
-			MTWF_DBG(pAd, DBG_CAT_HW, CATHW_SA, DBG_LVL_INFO,
-					 "\tMonitorStage,Check RSSI variance only(prevRSSI=%d,%d,%d,cur=%d,%d,%d),bVB:%d,bVR:%d,bRC:%d!\n",
+			MTWF_LOG(DBG_CAT_HW, CATHW_SA, DBG_LVL_TRACE,
+					 ("\tMonitorStage,Check RSSI variance only(prevRSSI=%d,%d,%d,cur=%d,%d,%d),bVB:%d,bVR:%d,bRC:%d!\n",
 					  pMacEntry->baseAvgRSSI[0], pMacEntry->baseAvgRSSI[1], pMacEntry->baseAvgRSSI[2],
 					  pMacEntry->curAvgRSSI[0], pMacEntry->curAvgRSSI[1], pMacEntry->curAvgRSSI[2],
-					  bValidBase, bValidRssi, bRssiChanged);
+					  bValidBase, bValidRssi, bRssiChanged));
 
 			if (bValidRssi && bRssiChanged) {
 				doTrain = FALSE; /* here we just set the stage as init, and waiting for next time to do it! */
@@ -2329,28 +2336,28 @@ INT RtmpSAChkAndGo(
 				(pTrainEntry->trainStage == SA_MONITOR_STAGE)) {
 				/* TODO: Shall we consider the case if any RSSI is zero? */
 				NdisMoveMemory(&pMacEntry->baseAvgRSSI[0], &pMacEntry->curAvgRSSI[0], 3);
-				MTWF_DBG(pAd, DBG_CAT_HW, CATHW_SA, DBG_LVL_INFO,
-						 "\tMonitorStage:Init RSSI as (%d,%d,%d)\n",
+				MTWF_LOG(DBG_CAT_HW, CATHW_SA, DBG_LVL_TRACE,
+						 ("\tMonitorStage:Init RSSI as (%d,%d,%d)\n",
 						  pMacEntry->baseAvgRSSI[0], pMacEntry->baseAvgRSSI[1],
-						  pMacEntry->baseAvgRSSI[2]);
+						  pMacEntry->baseAvgRSSI[2]));
 			}
 
-			MTWF_DBG(pAd, DBG_CAT_HW, CATHW_SA, DBG_LVL_INFO,
-					 "\t(doTrain=%d):STA(wcid=%d) prevRssi=%d,%d,%d, curRssi=%d,%d,%d!\n",
+			MTWF_LOG(DBG_CAT_HW, CATHW_SA, DBG_LVL_TRACE,
+					 ("\t(doTrain=%d):STA(wcid=%d) prevRssi=%d,%d,%d, curRssi=%d,%d,%d!\n",
 					  doTrain, pMacEntry->wcid,
 					  pMacEntry->baseAvgRSSI[0], pMacEntry->baseAvgRSSI[1], pMacEntry->baseAvgRSSI[2],
-					  pMacEntry->curAvgRSSI[0], pMacEntry->curAvgRSSI[1], pMacEntry->curAvgRSSI[2]);
+					  pMacEntry->curAvgRSSI[0], pMacEntry->curAvgRSSI[1], pMacEntry->curAvgRSSI[2]));
 		}
 
 		if ((pTrainEntry->trainStage == SA_INIT_STAGE) ||
 			(pTrainEntry->trainStage == SA_CONFIRM_STAGE)
 		   ) {
-			MTWF_DBG(pAd, DBG_CAT_HW, CATHW_SA, DBG_LVL_INFO,
-					 "\tCheck mcsStableCnt(nowT=0x%lx,TtoStart=0x%lx,BW:MCS=%d:%d,MSC:Bnd=%d:%d)\n",
+			MTWF_LOG(DBG_CAT_HW, CATHW_SA, DBG_LVL_TRACE,
+					 ("\tCheck mcsStableCnt(nowT=0x%lx,TtoStart=0x%lx,BW:MCS=%d:%d,MSC:Bnd=%d:%d)\n",
 					  nowTime, pTrainEntry->time_to_start,
 					  pMacEntry->HTPhyMode.field.BW,
 					  pMacEntry->HTPhyMode.field.MCS,
-					  pTrainEntry->mcsStableCnt, pSAParam->saMcsBound);
+					  pTrainEntry->mcsStableCnt, pSAParam->saMcsBound));
 
 			if ((pTrainEntry->mcsStableCnt >= pSAParam->saMsc) &&
 				(pMacEntry->HTPhyMode.field.MCS <= pSAParam->saMcsBound) &&
@@ -2390,8 +2397,8 @@ INT RtmpSAChkAndGo(
 			pMacEntry->orgTxRateCol = pMacEntry->CurrTxRate;
 			sa_get_curAntPattern(pSAParam, pTrainEntry);
 			MTWF_LOG(DBG_CAT_HW, CATHW_SA, DBG_LVL_OFF,
-					 ("\n\nGO!HAWK!GO!(%d-"MACSTR", antPattern=0x%x-%d)\n",
-					  pMacEntry->wcid, MAC2STR(pMacEntry->Addr),
+					 ("\n\nGO!HAWK!GO!(%d-%02x:%02x:%02x:%02x:%02x:%02x, antPattern=0x%x-%d)\n",
+					  pMacEntry->wcid, PRINT_MAC(pMacEntry->Addr),
 					  pTrainEntry->curAntPattern, pTrainEntry->patternOffset));
 			MTWF_LOG(DBG_CAT_HW, CATHW_SA, DBG_LVL_OFF,
 					 ("\tTxMcs(BW:MCS=%s:%d),mcsStableCnt=%d,TP=%d ms,TStage=%d,TWeight=%d\n",
@@ -2411,14 +2418,14 @@ INT RtmpSAChkAndGo(
 
 				if (pTmpEntry) {
 					MTWF_LOG(DBG_CAT_HW, CATHW_SA, DBG_LVL_OFF,
-							 ("\tSTA("MACSTR"):TxMcs(PhyMode:BW:MCS=%s:%d:%d), mcsStableCnt=%d\n",
-							  MAC2STR(pTmpEntry->Addr), phyMode[pTmpEntry->HTPhyMode.field.MODE],
+							 ("\tSTA(%02x:%02x:%02x:%02x:%02x:%02x):TxMcs(PhyMode:BW:MCS=%s:%d:%d), mcsStableCnt=%d\n",
+							  PRINT_MAC(pTmpEntry->Addr), phyMode[pTmpEntry->HTPhyMode.field.MODE],
 							  pTmpEntry->HTPhyMode.field.BW, pTmpEntry->HTPhyMode.field.MCS,
 							  pTmpTrainEntry->mcsStableCnt));
 				} else {
 					MTWF_LOG(DBG_CAT_HW, CATHW_SA, DBG_LVL_OFF,
-							 ("\tSTA("MACSTR"):No Associated MacEntry!\n",
-							  MAC2STR(pTmpEntry->Addr)));
+							 ("\tSTA(%02x:%02x:%02x:%02x:%02x:%02x):No Associated MacEntry!\n",
+							  PRINT_MAC(pTmpEntry->Addr)));
 				}
 			}
 
@@ -2597,8 +2604,8 @@ INT sa_pkt_radio_info_update(RTMP_ADAPTER *pAd, RX_BLK *pRxBlk, MAC_TABLE_ENTRY 
 		pEntry->cntRSSI[0]++;
 	} else {
 		pEntry->rssi_zero_cnt[0]++;
-		MTWF_DBG(pAd, DBG_CAT_HW, CATHW_SA, DBG_LVL_INFO, "Err!Receive A frame with RSSI0=%d!TotalZeroCnt=%d!\n",
-				 pRxBlk->rx_signal.raw_rssi[0], pEntry->rssi_zero_cnt[0]);
+		MTWF_LOG(DBG_CAT_HW, CATHW_SA, DBG_LVL_TRACE, ("Err!Receive A frame with RSSI0=%d!TotalZeroCnt=%d!\n",
+				 pRxBlk->rx_signal.raw_rssi[0], pEntry->rssi_zero_cnt[0]));
 	}
 
 	if (pRxBlk->rx_signal.raw_rssi[1]) {
@@ -2606,8 +2613,8 @@ INT sa_pkt_radio_info_update(RTMP_ADAPTER *pAd, RX_BLK *pRxBlk, MAC_TABLE_ENTRY 
 		pEntry->cntRSSI[1]++;
 	} else {
 		pEntry->rssi_zero_cnt[1]++;
-		MTWF_DBG(pAd, DBG_CAT_HW, CATHW_SA, DBG_LVL_INFO, "Err!Receive A frame with RSSI1=%d!TotalZeroCnt=%d!\n",
-				 pRxBlk->rx_signal.raw_rssi[1], pEntry->rssi_zero_cnt[1]);
+		MTWF_LOG(DBG_CAT_HW, CATHW_SA, DBG_LVL_TRACE, ("Err!Receive A frame with RSSI1=%d!TotalZeroCnt=%d!\n",
+				 pRxBlk->rx_signal.raw_rssi[1], pEntry->rssi_zero_cnt[1]));
 	}
 
 	/* SNR */
@@ -2648,7 +2655,8 @@ VOID RtmpSAUpdateRxSignal(
 		return;
 	}
 
-	for (macIdx = 0; VALID_UCAST_ENTRY_WCID(pAd, macIdx); macIdx++) {
+	/* TODO:Carter, check why start from 1 */
+	for (macIdx = 1; VALID_UCAST_ENTRY_WCID(pAd, macIdx); macIdx++) {
 		pEntry = &pAd->MacTab.Content[macIdx];
 		if (pEntry == NULL)
 			continue;
@@ -2668,9 +2676,9 @@ VOID RtmpSAUpdateRxSignal(
 				if (((oldRssi > newRssi) && ((oldRssi - newRssi) > 15)) ||
 					((oldRssi < newRssi) && ((newRssi - oldRssi) > 15))
 				   ) {
-					MTWF_DBG(pAd, DBG_CAT_HW, CATHW_SA, DBG_LVL_INFO,
-							 "wcid:%d, RSSI variant(O:%d,N:%d) > 15, set bRssiChange!\n",
-							  pEntry->wcid, oldRssi, pEntry->avgRssi[0]);
+					MTWF_LOG(DBG_CAT_HW, CATHW_SA, DBG_LVL_TRACE,
+							 ("wcid:%d, RSSI variant(O:%d,N:%d) > 15, set bRssiChange!\n",
+							  pEntry->wcid, oldRssi, pEntry->avgRssi[0]));
 					pEntry->prevAvgRssi[0] = pEntry->avgRssi[0];
 					pAd->pSAParam->bRssiChange = TRUE;
 				}
@@ -2678,10 +2686,10 @@ VOID RtmpSAUpdateRxSignal(
 				pAd->pSAParam->bRssiChange = TRUE;
 
 			if (pAd->pSAParam->bRssiChange == TRUE) {
-				MTWF_DBG(pAd, DBG_CAT_HW, CATHW_SA, DBG_LVL_INFO,
-						 "wcid:%d, Update RSSI0(O:%d,N:%d)\n",
+				MTWF_LOG(DBG_CAT_HW, CATHW_SA, DBG_LVL_TRACE,
+						 ("wcid:%d, Update RSSI0(O:%d,N:%d)\n",
 						  pEntry->wcid, pEntry->prevAvgRssi[0],
-						  pEntry->avgRssi[0]);
+						  pEntry->avgRssi[0]));
 				pEntry->prevAvgRssi[0] = pEntry->avgRssi[0];
 			}
 		}
@@ -2797,9 +2805,9 @@ int RtmpSAStart(RTMP_ADAPTER *pAd)
 			goto done;
 		}
 
-		MTWF_LOG(DBG_CAT_HW, CATHW_SA, DBG_LVL_OFF, ("%s():Entry[%d]: pTrainLog=0x%lx,Addr="MACSTR"\n",
+		MTWF_LOG(DBG_CAT_HW, CATHW_SA, DBG_LVL_OFF, ("%s():Entry[%d]: pTrainLog=0x%lx,Addr=%02x:%02x:%02x:%02x:%02x:%02x\n",
 				 __func__, i, (ULONG)pSAStaEntry->pTrainInfo,
-				 MAC2STR(pSAStaEntry->macAddr)));
+				 PRINT_MAC(pSAStaEntry->macAddr)));
 	}
 
 	sa_select_target_train_entry(pAd, pSAParam);
@@ -2812,7 +2820,8 @@ int RtmpSAStart(RTMP_ADAPTER *pAd)
 		if (NdisEqualMemory(&pSAStaEntry->macAddr[0], ZERO_MAC_ADDR, MAC_ADDR_LEN)) {
 			int j;
 
-			for (j = 0; VALID_UCAST_ENTRY_WCID(pAd, j); j++) {
+			/* find first valid sta as the target //TODO:Carter, check why start from 1 */
+			for (j = 1; VALID_UCAST_ENTRY_WCID(pAd, j); j++) {
 				MAC_TABLE_ENTRY *pEntry = NULL;
 				pEntry = &pAd->MacTab.Content[j];
 
@@ -2829,8 +2838,8 @@ int RtmpSAStart(RTMP_ADAPTER *pAd)
 
 		if (is_valid_train_entry(pAd, pSAParam, pSAStaEntry)) {
 			ULONG nowTime;
-			MTWF_LOG(DBG_CAT_HW, CATHW_SA, DBG_LVL_OFF, ("%s():Ready to do SA training for "MACSTR"!\n",
-					 __func__, MAC2STR(pSAStaEntry->macAddr)));
+			MTWF_LOG(DBG_CAT_HW, CATHW_SA, DBG_LVL_OFF, ("%s():Ready to do SA training for %02x:%02x:%02x:%02x:%02x:%02x!\n",
+					 __func__, PRINT_MAC(pSAStaEntry->macAddr)));
 			pSAStaEntry->trainStage = SA_INIT_STAGE;
 			pSAStaEntry->trainWeight = ANT_WEIGHT_SCAN_ALL;
 			/* get current physically applied antenna pattern */
@@ -2849,8 +2858,8 @@ int RtmpSAStart(RTMP_ADAPTER *pAd)
 			MTWF_LOG(DBG_CAT_HW, CATHW_SA, DBG_LVL_OFF, ("%s():set time_to_start=0x%lx\n", __func__, pSAStaEntry->time_to_start));
 			retVal = TRUE;
 		} else {
-			MTWF_LOG(DBG_CAT_HW, CATHW_SA, DBG_LVL_OFF, ("%s():TrainEntry("MACSTR") is not valid\n",
-					 __func__, MAC2STR(pSAStaEntry->macAddr)));
+			MTWF_LOG(DBG_CAT_HW, CATHW_SA, DBG_LVL_OFF, ("%s():TrainEntry(%02x:%02x:%02x:%02x:%02x:%02x) is not valid\n",
+					 __func__, PRINT_MAC(pSAStaEntry->macAddr)));
 			/* retVal = FALSE; */
 			/* pAd->smartAntEnable = FALSE; */
 		}
@@ -3011,9 +3020,9 @@ INT	Set_DbgLogOn_Proc(RTMP_ADAPTER *pAd, RTMP_STRING *arg)
 	/* pAd->smartAntDbgOn = (Value == 1? TRUE : FALSE); */
 	DebugCategory |= DBG_CAT_HW;
 	DebugSubCategory[DebugLevel][bit] |= CATHW_SA;
-	MTWF_DBG(pAd, DBG_CAT_HW, CATHW_SA, DBG_LVL_INFO,
-			 "%s():Set DebugCategory=0x%lx, bit=%d, SubCat=0x%lx\n",
-			  __func__, DebugCategory, bit, DebugSubCategory[DebugLevel][bit]);
+	MTWF_LOG(DBG_CAT_HW, CATHW_SA, DBG_LVL_TRACE,
+			 ("%s():Set DebugCategory=0x%lx, bit=%d, SubCat=0x%lx\n",
+			  __func__, DebugCategory, bit, DebugSubCategory[DebugLevel][bit]));
 
 	return TRUE;
 }
@@ -3088,8 +3097,8 @@ INT Show_SA_CfgInfo_Proc(RTMP_ADAPTER *pAd, RTMP_STRING *arg)
 
 		MTWF_LOG(DBG_CAT_HW, CATHW_SA, DBG_LVL_OFF, ("\t\t\tcurAntPattern=0x%x-%d\n",
 				 pStaEntry->curAntPattern, pStaEntry->patternOffset));
-		MTWF_LOG(DBG_CAT_HW, CATHW_SA, DBG_LVL_OFF, ("\t\t\tMacAddr="MACSTR"\n",
-				 MAC2STR(pStaEntry->macAddr)));
+		MTWF_LOG(DBG_CAT_HW, CATHW_SA, DBG_LVL_OFF, ("\t\t\tMacAddr=%02x:%02x:%02x:%02x:%02x:%02x\n",
+				 PRINT_MAC(pStaEntry->macAddr)));
 		MTWF_LOG(DBG_CAT_HW, CATHW_SA, DBG_LVL_OFF, ("\t\t\tMapped MacTableEntry=0x%x\n", (UINT32)pStaEntry->pMacEntry));
 
 		if (pStaEntry->pMacEntry) {
@@ -3241,9 +3250,9 @@ int Set_SA_TrainDelay_Proc(RTMP_ADAPTER *pAd, RTMP_STRING *args)
 	if (pSAParam == NULL || delayTime < 0)
 		return FALSE;
 
-	MTWF_DBG(pAd, DBG_CAT_HW, CATHW_SA, DBG_LVL_INFO,
-			 "SA trainDelay(0x%x) change to(0x%x)\n",
-			  pSAParam->trainDelay, delayTime);
+	MTWF_LOG(DBG_CAT_HW, CATHW_SA, DBG_LVL_TRACE,
+			 ("SA trainDelay(0x%x) change to(0x%x)\n",
+			  pSAParam->trainDelay, delayTime));
 	pSAParam->trainDelay = delayTime;
 	return TRUE;
 }
@@ -3292,9 +3301,9 @@ int Set_SA_TrainCond_Proc(RTMP_ADAPTER *pAd, RTMP_STRING *args)
 		}
 	*/
 	pSAParam->trainCond = trainCond;
-	MTWF_DBG(pAd, DBG_CAT_HW, CATHW_SA, DBG_LVL_INFO,
-			 "SA TrainCond(0x%x) change to(0x%x)\n",
-			  trainCond, pSAParam->trainCond);
+	MTWF_LOG(DBG_CAT_HW, CATHW_SA, DBG_LVL_TRACE,
+			 ("SA TrainCond(0x%x) change to(0x%x)\n",
+			  trainCond, pSAParam->trainCond));
 	return TRUE;
 }
 
@@ -3309,9 +3318,9 @@ INT Set_SA_RssiVariance_Proc(RTMP_ADAPTER *pAd, RTMP_STRING *args)
 	if (pSAParam == NULL)
 		return FALSE;
 
-	MTWF_DBG(pAd, DBG_CAT_HW, CATHW_SA, DBG_LVL_INFO,
-			 "SA RSSI variance threshold (0x%x) change to(0x%x)\n",
-			  pSAParam->rssiVar, rssiVar);
+	MTWF_LOG(DBG_CAT_HW, CATHW_SA, DBG_LVL_TRACE,
+			 ("SA RSSI variance threshold (0x%x) change to(0x%x)\n",
+			  pSAParam->rssiVar, rssiVar));
 	pSAParam->rssiVar = rssiVar;
 	return TRUE;
 }
@@ -3330,9 +3339,9 @@ INT Set_SA_RssiThreshold_Proc(RTMP_ADAPTER *pAd, RTMP_STRING *args)
 	if (rssiThold <= -99 && rssiThold > -1)
 		rssiThold = SA_DEFAULT_RSSI_THRESHOLD;
 
-	MTWF_DBG(pAd, DBG_CAT_HW, CATHW_SA, DBG_LVL_INFO,
-			 "SA RSSI variance threshold (0x%x) change to(0x%x)\n",
-			  pSAParam->rssiThreshold, rssiThold);
+	MTWF_LOG(DBG_CAT_HW, CATHW_SA, DBG_LVL_TRACE,
+			 ("SA RSSI variance threshold (0x%x) change to(0x%x)\n",
+			  pSAParam->rssiThreshold, rssiThold));
 	pSAParam->rssiThreshold = rssiThold;
 	return TRUE;
 }
@@ -3350,9 +3359,9 @@ INT Set_SA_SkipConfirmStage_Proc(RTMP_ADAPTER *pAd, RTMP_STRING *args)
 		return FALSE;
 
 	bSkipConfStage = ((bSkipConfStage == 1) ? TRUE : FALSE);
-	MTWF_DBG(pAd, DBG_CAT_HW, CATHW_SA, DBG_LVL_INFO,
-			 "SA skip Confirm stage (0x%x) change to(0x%x)\n",
-			  pSAParam->bSkipConfStage, bSkipConfStage);
+	MTWF_LOG(DBG_CAT_HW, CATHW_SA, DBG_LVL_TRACE,
+			 ("SA skip Confirm stage (0x%x) change to(0x%x)\n",
+			  pSAParam->bSkipConfStage, bSkipConfStage));
 	pSAParam->bSkipConfStage = bSkipConfStage;
 	return TRUE;
 }
@@ -3656,8 +3665,8 @@ INT Set_SA_Station_Proc(RTMP_ADAPTER *pAd, RTMP_STRING *arg)
 	if (rtstrtomac(arg, &macAddr[0], ':') == FALSE)
 		return FALSE;
 
-	MTWF_LOG(DBG_CAT_HW, CATHW_SA, DBG_LVL_OFF, ("%s():MacAddr="MACSTR"\n",
-			 __func__, MAC2STR(macAddr)));
+	MTWF_LOG(DBG_CAT_HW, CATHW_SA, DBG_LVL_OFF, ("%s():MacAddr=%02x:%02x:%02x:%02x:%02x:%02x\n",
+			 __func__, PRINT_MAC(macAddr)));
 	pSAStaEntry = sa_add_train_entry(pAd, &macAddr[0], TRUE);
 	return TRUE;
 }

@@ -1,16 +1,16 @@
-/*
- * Copyright (c) [2020], MediaTek Inc. All rights reserved.
- *
- * This software/firmware and related documentation ("MediaTek Software") are
- * protected under relevant copyright laws.
- * The information contained herein is confidential and proprietary to
- * MediaTek Inc. and/or its licensors.
- * Except as otherwise provided in the applicable licensing terms with
- * MediaTek Inc. and/or its licensors, any reproduction, modification, use or
- * disclosure of MediaTek Software, and information contained herein, in whole
- * or in part, shall be strictly prohibited.
-*/
 /****************************************************************************
+ * Ralink Tech Inc.
+ * 4F, No. 2 Technology 5th Rd.
+ * Science-based Industrial Park
+ * Hsin-chu, Taiwan, R.O.C.
+ * (c) Copyright 2002, Ralink Technology, Inc.
+ *
+ * All rights reserved. Ralink's source code is an unpublished work and the
+ * use of a copyright notice does not imply otherwise. This source code
+ * contains confidential trade secret material of Ralink Tech. Any attemp
+ * or participation in deciphering, decoding, reverse engineering or in any
+ * way altering the source code is stricitly prohibited, unless the prior
+ * written consent of Ralink Technology, Inc. is obtained.
  ****************************************************************************
 
     Module Name:
@@ -46,6 +46,34 @@ typedef enum _RTMP_TX_DONE_MASK {
 } RTMP_TX_DONE_MASK;
 
 
+/*
+	Enable & Disable NIC interrupt via writing interrupt mask register
+	Since it use ADAPTER structure, it have to be put after structure definition.
+*/
+#define RTMP_ASIC_INTERRUPT_DISABLE(_pAd)		\
+	do {			\
+		HIF_IO_WRITE32((_pAd), MT_INT_MASK_CSR, 0); /*0: disable*/\
+		RTMP_CLEAR_FLAG((_pAd), fRTMP_ADAPTER_INTERRUPT_ACTIVE);		\
+	} while (0)
+
+#define RTMP_ASIC_INTERRUPT_ENABLE(_pAd)\
+	do {				\
+		HIF_IO_WRITE32((_pAd), MT_INT_MASK_CSR, (_pAd)->PciHif.IntEnableReg);     /* 1:enable */	\
+		RTMP_SET_FLAG((_pAd), fRTMP_ADAPTER_INTERRUPT_ACTIVE);	\
+	} while (0)
+
+#define RTMP_IRQ_ENABLE(_pAd)	\
+	do {				\
+		unsigned long _irqFlags;\
+		RTMP_INT_LOCK(&(_pAd)->irq_lock, _irqFlags);\
+		/* clear garbage ints */\
+		HIF_IO_WRITE32((_pAd), MT_INT_SOURCE_CSR, 0xffffffff); \
+		RTMP_ASIC_INTERRUPT_ENABLE(_pAd); \
+		RTMP_INT_UNLOCK(&(_pAd)->irq_lock, _irqFlags);\
+	} while (0)
+
+
+
 /* For RTMPPCIePowerLinkCtrlRestore () function */
 #define RESTORE_HALT		1
 #define RESTORE_WAKEUP		2
@@ -62,30 +90,17 @@ typedef enum _RTMP_TX_DONE_MASK {
 struct _RTMP_ADAPTER;
 enum _RTMP_TX_DONE_MASK;
 
+BOOLEAN mtd_free_txd(struct _RTMP_ADAPTER *pAd, UINT8 resource_idx);
+BOOLEAN mtd_tx_dma_done_handle(struct _RTMP_ADAPTER *pAd, UINT8 hif_idx);
+BOOLEAN mt_cmd_dma_done_handle(struct _RTMP_ADAPTER *pAd, UINT8 hif_idx);
+BOOLEAN mt_fwdl_dma_done_handle(struct _RTMP_ADAPTER *pAd, UINT8 hif_idx);
 VOID RTMPHandleMgmtRingDmaDoneInterrupt(struct _RTMP_ADAPTER *pAd);
 VOID RTMPHandleTBTTInterrupt(struct _RTMP_ADAPTER *pAd);
 VOID RTMPHandlePreTBTTInterrupt(struct _RTMP_ADAPTER *pAd);
+VOID RTMPHandleRxCoherentInterrupt(struct _RTMP_ADAPTER *pAd);
 
+VOID RTMPHandleMcuInterrupt(struct _RTMP_ADAPTER *pAd);
 void RTMPHandleTwakeupInterrupt(struct _RTMP_ADAPTER *pAd);
-
-/*pci state contrl*/
-USHORT	pci_write_frag_tx_resource(struct _RTMP_ADAPTER *pAd,
-									  struct _TX_BLK *pTxBlk,
-									  UCHAR fragNum,
-									  USHORT *FreeNumber);
-
-VOID pci_inc_resource_full_cnt(struct _RTMP_ADAPTER *pAd, UINT8 resource_idx);
-VOID pci_dec_resource_full_cnt(struct _RTMP_ADAPTER *pAd, UINT8 resource_idx);
-BOOLEAN pci_get_resource_state(struct _RTMP_ADAPTER *pAd, UINT8 resource_idx);
-BOOLEAN pci_get_all_resource_state(struct _RTMP_ADAPTER *pAd);
-INT pci_set_resource_state(struct _RTMP_ADAPTER *pAd, UINT8 resource_idx, BOOLEAN state);
-UINT32 pci_check_resource_state(struct _RTMP_ADAPTER *pAd, UINT8 resource_idx);
-
-UINT32 pci_get_tx_resource_free_num_nolock(struct _RTMP_ADAPTER *pAd, UINT8 resource_idx);
-UINT32 pci_get_rx_resource_pending_num(struct _RTMP_ADAPTER *pAd, UINT8 que_idx);
-BOOLEAN pci_is_tx_resource_empty(struct _RTMP_ADAPTER *pAd, UINT8 resource_idx);
-
-VOID mtd_asic_init_txrx_ring(struct _RTMP_ADAPTER *pAd);
 
 VOID mt_asic_init_txrx_ring(struct _RTMP_ADAPTER *pAd);
 

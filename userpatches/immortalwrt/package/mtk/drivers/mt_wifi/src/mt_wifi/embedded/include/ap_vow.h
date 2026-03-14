@@ -1,17 +1,13 @@
 /*
- * Copyright (c) [2020], MediaTek Inc. All rights reserved.
- *
- * This software/firmware and related documentation ("MediaTek Software") are
- * protected under relevant copyright laws.
- * The information contained herein is confidential and proprietary to
- * MediaTek Inc. and/or its licensors.
- * Except as otherwise provided in the applicable licensing terms with
- * MediaTek Inc. and/or its licensors, any reproduction, modification, use or
- * disclosure of MediaTek Software, and information contained herein, in whole
- * or in part, shall be strictly prohibited.
-*/
-/*
  ***************************************************************************
+ * MediaTek Inc.
+ *
+ * All rights reserved. source code is an unpublished work and the
+ * use of a copyright notice does not imply otherwise. This source code
+ * contains confidential trade secret material of MediaTek. Any attemp
+ * or participation in deciphering, decoding, reverse engineering or in any
+ * way altering the source code is stricitly prohibited, unless the prior
+ * written consent of MediaTek, Inc. is obtained.
  ***************************************************************************
 
 	Module Name:
@@ -21,33 +17,22 @@
 #ifndef __AP_VOW_H_
 #define __AP_VOW_H_
 
-/*
- * to prevent reference MAX_LEN_OF_MAC_TABLE compile error.
- * if the file don't reference MAX_LEN_OF_MAC_TABLE again, the include file can be removed.
- */
+struct _EDCA_PARM;
 
-#include "mgmt/mgmt_entrytb.h"
+#define VOW_VIDEO_SET_PARAM	1
+#define VOW_VIDEO_RESTORE_PARAM	2
+#define VIDEO_RTS_PKT_THLD	6
+#define VIDEO_CWMAX		10
+#define VIDEO_RTS_RETRY_LIMIT	31
+
+/* #define CONFIG_VOW_VIDEO_PARAM	1*/
 
 #define VOW_GEN_1	0
 #define VOW_GEN_2	1
-#define VOW_GEN_TALOS	2
-#define VOW_GEN_FALCON	3
-
-enum VOW_FEATURE {
-	VOW_FEATURE_ATF = (1 << 0),
-	VOW_FEATURE_BWCTRL = (1 << 1),
-	VOW_FEATURE_SPL = (1 << 2),
-	VOW_FEATURE_BWCG = (1 << 3)
-};
 
 #define VOW_MAX_GROUP_NUM   16
 #define VOW_MAX_STA_DWRR_NUM    8
 #define VOW_MAX_WMM_SET_NUM 4
-
-/* For BWCG feature */
-#define UMAC_BWC_GROUP_MIN                  40
-#define UMAC_BWC_GROUP_MAX                  55
-#define UMAC_BWC_GROUP_NUMBER               16
 
 #define VOW_DEF_REFILL_PERIOD  3    /* 8us */
 #define VOW_DEF_MIN_RATE_BUCKET_SIZE   1000/* x*1024B */
@@ -85,20 +70,6 @@ enum VOW_FEATURE {
 /* Weighted ATF */
 #define VOW_WATF_LEVEL_NUM			4
 
-/* SPL station number */
-#define VOW_SPL_STA_NUM			0
-#define VOW_SPL_STA_NUM_LIMIT		4
-
-/* Multi client WMM parameter, for multi-client balance/near-far test */
-#define DL_MULTI_CLIENT_CWMAX		0x6
-#define DL_MULTI_CLIENT_CWMIN		0x5
-#define UL_MULTI_CLIENT_CWMAX		0x8
-#define UL_MULTI_CLIENT_CWMIN		0x6
-
-/* mcli schedule iwpriv cmd */
-#define MCLI_TCP_CNT_TH		1
-#define MCLI_DL_WRR_ENABLE	2
-#define MCLI_CWMIN_CWMAX_PARAM	3
 
 /* MACRO for status */
 #define VOW_IS_ENABLED(_pAd) ((_pAd != NULL) && \
@@ -191,16 +162,6 @@ typedef enum {
 	VOW_REFILL_PERIOD_128US
 } VOW_REFILL_PERIOD_T;
 
-enum {
-	VOW_SCH_FOLLOW_ALGO,
-	VOW_SCH_FOLLOW_HW
-};
-
-enum {
-	VOW_SCH_POL_SRR,
-	VOW_SCH_POL_WRR
-};
-
 /* for group(BSS) */
 typedef struct _VOW_BSS_USER_CFG_T {
 	UINT16  min_rate;    /* guarantee rate(Mbps) */
@@ -221,7 +182,6 @@ typedef struct _VOW_BSS_USER_CFG_T {
 	UINT16  max_airtime_token; /* the amount of ceiling airtime token are filled periodically */
 
 	UINT8   band_idx;   /* belongs to which RF(Radio) band */
-	UINT8	group_table_idx;
 
 	BOOLEAN bw_on;   /* bandwidth control */
 	BOOLEAN at_on;   /* airtime control */
@@ -236,32 +196,12 @@ typedef struct _VOW_STA_USER_CFG_T {
 	BOOLEAN     paused; /* if this station TX is paused. */
 } VOW_STA_USER_CFG_T, *PBW_STA_USER_CFG_T;
 
-/* mcli traffic mode */
-enum {
-	VOW_MCLI_DL_MODE,
-	VOW_MCLI_UL_MODE,
-	VOW_TRAFFIC_MODE_MAX
-};
-
-/* for mcli param configure */
-typedef struct _VOW_MCLI_SCH_CFG_T {
-	UINT32	tcp_cnt_th;		/* used to distinguish tcp or udp pair */
-	USHORT	mcli_tcp_num[DBDC_BAND_NUM];
-	BOOLEAN	dl_wrr_en;	/* enable DL wrr mechanism */
-	UINT8	sch_type;	/* record default sch_type */
-	UINT8	sch_policy;	/* record default sch_policy */
-	UINT8	apply_cnt;	/* for DBDC case, record sch apply cnt */
-	BOOLEAN schedule_cond_running[DBDC_BAND_NUM];	/* Indicate that the mcli schedule mechanism is running */
-	UINT8	cwmin[VOW_TRAFFIC_MODE_MAX][DBDC_BAND_NUM];	/* mcli shcedule DL/UL BE cwmin param */
-	UINT8	cwmax[VOW_TRAFFIC_MODE_MAX][DBDC_BAND_NUM];	/* mcli shcedule DL/UL BE cwmax param */
-} VOW_MCLI_SCH_CFG_T, *PVOW_MCLI_SCH_CFG_T;
-
 /* for control */
 typedef struct _VOW_CFG_T {
 	BOOLEAN en_bw_ctrl;  /* enable bandwidth(airtime) control */
 	BOOLEAN en_bw_refill;   /* enable token refill */
 	BOOLEAN en_airtime_fairness;    /* enable airtime fairness */
-	BOOLEAN en_txop_no_change_bss;  /* enable HW doesn??ï¿½t change BSS group in TXOP burst */
+	BOOLEAN en_txop_no_change_bss;  /* enable HW doesn??¢t change BSS group in TXOP burst */
 	BOOLEAN dbdc0_search_rule;  /* 1 WMM set first, 0  WMM AC first */
 	BOOLEAN dbdc1_search_rule;  /* 1 WMM set first, 0  WMM AC first */
 	UINT8   refill_period;  /* token refill period */
@@ -269,8 +209,6 @@ typedef struct _VOW_CFG_T {
 	UINT8   sta_max_wait_time;  /* for STA DWRR */
 	UINT8   group_max_wait_time;  /* for STA DWRR */
 	UINT8   vow_sta_dwrr_quantum[VOW_MAX_STA_DWRR_NUM]; /* STA DWRR quantum */
-	BOOLEAN mcli_schedule_en;		/* enable mcli schedule for balance/near-far case */
-	VOW_MCLI_SCH_CFG_T	mcli_sch_cfg;	/* mcli schedule configure params */
 } VOW_CFG_T, *PVOW_CFG_T;
 
 /* RX airtime */
@@ -284,7 +222,6 @@ typedef struct _VOW_RX_TIME_CFG_T {
 	UINT16  non_qos_backoff;    /* non-QOS packet backoff time */
 	UINT8   bssid2wmm_set[VOW_MAX_GROUP_NUM];  /* BSSID belongs to which WMM set */
 	BOOLEAN rx_time_en; /* enable RX time function, include non-wifi, OBSS and per-STA timer */
-	BOOLEAN rx_early_end_en; /* enable RX early-end feature */
 } VOW_RX_TIME_CFG_T, *PVOW_RX_TIME_CFG_T;
 
 
@@ -310,12 +247,6 @@ typedef struct _VOW_UI_CONFIG {
 	UINT16  val[0];
 } VOW_UI_CONFIG, *P_VOW_UI_CONFIG;
 
-typedef struct _NEAR_FAR_CTRL_T {
-	BOOLEAN adjust_en;
-	UINT16	slow_phy_th;
-	UINT16	fast_phy_th;
-} NEAR_FAR_CTRL_T;
-
 /* for misc configuration */
 typedef struct _VOW_MISC_CFG_T {
 	BOOLEAN	rts_sta_lock;
@@ -328,16 +259,8 @@ typedef struct _VOW_MISC_CFG_T {
 	BOOLEAN	zero_eifs_time;
 	BOOLEAN	rx_rifs_mode;
 	BOOLEAN	keep_vow_sram_setting;
-	NEAR_FAR_CTRL_T	near_far_ctrl;
 	UINT8	keep_vow_sram_setting_bit;
-	UINT8	spl_sta_count;
 } VOW_MISC_CFG_T;
-
-typedef struct _VOW_SCH_CFG_T {
-	BOOLEAN apply_sch_ctrl;
-	UINT8 sch_type;
-	UINT8 sch_policy;
-} VOW_SCH_CFG_T;
 
 /* function prototype */
 
@@ -356,7 +279,7 @@ typedef struct GNU_PACKED _VOW_WATF {
 typedef struct _VOW_CR_OFFSET_FOR_GEN_T {
 	/* Is Gen_1 or Gen_2 */
 	UINT8 VOW_GEN;
-	UINT32 VOW_FEATURE;
+
 	/* VOW debug command 0x22/0x44 */
 	UINT32 VOW_STA_SETTING_BEGIN;
 	UINT32 VOW_STA_SETTING_END;
@@ -372,31 +295,37 @@ typedef struct _VOW_CR_OFFSET_FOR_GEN_T {
 	UINT32 VOW_STA_WMM_AC2_OFFSET;
 	UINT32 VOW_STA_WMM_AC3_OFFSET;
 	UINT32 VOW_STA_WMM_ID_OFFSET;
-	UINT32 VOW_STA_BWC_GROUP_OFFSET;
 } VOW_CR_OFFSET_FOR_GEN_T, *PVOW_CR_OFFSET_FOR_GEN_T;
 
+struct video_ctl{
+	BOOLEAN enable;
+	struct _EDCA_PARM edca_backup[WMM_NUM_OF_AC*WMM_NUM];
+	UINT32 rts_thld_pkt_len_backup[DBDC_BAND_NUM];
+	UINT16 rts_thld_pkt_num_backup[DBDC_BAND_NUM];
+	UINT16 rts_retry_limit_backup;
+};
 
 VOID vow_init(struct _RTMP_ADAPTER *pad);
-VOID vow_init_CR_offset(struct _RTMP_ADAPTER *pad);
+VOID vow_init_CR_offset_gen_1_gen_2(struct _RTMP_ADAPTER *pad);
 VOID vow_init_sta(struct _RTMP_ADAPTER *pad);
 VOID vow_init_group(struct _RTMP_ADAPTER *pad);
 VOID vow_init_rx(struct _RTMP_ADAPTER *pad);
 VOID vow_init_misc(struct _RTMP_ADAPTER *pad);
 VOID vow_reset(struct _RTMP_ADAPTER *pad);
 VOID vow_reset_dvt(struct _RTMP_ADAPTER *pad);
-INT vow_set_schedule_ctrl(struct _RTMP_ADAPTER *pad, UINT8 sch_type, UINT8 sch_policy);
+
 UINT16 vow_convert_rate_token(struct _RTMP_ADAPTER *pad, UINT8 type, UINT8 group_id);
 UINT16 vow_convert_airtime_token(struct _RTMP_ADAPTER *pad, UINT8 type, UINT8 group_id);
-VOID vow_set_client(struct _RTMP_ADAPTER *pad, UINT8 group, UINT16 sta_id, UINT8 wmm_id);
+VOID vow_set_client(struct _RTMP_ADAPTER *pad, UINT8 group, UINT8 sta_id);
 VOID vow_group_band_map(struct _RTMP_ADAPTER *pad, UCHAR band_idx, UCHAR group_idx);
 VOID vow_mbss_grp_band_map(struct _RTMP_ADAPTER *pad, struct wifi_dev *wdev);
 VOID vow_mbss_wmm_map(struct _RTMP_ADAPTER *pad, struct wifi_dev *wdev);
 VOID vow_mbss_init(struct _RTMP_ADAPTER *pad, struct wifi_dev *wdev);
-VOID vow_update_om_wmm(struct _RTMP_ADAPTER *pad, struct wifi_dev *wdev, UCHAR wmm_idx, struct _EDCA_PARM *pApEdcaParm);
+VOID vow_update_om_wmm(struct _RTMP_ADAPTER *pad, struct wifi_dev *wdev, struct _EDCA_PARM *pApEdcaParm);
 BOOLEAN vow_is_enabled(struct _RTMP_ADAPTER *pad);
 VOID vow_atf_off_init(struct _RTMP_ADAPTER *pad);
-INT32 vow_set_sta(struct _RTMP_ADAPTER *pad, UINT16 sta_id, UINT32 subcmd);
-INT vow_set_feature_all(struct _RTMP_ADAPTER *pad);
+INT32 vow_set_sta(struct _RTMP_ADAPTER *pad, UINT8 sta_id, UINT32 subcmd);
+void set_vow_video_param(struct _RTMP_ADAPTER *pAd, struct wifi_dev *wdev, UINT8 opmode);
 
 INT set_vow_min_rate_token(
 	IN  struct _RTMP_ADAPTER *pAd,
@@ -478,18 +407,6 @@ INT set_vow_bss_en(
 	IN  struct _RTMP_ADAPTER *pAd,
 	IN  RTMP_STRING * arg);
 
-INT set_vow_spl_sta_num(
-	IN  struct _RTMP_ADAPTER *pAd,
-	IN  RTMP_STRING * arg);
-
-INT set_vow_mcli_schedule_en(
-	IN	struct _RTMP_ADAPTER *pAd,
-	IN	RTMP_STRING * arg);
-
-INT set_vow_mcli_schedule_parm(
-	IN	struct _RTMP_ADAPTER *pAd,
-	IN	RTMP_STRING * arg);
-
 INT set_vow_dwrr_max_wait_time(
 	IN  struct _RTMP_ADAPTER *pAd,
 	IN  RTMP_STRING * arg);
@@ -502,14 +419,6 @@ INT set_vow_bw_ctrl_en(
 	IN  struct _RTMP_ADAPTER *pAd,
 	IN  RTMP_STRING * arg);
 
-INT set_vow_schedule_ctrl(
-	IN  struct _RTMP_ADAPTER *pAd,
-	IN  RTMP_STRING * arg);
-
-INT show_vow_schedule_ctrl(
-	IN  struct _RTMP_ADAPTER *pAd,
-	IN  RTMP_STRING * arg);
-
 INT set_vow_sta_dwrr_quantum(
 	IN  struct _RTMP_ADAPTER *pAd,
 	IN  RTMP_STRING * arg);
@@ -517,18 +426,6 @@ INT set_vow_sta_dwrr_quantum(
 INT set_vow_sta_frr_quantum(
 	IN	struct _RTMP_ADAPTER *pAd,
 	IN	RTMP_STRING * arg);
-
-INT set_vow_near_far_en(
-	IN	struct _RTMP_ADAPTER *pAd,
-	IN	RTMP_STRING * arg);
-
-INT set_vow_near_far_th(
-	IN	struct _RTMP_ADAPTER *pAd,
-	IN	RTMP_STRING * arg);
-
-INT show_vow_near_far(
-	IN  struct _RTMP_ADAPTER *pAd,
-	IN  RTMP_STRING * arg);
 
 INT set_vow_bss_dwrr_quantum(
 	IN  struct _RTMP_ADAPTER *pAd,
@@ -559,10 +456,6 @@ INT set_vow_rx_counter_clr(
 	IN  RTMP_STRING * arg);
 
 INT set_vow_rx_airtime_en(
-	IN  struct _RTMP_ADAPTER *pAd,
-	IN  RTMP_STRING * arg);
-
-INT set_vow_rx_early_end_en(
 	IN  struct _RTMP_ADAPTER *pAd,
 	IN  RTMP_STRING * arg);
 
@@ -656,10 +549,6 @@ INT set_vow_avg_num(
 	IN  RTMP_STRING * arg);
 
 INT set_vow_dvt_en(
-	IN  struct _RTMP_ADAPTER *pAd,
-	IN  RTMP_STRING * arg);
-
-INT set_vow_show_en(
 	IN  struct _RTMP_ADAPTER *pAd,
 	IN  RTMP_STRING * arg);
 
@@ -896,15 +785,14 @@ INT set_vow_watf_del_entry(
 VOID set_vow_watf_sta_dwrr(
 	IN	struct _RTMP_ADAPTER *pAd,
 	IN	UINT8 *Addr,
-	IN	UINT16 Wcid);
+	IN	UINT8 Wcid);
 INT set_vow_fixed_rate(
     IN	struct _RTMP_ADAPTER *pAd,
     IN	RTMP_STRING * arg);
 
 BOOLEAN vow_is_queue_full(
 	IN  struct _RTMP_ADAPTER *pAd,
-	UINT16 wcid,
+	UCHAR wcid,
 	UCHAR qidx);
 
-void vow_variable_reset(struct _RTMP_ADAPTER *pAd);
 #endif /* __AP_VOW_H_ */

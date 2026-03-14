@@ -1,16 +1,4 @@
 /*
- * Copyright (c) [2020], MediaTek Inc. All rights reserved.
- *
- * This software/firmware and related documentation ("MediaTek Software") are
- * protected under relevant copyright laws.
- * The information contained herein is confidential and proprietary to
- * MediaTek Inc. and/or its licensors.
- * Except as otherwise provided in the applicable licensing terms with
- * MediaTek Inc. and/or its licensors, any reproduction, modification, use or
- * disclosure of MediaTek Software, and information contained herein, in whole
- * or in part, shall be strictly prohibited.
-*/
-/*
  *  $Id$
  *  $DateTime$
  *  Pluto Kang
@@ -20,6 +8,12 @@
  */
 
 /*******************************************************************************
+ * Copyright (c) 2014 MediaTek Inc.
+ *
+ *  All rights reserved. Copying, compilation, modification, distribution
+ *  or any other use whatsoever of this material is strictly prohibited
+ *  except in accordance with a Software License Agreement with
+ *  MediaTek Inc.
  * ******************************************************************************
  */
 
@@ -113,13 +107,6 @@ INT SetMuraPeriodicSndProc(RTMP_ADAPTER *pAd, RTMP_STRING *arg)
 	CMD_SET_PERIODIC_SND param = {0};
 	struct _CMD_ATTRIBUTE attr = {0};
 
-	if (!(IS_MT7615(pAd) || IS_MT7663(pAd) || IS_MT7626(pAd))) {
-		Ret = FALSE;
-		MTWF_DBG(pAd, DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-			 "Not Supported (Ret = %d_\n", Ret);
-		return Ret;
-	}
-
 	msg = AndesAllocCmdMsg(pAd, sizeof(cmd) + sizeof(param));
 
 	if (!msg) {
@@ -143,8 +130,8 @@ INT SetMuraPeriodicSndProc(RTMP_ADAPTER *pAd, RTMP_STRING *arg)
 	AndesAppendCmdMsg(msg, (char *)&param, sizeof(param));
 	AndesSendCmdMsg(pAd, msg);
 error:
-	MTWF_DBG(pAd, DBG_CAT_ALL, DBG_SUBCAT_ALL, Ret ? DBG_LVL_DEBUG : DBG_LVL_ERROR,
-			 "(Ret = %d_\n", Ret);
+	MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_INFO,
+			 ("%s:(Ret = %d_\n", __func__, Ret));
 	return Ret;
 }
 
@@ -166,12 +153,6 @@ INT SetMuraTestAlgorithmInit(RTMP_ADAPTER *pAd, RTMP_STRING *arg)
 	UINT32 index = 0;
 
 	pch = arg;
-
-	if (!(IS_MT7615(pAd) || IS_MT7663(pAd) || IS_MT7626(pAd))) {
-		MTWF_DBG(pAd, DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-			 "Not Supported (Ret = %d_\n", FALSE);
-		return FALSE;
-	}
 
 	if (pch != NULL)
 		pIdx = pch;
@@ -213,13 +194,6 @@ INT SetMuraTestAlgorithmProc(RTMP_ADAPTER *pAd, RTMP_STRING *arg)
 	CMD_SET_PERIODIC_SND param = {0};
 	struct _CMD_ATTRIBUTE attr = {0};
 
-	if (!(IS_MT7615(pAd) || IS_MT7663(pAd) || IS_MT7626(pAd))) {
-		Ret = FALSE;
-		MTWF_DBG(pAd, DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-			 "Not Supported (Ret = %d_\n", Ret);
-		return Ret;
-	}
-
 	msg = AndesAllocCmdMsg(pAd, sizeof(cmd) + sizeof(param));
 
 	if (!msg) {
@@ -245,8 +219,8 @@ INT SetMuraTestAlgorithmProc(RTMP_ADAPTER *pAd, RTMP_STRING *arg)
 	AndesAppendCmdMsg(msg, (char *)&param, sizeof(param));
 	AndesSendCmdMsg(pAd, msg);
 error:
-	MTWF_DBG(pAd, DBG_CAT_ALL, DBG_SUBCAT_ALL, Ret ? DBG_LVL_DEBUG : DBG_LVL_ERROR,
-			 "(Ret = %d_\n", Ret);
+	MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
+			 ("%s:(Ret = %d_\n", __func__, Ret));
 	return Ret;
 }
 
@@ -271,13 +245,6 @@ INT GetMuraMonitorStateProc(RTMP_ADAPTER *pAd, RTMP_STRING *arg)
 	UINT32 cmd = MURA_ALGORITHM_STAT;
 	struct _CMD_ATTRIBUTE attr = {0};
 
-	if (!(IS_MT7615(pAd) || IS_MT7663(pAd) || IS_MT7626(pAd))) {
-		Ret = FALSE;
-		MTWF_DBG(pAd, DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-			 "Not Supported (Ret = %d_\n", Ret);
-		return Ret;
-	}
-
 	pch = arg;
 
 	if (pch != NULL)
@@ -288,15 +255,12 @@ INT GetMuraMonitorStateProc(RTMP_ADAPTER *pAd, RTMP_STRING *arg)
 	}
 
 	if (index == MURA_STATE) {
-		P_EVENT_SHOW_ALGORITHM_STATE pstat_result = NULL;
+		EVENT_SHOW_ALGORITHM_STATE stat_result = {0};
 
-		os_alloc_mem(NULL, (UCHAR **)&pstat_result, sizeof(EVENT_SHOW_ALGORITHM_STATE));
-		os_zero_mem(pstat_result, sizeof(EVENT_SHOW_ALGORITHM_STATE));
-		msg = AndesAllocCmdMsg(pAd, sizeof(cmd) + sizeof(EVENT_SHOW_ALGORITHM_STATE));
+		msg = AndesAllocCmdMsg(pAd, sizeof(cmd) + sizeof(stat_result));
 
 		if (!msg) {
 			Ret = 0;
-			os_free_mem(pstat_result);
 			goto error;
 		}
 
@@ -305,8 +269,8 @@ INT GetMuraMonitorStateProc(RTMP_ADAPTER *pAd, RTMP_STRING *arg)
 		SET_CMD_ATTR_EXT_TYPE(attr, EXT_CMD_ID_MU_MIMO_RA);
 		SET_CMD_ATTR_CTRL_FLAGS(attr, INIT_CMD_QUERY_AND_WAIT_RSP);
 		SET_CMD_ATTR_RSP_WAIT_MS_TIME(attr, 0);
-		SET_CMD_ATTR_RSP_EXPECT_SIZE(attr, sizeof(EVENT_SHOW_ALGORITHM_STATE));
-		SET_CMD_ATTR_RSP_WB_BUF_IN_CALBK(attr, pstat_result);
+		SET_CMD_ATTR_RSP_EXPECT_SIZE(attr, sizeof(stat_result));
+		SET_CMD_ATTR_RSP_WB_BUF_IN_CALBK(attr, &stat_result);
 		SET_CMD_ATTR_RSP_HANDLER(attr, MuraEventDispatcher);
 		AndesInitCmdMsg(msg, attr);
 #ifdef RT_BIG_ENDIAN
@@ -314,20 +278,14 @@ INT GetMuraMonitorStateProc(RTMP_ADAPTER *pAd, RTMP_STRING *arg)
 #endif
 		AndesAppendCmdMsg(msg, (char *)&cmd, sizeof(cmd));
 		AndesSendCmdMsg(pAd, msg);
-
-		os_free_mem(pstat_result);
 	} else if (index == MURA_GROUP_STAT) {
-		P_EVENT_SHOW_ALGORITHM_GROUP_STATE pgroup_stat_result = NULL;
-
-		os_alloc_mem(NULL, (UCHAR **)&pgroup_stat_result, sizeof(EVENT_SHOW_ALGORITHM_GROUP_STATE));
-		os_zero_mem(pgroup_stat_result, sizeof(EVENT_SHOW_ALGORITHM_GROUP_STATE));
+		EVENT_SHOW_ALGORITHM_GROUP_STATE grouop_stat_result = {0};
 
 		cmd = MURA_ALGORITHM_GROUP_STAT;
 		pch = strsep(&arg, "-");
 
 		if (pch == NULL) {
 			Ret = 0;
-			os_free_mem(pgroup_stat_result);
 			goto error;
 		} else {
 			pch = strsep(&arg, "");
@@ -337,7 +295,6 @@ INT GetMuraMonitorStateProc(RTMP_ADAPTER *pAd, RTMP_STRING *arg)
 
 				if (index2 >= MAX_MURA_GRP) {
 					Ret = 0;
-					os_free_mem(pgroup_stat_result);
 					goto error;
 				}
 
@@ -346,16 +303,14 @@ INT GetMuraMonitorStateProc(RTMP_ADAPTER *pAd, RTMP_STRING *arg)
 #endif
 			} else {
 				Ret = 0;
-				os_free_mem(pgroup_stat_result);
 				goto error;
 			}
 		}
 
-		msg = AndesAllocCmdMsg(pAd, sizeof(cmd) + sizeof(EVENT_SHOW_ALGORITHM_GROUP_STATE));
+		msg = AndesAllocCmdMsg(pAd, sizeof(cmd) + sizeof(grouop_stat_result));
 
 		if (!msg) {
 			Ret = 0;
-			os_free_mem(pgroup_stat_result);
 			goto error;
 		}
 #ifdef RT_BIG_ENDIAN
@@ -366,26 +321,21 @@ INT GetMuraMonitorStateProc(RTMP_ADAPTER *pAd, RTMP_STRING *arg)
 		SET_CMD_ATTR_EXT_TYPE(attr, EXT_CMD_ID_MU_MIMO_RA);
 		SET_CMD_ATTR_CTRL_FLAGS(attr, INIT_CMD_QUERY_AND_WAIT_RSP);
 		SET_CMD_ATTR_RSP_WAIT_MS_TIME(attr, 0);
-		SET_CMD_ATTR_RSP_EXPECT_SIZE(attr, sizeof(EVENT_SHOW_ALGORITHM_GROUP_STATE));
-		SET_CMD_ATTR_RSP_WB_BUF_IN_CALBK(attr, pgroup_stat_result);
+		SET_CMD_ATTR_RSP_EXPECT_SIZE(attr, sizeof(grouop_stat_result));
+		SET_CMD_ATTR_RSP_WB_BUF_IN_CALBK(attr, &grouop_stat_result);
 		SET_CMD_ATTR_RSP_HANDLER(attr, MuraEventDispatcher);
 		AndesInitCmdMsg(msg, attr);
 		AndesAppendCmdMsg(msg, (char *)&cmd, sizeof(cmd));
 		AndesAppendCmdMsg(msg, (char *)&index2, sizeof(index2));
 		AndesSendCmdMsg(pAd, msg);
-		os_free_mem(pgroup_stat_result);
 	} else if (index == MURA_HWFB_STAT) {
-		P_EVENT_SHOW_ALGORITHM_HWFB_STATE phwfb_stat_result = NULL;
-
-		os_alloc_mem(NULL, (UCHAR **)&phwfb_stat_result, sizeof(EVENT_SHOW_ALGORITHM_HWFB_STATE));
-		os_zero_mem(phwfb_stat_result, sizeof(EVENT_SHOW_ALGORITHM_HWFB_STATE));
+		EVENT_SHOW_ALGORITHM_HWFB_STATE hwfb_stat_result = {0};
 
 		cmd = MURA_ALGORITHM_HWFB_STAT;
-		msg = AndesAllocCmdMsg(pAd, sizeof(cmd) + sizeof(EVENT_SHOW_ALGORITHM_HWFB_STATE));
+		msg = AndesAllocCmdMsg(pAd, sizeof(cmd) + sizeof(hwfb_stat_result));
 
 		if (!msg) {
 			Ret = 0;
-			os_free_mem(phwfb_stat_result);
 			goto error;
 		}
 
@@ -394,8 +344,8 @@ INT GetMuraMonitorStateProc(RTMP_ADAPTER *pAd, RTMP_STRING *arg)
 		SET_CMD_ATTR_EXT_TYPE(attr, EXT_CMD_ID_MU_MIMO_RA);
 		SET_CMD_ATTR_CTRL_FLAGS(attr, INIT_CMD_QUERY_AND_WAIT_RSP);
 		SET_CMD_ATTR_RSP_WAIT_MS_TIME(attr, 0);
-		SET_CMD_ATTR_RSP_EXPECT_SIZE(attr, sizeof(EVENT_SHOW_ALGORITHM_HWFB_STATE));
-		SET_CMD_ATTR_RSP_WB_BUF_IN_CALBK(attr, phwfb_stat_result);
+		SET_CMD_ATTR_RSP_EXPECT_SIZE(attr, sizeof(hwfb_stat_result));
+		SET_CMD_ATTR_RSP_WB_BUF_IN_CALBK(attr, &hwfb_stat_result);
 		SET_CMD_ATTR_RSP_HANDLER(attr, MuraEventDispatcher);
 		AndesInitCmdMsg(msg, attr);
 #ifdef RT_BIG_ENDIAN
@@ -403,13 +353,12 @@ INT GetMuraMonitorStateProc(RTMP_ADAPTER *pAd, RTMP_STRING *arg)
 #endif
 		AndesAppendCmdMsg(msg, (char *)&cmd, sizeof(cmd));
 		AndesSendCmdMsg(pAd, msg);
-		os_free_mem(phwfb_stat_result);
 	} else
 		goto error;
 
 error:
-	MTWF_DBG(pAd, DBG_CAT_ALL, DBG_SUBCAT_ALL, Ret ? DBG_LVL_DEBUG : DBG_LVL_ERROR,
-			 "(Ret = %d_\n", Ret);
+	MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_INFO,
+			 ("%s:(Ret = %d_\n", __func__, Ret));
 	return Ret;
 }
 
@@ -423,26 +372,20 @@ INT GetMuraPFIDStatProc(RTMP_ADAPTER *pAd, RTMP_STRING *arg)
 	struct _CMD_ATTRIBUTE attr = {0};
 	EVENT_SHOW_PFID_STAT stat_result = {0};
 
-	if (!(IS_MT7615(pAd) || IS_MT7663(pAd) || IS_MT7626(pAd))) {
-		Ret = FALSE;
-		MTWF_DBG(pAd, DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-			 "Not Supported (Ret = %d_\n", Ret);
-		return Ret;
-	}
-
 	pch = arg;
 	if (pch != NULL) {
 		u4Index = simple_strtol(pch, 0, 10);
 	} else {
-		MTWF_DBG(pAd, DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-			"Argument is NULL\n");
+		MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
+			("%s: Argument is NULL\n", __func__));
 		Ret = FALSE;
 		goto error;
 	}
+
 	msg = AndesAllocCmdMsg(pAd, sizeof(cmd) + sizeof(stat_result) + sizeof(u4Index));
 	if (!msg) {
-		MTWF_DBG(pAd, DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-			"Msg allocation failed\n");
+		MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
+			("%s: Msg allocation failed\n", __func__));
 		Ret = FALSE;
 		goto error;
 	}
@@ -465,8 +408,8 @@ INT GetMuraPFIDStatProc(RTMP_ADAPTER *pAd, RTMP_STRING *arg)
 
 	AndesSendCmdMsg(pAd, msg);
 error:
-	MTWF_DBG(pAd, DBG_CAT_ALL, DBG_SUBCAT_ALL, Ret ? DBG_LVL_DEBUG : DBG_LVL_ERROR,
-		"(Ret = %d\n", Ret);
+	MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_INFO,
+		("%s:(Ret = %d\n", __func__, Ret));
 	return Ret;
 }
 
@@ -489,13 +432,6 @@ INT SetMuraFixedRateProc(RTMP_ADAPTER *pAd, RTMP_STRING *arg)
 	UINT_8 param = 0;
 	UINT8 value = 0;
 	struct _CMD_ATTRIBUTE attr = {0};
-
-	if (!(IS_MT7615(pAd) || IS_MT7663(pAd) || IS_MT7626(pAd))) {
-		Ret = FALSE;
-		MTWF_DBG(pAd, DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-			 "Not Supported (Ret = %d_\n", Ret);
-		return Ret;
-	}
 
 	value = os_str_tol(arg, 0, 10);
 	/* 2: MU-RGA Stop, 1:MU-RGA Fixed Rate, 0:MU-RGA Auto Rate */
@@ -523,8 +459,8 @@ INT SetMuraFixedRateProc(RTMP_ADAPTER *pAd, RTMP_STRING *arg)
 	AndesAppendCmdMsg(msg, (char *)&param, sizeof(param));
 	AndesSendCmdMsg(pAd, msg);
 error:
-	MTWF_DBG(pAd, DBG_CAT_ALL, DBG_SUBCAT_ALL, Ret ? DBG_LVL_DEBUG : DBG_LVL_ERROR,
-			 "(Ret = %d_\n", Ret);
+	MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_INFO,
+			 ("%s:(Ret = %d_\n", __func__, Ret));
 	return Ret;
 }
 
@@ -549,13 +485,6 @@ INT SetMuraFixedGroupRateProc(RTMP_ADAPTER *pAd, RTMP_STRING *arg)
 	struct cmd_msg *msg = NULL;
 	UINT32 cmd = MURA_FIXED_GROUP_RATE_ALGORITHM;
 	CMD_MURGA_SET_GROUP_TBL_ENTRY param = {0};
-
-	if (!(IS_MT7615(pAd) || IS_MT7663(pAd) || IS_MT7626(pAd))) {
-		Ret = FALSE;
-		MTWF_DBG(pAd, DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-			 "Not Supported (Ret = %d_\n", Ret);
-		return Ret;
-	}
 
 	pch = strsep(&arg, "-");
 
@@ -692,8 +621,8 @@ INT SetMuraFixedGroupRateProc(RTMP_ADAPTER *pAd, RTMP_STRING *arg)
 	AndesAppendCmdMsg(msg, (char *)&param, sizeof(param));
 	AndesSendCmdMsg(pAd, msg);
 error:
-	MTWF_DBG(pAd, DBG_CAT_ALL, DBG_SUBCAT_ALL, Ret ? DBG_LVL_DEBUG : DBG_LVL_ERROR,
-			 "(Ret = %d_\n", Ret);
+	MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_INFO,
+			 ("%s:(Ret = %d_\n", __func__, Ret));
 	return Ret;
 }
 
@@ -716,13 +645,6 @@ INT SetMuraFixedSndParamProc(RTMP_ADAPTER *pAd, RTMP_STRING *arg)
 	struct cmd_msg *msg = NULL;
 	UINT32 cmd = MURA_SOUNDING_PERIOD;
 	CMD_SET_SND_PARAMS param = {0};
-
-	if (!(IS_MT7615(pAd) || IS_MT7663(pAd) || IS_MT7626(pAd))) {
-		Ret = FALSE;
-		MTWF_DBG(pAd, DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-			 "Not Supported (Ret = %d_\n", Ret);
-		return Ret;
-	}
 
 	pch = strsep(&arg, "-");
 
@@ -786,71 +708,8 @@ INT SetMuraFixedSndParamProc(RTMP_ADAPTER *pAd, RTMP_STRING *arg)
 	AndesAppendCmdMsg(msg, (char *)&param, sizeof(param));
 	AndesSendCmdMsg(pAd, msg);
 error:
-	MTWF_DBG(pAd, DBG_CAT_ALL, DBG_SUBCAT_ALL, Ret ? DBG_LVL_DEBUG : DBG_LVL_ERROR,
-			 "(Ret = %d_\n", Ret);
-	return Ret;
-}
-
-INT SetMuraHwFallbackProc(RTMP_ADAPTER *pAd, RTMP_STRING *arg)
-{
-	PCHAR pch = NULL;
-	INT32 Ret = TRUE;
-	/* prepare command message */
-	struct cmd_msg *msg = NULL;
-	UINT32 cmd = MURA_HW_FALLBACK_CONFIG;
-	CMD_SET_MURA_HWFB param = {0};
-	struct _CMD_ATTRIBUTE attr = {0};
-
-	if (!(IS_MT7615(pAd) || IS_MT7663(pAd) || IS_MT7626(pAd))) {
-		Ret = FALSE;
-		MTWF_DBG(pAd, DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-			 "Not Supported (Ret = %d_\n", Ret);
-		return Ret;
-	}
-
-	pch = strsep(&arg, "-");
-	if (pch != NULL) {
-		param.fgUpConfig = (BOOLEAN)os_str_tol(pch, 0, 10);
-	} else {
-		Ret = 0;
-		goto error;
-	}
-
-	pch = strsep(&arg, "");
-	if (pch != NULL)
-		param.fgDownConfig = (BOOLEAN)os_str_tol(pch, 0, 10);
-	else {
-		Ret = 0;
-		goto error;
-	}
-
-	MTWF_PRINT("%s: UpConfig:%u Downconfig:%u\n",
-			 __func__, param.fgUpConfig, param.fgDownConfig);
-
-	msg = AndesAllocCmdMsg(pAd, sizeof(cmd) + sizeof(param));
-	if (!msg) {
-		Ret = FALSE;
-		goto error;
-	}
-
-	SET_CMD_ATTR_MCU_DEST(attr, HOST2N9);
-	SET_CMD_ATTR_TYPE(attr, EXT_CID);
-	SET_CMD_ATTR_EXT_TYPE(attr, EXT_CMD_ID_MU_MIMO_RA);
-	SET_CMD_ATTR_CTRL_FLAGS(attr, INIT_CMD_SET_AND_RETRY);
-	SET_CMD_ATTR_RSP_WAIT_MS_TIME(attr, 0);
-	SET_CMD_ATTR_RSP_EXPECT_SIZE(attr, 0);
-	SET_CMD_ATTR_RSP_WB_BUF_IN_CALBK(attr, NULL);
-	SET_CMD_ATTR_RSP_HANDLER(attr, NULL);
-	AndesInitCmdMsg(msg, attr);
-#ifdef RT_BIG_ENDIAN
-	cmd = cpu2le32(cmd);
-#endif
-	AndesAppendCmdMsg(msg, (char *)&cmd, sizeof(cmd));
-	AndesAppendCmdMsg(msg, (char *)&param, sizeof(param));
-	AndesSendCmdMsg(pAd, msg);
-error:
-	MTWF_DBG(pAd, DBG_CAT_ALL, DBG_SUBCAT_ALL, Ret ? DBG_LVL_DEBUG : DBG_LVL_ERROR,
-			 "(Ret = %d_\n", Ret);
+	MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_INFO,
+			 ("%s:(Ret = %d_\n", __func__, Ret));
 	return Ret;
 }
 
@@ -905,8 +764,8 @@ INT SetMuraPlatformTypeProc(RTMP_ADAPTER *pAd)
 	AndesAppendCmdMsg(msg, (char *)&param, sizeof(param));
 	AndesSendCmdMsg(pAd, msg);
 error:
-	MTWF_DBG(pAd, DBG_CAT_ALL, DBG_SUBCAT_ALL, Ret ? DBG_LVL_DEBUG : DBG_LVL_ERROR,
-			 "(Ret = %d_\n", Ret);
+	MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_INFO,
+			 ("%s:(Ret = %d_\n", __func__, Ret));
 	return Ret;
 }
 
@@ -933,23 +792,15 @@ INT SetMuraMobilityCtrlProc(RTMP_ADAPTER *pAd, RTMP_STRING *arg)
 	CHAR *cstr;
 	BOOLEAN fgMobilityDetectEn = 0;
 
-	if (!(IS_MT7615(pAd) || IS_MT7663(pAd) || IS_MT7626(pAd))) {
-		MTWF_DBG(pAd, DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-			 "Not Supported (Ret = %d_\n", FALSE);
-		return FALSE;
-	}
-
 	/* sanity check for input parameter existence */
 	if (!arg) {
-		MTWF_DBG(pAd, DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-			"No parameters!!\n" );
+		MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_ERROR, ("%s(): No parameters!!\n", __func__));
 		goto error0;
 	}
 
 	/* sanity check for input parameter format */
 	if (strlen(arg) != 1) {
-		MTWF_DBG(pAd, DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-			"Wrong parameter format!!\n");
+		MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_ERROR, ("%s(): Wrong parameter format!!\n", __func__));
 		goto error0;
 	}
 
@@ -961,13 +812,13 @@ INT SetMuraMobilityCtrlProc(RTMP_ADAPTER *pAd, RTMP_STRING *arg)
 			fgMobilityDetectEn = simple_strtol(cstr, 0, 10);
 			break;
 		default:
-			MTWF_DBG(pAd, DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-				"Number of parameters exceed expectation !!\n");
+			MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_ERROR, ("%s(): Number of parameters exceed expectation !!\n", __func__));
 			goto error0;
 		}
 	}
 
-	MTWF_PRINT("%s: fgMobilityDetectEn: %d\n", __func__, fgMobilityDetectEn);
+	MTWF_LOG(DBG_CAT_CFG, DBG_SUBCAT_ALL, DBG_LVL_OFF, ("%s(): fgMobilityDetectEn: %d\n", __func__,
+																fgMobilityDetectEn));
 
 	/* memory allocate for command message */
 	msg = AndesAllocCmdMsg(pAd, sizeof(cmd) + sizeof(param));
@@ -999,13 +850,13 @@ INT SetMuraMobilityCtrlProc(RTMP_ADAPTER *pAd, RTMP_STRING *arg)
 	return TRUE;
 
 error0:
-	MTWF_DBG(pAd, DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_ERROR, "Expected format is as below:\n\n");
-	MTWF_DBG(pAd, DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_ERROR, "		iwpriv <interface> set mura_mobility_en=O\n\n");
-	MTWF_DBG(pAd, DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_ERROR, "		param1: Mobility Enable (0, 1)\n");
+	MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_OFF, ("Expected format is as below:\n\n"));
+	MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_OFF, ("	iwpriv <interface> set mura_mobility_en=O\n\n"));
+	MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_OFF, ("	param1: Mobility Enable (0, 1)\n"));
 	return FALSE;
 
 error1:
-	MTWF_DBG(pAd, DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_ERROR, "command message memory allocated fail!!\n");
+	MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_OFF, ("%s(): command message memory allocated fail!!\n", __func__));
 	return FALSE;
 }
 
@@ -1032,23 +883,15 @@ INT SetMuraMobilityIntervalCtrlProc(RTMP_ADAPTER *pAd, RTMP_STRING *arg)
 	CHAR *cstr;
 	UINT16 u2MobilityInteral = 0;
 
-	if (!(IS_MT7615(pAd) || IS_MT7663(pAd) || IS_MT7626(pAd))) {
-		MTWF_DBG(pAd, DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-			 "Not Supported (Ret = %d_\n", FALSE);
-		return FALSE;
-	}
-
 	/* sanity check for input parameter existence */
 	if (!arg) {
-		MTWF_DBG(pAd, DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-			"No parameters!!\n");
+		MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_ERROR, ("%s(): No parameters!!\n", __func__));
 		goto error0;
 	}
 
 	/* sanity check for input parameter format */
 	if (strlen(arg) != 1) {
-		MTWF_DBG(pAd, DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-			"Wrong parameter format!!\n");
+		MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_ERROR, ("%s(): Wrong parameter format!!\n", __func__));
 		goto error0;
 	}
 
@@ -1060,13 +903,13 @@ INT SetMuraMobilityIntervalCtrlProc(RTMP_ADAPTER *pAd, RTMP_STRING *arg)
 			u2MobilityInteral = simple_strtol(cstr, 0, 10);
 			break;
 		default:
-			MTWF_DBG(pAd, DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-				"Number of parameters exceed expectation !!\n");
+			MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_ERROR, ("%s(): Number of parameters exceed expectation !!\n", __func__));
 			goto error0;
 		}
 	}
 
-	MTWF_PRINT("%s: u2MobilityInteral: %d\n", __func__, u2MobilityInteral);
+	MTWF_LOG(DBG_CAT_CFG, DBG_SUBCAT_ALL, DBG_LVL_OFF, ("%s(): u2MobilityInteral: %d\n", __func__,
+																u2MobilityInteral));
 
 	/* memory allocate for command message */
 	msg = AndesAllocCmdMsg(pAd, sizeof(cmd) + sizeof(param));
@@ -1076,6 +919,7 @@ INT SetMuraMobilityIntervalCtrlProc(RTMP_ADAPTER *pAd, RTMP_STRING *arg)
 		goto error1;
 
 	/* command message contents config */
+	param.u2MobilityInteral = u2MobilityInteral;
 
 	SET_CMD_ATTR_MCU_DEST(attr, HOST2N9);
 	SET_CMD_ATTR_TYPE(attr, EXT_CID);
@@ -1098,13 +942,13 @@ INT SetMuraMobilityIntervalCtrlProc(RTMP_ADAPTER *pAd, RTMP_STRING *arg)
 	return TRUE;
 
 error0:
-	MTWF_DBG(pAd, DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_ERROR, "Expected format is as below:\n\n");
-	MTWF_DBG(pAd, DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_ERROR, "		iwpriv <interface> set mura_mobility_interval_ctrl=O\n\n");
-	MTWF_DBG(pAd, DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_ERROR, "		param1: Mobility Computation Profile Time Interval (180, 360)\n");
+	MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_OFF, ("Expected format is as below:\n\n"));
+	MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_OFF, ("   iwpriv <interface> set mura_mobility_interval_ctrl=O\n\n"));
+	MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_OFF, ("   param1: Mobility Computation Profile Time Interval (180, 360)\n"));
 	return FALSE;
 
 error1:
-	MTWF_DBG(pAd, DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_ERROR, "command message memory allocated fail!!\n");
+	MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_OFF, ("%s(): command message memory allocated fail!!\n", __func__));
 	return FALSE;
 }
 
@@ -1131,23 +975,15 @@ INT SetMuraMobilitySNRCtrlProc(RTMP_ADAPTER *pAd, RTMP_STRING *arg)
 	CHAR *cstr;
 	UINT8 ucMobilitySNR = 0;
 
-	if (!(IS_MT7615(pAd) || IS_MT7663(pAd) || IS_MT7626(pAd))) {
-		MTWF_DBG(pAd, DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-			 "Not Supported (Ret = %d_\n", FALSE);
-		return FALSE;
-	}
-
 	/* sanity check for input parameter existence */
 	if (!arg) {
-		MTWF_DBG(pAd, DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-			"No parameters!!\n");
+		MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_ERROR, ("%s(): No parameters!!\n", __func__));
 		goto error0;
 	}
 
 	/* sanity check for input parameter format */
 	if (strlen(arg) != 1) {
-		MTWF_DBG(pAd, DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-			"Wrong parameter format!!\n");
+		MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_ERROR, ("%s(): Wrong parameter format!!\n", __func__));
 		goto error0;
 	}
 
@@ -1159,13 +995,13 @@ INT SetMuraMobilitySNRCtrlProc(RTMP_ADAPTER *pAd, RTMP_STRING *arg)
 			ucMobilitySNR = simple_strtol(cstr, 0, 10);
 			break;
 		default:
-			MTWF_DBG(pAd, DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-				"Number of parameters exceed expectation !!\n");
+			MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_ERROR, ("%s(): Number of parameters exceed expectation !!\n", __func__));
 			goto error0;
 		}
 	}
 
-	MTWF_PRINT("%s: ucMobilitySNR: %d\n", __func__, ucMobilitySNR);
+	MTWF_LOG(DBG_CAT_CFG, DBG_SUBCAT_ALL, DBG_LVL_OFF, ("%s(): ucMobilitySNR: %d\n", __func__,
+																ucMobilitySNR));
 
 	/* memory allocate for command message */
 	msg = AndesAllocCmdMsg(pAd, sizeof(cmd) + sizeof(param));
@@ -1197,13 +1033,13 @@ INT SetMuraMobilitySNRCtrlProc(RTMP_ADAPTER *pAd, RTMP_STRING *arg)
 	return TRUE;
 
 error0:
-	MTWF_DBG(pAd, DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_ERROR, "Expected format is as below:\n\n");
-	MTWF_DBG(pAd, DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_ERROR, "   iwpriv <interface> set mura_mobility_snr_ctrl=O\n\n");
-	MTWF_DBG(pAd, DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_ERROR, "   param1: Mobility Computation SNR value (0~63)\n");
+	MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_OFF, ("Expected format is as below:\n\n"));
+	MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_OFF, ("   iwpriv <interface> set mura_mobility_snr_ctrl=O\n\n"));
+	MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_OFF, ("   param1: Mobility Computation SNR value (0~63)\n"));
 	return FALSE;
 
 error1:
-	MTWF_DBG(pAd, DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_ERROR, "command message memory allocated fail!!\n");
+	MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_OFF, ("%s(): command message memory allocated fail!!\n", __func__));
 	return FALSE;
 }
 
@@ -1230,23 +1066,15 @@ INT SetMuraMobilityThresholdCtrlProc(RTMP_ADAPTER *pAd, RTMP_STRING *arg)
 	CHAR *cstr;
 	UINT8 ucWlanId = 0, ucMobilityThreshold = 0;
 
-	if (!(IS_MT7615(pAd) || IS_MT7663(pAd) || IS_MT7626(pAd))) {
-		MTWF_DBG(pAd, DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-			 "Not Supported (Ret = %d_\n", FALSE);
-		return FALSE;
-	}
-
 	/* sanity check for input parameter existence */
 	if (!arg) {
-		MTWF_DBG(pAd, DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-			"No parameters!!\n");
+		MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_ERROR, ("%s(): No parameters!!\n", __func__));
 		goto error0;
 	}
 
 	/* sanity check for input parameter format */
 	if (strlen(arg) != 6) {
-		MTWF_DBG(pAd, DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-			"Wrong parameter format!!\n");
+		MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_ERROR, ("%s(): Wrong parameter format!!\n", __func__));
 		goto error0;
 	}
 
@@ -1262,13 +1090,13 @@ INT SetMuraMobilityThresholdCtrlProc(RTMP_ADAPTER *pAd, RTMP_STRING *arg)
 			ucMobilityThreshold = simple_strtol(cstr, 0, 10);
 			break;
 		default:
-			MTWF_DBG(pAd, DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-				"Number of parameters exceed expectation !!\n");
+			MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_ERROR, ("%s(): Number of parameters exceed expectation !!\n", __func__));
 			goto error0;
 		}
 	}
 
-	MTWF_PRINT("%s: ucWlanId: %d, ucMobilityThreshold: %d\n", __func__, ucWlanId, ucMobilityThreshold);
+	MTWF_LOG(DBG_CAT_CFG, DBG_SUBCAT_ALL, DBG_LVL_OFF, ("%s(): ucWlanId: %d, ucMobilityThreshold: %d\n", __func__,
+																ucWlanId, ucMobilityThreshold));
 
 	/* memory allocate for command message */
 	msg = AndesAllocCmdMsg(pAd, sizeof(cmd) + sizeof(param));
@@ -1301,14 +1129,14 @@ INT SetMuraMobilityThresholdCtrlProc(RTMP_ADAPTER *pAd, RTMP_STRING *arg)
 	return TRUE;
 
 error0:
-	MTWF_DBG(pAd, DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_ERROR, "Expected format is as below:\n\n");
-	MTWF_DBG(pAd, DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_ERROR, "	iwpriv <interface> set mura_mobility_threshold_ctrl=OOO:OO\n\n");
-	MTWF_DBG(pAd, DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_ERROR, "	param1: WlanId (0~127)\n");
-	MTWF_DBG(pAd, DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_ERROR, "	param2: Mobility LQ Threshold (0~63)\n");
+	MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_OFF, ("Expected format is as below:\n\n"));
+	MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_OFF, ("	iwpriv <interface> set mura_mobility_threshold_ctrl=OOO:OO\n\n"));
+	MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_OFF, ("	param1: WlanId (0~127)\n"));
+	MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_OFF, ("	param2: Mobility LQ Threshold (0~63)\n"));
 	return FALSE;
 
 error1:
-	MTWF_DBG(pAd, DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_ERROR, "command message memory allocated fail!!\n");
+	MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_OFF, ("%s(): command message memory allocated fail!!\n", __func__));
 	return FALSE;
 }
 
@@ -1335,13 +1163,6 @@ INT SetMuraMobilitySndCountProc(RTMP_ADAPTER *pAd, RTMP_STRING *arg)
 	PCHAR pbuffer = NULL;
 	PCHAR pflag = NULL;
 	UINT8 fgMobilitySndIntvalCnt = 0;
-
-	if (!(IS_MT7615(pAd) || IS_MT7663(pAd) || IS_MT7626(pAd))) {
-		Ret = FALSE;
-		MTWF_DBG(pAd, DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-			 "Not Supported (Ret = %d_\n", Ret);
-		return Ret;
-	}
 
 	pbuffer = arg;
 	if (pbuffer != NULL) {
@@ -1382,7 +1203,7 @@ INT SetMuraMobilitySndCountProc(RTMP_ADAPTER *pAd, RTMP_STRING *arg)
 	return Ret;
 
 error:
-	MTWF_DBG(pAd, DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_ERROR, "(Ret = %d_\n", Ret);
+	MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_INFO, ("%s:(Ret = %d_\n", __FUNCTION__, Ret));
 
 	return Ret;
 }
@@ -1412,23 +1233,15 @@ INT SetMuraMobilityModeCtrlProc(RTMP_ADAPTER *pAd, RTMP_STRING *arg)
 	BOOLEAN fgMULQTriggerCalEn = TRUE;
 	BOOLEAN fgMobilityFlagForceEn = FALSE;
 
-	if (!(IS_MT7615(pAd) || IS_MT7663(pAd) || IS_MT7626(pAd))) {
-		MTWF_DBG(pAd, DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-			 "Not Supported (Ret = %d_\n", FALSE);
-		return FALSE;
-	}
-
 	/* sanity check for input parameter existence */
 	if (!arg) {
-		MTWF_DBG(pAd, DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-			"No parameters!!\n");
+		MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_ERROR, ("%s(): No parameters!!\n", __func__));
 		goto error0;
 	}
 
 	/* sanity check for input parameter format */
 	if (strlen(arg) != 5) {
-		MTWF_DBG(pAd, DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-			" Wrong parameter format!!\n");
+		MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_ERROR, ("%s(): Wrong parameter format!!\n", __func__));
 		goto error0;
 	}
 
@@ -1448,14 +1261,13 @@ INT SetMuraMobilityModeCtrlProc(RTMP_ADAPTER *pAd, RTMP_STRING *arg)
 			fgMobilityFlagForceEn = simple_strtol(cstr, 0, 10);
 			break;
 		default:
-			MTWF_DBG(pAd, DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-				"Number of parameters exceed expectation !!\n");
+			MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_ERROR, ("%s(): Number of parameters exceed expectation !!\n", __func__));
 			goto error0;
 		}
 	}
 
-	MTWF_PRINT("%s: fgMULQPingPongEn: %d, fgMULQTriggerCalEn: %d, fgMobilityFlagForceEn: %d\n",
-		__func__, fgMULQPingPongEn, fgMULQTriggerCalEn, fgMobilityFlagForceEn);
+	MTWF_LOG(DBG_CAT_CFG, DBG_SUBCAT_ALL, DBG_LVL_OFF, ("%s(): fgMULQPingPongEn: %d, fgMULQTriggerCalEn: %d, fgMobilityFlagForceEn: %d\n", __func__,
+																fgMULQPingPongEn, fgMULQTriggerCalEn, fgMobilityFlagForceEn));
 
 	/* memory allocate for command message */
 	msg = AndesAllocCmdMsg(pAd, sizeof(cmd) + sizeof(param));
@@ -1489,15 +1301,15 @@ INT SetMuraMobilityModeCtrlProc(RTMP_ADAPTER *pAd, RTMP_STRING *arg)
 	return TRUE;
 
 error0:
-	MTWF_DBG(pAd, DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_ERROR, "Expected format is as below:\n\n");
-	MTWF_DBG(pAd, DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_ERROR, "   iwpriv <interface> set mura_mobility_mode_ctrl=O:O:O\n\n");
-	MTWF_DBG(pAd, DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_ERROR, "   param1: Mobility PingPong Mechanism Enable (0, 1)\n");
-	MTWF_DBG(pAd, DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_ERROR, "   param2: Mobility Trigger Computation (0, 1)\n");
-	MTWF_DBG(pAd, DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_ERROR, "   param3: Mobility Flag Enable Forced Mode (0, 1)\n");
+	MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_OFF, ("Expected format is as below:\n\n"));
+	MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_OFF, ("   iwpriv <interface> set mura_mobility_mode_ctrl=O:O:O\n\n"));
+	MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_OFF, ("   param1: Mobility PingPong Mechanism Enable (0, 1)\n"));
+	MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_OFF, ("   param2: Mobility Trigger Computation (0, 1)\n"));
+	MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_OFF, ("   param3: Mobility Flag Enable Forced Mode (0, 1)\n"));
 	return FALSE;
 
 error1:
-	MTWF_DBG(pAd, DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_ERROR, "command message memory allocated fail!!\n");
+	MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_OFF, ("%s(): command message memory allocated fail!!\n", __func__));
 	return FALSE;
 }
 
@@ -1524,23 +1336,15 @@ INT SetMuraMobilityLogCtrlProc(RTMP_ADAPTER *pAd, RTMP_STRING *arg)
 	CHAR *cstr;
 	BOOLEAN fgMobilityLogEn = TRUE;
 
-	if (!(IS_MT7615(pAd) || IS_MT7663(pAd) || IS_MT7626(pAd))) {
-		MTWF_DBG(pAd, DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-			 "Not Supported (Ret = %d_\n", FALSE);
-		return FALSE;
-	}
-
 	/* sanity check for input parameter existence */
 	if (!arg) {
-		MTWF_DBG(pAd, DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-			"No parameters!!\n");
+		MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_ERROR, ("%s(): No parameters!!\n", __func__));
 		goto error0;
 	}
 
 	/* sanity check for input parameter format */
 	if (strlen(arg) != 1) {
-		MTWF_DBG(pAd, DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-			"Wrong parameter format!!\n");
+		MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_ERROR, ("%s(): Wrong parameter format!!\n", __func__));
 		goto error0;
 	}
 
@@ -1552,13 +1356,13 @@ INT SetMuraMobilityLogCtrlProc(RTMP_ADAPTER *pAd, RTMP_STRING *arg)
 			fgMobilityLogEn = simple_strtol(cstr, 0, 10);
 			break;
 		default:
-			MTWF_DBG(pAd, DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-				"Number of parameters exceed expectation !!\n");
+			MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_ERROR, ("%s(): Number of parameters exceed expectation !!\n", __func__));
 			goto error0;
 		}
 	}
 
-	MTWF_PRINT("%s: fgMobilityLogEn: %d\n", __func__, fgMobilityLogEn);
+	MTWF_LOG(DBG_CAT_CFG, DBG_SUBCAT_ALL, DBG_LVL_OFF, ("%s(): fgMobilityLogEn: %d\n", __func__,
+																fgMobilityLogEn));
 
 	/* memory allocate for command message */
 	msg = AndesAllocCmdMsg(pAd, sizeof(cmd) + sizeof(param));
@@ -1590,13 +1394,13 @@ INT SetMuraMobilityLogCtrlProc(RTMP_ADAPTER *pAd, RTMP_STRING *arg)
 	return TRUE;
 
 error0:
-	MTWF_DBG(pAd, DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_ERROR, "Expected format is as below:\n\n");
-	MTWF_DBG(pAd, DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_ERROR, "   iwpriv <interface> set mura_mobility_log_ctrl=O\n\n");
-	MTWF_DBG(pAd, DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_ERROR, "   param1: Mobility Log Enable (0, 1)\n");
+	MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_OFF, ("Expected format is as below:\n\n"));
+	MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_OFF, ("   iwpriv <interface> set mura_mobility_log_ctrl=O\n\n"));
+	MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_OFF, ("   param1: Mobility Log Enable (0, 1)\n"));
 	return FALSE;
 
 error1:
-	MTWF_DBG(pAd, DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_ERROR, "command message memory allocated fail!!\n");
+	MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_OFF, ("%s(): command message memory allocated fail!!\n", __func__));
 	return FALSE;
 }
 
@@ -1623,23 +1427,15 @@ INT SetMuraMobilityTestCtrlProc(RTMP_ADAPTER *pAd, RTMP_STRING *arg)
 	CHAR *cstr;
 	BOOLEAN fgMobilityTestEn = TRUE;
 
-	if (!(IS_MT7615(pAd) || IS_MT7663(pAd) || IS_MT7626(pAd))) {
-		MTWF_DBG(pAd, DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-			 "Not Supported (Ret = %d_\n", FALSE);
-		return FALSE;
-	}
-
 	/* sanity check for input parameter existence */
 	if (!arg) {
-		MTWF_DBG(pAd, DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-			"No parameters!!\n");
+		MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_ERROR, ("%s(): No parameters!!\n", __func__));
 		goto error0;
 	}
 
 	/* sanity check for input parameter format */
 	if (strlen(arg) != 1) {
-		MTWF_DBG(pAd, DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-			"Wrong parameter format!!\n");
+		MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_ERROR, ("%s(): Wrong parameter format!!\n", __func__));
 		goto error0;
 	}
 
@@ -1651,13 +1447,13 @@ INT SetMuraMobilityTestCtrlProc(RTMP_ADAPTER *pAd, RTMP_STRING *arg)
 			fgMobilityTestEn = simple_strtol(cstr, 0, 10);
 			break;
 		default:
-			MTWF_DBG(pAd, DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-				"Number of parameters exceed expectation !!\n");
+			MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_ERROR, ("%s(): Number of parameters exceed expectation !!\n", __func__));
 			goto error0;
 		}
 	}
 
-	MTWF_PRINT("%s: fgMobilityTestEn: %d\n", __func__, fgMobilityTestEn);
+	MTWF_LOG(DBG_CAT_CFG, DBG_SUBCAT_ALL, DBG_LVL_OFF, ("%s(): fgMobilityTestEn: %d\n", __func__,
+																fgMobilityTestEn));
 
 	/* memory allocate for command message */
 	msg = AndesAllocCmdMsg(pAd, sizeof(cmd) + sizeof(param));
@@ -1689,13 +1485,13 @@ INT SetMuraMobilityTestCtrlProc(RTMP_ADAPTER *pAd, RTMP_STRING *arg)
 	return TRUE;
 
 error0:
-	MTWF_DBG(pAd, DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_ERROR, "Expected format is as below:\n\n");
-	MTWF_DBG(pAd, DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_ERROR, "   iwpriv <interface> set mura_mobility_test_ctrl=O\n\n");
-	MTWF_DBG(pAd, DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_ERROR, "   param1: Mobility Test Force each MU User as Mobility Candidate (0, 1)\n");
+	MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_OFF, ("Expected format is as below:\n\n"));
+	MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_OFF, ("   iwpriv <interface> set mura_mobility_test_ctrl=O\n\n"));
+	MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_OFF, ("   param1: Mobility Test Force each MU User as Mobility Candidate (0, 1)\n"));
 	return FALSE;
 
 error1:
-	MTWF_DBG(pAd, DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_ERROR, "command message memory allocated fail!!\n");
+	MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_OFF, ("%s(): command message memory allocated fail!!\n", __func__));
 	return FALSE;
 }
 
@@ -1718,13 +1514,6 @@ INT SetMuraDisableCN3CN4Proc(RTMP_ADAPTER *pAd, RTMP_STRING *arg)
 	struct cmd_msg *msg = NULL;
 	UINT32 cmd = MURA_DISABLE_CN3_CN4;
 	CMD_SET_DISABLE_CN3_CN4 param = {0};
-
-	if (!(IS_MT7615(pAd) || IS_MT7663(pAd) || IS_MT7626(pAd))) {
-		Ret = FALSE;
-		MTWF_DBG(pAd, DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-			 "Not Supported (Ret = %d_\n", Ret);
-		return Ret;
-	}
 
 	msg = AndesAllocCmdMsg(pAd, sizeof(cmd) + sizeof(param));
 	if (!msg) {
@@ -1753,8 +1542,8 @@ INT SetMuraDisableCN3CN4Proc(RTMP_ADAPTER *pAd, RTMP_STRING *arg)
 	AndesSendCmdMsg(pAd, msg);
 
 error:
-	MTWF_DBG(pAd, DBG_CAT_ALL, DBG_SUBCAT_ALL, Ret ? DBG_LVL_DEBUG : DBG_LVL_ERROR,
-				"(Ret = %d_\n", Ret);
+	MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_INFO,
+				("%s:(Ret = %d_\n", __FUNCTION__, Ret));
 
 	return Ret;
 
@@ -1795,8 +1584,8 @@ INT SetMuraEnableHwSwPatch(RTMP_ADAPTER *pAd)
 	AndesSendCmdMsg(pAd, msg);
 
 error:
-	MTWF_DBG(pAd, DBG_CAT_ALL, DBG_SUBCAT_ALL, Ret ? DBG_LVL_DEBUG : DBG_LVL_ERROR,
-				"(Ret = %d_\n", Ret);
+	MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_INFO,
+				("%s:(Ret = %d_\n", __func__, Ret));
 
 	return Ret;
 }
@@ -1822,31 +1611,31 @@ static VOID MuraEventDispatcher(
 #ifdef RT_BIG_ENDIAN
 	u4EventId = cpu2le32(u4EventId);
 #endif
-	MTWF_DBG(NULL, DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_INFO,
-	"u4EventId = %u, len = %u\n", u4EventId, len);
+	MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
+			 ("%s: u4EventId = %u, len = %u\n", __func__, u4EventId, len));
 
 	switch (u4EventId) {
 	case MURA_EVENT_ALGORITHM_STAT:
-		MTWF_DBG(NULL, DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_INFO,
-			"MURA_EVENT_GET_ALGORITHM_STATE\n");
+		MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
+				 ("%s: MURA_EVENT_GET_ALGORITHM_STATE\n", __func__));
 		mura_algorithm_state_callback(msg, pData, len);
 		break;
 
 	case MURA_EVENT_ALGORITHM_GROUP_STAT:
-		MTWF_DBG(NULL, DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_INFO,
-			"MURA_EVENT_GET_ALGORITHM_GROUP_STATE\n");
+		MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
+				 ("%s: MURA_EVENT_GET_ALGORITHM_GROUP_STATE\n", __func__));
 		mura_algorithm_group_state_callback(msg, pData, len);
 		break;
 
 	case MURA_EVENT_ALGORITHM_HWFB_STAT:
-		MTWF_DBG(NULL, DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_INFO,
-			"MURA_EVENT_GET_ALGORITHM_HWFB_STATE\n");
+		MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
+				 ("%s: MURA_EVENT_GET_ALGORITHM_HWFB_STATE\n", __func__));
 		mura_algorithm_hwfb_state_callback(msg, pData, len);
 		break;
 
 	case MURA_EVENT_PFID_STAT:
-		MTWF_DBG(NULL, DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_INFO,
-			"MURA_EVENT_PFID_STAT\n");
+		MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
+				 ("%s: MURA_EVENT_PFID_STAT\n", __func__));
 		mura_algorithm_pfid_stat_callback(msg, pData, len);
 		break;
 
@@ -1874,8 +1663,8 @@ static VOID mura_algorithm_state_callback(
 
 	/* P_MURA_CN_ENTRY_INFO_T pGroupEntry; */
 	if (rsp_payload == NULL) {
-		MTWF_DBG(NULL, DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-				"error !! rsp_payload is null!!\n");
+		MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
+				("%s: error !! rsp_payload is null!!\n", __func__));
 		return;
 	}
 
@@ -1889,20 +1678,27 @@ static VOID mura_algorithm_state_callback(
 	/* else */
 	{
 		/* Current MUser in the system */
-		MTWF_PRINT("\n Number of Totally MUser : %2d\n", pEntry->ucMaxMuarNum);
-		MTWF_PRINT("\n Number of Sounding MUser : %2d\n", pEntry->ucSoundingNum);
-		MTWF_PRINT("\n Number of Waiting MUser : %2d\n", pEntry->ucWaitingNum);
-		MTWF_PRINT("\n Number of SU Current Space : %2d\n", pEntry->ucMaxSndingCap);
+		MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
+				 (MURA_COLOR_RESET "\n Number of Totally MUser : %2d\n", pEntry->ucMaxMuarNum));
+		MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
+				 ("\n Number of Sounding MUser : %2d\n", pEntry->ucSoundingNum));
+		MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
+				 ("\n Number of Waiting MUser : %2d\n", pEntry->ucWaitingNum));
+		MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
+				 ("\n Number of SU Current Space : %2d\n", pEntry->ucMaxSndingCap));
 		/* Show MU-RGA Sounding Candidate List */
-		MTWF_PRINT("\n MU-RGA Sounding Candidate WLAN ID List :\n");
+		MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
+				 ("\n MU-RGA Sounding Candidate WLAN ID List :\n"));
 
 		for (ucPFIDList_Idx = 0; ucPFIDList_Idx < MAX_MURA_NUM; ucPFIDList_Idx++) {
-			MTWF_PRINT(" %2d,", pEntry->ucMURAWlanIdList[ucPFIDList_Idx]);
+			MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
+					 (" %2d,", pEntry->ucMURAWlanIdList[ucPFIDList_Idx]));
 		}
 
-		MTWF_PRINT("\n");
+		MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_ERROR, ("\n"));
 		/* Show MU-RGA Group Candidate List */
-		MTWF_PRINT("\n MU-RGA Group Entry Candidate List :");
+		MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
+				 ("\n MU-RGA Group Entry Candidate List :"));
 
 		for (ucPFIDList_Idx = 0; ucPFIDList_Idx < MAX_MURA_NUM; ucPFIDList_Idx++) {
 			if (pEntry->ucMURAPfidList[ucPFIDList_Idx] == 0x1F)
@@ -1910,184 +1706,206 @@ static VOID mura_algorithm_state_callback(
 
 			for (ucGroupEntryList_Idx = 0; ucGroupEntryList_Idx < MU_2U_NUM; ucGroupEntryList_Idx++) {
 				if ((ucGroupEntryList_Idx % 20) == 0)
-					MTWF_PRINT("\n %2d: ", ucGroupEntryList_Idx);
+					MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_ERROR, ("\n %2d: ", ucGroupEntryList_Idx));
 
-				MTWF_PRINT("%1d, ", pEntry->au4PfidGroupTableMap[ucPFIDList_Idx][ucGroupEntryList_Idx]);
+				MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
+						 ("%1d, ", pEntry->au4PfidGroupTableMap[ucPFIDList_Idx][ucGroupEntryList_Idx]));
 			}
 
 			for (ucGroupEntryList_Idx = MU_2U_NUM; ucGroupEntryList_Idx < (MU_2U_NUM + MU_3U_NUM); ucGroupEntryList_Idx++) {
 				if (((ucGroupEntryList_Idx - MU_2U_NUM) % 20) == 0)
-					MTWF_PRINT("\n %2d: ", ucGroupEntryList_Idx);
+					MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_ERROR, ("\n %2d: ", ucGroupEntryList_Idx));
 
-				MTWF_PRINT(MURA_COLOR_RED "%1d" MURA_COLOR_RESET ", ", pEntry->au4PfidGroupTableMap[ucPFIDList_Idx][ucGroupEntryList_Idx]);
+				MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
+						 (MURA_COLOR_RED "%1d" MURA_COLOR_RESET ", ", pEntry->au4PfidGroupTableMap[ucPFIDList_Idx][ucGroupEntryList_Idx]));
 			}
 
 			for (ucGroupEntryList_Idx = (MU_2U_NUM + MU_3U_NUM); ucGroupEntryList_Idx < MAX_MURA_GRP; ucGroupEntryList_Idx++) {
 				if (((ucGroupEntryList_Idx - (MU_2U_NUM + MU_3U_NUM)) % 20) == 0)
-					MTWF_PRINT("\n %2d: ", ucGroupEntryList_Idx);
+					MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_ERROR, ("\n %2d: ", ucGroupEntryList_Idx));
 
-				MTWF_PRINT(MURA_COLOR_GREEN "%1d" MURA_COLOR_RESET ", ", pEntry->au4PfidGroupTableMap[ucPFIDList_Idx][ucGroupEntryList_Idx]);
+				MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
+						 (MURA_COLOR_GREEN "%1d" MURA_COLOR_RESET ", ", pEntry->au4PfidGroupTableMap[ucPFIDList_Idx][ucGroupEntryList_Idx]));
 			}
 
-			MTWF_PRINT("\n");
+			MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_ERROR, ("\n"));
 		}
 
 		/* MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_ERROR,("\n")); */
 		/* Show MU-RGA Tx Success Counter */
-		MTWF_PRINT("\n MU-RGA Cn2 Tx Succ Counter :\n");
+		MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
+				 ("\n MU-RGA Cn2 Tx Succ Counter :\n"));
 
 		for (ucPFIDList_Idx = 0; ucPFIDList_Idx < MAX_MURA_NUM; ucPFIDList_Idx++) {
 #ifdef RT_BIG_ENDIAN
 			pEntry->u4TxSuccCnt[ucPFIDList_Idx] = le2cpu32(pEntry->u4TxSuccCnt[ucPFIDList_Idx]);
 #endif
-			MTWF_PRINT(" %2d,", pEntry->u4TxSuccCnt[ucPFIDList_Idx]);
+			MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
+					 (" %2d,", pEntry->u4TxSuccCnt[ucPFIDList_Idx]));
 		}
 
-		MTWF_PRINT("\n");
+		MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_ERROR, ("\n"));
 		/* Show MU-RGA Tx Fail Counter */
-		MTWF_PRINT("\n MU-RGA Cn2 Tx Fail Counter :\n");
+		MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
+				 ("\n MU-RGA Cn2 Tx Fail Counter :\n"));
 
 		for (ucPFIDList_Idx = 0; ucPFIDList_Idx < MAX_MURA_NUM; ucPFIDList_Idx++) {
 #ifdef RT_BIG_ENDIAN
 			pEntry->u4TxFailCnt[ucPFIDList_Idx] = le2cpu32(pEntry->u4TxFailCnt[ucPFIDList_Idx]);
 #endif
-			MTWF_PRINT(" %2d,", pEntry->u4TxFailCnt[ucPFIDList_Idx]);
+			MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
+					 (" %2d,", pEntry->u4TxFailCnt[ucPFIDList_Idx]));
 		}
 
-		MTWF_PRINT("\n");
+		MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_ERROR, ("\n"));
 		/* Show MU-RGA Tx Success Counter */
-		MTWF_PRINT("\n MU-RGA Cn3 Tx Succ Counter :\n");
+		MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
+				 ("\n MU-RGA Cn3 Tx Succ Counter :\n"));
 
 		for (ucPFIDList_Idx = 0; ucPFIDList_Idx < MAX_MURA_NUM; ucPFIDList_Idx++) {
 #ifdef RT_BIG_ENDIAN
 		pEntry->u4TxCn3SuccCnt[ucPFIDList_Idx] = le2cpu32(pEntry->u4TxCn3SuccCnt[ucPFIDList_Idx]);
 #endif
-			MTWF_PRINT(" %2d,", pEntry->u4TxCn3SuccCnt[ucPFIDList_Idx]);
+			MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
+					 (" %2d,", pEntry->u4TxCn3SuccCnt[ucPFIDList_Idx]));
 		}
 
-		MTWF_PRINT("\n");
+		MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_ERROR, ("\n"));
 		/* Show MU-RGA Tx Fail Counter */
-		MTWF_PRINT("\n MU-RGA Cn3 Tx Fail Counter :\n");
+		MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
+				 ("\n MU-RGA Cn3 Tx Fail Counter :\n"));
 
 		for (ucPFIDList_Idx = 0; ucPFIDList_Idx < MAX_MURA_NUM; ucPFIDList_Idx++) {
 #ifdef RT_BIG_ENDIAN
 			pEntry->u4TxCn3FailCnt[ucPFIDList_Idx] = le2cpu32(pEntry->u4TxCn3FailCnt[ucPFIDList_Idx]);
 #endif
-			MTWF_PRINT(" %2d,", pEntry->u4TxCn3FailCnt[ucPFIDList_Idx]);
+			MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
+					 (" %2d,", pEntry->u4TxCn3FailCnt[ucPFIDList_Idx]));
 		}
 
-		MTWF_PRINT("\n");
+		MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_ERROR, ("\n"));
 		/* Show MU-RGA Tx Success Counter */
-		MTWF_PRINT("\n MU-RGA Cn4 Tx Succ Counter :\n");
+		MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
+				 ("\n MU-RGA Cn4 Tx Succ Counter :\n"));
 
 		for (ucPFIDList_Idx = 0; ucPFIDList_Idx < MAX_MURA_NUM; ucPFIDList_Idx++) {
 #ifdef RT_BIG_ENDIAN
 			pEntry->u4TxCn4SuccCnt[ucPFIDList_Idx] = le2cpu32(pEntry->u4TxCn4SuccCnt[ucPFIDList_Idx]);
 #endif
-			MTWF_PRINT(" %2d,", pEntry->u4TxCn4SuccCnt[ucPFIDList_Idx]);
+			MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
+					 (" %2d,", pEntry->u4TxCn4SuccCnt[ucPFIDList_Idx]));
 		}
 
-		MTWF_PRINT("\n");
+		MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_ERROR, ("\n"));
 		/* Show MU-RGA Tx Fail Counter */
-		MTWF_PRINT("\n MU-RGA Cn4 Tx Fail Counter :\n");
+		MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
+				 ("\n MU-RGA Cn4 Tx Fail Counter :\n"));
 
 		for (ucPFIDList_Idx = 0; ucPFIDList_Idx < MAX_MURA_NUM; ucPFIDList_Idx++) {
 #ifdef RT_BIG_ENDIAN
 			pEntry->u4TxCn4FailCnt[ucPFIDList_Idx] = le2cpu32(pEntry->u4TxCn4FailCnt[ucPFIDList_Idx]);
 #endif
-			MTWF_PRINT(" %2d,", pEntry->u4TxCn4FailCnt[ucPFIDList_Idx]);
+			MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
+					 (" %2d,", pEntry->u4TxCn4FailCnt[ucPFIDList_Idx]));
 		}
 
-		MTWF_PRINT("\n");
+		MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_ERROR, ("\n"));
 		/* Show MU-RGA Tx PER Counter */
-		MTWF_PRINT("\n MU-RGA Cn2 Total Tx PER :\n");
+		MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
+				 ("\n MU-RGA Cn2 Total Tx PER :\n"));
 
 		for (ucPFIDList_Idx = 0; ucPFIDList_Idx < MAX_MURA_NUM; ucPFIDList_Idx++) {
-			MTWF_PRINT(" %2d,", pEntry->ucTxPER[ucPFIDList_Idx]);
+			MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
+					 (" %2d,", pEntry->ucTxPER[ucPFIDList_Idx]));
 		}
 
-		MTWF_PRINT("\n");
+		MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_ERROR, ("\n"));
 		/* Show MU-RGA Tx PER Counter */
-		MTWF_PRINT("\n MU-RGA Cn3 Total Tx PER :\n");
+		MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
+				 ("\n MU-RGA Cn3 Total Tx PER :\n"));
 
 		for (ucPFIDList_Idx = 0; ucPFIDList_Idx < MAX_MURA_NUM; ucPFIDList_Idx++) {
-			MTWF_PRINT(" %2d,", pEntry->ucTxCn3PER[ucPFIDList_Idx]);
+			MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
+					 (" %2d,", pEntry->ucTxCn3PER[ucPFIDList_Idx]));
 		}
 
-		MTWF_PRINT("\n");
+		MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_ERROR, ("\n"));
 		/* Show MU-RGA Tx PER Counter */
-		MTWF_PRINT("\n MU-RGA Cn4 Total Tx PER :\n");
+		MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
+				 ("\n MU-RGA Cn4 Total Tx PER :\n"));
 
 		for (ucPFIDList_Idx = 0; ucPFIDList_Idx < MAX_MURA_NUM; ucPFIDList_Idx++) {
-			MTWF_PRINT(" %2d,", pEntry->ucTxCn4PER[ucPFIDList_Idx]);
+			MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
+					 (" %2d,", pEntry->ucTxCn4PER[ucPFIDList_Idx]));
 		}
 
-		MTWF_PRINT("\n");
+		MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_ERROR, ("\n"));
 		/* Show MU-RGA Mobility */
-		MTWF_PRINT("\n MU-RGA Mobility :\n");
+		MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
+				 ("\n MU-RGA Mobility :\n"));
 
 		for (ucPFIDList_Idx = 0; ucPFIDList_Idx < MAX_MURA_NUM; ucPFIDList_Idx++) {
-			MTWF_PRINT(" %2d,", pEntry->fgMobility[ucPFIDList_Idx]);
+			MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
+					 (" %2d,", pEntry->fgMobility[ucPFIDList_Idx]));
 		}
 
-		MTWF_PRINT("\n");
+		MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_ERROR, ("\n"));
 		/* Show MU-RGA Delta MCS */
-		MTWF_PRINT("\n MU-RGA Delta MCS Rate :\n");
+		MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
+				 ("\n MU-RGA Delta MCS Rate :\n"));
 
 		for (ucPFIDList_Idx = 0; ucPFIDList_Idx < MAX_MURA_NUM; ucPFIDList_Idx++) {
-			MTWF_PRINT(" %2d,", pEntry->aucMURADeltaMCS[ucPFIDList_Idx]);
+			MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
+					 (" %2d,", pEntry->aucMURADeltaMCS[ucPFIDList_Idx]));
 		}
 
-		MTWF_PRINT("\n");
+		MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_ERROR, ("\n"));
 		/* Show MU Succ Sounding Counter */
-		MTWF_PRINT("\n MU-RGA MU Succ Sounding Counter :\n");
+		MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
+				 ("\n MU-RGA MU Succ Sounding Counter :\n"));
 
 		for (ucPFIDList_Idx = 0; ucPFIDList_Idx < MAX_MURA_NUM; ucPFIDList_Idx++) {
 #ifdef RT_BIG_ENDIAN
 			pEntry->au2SuccSounding[ucPFIDList_Idx] = le2cpu16(pEntry->au2SuccSounding[ucPFIDList_Idx]);
 #endif
-			MTWF_PRINT(" %2d,", pEntry->au2SuccSounding[ucPFIDList_Idx]);
+			MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
+					 (" %2d,", pEntry->au2SuccSounding[ucPFIDList_Idx]));
 		}
 
-		MTWF_PRINT("\n");
+		MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_ERROR, ("\n"));
 		/* Show MU Fail Sounding Counter */
-		MTWF_PRINT("\n MU-RGA MU Fail Sounding Counter :\n");
+		MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
+				 ("\n MU-RGA MU Fail Sounding Counter :\n"));
 
 		for (ucPFIDList_Idx = 0; ucPFIDList_Idx < MAX_MURA_NUM; ucPFIDList_Idx++) {
 #ifdef RT_BIG_ENDIAN
 			pEntry->au2FailSounding[ucPFIDList_Idx] = le2cpu16(pEntry->au2FailSounding[ucPFIDList_Idx]);
 #endif
-			MTWF_PRINT(" %2d,", pEntry->au2FailSounding[ucPFIDList_Idx]);
+			MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
+					 (" %2d,", pEntry->au2FailSounding[ucPFIDList_Idx]));
 		}
 
-		MTWF_PRINT("\n");
+		MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_ERROR, ("\n"));
 		/* Show MU SND PER */
-		MTWF_PRINT("\n MU-RGA MU Sounding Fail Rate :\n");
+		MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
+				 ("\n MU-RGA MU Sounding Fail Rate :\n"));
 
 		for (ucPFIDList_Idx = 0; ucPFIDList_Idx < MAX_MURA_NUM; ucPFIDList_Idx++) {
-			MTWF_PRINT(" %2d,", pEntry->aucSoundingFailRate[ucPFIDList_Idx]);
+			MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
+					 (" %2d,", pEntry->aucSoundingFailRate[ucPFIDList_Idx]));
 		}
 
-#ifdef MURA_DMCS_INTR_CNT_SUPPORT
-		MTWF_PRINT("\n");
-		/* Show MU DMCS Intr Count */
-		MTWF_PRINT("\n MU-RGA DMCS Intr Count:\n");
-
-		for (ucPFIDList_Idx = 0; ucPFIDList_Idx < MAX_MURA_NUM; ucPFIDList_Idx++) {
-			MTWF_PRINT(" %2d,", pEntry->au4DmcsIntrCnt[ucPFIDList_Idx]);
-		}
-#endif
-		MTWF_PRINT("\n\n");
+		MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_ERROR, ("\n\n"));
 #ifdef RT_BIG_ENDIAN
 		pEntry->u4CalculateSoundingEnd = le2cpu32(pEntry->u4CalculateSoundingEnd);
 		pEntry->u4CalculateSoundingStart = le2cpu32(pEntry->u4CalculateSoundingStart);
 		pEntry->u4CalculateGroupMcsRateEnd = le2cpu32(pEntry->u4CalculateGroupMcsRateEnd);
 		pEntry->u4CalculateGroupMcsRateStart = le2cpu32(pEntry->u4CalculateGroupMcsRateStart);
 #endif
-		MTWF_PRINT(" Sounding Period : %d ms\n",
-				 pEntry->u4CalculateSoundingEnd - pEntry->u4CalculateSoundingStart);
-		MTWF_PRINT(" Group Period : %d ms\n",
-				 pEntry->u4CalculateGroupMcsRateEnd - pEntry->u4CalculateGroupMcsRateStart);
+		MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_ERROR, (" Sounding Period : %d ms\n",
+				 pEntry->u4CalculateSoundingEnd - pEntry->u4CalculateSoundingStart));
+		MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_ERROR, (" Group Period : %d ms\n",
+				 pEntry->u4CalculateGroupMcsRateEnd - pEntry->u4CalculateGroupMcsRateStart));
 	}
 }
 
@@ -2108,8 +1926,8 @@ static VOID mura_algorithm_group_state_callback(
 	P_EVENT_SHOW_ALGORITHM_GROUP_STATE pEntry = NULL;
 
 	if (rsp_payload == NULL) {
-		MTWF_DBG(NULL, DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-				"error !! rsp_payload is null!!\n");
+		MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
+				("%s: error !! rsp_payload is null!!\n", __func__));
 		return;
 	}
 
@@ -2123,19 +1941,26 @@ static VOID mura_algorithm_group_state_callback(
 	/* else */
 	{
 		/* Show MU-RGA Group Entry Information */
-		MTWF_PRINT("\n MU-RGA Group Entry Information :");
-		MTWF_PRINT("\n GPID MNUM\n");
-		MTWF_PRINT(" %4d %4d\n",
+		MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
+				 ("\n MU-RGA Group Entry Information :"));
+		MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
+				 ("\n GPID MNUM\n"));
+		MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
+				 (" %4d %4d\n",
 				  (pEntry->rMuraGroupEntry).u4GroupID,
-				  (pEntry->rMuraGroupEntry).ucUserNum);
-		MTWF_PRINT(" MU0_ID MU1_ID MU2_ID MU3_ID\n");
-		MTWF_PRINT(" %6d %6d %6d %6d\n",
+				  (pEntry->rMuraGroupEntry).ucUserNum));
+		MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
+				 (" MU0_ID MU1_ID MU2_ID MU3_ID\n"));
+		MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
+				 (" %6d %6d %6d %6d\n",
 				  (pEntry->rMuraGroupEntry).u4U0PFID,
 				  (pEntry->rMuraGroupEntry).u4U1PFID,
 				  (pEntry->rMuraGroupEntry).u4U2PFID,
-				  (pEntry->rMuraGroupEntry).u4U3PFID);
-		MTWF_PRINT(" RATE0 RATE1 RATE2 RATE3\n");
-		MTWF_PRINT(" %5d %5d %5d %5d\n",
+				  (pEntry->rMuraGroupEntry).u4U3PFID));
+		MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
+				 (" RATE0 RATE1 RATE2 RATE3\n"));
+		MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
+				 (" %5d %5d %5d %5d\n",
 				  (pEntry->rMuraGroupEntry).u2U0Rate +
 				  ((pEntry->rMuraGroupEntry).ucU0SSN * 10),
 				  (pEntry->rMuraGroupEntry).u2U1Rate +
@@ -2143,12 +1968,12 @@ static VOID mura_algorithm_group_state_callback(
 				  (pEntry->rMuraGroupEntry).u2U2Rate +
 				  ((pEntry->rMuraGroupEntry).ucU2SSN * 10),
 				  (pEntry->rMuraGroupEntry).u2U3Rate +
-				  ((pEntry->rMuraGroupEntry).ucU3SSN * 10));
+				  ((pEntry->rMuraGroupEntry).ucU3SSN * 10)));
 
 		if ((pEntry->rMuraGroupEntry).u4GroupValid)
-			MTWF_PRINT("\n");
+			MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_ERROR, ("\n"));
 		else
-			MTWF_PRINT("\n No Valid Group Entry\n\n");
+			MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_ERROR, ("\n No Valid Group Entry\n\n"));
 	}
 }
 
@@ -2170,8 +1995,8 @@ static VOID mura_algorithm_hwfb_state_callback(
 	UINT_8 ucMCSRate = 0;
 
 	if (rsp_payload == NULL) {
-		MTWF_DBG(NULL, DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-				"error !! rsp_payload is null!!\n");
+		MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
+				("%s: error !! rsp_payload is null!!\n", __func__));
 		return;
 	}
 
@@ -2185,11 +2010,14 @@ static VOID mura_algorithm_hwfb_state_callback(
 	/* else */
 	{
 		/* Show MU-RGA Group Entry Information */
-		MTWF_PRINT("\n MU-RGA Hardware fallback Information :");
-		MTWF_PRINT("\n MCS DnEn DnThres DnValue UpEn UpThres UpValue 20BSamp 40BSamp 80BSamp\n");
+		MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
+				 ("\n MU-RGA Hardware fallback Information :"));
+		MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
+				 ("\n MCS DnEn DnThres DnValue UpEn UpThres UpValue 20BSamp 40BSamp 80BSamp\n"));
 
 		for (ucMCSRate = 0; ucMCSRate < 10; ucMCSRate++) {
-			MTWF_PRINT(" %3d %4d %7d %7d %4d %7d %7d %7d %7d %7d\n",
+			MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
+					 (" %3d %4d %7d %7d %4d %7d %7d %7d %7d %7d\n",
 					  ucMCSRate,
 					  pEntry->fgDownOneStep[ucMCSRate],
 					  pEntry->ucDownThreshold[ucMCSRate],
@@ -2200,7 +2028,7 @@ static VOID mura_algorithm_hwfb_state_callback(
 					  pEntry->uc20BWSample[ucMCSRate] * pEntry->uc20BWSampleFactor,
 					  pEntry->uc40BWSample[ucMCSRate] * pEntry->uc40BWSampleFactor,
 					  pEntry->uc80BWSample[ucMCSRate] * pEntry->uc80BWSampleFactor
-					 );
+					 ));
 		}
 	}
 }
@@ -2213,30 +2041,49 @@ static VOID mura_algorithm_pfid_stat_callback(
 	P_EVENT_SHOW_PFID_STAT pEntry = (P_EVENT_SHOW_PFID_STAT) rsp_payload;
 
 	if (pEntry == NULL) {
-		MTWF_DBG(NULL, DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-			"Event is NULL!!\n");
+		MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
+			("%s: Event is NULL!!\n", __func__));
 		return;
 	}
 
-	MTWF_PRINT("Value of PFID stat are :-\n");
-	MTWF_PRINT("WlanIdx = %d\n", pEntry->u1WlanIdx);
-	MTWF_PRINT("Mobility = %d\n", pEntry->fgMobility);
-	MTWF_PRINT("Cn2 SuccCnt = %u\n", pEntry->u4TxSuccCnt);
-	MTWF_PRINT("Cn2 FailCnt = %u\n", pEntry->u4TxFailCnt);
-	MTWF_PRINT("Cn3 SuccCnt = %u\n", pEntry->u4TxCn3SuccCnt);
-	MTWF_PRINT("Cn3 FailCnt = %u\n", pEntry->u4TxCn3FailCnt);
-	MTWF_PRINT("Cn4 SuccCnt = %u\n", pEntry->u4TxCn4SuccCnt);
-	MTWF_PRINT("Cn4 FailCnt = %u\n", pEntry->u4TxCn4FailCnt);
-	MTWF_PRINT("Cn2 TxPER = %u\n", pEntry->u1TxPER);
-	MTWF_PRINT("Cn3 TxPER = %u\n", pEntry->u1TxCn3PER);
-	MTWF_PRINT("Cn4 TxPER = %u\n", pEntry->u1TxCn4PER);
-	MTWF_PRINT("Sounding Period = %u\n", pEntry->u1SoundingPeriod);
-	MTWF_PRINT("Min Sounding Period = %u\n", pEntry->u1MinSoundingPeriod);
-	MTWF_PRINT("Max Sounding Period = %u\n", pEntry->u1MaxSoundingPeriod);
-	MTWF_PRINT("Sounding Period Step = %u\n", pEntry->u1SoundingPeriodStep);
-	MTWF_PRINT("Succ Sounding = %u\n", pEntry->u2SuccSounding);
-	MTWF_PRINT("Fail Sounding = %u\n", pEntry->u2FailSounding);
-	MTWF_PRINT("Sounding Fail Rate = %u\n", pEntry->u1SoundingFailRate);
+	MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_OFF,
+		("Value of PFID stat are :-\n"));
+	MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_OFF,
+		("WlanIdx = %d\n", pEntry->u1WlanIdx));
+	MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_OFF,
+		("Mobility = %d\n", pEntry->fgMobility));
+	MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_OFF,
+		("Cn2 SuccCnt = %u\n", pEntry->u4TxSuccCnt));
+	MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_OFF,
+		("Cn2 FailCnt = %u\n", pEntry->u4TxFailCnt));
+	MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_OFF,
+		("Cn3 SuccCnt = %u\n", pEntry->u4TxCn3SuccCnt));
+	MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_OFF,
+		("Cn3 FailCnt = %u\n", pEntry->u4TxCn3FailCnt));
+	MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_OFF,
+		("Cn4 SuccCnt = %u\n", pEntry->u4TxCn4SuccCnt));
+	MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_OFF,
+		("Cn4 FailCnt = %u\n", pEntry->u4TxCn4FailCnt));
+	MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_OFF,
+		("Cn2 TxPER = %u\n", pEntry->u1TxPER));
+	MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_OFF,
+		("Cn3 TxPER = %u\n", pEntry->u1TxCn3PER));
+	MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_OFF,
+		("Cn4 TxPER = %u\n", pEntry->u1TxCn4PER));
+	MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_OFF,
+		("Sounding Period = %u\n", pEntry->u1SoundingPeriod));
+	MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_OFF,
+		("Min Sounding Period = %u\n", pEntry->u1MinSoundingPeriod));
+	MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_OFF,
+		("Max Sounding Period = %u\n", pEntry->u1MaxSoundingPeriod));
+	MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_OFF,
+		("Sounding Period Step = %u\n", pEntry->u1SoundingPeriodStep));
+	MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_OFF,
+		("Succ Sounding = %u\n", pEntry->u2SuccSounding));
+	MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_OFF,
+		("Fail Sounding = %u\n", pEntry->u2FailSounding));
+	MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_OFF,
+		("Sounding Fail Rate = %u\n", pEntry->u1SoundingFailRate));
 }
 
 #endif /* CFG_SUPPORT_MU_MIMO_RA */

@@ -27,8 +27,7 @@ struct notify_head {
 enum {
 	NOTIFY_STAT_DONE,
 	NOTIFY_STAT_OK,
-	NOTIFY_STAT_STOP	= 0x8000,
-	NOTIFY_STAT_FAILURE	= 0xF000,
+	NOTIFY_STAT_STOP = 0x8000,
 };
 
 INT mt_notify_chain_register(struct notify_head *head, struct notify_entry *entry);

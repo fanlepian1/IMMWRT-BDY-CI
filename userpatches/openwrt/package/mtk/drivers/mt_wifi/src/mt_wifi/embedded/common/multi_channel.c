@@ -4,7 +4,7 @@
 VOID Start_MCC(RTMP_ADAPTER *pAd)
 {
 	BSS_STRUCT *pMbss = &pAd->ApCfg.MBSSID[CFG_GO_BSSID_IDX];
-	PSTA_ADMIN_CONFIG pApCliEntry = pApCliEntry = &pAd->StaCfg[MAIN_MBSSID];
+	PAPCLI_STRUCT pApCliEntry = pApCliEntry = &pAd->ApCfg.ApCliTab[MAIN_MBSSID];
 	struct wifi_dev *p2p_wdev = &pMbss->wdev;
 	ULONG	Highpart, Lowpart;
 	ULONG	NextTbtt;
@@ -51,9 +51,9 @@ VOID Start_MCC(RTMP_ADAPTER *pAd)
 
 	AsicGetTsfTime(pAd, &Highpart, &Lowpart);
 	MTWF_LOG(DBG_CAT_P2P, DBG_SUBCAT_ALL, DBG_LVL_ERROR, ("!!!!Current Tsf LSB = = %ld\n",  Lowpart));
-	RTMP_IO_READ32(pAd->hdev_ctrl, LPON_T1STR, &temp);
+	RTMP_IO_READ32(pAd, LPON_T1STR, &temp);
 	temp = temp & 0x0000FFFF;
-	NextTbtt = temp % pAd->CommonCfg.BeaconPeriod[DBDC_BAND0];
+	NextTbtt	= temp % pAd->CommonCfg.BeaconPeriod;
 	MTWF_LOG(DBG_CAT_P2P, DBG_SUBCAT_ALL, DBG_LVL_ERROR, ("!!!!NextTbtt =  %ld\n", NextTbtt));
 	temp = NextTbtt * 1024 + Lowpart;
 	MTWF_LOG(DBG_CAT_P2P, DBG_SUBCAT_ALL, DBG_LVL_ERROR, ("!!!!Tsf LSB + TimeTillTbtt= %ld\n", temp));
@@ -78,7 +78,7 @@ VOID Start_MCC(RTMP_ADAPTER *pAd)
 VOID Stop_MCC(RTMP_ADAPTER *pAd, INT channel)
 {
 	BSS_STRUCT *pMbss = &pAd->ApCfg.MBSSID[CFG_GO_BSSID_IDX];
-	PSTA_ADMIN_CONFIG pApCliEntry = pApCliEntry = &pAd->StaCfg[MAIN_MBSSID];
+	PAPCLI_STRUCT pApCliEntry = pApCliEntry = &pAd->ApCfg.ApCliTab[MAIN_MBSSID];
 	struct wifi_dev *p2p_wdev = &pMbss->wdev;
 
 	pAd->Mlme.bStartMcc = FALSE;

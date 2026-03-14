@@ -5,42 +5,47 @@
     \brief  All Dynamic Rate Switch Related Structure & Definition
 */
 
-/* Copyright Statement:
- *
- * This software/firmware and related documentation ("MediaTek Software") are
- * protected under relevant copyright laws. The information contained herein is
- * confidential and proprietary to MediaTek Inc. and/or its licensors. Without
- * the prior written permission of MediaTek inc. and/or its licensors, any
- * reproduction, modification, use or disclosure of MediaTek Software, and
- * information contained herein, in whole or in part, shall be strictly
- * prohibited.
- *
- * Copyright  (C) [2020]  MediaTek Inc. All rights reserved.
- *
- * BY OPENING THIS FILE, RECEIVER HEREBY UNEQUIVOCALLY ACKNOWLEDGES AND AGREES
- * THAT THE SOFTWARE/FIRMWARE AND ITS DOCUMENTATIONS ("MEDIATEK SOFTWARE")
- * RECEIVED FROM MEDIATEK AND/OR ITS REPRESENTATIVES ARE PROVIDED TO RECEIVER
- * ON AN "AS-IS" BASIS ONLY. MEDIATEK EXPRESSLY DISCLAIMS ANY AND ALL
- * WARRANTIES, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE IMPLIED
- * WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE OR
- * NONINFRINGEMENT. NEITHER DOES MEDIATEK PROVIDE ANY WARRANTY WHATSOEVER WITH
- * RESPECT TO THE SOFTWARE OF ANY THIRD PARTY WHICH MAY BE USED BY,
- * INCORPORATED IN, OR SUPPLIED WITH THE MEDIATEK SOFTWARE, AND RECEIVER AGREES
- * TO LOOK ONLY TO SUCH THIRD PARTY FOR ANY WARRANTY CLAIM RELATING THERETO.
- * RECEIVER EXPRESSLY ACKNOWLEDGES THAT IT IS RECEIVER'S SOLE RESPONSIBILITY TO
- * OBTAIN FROM ANY THIRD PARTY ALL PROPER LICENSES CONTAINED IN MEDIATEK
- * SOFTWARE. MEDIATEK SHALL ALSO NOT BE RESPONSIBLE FOR ANY MEDIATEK SOFTWARE
- * RELEASES MADE TO RECEIVER'S SPECIFICATION OR TO CONFORM TO A PARTICULAR
- * STANDARD OR OPEN FORUM. RECEIVER'S SOLE AND EXCLUSIVE REMEDY AND MEDIATEK'S
- * ENTIRE AND CUMULATIVE LIABILITY WITH RESPECT TO THE MEDIATEK SOFTWARE
- * RELEASED HEREUNDER WILL BE, AT MEDIATEK'S OPTION, TO REVISE OR REPLACE THE
- * MEDIATEK SOFTWARE AT ISSUE, OR REFUND ANY SOFTWARE LICENSE FEES OR SERVICE
- * CHARGE PAID BY RECEIVER TO MEDIATEK FOR SUCH MEDIATEK SOFTWARE AT ISSUE.
- *
- * The following software/firmware and/or related documentation ("MediaTek
- * Software") have been modified by MediaTek Inc. All revisions are subject to
- * any receiver's applicable license agreements with MediaTek Inc.
- */
+/*******************************************************************************
+* Copyright (c) 2014 MediaTek Inc.
+*
+* All rights reserved. Copying, compilation, modification, distribution
+* or any other use whatsoever of this material is strictly prohibited
+* except in accordance with a Software License Agreement with
+* MediaTek Inc.
+********************************************************************************
+*/
+
+/*******************************************************************************
+* LEGAL DISCLAIMER
+*
+* BY OPENING THIS FILE, BUYER HEREBY UNEQUIVOCALLY ACKNOWLEDGES AND
+* AGREES THAT THE SOFTWARE/FIRMWARE AND ITS DOCUMENTATIONS ("MEDIATEK
+* SOFTWARE") RECEIVED FROM MEDIATEK AND/OR ITS REPRESENTATIVES ARE
+* PROVIDED TO BUYER ON AN "AS-IS" BASIS ONLY. MEDIATEK EXPRESSLY
+* DISCLAIMS ANY AND ALL WARRANTIES, EXPRESS OR IMPLIED, INCLUDING BUT NOT
+* LIMITED TO THE IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS FOR A
+* PARTICULAR PURPOSE OR NONINFRINGEMENT. NEITHER DOES MEDIATEK PROVIDE
+* ANY WARRANTY WHATSOEVER WITH RESPECT TO THE SOFTWARE OF ANY THIRD PARTY
+* WHICH MAY BE USED BY, INCORPORATED IN, OR SUPPLIED WITH THE MEDIATEK
+* SOFTWARE, AND BUYER AGREES TO LOOK ONLY TO SUCH THIRD PARTY FOR ANY
+* WARRANTY CLAIM RELATING THERETO. MEDIATEK SHALL ALSO NOT BE RESPONSIBLE
+* FOR ANY MEDIATEK SOFTWARE RELEASES MADE TO BUYER'S SPECIFICATION OR TO
+* CONFORM TO A PARTICULAR STANDARD OR OPEN FORUM.
+*
+* BUYER'S SOLE AND EXCLUSIVE REMEDY AND MEDIATEK'S ENTIRE AND CUMULATIVE
+* LIABILITY WITH RESPECT TO THE MEDIATEK SOFTWARE RELEASED HEREUNDER WILL
+* BE, AT MEDIATEK'S OPTION, TO REVISE OR REPLACE THE MEDIATEK SOFTWARE AT
+* ISSUE, OR REFUND ANY SOFTWARE LICENSE FEES OR SERVICE CHARGE PAID BY
+* BUYER TO MEDIATEK FOR SUCH MEDIATEK SOFTWARE AT ISSUE.
+*
+* THE TRANSACTION CONTEMPLATED HEREUNDER SHALL BE CONSTRUED IN ACCORDANCE
+* WITH THE LAWS OF THE STATE OF CALIFORNIA, USA, EXCLUDING ITS CONFLICT
+* OF LAWS PRINCIPLES.  ANY DISPUTES, CONTROVERSIES OR CLAIMS ARISING
+* THEREOF AND RELATED THERETO SHALL BE SETTLED BY ARBITRATION IN SAN
+* FRANCISCO, CA, UNDER THE RULES OF THE INTERNATIONAL CHAMBER OF COMMERCE
+* (ICC).
+********************************************************************************
+*/
 
 /*
 ** $Log: ra_ctrl.h $
@@ -117,14 +122,22 @@
 
 #define RA_MAX_SUPPORT_MCS          26
 
-#define GET_TX_STAT_TOTAL_TX_CNT    0x01
-#define GET_TX_STAT_LAST_TX_RATE    0x02
-#define GET_TX_STAT_ENTRY_TX_RATE   0x04
-#define GET_TX_STAT_ENTRY_TX_CNT    0x08
-#define GET_TX_STAT_ENTRY_TX_PER    0x10
+#define GET_TX_STAT_TOTAL_TX_CNT    0x00000001
+#define GET_TX_STAT_LAST_TX_RATE    0x00000002
+#define GET_TX_STAT_ENTRY_TX_RATE   0x00000004
+#define GET_TX_STAT_ENTRY_TX_CNT    0x00000008
+
+#define HT_LDPC                 0x01
 #define VHT_LDPC                0x02
 
 #define G_BAND_256QAM_AMPDU_FACTOR  7
+
+#if defined(CUSTOMER_RSG_FEATURE) || defined (CUSTOMER_DCC_FEATURE)
+#define GET_WTBL_TX_COUNT		0x00000001
+#define GET_WTBL_PER_BSS_TX_COUNT	0x00000002
+#define GET_WTBL_PER_STA_TX_COUNT	0x00000004
+#endif
+
 #define LIMIT_MAX_PHY_RATE_THRESHOLD    50
 #define MAX_PHY_RATE_3SS                1300
 #define MAX_PHY_RATE_2SS                866
@@ -294,12 +307,9 @@ typedef BOOLEAN BOOL;
 typedef UINT8   UINT_8;
 typedef UINT16  UINT_16;
 typedef UINT32  UINT_32;
-typedef UINT64  UINT_64;
 typedef CHAR    INT_8;
 typedef INT16   INT_16;
 typedef INT32   INT_32;
-typedef UINT_8  *PUINT_8;
-
 #endif /* !WIFI_BUILD_RAM */
 
 typedef struct _RTMP_TX_RATE {
@@ -341,12 +351,11 @@ typedef struct _RA_PHY_CFG_T {
 	UINT_8  ldpc;
 	UINT_8  MCS;
 	UINT_8  VhtNss;
-	UINT_8  he_ltf;
 } RA_PHY_CFG_T;
 
 typedef struct _RA_ENTRY_INFO_T {
 	BOOL    fgRaValid;
-	UINT_16 u2Wcid;
+	UINT_8  ucWcid;
 	BOOL    fgAutoTxRateSwitch;
 
 	UINT_8  ucPhyMode;                  /* wdev->PhyMode WMODE_CAP_AC */
@@ -470,11 +479,9 @@ typedef struct _RA_COMMON_INFO_T {
 	SHORT   TrainUpRuleRSSI;
 	USHORT  lowTrafficThrd;
 
-#if defined(MT7615) || defined(MT7622) || defined(P18) || defined(MT7663) || \
-	defined(AXE) || defined(MT7626) || defined(MT7915) || defined(MT7986) || \
-	defined(MT7916) || defined(MT7981)
+#if defined(MT7615) || defined(MT7622) || defined(P18) || defined(MT7663)
 	UINT_16 u2MaxPhyRate;
-#endif
+#endif /* defined(MT7615) || defined(MT7622) || defined(P18) || defined(MT7663) */
 
 	UINT_32 PhyCaps;                        /* pAd->chipCap.phy_caps 0x1:2.4G 0x2:5G 0x10:ht 0x20:vht 0x100:TXBF 0x200:ldpc */
 
@@ -635,132 +642,44 @@ typedef struct _STAREC_AUTO_RATE_UPDATE_T {
 	UINT_8  ucMmpsMode;
 } CMD_STAREC_AUTO_RATE_UPDATE_T, *P_CMD_STAREC_AUTO_RATE_UPDATE_T;
 
-typedef struct _CMD_FIX_RATE_WO_STA_UPDATE_T {
-	RA_PHY_CFG_T FixedRateCfg;
-	UINT_8  u1WcidL;		/* #256STA - Low Byte */
-	UINT_8  u1SpeEn;
-	UINT_8  u1ShortPreamble;
-	UINT_8  u1WcidHnVer;	/* #256STA - High Byte and Version */
-} CMD_FIX_RATE_WO_STA_UPDATE_T, *P_CMD_FIX_RATE_WO_STA_UPDATE_T;
-
 typedef struct _EXT_CMD_GET_TX_STATISTIC_T {
-	UINT_8 ucField;
+	UINT_32 u4Field;
+	UINT_8 ucWlanIdx;
 	UINT_8 ucBandIdx;
-	UINT_16 u2WlanIdx;
+	UINT_8 aucReserved[6];
 } EXT_CMD_GET_TX_STATISTIC_T, *P_EXT_CMD_GET_TX_STATISTIC_T;
-
-#define MAX_FW_AGG_MSG 100 /*for host to agg fw msg and fw to agg fw event*/
 
 typedef struct _CMD_SET_MAX_PHY_RATA_T {
 	UINT_16 u2MaxPhyRate;
 	UINT_8  aucReserve[2];
 } CMD_SET_MAX_PHY_RATA, *P_CMD_SET_MAX_PHY_RATA;
 
-typedef enum _HERA_CMD_TYPE_T {
-	HERA_RA_RU_INFO_CMD = 0,
-	HERA_FIXED_RATE_INFO_CMD = 1,
-	HERA_DUMP_INFO_CMD = 2,
-	HERA_MU_RA_INFO_CMD = 3,
-	HERA_STBC_PRIORITY_CMD = 4,
-	HERA_OPTION_CMD = 5,
-	HERA_VHT_1024QAM_CMD = 6,
-	HERA_CFG_PTEC_PER_PPDU_CMD = 7,
-	HERA_CFG_FLAG_CMD = 8,
-	HERA_CFG_MU_INIT_RATE_INTV_CMD = 9,
-	HERA_CFG_MU_DIS_SWITCH_SU_CMD = 10,
-	HERA_SINGLE_NSS_TX_EN_CMD = 11,
-	HERA_MAX_COMMAND,
-} HERA_CMD_TYPE_T;
+#ifdef MIN_PHY_RATE_SUPPORT
+typedef struct _CMD_SET_MIN_PHY_RATE_T {
+	UINT_8 ucBssidIdx;
+	UINT_8 ucMinPhyDataRate;
+	UINT_8 ucMinPhyMgmtRate;
+	BOOL fgDisableCCKRate;
+} CMD_SET_MIN_PHY_RATE, *P_CMD_SET_MIN_PHY_RATE;
+#endif /* MIN_PHY_RATE_SUPPORT */
 
-typedef enum _HERA_EVENT_TYPE_T {
-	HERA_RU_RA_INFO_EVENT = 0,
-	HERA_MU_RA_INFO_EVENT = 1,
-	HERA_MAX_EVENT,
-} HERA_EVENT_TYPE_T;
-
-typedef enum _RA_CTRL_OPTION {
-    RA_CTRL_OPTION_DYNAMIC_BW = 0,
-    RA_CTRL_OPTION_LEGACY_FREQ_DUP,
-    RA_CTRL_OPTION_NUM
-} RA_CTRL_OPTION;
-
-typedef struct _CMD_RA_OPTION_CTRL_T {
-    UINT8 u1OptionType;
-    UINT8 u1Value;
-    UINT8 au1Reserved[2];
-} CMD_RA_OPTION_CTRL_T, *P_CMD_RA_OPTION_CTRL_T;
-
-typedef struct _CMD_GET_RU_RA_INFO_T {
-	UINT_16 u2WlanIdx;
-	UINT_16 u2RuIdx;
-	UINT_16 u2Direction;
-	UINT_16 u2DumpGroup;
-} CMD_GET_RU_RA_INFO, *P_CMD_GET_RU_RA_INFO;
-
-typedef struct _CMD_GET_MU_RA_INFO_T {
-	UINT_16 u2MuGroupdx;
-	UINT_16 u2UserIdx;
-	UINT_16 u2Direction;
-	UINT_16 u2DumpGroup;
-} CMD_GET_MU_RA_INFO, *P_CMD_GET_MU_RA_INFO;
-
-typedef struct _CMD_HERA_STBC_PRIORITY_T {
-	UINT_8 u1BandIdx;
-	UINT_8 u1Operation;
-	UINT_8 u1StbcPriority;
-	UINT_8 u1Reserved[5];
-} CMD_HERA_STBC_PRIORITY_T, *P_CMD_HERA_STBC_PRIORITY_T;
-
-typedef struct _CMD_GET_HERA_RELATED_INFO_T {
-	UINT_16 u2Para1;
-	UINT_16 u2Para2;
-	UINT_16 u2Para3;
-	UINT_16 u2Para4;
-} CMD_GET_HERA_RELATED_INFO, *P_CMD_GET_HERA_RELATED_INFO;
-
-typedef struct _CMD_SET_VHT_RATE_FOR_2G_T {
-	BOOL    fgUseVhtRateFor2G;
-	UINT_8  aucReserve[3];
-} CMD_SET_VHT_RATE_FOR_2G, *P_CMD_SET_VHT_RATE_FOR_2G;
-
-typedef struct _CMD_SET_VHT_1024_QAM_T {
-	BOOLEAN fgVht1024QamSupport;
-	UINT_8  au1Reserved[3];
-} CMD_SET_VHT_1024_QAM_T, *P_CMD_SET_VHT_1024_QAM_T;
-
-typedef struct _CMD_CFG_PTEC_PER_PPDU_T {
-	BOOLEAN fgPtecPerPpduDis;
-	UINT_8  u1BandIdx;
-	UINT_8  au1Reserved[2];
-} CMD_CFG_PTEC_PER_PPDU_T, *P_CMD_CFG_PTEC_PER_PPDU_T;
-
-typedef struct _CMD_CFG_MU_INIT_RATE_INTV_T {
-	UINT_8 u1IntvInUnit50Ms;
-	UINT_8 au1Reserved[3];
-} CMD_CFG_MU_INIT_RATE_INTV_T, *P_CMD_CFG_MU_INIT_RATE_INTV_T;
-
-typedef struct _CMD_CFG_MU_DIS_SWITCH_SU_T {
-	BOOLEAN fgDisSwitchSU;
-	UINT_8  au1Reserved[3];
-} CMD_CFG_MU_DIS_SWITCH_SU_T, *P_CMD_CFG_MU_DIS_SWITCH_SU_T;
-
-struct _CMD_CFG_SINGLE_NSS_TX_EN_T {
-	BOOLEAN fgSingleNssTxEn;
-	UINT_8  u1BandIdx;
-	UINT_8  au1Reserved[2];
-};
+#ifdef FAST_UP_RATE_SUPPORT
+typedef struct _CMD_SET_FAST_UP_RATE_T {
+	BOOL	fgFastUPRate;
+	UINT_8	aucReserved[3];
+} CMD_SET_FAST_UP_RATE, *P_CMD_SET_FAST_UP_RATE;
+#endif /* FAST_UP_RATE_SUPPORT */
 
 typedef struct _EXT_EVENT_MAX_AMSDU_LENGTH_UPDATE_T {
-	UINT_16 u2WlanIdx;
-	UINT_16 u2AmsduLen;
+	UINT_8 ucWlanIdx;
+	UINT_8 ucAmsduLen;
 } EXT_EVENT_MAX_AMSDU_LENGTH_UPDATE_T, *P_EXT_EVENT_MAX_AMSDU_LENGTH_UPDATE_T;
 
 typedef struct _EXT_EVENT_TX_STATISTIC_RESULT_T {
-	UINT_8 ucWlanIdxL;		/* #256STA - Low Byte */
+	UINT_8 ucWlanIdx;
 	UINT_8 ucBandIdx;
-	UINT_8 ucWlanIdxHnVer;	/* #256STA - High Byte and Version */
-	UINT_8 aucResv1;
-	UINT_8 ucField;
+	UINT_8 aucResv1[2];
+	UINT_32 u4Field;
 	UINT_32 u4TotalTxCount;
 	UINT_32 u4TotalTxFailCount;
 	UINT_32 u4CurrBwTxCnt;
@@ -771,60 +690,30 @@ typedef struct _EXT_EVENT_TX_STATISTIC_RESULT_T {
 	UINT_32 u4EntryTxFailCount;
 	RA_PHY_CFG_T rLastTxRate;
 	RA_PHY_CFG_T rEntryTxRate;
-	UINT_8 ucEntryTxPer;
-	UINT_8 aucResv2[7];
+	UINT_8 aucResv2[8];
+#ifdef TXSTAT_2040BW_24G_SUPPORT
+	UINT_32 u4Total40MTxCount;
+	UINT_32 u4Total20MTxCount;
+#endif
 } EXT_EVENT_TX_STATISTIC_RESULT_T, *P_EXT_EVENT_TX_STATISTIC_RESULT_T;
 
-typedef struct _EXT_EVENT_TX_STATISTIC_RESULT_HEADER_T {
-	UINT_8 ucField;
-	UINT_8 aucReserve;
-	UINT_16 u2Num;
-	UINT_8 aucTxStatisticResult[0];
-} EXT_EVENT_TX_STATISTIC_RESULT_HEADER_T, *P_EXT_EVENT_TX_STATISTIC_RESULT_HEADER_T;
+#ifdef TXSTAT_2040BW_24G_SUPPORT
+typedef struct _EXT_CMD_2040_BW_STATISTIC_T {
+	UINT_8 ucGetBwStat;
+	UINT_8 ucBWStatFeature;
+	UINT_8 aucResv[2];
+} EXT_CMD_2040_BW_STATISTIC_T, *P_EXT_CMD_2040_BW_STATISTIC_T;
 
-typedef struct _EXT_EVENT_TX_STATISTIC_BAND_RESULT_T {
-	UINT_8 ucBandIdx;
-	RA_PHY_CFG_T rLastTxRate;
-	UINT_8 aucResv2[2];
-	UINT_32 u4TotalTxCount;
-	UINT_32 u4TotalTxFailCount;
-	UINT_32 u4CurrBwTxCnt;
-	UINT_32 u4CurrBwTxFailCnt;
-	UINT_32 u4OtherBwTxCnt;
-	UINT_32 u4OtherBwTxFailCnt;
-} EXT_EVENT_TX_STATISTIC_BAND_RESULT_T, *P_EXT_EVENT_TX_STATISTIC_BAND_RESULT_T;
-
-typedef struct _EXT_EVENT_TX_STATISTIC_WLAN_RATE_RESULT_T {
-	UINT_16 u2WlanIdx;
-	RA_PHY_CFG_T rEntryTxRate;
-	UINT_8 ucReserve;
-} EXT_EVENT_TX_STATISTIC_WLAN_RATE_RESULT_T, *P_EXT_EVENT_TX_STATISTIC_WLAN_RATE_RESULT_T;
-
-typedef struct _EXT_EVENT_TX_STATISTIC_WLAN_CNT_RESULT_T {
-	UINT_16 u2WlanIdx;
-	UINT_8 aucReserve[2];
-	UINT_32 u4EntryTxCount;
-	UINT_32 u4EntryTxFailCount;
-} EXT_EVENT_TX_STATISTIC_WLAN_CNT_RESULT_T, *P_EXT_EVENT_TX_STATISTIC_WLAN_CNT_RESULT_T;
-
-typedef struct _EXT_EVENT_TX_STATISTIC_WLAN_PER_RESULT_T {
-	UINT_16 u2WlanIdx;
-	UINT_8 ucEntryTxPer;
-	UINT_8 ucReserve;
-} EXT_EVENT_TX_STATISTIC_WLAN_PER_RESULT_T, *P_EXT_EVENT_TX_STATISTIC_WLAN_PER_RESULT_T;
-
-typedef struct _TX_STATISTIC_RESULT_PAIR_T {
-	UINT8  ucBand;
-	UINT16 u2WlanIdx;
-	UINT8 ucField;
-	EXT_EVENT_TX_STATISTIC_RESULT_T txStatisticRes;
-} TX_STATISTIC_RESULT_PAIR, *P_TX_STATISTIC_RESULT_PAIR;
+typedef struct _EXT_EVENT_2040_BW_STATISTIC_T {
+	UINT_8 ucBWStatFeature;
+	UINT_8 aucResv1[3];
+} EXT_EVENT_2040_BW_STATISTIC_T, *P_EXT_EVENT_2040_BW_STATISTIC_T;
+#endif
 
 typedef struct _EXT_EVENT_G_BAND_256QAM_PROBE_RESULT_T {
-	UINT_8 ucWlanIdxL;		/* #256STA - Low Byte */
+	UINT_8 ucWlanIdx;
 	UINT_8 ucResult;
-	UINT_8 ucWlanIdxHnVer;	/* #256STA - High Byte and Version */
-	UINT_8 aucReserved;
+	UINT_8 aucReserved[2];
 } EXT_EVENT_G_BAND_256QAM_PROBE_RESULT_T, *P_EXT_EVENT_G_BAND_256QAM_PROBE_RESULT_T;
 #endif /* defined(NEW_RATE_ADAPT_SUPPORT) || defined(RATE_ADAPT_AGBS_SUPPORT) */
 
@@ -956,22 +845,6 @@ typedef enum {
 	RA_PARAM_FIXED_RATE_FALLBACK = 4,
 	RA_PARAM_MMPS_UPDATE = 5,
 	RA_PARAM_HT_2040_BACK = 6,
-	RA_PARAM_HELTF_UPDATE = 7,
-	RA_PARAM_MCS_UPDATE = 8,
-	RA_PARAM_VHTNSS_UPDATE = 9,
-	RA_PARAM_BW_UPDATE = 10,
-	RA_PARAM_GI_UPDATE = 11,
-	RA_PARAM_ECC_UPDATE = 12,
-	RA_PARAM_STBC_UPDATE = 13,
-	RA_PARAM_UL_HELTF_UPDATE = 14,
-	RA_PARAM_UL_MCS_UPDATE = 15,
-	RA_PARAM_UL_VHTNSS_UPDATE = 16,
-	RA_PARAM_UL_GI_UPDATE = 17,
-	RA_PARAM_UL_ECC_UPDATE = 18,
-	RA_PARAM_UL_STBC_UPDATE = 19,
-	RA_PARAM_AUTO_RATE = 20,
-	RA_PARAM_UL_AUTO_RATE = 21,
-	RA_PARAM_SPE_UPDATE = 22,
 	RA_PARAM_MAX
 } AUTO_RATE_UPDATE_PARAM;
 
@@ -1240,18 +1113,6 @@ extern RA_PHY_RATE_INFO RaPhyRate4SS[];
 ********************************************************************************
 */
 #ifdef MT_MAC
-
-INT
-Set_Hera_Proc(
-	IN struct _RTMP_ADAPTER *pAd,
-	IN RTMP_STRING *arg
-);
-
-VOID
-HeraInitStbcPriority(
-	IN struct _RTMP_ADAPTER *pAd
-);
-
 CHAR
 raMaxRssi(
 	IN struct _RA_COMMON_INFO_T *pRaCfg,
@@ -1274,17 +1135,6 @@ raWrapperEntrySet(
 	IN struct _MAC_TABLE_ENTRY *pEntry,
 	OUT struct _RA_ENTRY_INFO_T *pRaEntry
 );
-
-#ifdef CONFIG_RA_PHY_RATE_SUPPORT
-
-VOID
-eaprawrapperentryset(
-	IN struct _RTMP_ADAPTER *pAd,
-	IN struct _MAC_TABLE_ENTRY *entry,
-	OUT struct _RA_ENTRY_INFO_T *raentry
-);
-#endif /* CONFIG_RA_PHY_RATE_SUPPORT */
-
 
 VOID
 raWrapperEntryRestore(
@@ -1526,28 +1376,11 @@ MtAsicMcsLutUpdateCoreAGBS(
 #endif /* RATE_ADAPT_AGBS_SUPPORT */
 #endif /* MCS_LUT_SUPPORT */
 
-VOID snd_ra_fw_cmd(UINT32 ra_param,
-		struct _RTMP_ADAPTER *ad, UINT32 wcid, VOID *val);
-
 #ifdef DBG
 INT
 Set_Fixed_Rate_Proc(
 	IN struct _RTMP_ADAPTER *pAd,
 	IN RTMP_STRING * arg
-);
-
-INT
-Set_Fixed_Rate_WO_STA_Proc(
-	IN struct _RTMP_ADAPTER *pAd,
-	IN RTMP_STRING *arg
-);
-
-INT32 CmdRaFixRateUpdateWoSta(
-	struct _RTMP_ADAPTER *pAd,
-	UINT16  u2Wcid,
-	struct _RA_PHY_CFG_T *pFixedRateCfg,
-	UINT8  u1SpeEn,
-	UINT8  u1ShortPreamble
 );
 
 INT
@@ -1557,134 +1390,21 @@ Set_Fixed_Rate_With_FallBack_Proc(
 );
 
 INT
-Set_Fixed_Rate_PerBSS_Proc(
-	IN struct _RTMP_ADAPTER *pAd,
-	IN RTMP_STRING * arg
-);
-
-INT
 Set_RA_Debug_Proc(
 	IN struct _RTMP_ADAPTER *pAd,
 	IN RTMP_STRING * arg
 );
-
-INT
-Set_Fixed_HE_LT_F(
-	IN	struct _RTMP_ADAPTER *pAd,
-	IN	RTMP_STRING * arg
-);
-
-INT
-Set_Fixed_Mcs_Update(
-	IN	struct _RTMP_ADAPTER	*pAd,
-	IN	RTMP_STRING * arg
-);
-
-INT
-Set_Fixed_VhtNss_Update(
-	IN	struct _RTMP_ADAPTER	*pAd,
-	IN	RTMP_STRING * arg
-);
-
-INT
-Set_Fixed_BW_Update(
-	IN	struct _RTMP_ADAPTER	*pAd,
-	IN	RTMP_STRING * arg
-);
-
-INT
-Set_Fixed_GI_Update(
-	IN	struct _RTMP_ADAPTER	*pAd,
-	IN	RTMP_STRING * arg
-);
-
-INT
-Set_Fixed_Ecc_Update(
-	IN	struct _RTMP_ADAPTER	*pAd,
-	IN	RTMP_STRING * arg
-);
-
-INT
-Set_Fixed_STBC_Update(
-	IN	struct _RTMP_ADAPTER	*pAd,
-	IN	RTMP_STRING * arg
-);
-
-INT
-Set_Fixed_UL_HE_LTF_Update(
-	IN	struct _RTMP_ADAPTER *pAd,
-	IN	RTMP_STRING * arg
-);
-
-INT
-Set_Fixed_UL_Mcs_Update(
-	IN	struct _RTMP_ADAPTER	*pAd,
-	IN	RTMP_STRING * arg
-);
-
-INT
-Set_Fixed_UL_VhtNss_Update(
-	IN	struct _RTMP_ADAPTER	*pAd,
-	IN	RTMP_STRING * arg
-);
-
-INT
-Set_Fixed_UL_GI_Update(
-	IN	struct _RTMP_ADAPTER	*pAd,
-	IN	RTMP_STRING * arg
-);
-
-INT
-Set_Fixed_UL_Ecc_Update(
-	IN	struct _RTMP_ADAPTER	*pAd,
-	IN	RTMP_STRING * arg
-);
-
-INT
-Set_Fixed_UL_STBC_Update(
-	IN	struct _RTMP_ADAPTER	*pAd,
-	IN	RTMP_STRING * arg
-);
-
-INT
-Set_AutoRate_Update(
-	IN	struct _RTMP_ADAPTER	*pAd,
-	IN	RTMP_STRING * arg
-);
-
-INT
-Set_UL_AutoRate_Update(
-	IN	struct _RTMP_ADAPTER	*pAd,
-	IN	RTMP_STRING * arg
-);
-
-INT
-Set_AutoRate_PerBss_Update(
-	IN	struct _RTMP_ADAPTER	*pAd,
-	IN	RTMP_STRING * arg
-);
-
-INT
-Set_Fixed_Spe_Update(
-	IN	struct _RTMP_ADAPTER	*pAd,
-	IN	RTMP_STRING * arg
-);
-
 #endif /* DBG */
 
-#if defined(MT7615) || defined(MT7622) || defined(P18) || defined(MT7663) || \
-	defined(AXE) || defined(MT7626) || defined(MT7915) || defined(MT7986) || \
-defined(MT7916) || defined(MT7981)
+#if defined(MT7615) || defined(MT7622) || defined(P18) || defined(MT7663)
 INT32
 BssInfoRACommCfgSet(
 	IN P_RA_COMMON_INFO_T pRaCfg,
     OUT P_CMD_BSSINFO_AUTO_RATE_CFG_T pCmdBssInfoAutoRateCfg
 );
-#endif
+#endif /* defined(MT7615) || defined(MT7622) || defined(P18) || defined(MT7663) */
 
-#if defined(MT7636) || defined(MT7615) || defined(MT7637) || defined(MT7622) || \
-	defined(P18) || defined(MT7663) || defined(AXE) || defined(MT7626) || \
-	defined(MT7915) || defined(MT7986) || defined(MT7916) || defined(MT7981)
+#if defined(MT7636) || defined(MT7615) || defined(MT7637) || defined(MT7622) || defined(P18) || defined(MT7663)
 INT32
 StaRecAutoRateParamSet(
 	IN struct _RA_ENTRY_INFO_T *pRaEntry,
@@ -1698,10 +1418,11 @@ StaRecAutoRateUpdate(
 	IN struct _STAREC_AUTO_RATE_UPDATE_T *pRaParam,
 	OUT struct _STAREC_AUTO_RATE_UPDATE_T *pCmdStaRecAutoRate
 );
-#endif
+#endif /* defined(MT7636) || defined(MT7615) || defined(MT7637) || defined(MT7622) || defined(P18) || defined(MT7663) */
 
 
 #endif /* MT_MAC */
+
 
 /*******************************************************************************
 *                   F U N C T I O N   D E C L A R A T I O N S (RT)
@@ -1713,13 +1434,16 @@ RTMPSetSupportMCS(
 	IN struct _RTMP_ADAPTER *pAd,
 	IN UCHAR OpMode,
 	IN struct _MAC_TABLE_ENTRY *pEntry,
-	IN struct legacy_rate *rate,
+	IN UCHAR SupRate[],
+	IN UCHAR SupRateLen,
+	IN UCHAR ExtRate[],
+	IN UCHAR ExtRateLen,
 #ifdef DOT11_VHT_AC
-	IN BOOLEAN has_vht_cap,
+	IN UCHAR vht_cap_len,
 	IN struct _VHT_CAP_IE *vht_cap,
 #endif /* DOT11_VHT_AC */
 	IN struct _HT_CAPABILITY_IE *pHtCapability,
-	IN BOOLEAN has_ht_cap
+	IN UCHAR HtCapabilityLen
 );
 
 #ifdef NEW_RATE_ADAPT_SUPPORT
@@ -1778,26 +1502,6 @@ APQuickResponeForRateUpExec(
 
 #endif /* CONFIG_AP_SUPPORT */
 
-#ifdef CONFIG_STA_SUPPORT
-VOID
-MlmeDynamicTxRateSwitching(
-	IN struct _RTMP_ADAPTER *pAd
-);
-
-VOID
-MlmeDynamicTxRateSwitching(
-	IN struct _RTMP_ADAPTER *pAd
-);
-
-VOID
-StaQuickResponeForRateUpExec(
-	IN PVOID SystemSpecific1,
-	IN PVOID FunctionContext,
-	IN PVOID SystemSpecific2,
-	IN PVOID SystemSpecific3
-);
-
-#endif /* CONFIG_STA_SUPPORT */
 
 #endif /* COMPOS_WIN */
 

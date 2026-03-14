@@ -1,17 +1,18 @@
 /*
- * Copyright (c) [2020], MediaTek Inc. All rights reserved.
- *
- * This software/firmware and related documentation ("MediaTek Software") are
- * protected under relevant copyright laws.
- * The information contained herein is confidential and proprietary to
- * MediaTek Inc. and/or its licensors.
- * Except as otherwise provided in the applicable licensing terms with
- * MediaTek Inc. and/or its licensors, any reproduction, modification, use or
- * disclosure of MediaTek Software, and information contained herein, in whole
- * or in part, shall be strictly prohibited.
-*/
-/*
  ***************************************************************************
+ * Ralink Tech Inc.
+ * 4F, No. 2 Technology 5th Rd.
+ * Science-based Industrial Park
+ * Hsin-chu, Taiwan, R.O.C.
+ *
+ * (c) Copyright 2002-2004, Ralink Technology, Inc.
+ *
+ * All rights reserved. Ralink's source code is an unpublished work and the
+ * use of a copyright notice does not imply otherwise. This source code
+ * contains confidential trade secret material of Ralink Tech. Any attemp
+ * or participation in deciphering, decoding, reverse engineering or in any
+ * way altering the source code is stricitly prohibited, unless the prior
+ * written consent of Ralink Technology, Inc. is obtained.
  ***************************************************************************
 
 	Module Name:
@@ -31,7 +32,9 @@
 
 #include "rtmp_dot11.h"
 
+#ifdef CONFIG_RCSA_SUPPORT
 #include "spectrum_def.h"
+#endif
 
 #ifdef DOT11R_FT_SUPPORT
 #include "common/link_list.h"
@@ -43,27 +46,10 @@
 #endif /* DOT11K_RRM_SUPPORT */
 
 #include "security/owe_cmm.h"
-#ifdef DOT11_HE_AX
-#ifdef WIFI_TWT_SUPPORT
-#include "protocol/twt.h"
-#endif /* WIFI_TWT_SUPPORT */
-#endif /* DOT11_HE_AX */
-
-#ifdef WAPP_SUPPORT
-#include "wapp/wapp_cmm_type.h"
-#endif
-
-#include "he.h"
 
 /* Extern Variables */
 extern UCHAR WPS_OUI[];
-#ifdef IWSC_SUPPORT
-extern UCHAR IWSC_OUI[];
-#endif /* IWSC_SUPPORT */
 extern UCHAR RALINK_OUI[];
-#ifdef OCE_SUPPORT
-extern UCHAR BROADCAST_ADDR[];
-#endif /* OCE_SUPPORT */
 
 /* maximum supported capability information - */
 /* ESS, IBSS, Privacy, Short Preamble, Spectrum mgmt, Short Slot */
@@ -78,10 +64,6 @@ extern UCHAR BROADCAST_ADDR[];
 #define REORDER_EXEC_INTV				100       /* 0.1 sec */
 #define STA_KEEP_ALIVE_NOTIFY_L2	60
 
-#ifdef CONFIG_STA_SUPPORT
-#define STAY_10_SECONDS_AWAKE			10	/* UINT: 1sec */
-#define STAY_2_SECONDS_AWAKE			2	/* UINT: 1sec */
-#endif /* CONFIG_STA_SUPPORT */
 
 /*#define TBTT_PRELOAD_TIME         384        // usec. LomgPreamble + 24-byte at 1Mbps */
 
@@ -92,19 +74,34 @@ extern UCHAR BROADCAST_ADDR[];
 #define JAP_W53	3
 #define JAP_W56	4
 #define CHN		5
-#define KR      6
-#define MAX_RD_REGION 7
+#define MAX_RD_REGION 6
 #if defined(CONFIG_MULTI_CHANNEL) || defined(DOT11Z_TDLS_SUPPORT)
 #define BEACON_LOST_TIME           (12 * OS_HZ)    /* 2048 msec = 2 sec */
 #else
+#if defined(MT7603_FPGA) || defined(MT7628_FPGA) || defined(MT7636_FPGA) || defined(MT7637_FPGA) || \
+defined(MT7615_FPGA) || defined(MT7622_FPGA) || defined(P18_FPGA) || defined(MT7663_FPGA)
+#define BEACON_LOST_TIME            (40 * OS_HZ)    /* 2048 msec = 2 sec */
+#else
 #define BEACON_LOST_TIME            (4 * OS_HZ)    /* 2048 msec = 2 sec */
+#endif /* MT7603_FPGA */
 #endif /* defined(CONFIG_MULTI_CHANNEL) || defined(DOT11Z_TDLS_SUPPORT) */
 
 #define DLS_TIMEOUT                 1200      /* unit: msec */
+#if defined(MT7603_FPGA) || defined(MT7628_FPGA) || defined(MT7636_FPGA) || defined(MT7637_FPGA) || \
+defined(MT7615_FPGA) || defined(MT7622_FPGA) || defined(P18_FPGA) || defined(MT7663_FPGA)
+#define AUTH_TIMEOUT                5000       /* unit: msec */
+#define ASSOC_TIMEOUT               5000       /* unit: msec */
+#else
 #define AUTH_TIMEOUT                300       /* unit: msec */
 #define ASSOC_TIMEOUT               300       /* unit: msec */
+#endif /* MT7603_FPGA */
 
+#if defined(MT7603_FPGA) || defined(MT7628_FPGA) || defined(MT7636_FPGA) || defined(MT7637_FPGA) || \
+defined(MT7615_FPGA) || defined(MT7622_FPGA) || defined(P18_FPGA) || defined(MT7663_FPGA)
 #define JOIN_TIMEOUT                2000        /* unit: msec */
+#else
+#define JOIN_TIMEOUT                2000        /* unit: msec */
+#endif /* MT7603_FPGA */
 #define SHORT_CHANNEL_TIME          90        /* unit: msec */
 #define MIN_CHANNEL_TIME            110        /* unit: msec, for dual band scan */
 #define MAX_CHANNEL_TIME            140       /* unit: msec, for single band scan */
@@ -145,33 +142,20 @@ extern UCHAR BROADCAST_ADDR[];
 
 #define BSS_NOT_FOUND                    0xFFFFFFFF
 
-#define MLME_QUEUE_SCH				16
-#ifndef MLME_MULTI_QUEUE_SUPPORT
-#define MAX_LEN_OF_MLME_QUEUE		256
-#define MAX_NUM_OF_MLME_QUEUE		1
-#else
-#define MAX_LEN_OF_MLME_QUEUE		256
-#define MAX_LEN_OF_MLME_HP_QUEUE	128
-#define MAX_LEN_OF_MLME_LP_QUEUE	128
+#define MAX_LEN_OF_MLME_QUEUE            256
 
-#define RATION_OF_MLME_HP_QUEUE		8
-#define RATION_OF_MLME_QUEUE		4
-#define RATION_OF_MLME_LP_QUEUE		1
-
-#define MAX_NUM_OF_MLME_QUEUE		3
-#endif/*MLME_MULTI_QUEUE_SUPPORT*/
 
 enum SCAN_MODE {
 	/* Active scan, send probe request, and wait beacon and probe response */
-	SCAN_ACTIVE =             0x0,			/* all channels */
+	SCAN_ACTIVE = 0x00,			/* all channels */
 	SCAN_CISCO_ACTIVE = 0x1,	/* single channel only */
 	FAST_SCAN_ACTIVE = 0x2,
+#ifdef WSC_INCLUDED
 	SCAN_WSC_ACTIVE = 0x3,
+#endif /* WSC_INCLUDED */
+#ifdef DOT11N_DRAFT3
 	SCAN_2040_BSS_COEXIST = 0x4,
-	SCAN_P2P = 0x5,
-	SCAN_P2P_SEARCH = 0x6,
-	SCAN_IMPROVED =		  0x7,
-	SCAN_PARTIAL  =		  0x8,
+#endif /* DOT11N_DRAFT3 */
 	SCAN_ACTIVE_MAX,
 
 	/* Passive scan, no probe request, only wait beacon and probe response */
@@ -187,7 +171,6 @@ enum SCAN_MODE {
 #define SCAN_MASK	0x80
 #define SCAN_MODE_ACT(_x)	(((_x) & SCAN_MASK) == 0)
 #define SCAN_MODE_PSV(_x)	(((_x) & SCAN_MASK) == SCAN_MASK)
-#define SCAN_MODE_SEG(_x)	(((_x) == SCAN_IMPROVED) || ((_x) == SCAN_PARTIAL))
 #define SCAN_MODE_VALID(_x)	((SCAN_MODE_ACT(_x) && ((_x) < SCAN_ACTIVE_MAX)) || \
 							 (SCAN_MODE_PSV(_x) && ((_x) < SCAN_PASSIVE_MAX)))
 
@@ -357,13 +340,7 @@ typedef struct GNU_PACKED _EXT_CAP_INFO_ELEMENT {
 	UINT32 rsv63:1;
 	UINT32 operating_mode_notification:1;
 	UINT32 tdls_wider_bw:1;
-	UINT32 rsv55_60:6;
-#ifdef QOS_R2
-	UINT32 dot11SCSActivated:1;
-#else
-	UINT32 rsv54:1;
-#endif
-	UINT32 rsv49_53:5;
+	UINT32 rsv49:12;
 	UINT32 utf8_ssid:1;
 	UINT32 rsv47:1;
 	UINT32 wnm_notification:1;
@@ -395,13 +372,7 @@ typedef struct GNU_PACKED _EXT_CAP_INFO_ELEMENT {
 	UINT32 wnm_notification:1;
 	UINT32 rsv47:1;
 	UINT32 utf8_ssid:1;
-	UINT32 rsv49_53:5;
-#ifdef QOS_R2
-	UINT32 dot11SCSActivated:1;
-#else
-	UINT32 rsv54:1;
-#endif
-	UINT32 rsv55_60:6;
+	UINT32 rsv49:12;
 	UINT32 tdls_wider_bw:1;
 	UINT32 operating_mode_notification:1;
 	UINT32 rsv63:1;
@@ -426,75 +397,6 @@ typedef struct GNU_PACKED _EXT_CAP_INFO_ELEMENT {
 	UINT8 ftm_resp:1;	/* bit70: FTM responder */
 	UINT8 ftm_init:1;	/* bit71: FTM Initiator in 802.11mc D4.0*/
 #endif /* RT_BIG_ENDIAN */
-
-#ifdef RT_BIG_ENDIAN
-	UINT8 obss_bw_ru_in_ofdma_tolerance:1;
-	UINT8 twt_responder_support:1;
-	UINT8 twt_requester_support:1;
-	UINT8 rsv76:1;
-	UINT8 rsv75:1;
-	UINT8 rsv74:1;
-	UINT8 rsv73:1;
-	UINT8 FILSCap:1;
-#else
-	UINT8 FILSCap:1;
-	UINT8 rsv73:1;
-	UINT8 rsv74:1;
-	UINT8 rsv75:1;
-	UINT8 rsv76:1;
-	UINT8 twt_requester_support:1;
-	UINT8 twt_responder_support:1;
-	UINT8 obss_bw_ru_in_ofdma_tolerance:1;
-#endif /* RT_BIG_ENDIAN */
-
-#ifdef RT_BIG_ENDIAN
-	UINT8 rsv87:1;
-	UINT8 oct:1;
-#ifdef QOS_R1
-	UINT8 dot11MSCSActivated:1;
-#else
-	UINT8 rsv85:1;
-#endif
-	UINT8 bcn_prot_en:1;
-	UINT8 enhanced_mbss_adv:1;
-	UINT8 sae_pwd_id_used_exclusively:1;
-	UINT8 sae_pwd_id_in_use:1;
-	UINT8 cmpl_non_txbssid:1;
-#else
-	UINT8 cmpl_non_txbssid:1;
-	UINT8 sae_pwd_id_in_use:1;
-	UINT8 sae_pwd_id_used_exclusively:1;
-	UINT8 enhanced_mbss_adv:1;
-	UINT8 bcn_prot_en:1;
-#ifdef QOS_R1
-	UINT8 dot11MSCSActivated:1;
-#else
-	UINT8 rsv85:1;
-#endif
-	UINT8 oct:1;
-	UINT8 rsv87:1;
-#endif /* RT_BIG_ENDIAN */
-
-#ifdef RT_BIG_ENDIAN
-	UINT8 rsv95:1;
-	UINT8 rsv94:1;
-	UINT8 rsv93:1;
-	UINT8 rsv92:1;
-	UINT8 rsv91:1;
-	UINT8 rsv90:1;
-	UINT8 rsv89:1;
-	UINT8 sae_pk_pwd_used_exclusively:1;
-#else
-	UINT8 sae_pk_pwd_used_exclusively:1;
-	UINT8 rsv89:1;
-	UINT8 rsv90:1;
-	UINT8 rsv91:1;
-	UINT8 rsv92:1;
-	UINT8 rsv93:1;
-	UINT8 rsv94:1;
-	UINT8 rsv95:1;
-#endif /* RT_BIG_ENDIAN */
-
 } EXT_CAP_INFO_ELEMENT, *PEXT_CAP_INFO_ELEMENT;
 
 #define EXT_CAP_MIN_SAFE_LENGTH		8
@@ -574,6 +476,14 @@ typedef struct GNU_PACKED _FTM_PARAMETER {
 	USHORT burst_period;	/* unit: 100 ms */
 } FTM_PARAMETER, *PFTM_PARAMETER;
 
+#ifdef FTM_SUPPORT
+/* 802.11mc D4.3 8.4.2.166 */
+typedef struct GNU_PACKED _FTM_PARM_IE {
+	UCHAR ID;
+	UCHAR Length;
+	FTM_PARAMETER p;
+} FTM_PARM_IE, *PFTM_PARM_IE;
+#endif /* FTM_SUPPORT */
 
 /* This structure is extracted from struct RT_HT_CAPABILITY and RT_VHT_CAP */
 typedef struct _RT_PHY_INFO {
@@ -669,6 +579,24 @@ typedef struct {
 typedef struct  GNU_PACKED _NEW_EXT_CHAN_IE {
 	UCHAR				NewExtChanOffset;
 } NEW_EXT_CHAN_IE, *PNEW_EXT_CHAN_IE;
+
+#ifdef DOT11U_INTERWORKING_IE_SUPPORT
+typedef struct GNU_PACKED _INTERWORKING_IE {
+#ifdef RT_BIG_ENDIAN
+	UCHAR	UESA:1;
+	UCHAR	ESR:1;
+	UCHAR	ASRA:1;
+	UCHAR	Internet:1;
+	UCHAR	AccessNwType:4;
+#else
+	UCHAR	AccessNwType:4;
+	UCHAR	Internet:1;
+	UCHAR	ASRA:1;
+	UCHAR	ESR:1;
+	UCHAR	UESA:1;
+#endif
+} INTERWORKING_IE, *PINTERWORKING_IE;
+#endif /* DOT11U_INTERWORKING_IE_SUPPORT */
 
 typedef struct GNU_PACKED _FRAME_802_11 {
 	HEADER_802_11   Hdr;
@@ -940,13 +868,15 @@ typedef struct GNU_PACKED _HT_EXT_CHANNEL_SWITCH_ANNOUNCEMENT_IE {
 	UCHAR		ChannelSwitchCount;
 } HT_EXT_CHANNEL_SWITCH_ANNOUNCEMENT_IE, *PHT_EXT_CHANNEL_SWITCH_ANNOUNCEMENT_IE;
 
+#ifdef CONFIG_RCSA_SUPPORT
 typedef struct _CSA_IE_INFO {
-	UINT16 wcid;
+	UCHAR wcid;
 	CH_SW_ANN_INFO ChSwAnnIE;
 	SEC_CHA_OFFSET_IE SChOffIE;
 	EXT_CH_SW_ANN_INFO	ExtChSwAnnIE;
 	WIDE_BW_CH_SWITCH_ELEMENT wb_info;
 } CSA_IE_INFO, *PCSA_IE_INFO;
+#endif
 
 /* */
 /* _Limit must be the 2**n - 1 */
@@ -978,6 +908,17 @@ typedef	struct _CIPHER_SUITE {
 	BOOLEAN							bMixMode;		/* Indicate Pair & Group cipher might be different */
 }	CIPHER_SUITE, *PCIPHER_SUITE;
 
+struct GNU_PACKED map_vendor_ie
+{
+	UCHAR type;
+	UCHAR subtype;
+	UCHAR root_distance;
+	UCHAR connectivity_to_controller;
+	USHORT uplink_rate;
+	UCHAR uplink_bssid[MAC_ADDR_LEN];
+	UCHAR bssid_5g[MAC_ADDR_LEN];
+	UCHAR bssid_2g[MAC_ADDR_LEN];
+};
 
 struct _vendor_ie_cap {
 	ULONG ra_cap;
@@ -988,23 +929,10 @@ struct _vendor_ie_cap {
 	BOOLEAN is_rlt;
 	BOOLEAN is_mtk;
 	BOOLEAN is_brcm_etxbf_2G;
-#ifdef MWDS
-	BOOLEAN mtk_cap_found;
-	BOOLEAN support_mwds;
-#endif /* MWDS */
-#ifdef WH_EVENT_NOTIFIER
-	UCHAR custom_ie_len;
-	UCHAR custom_ie[CUSTOM_IE_TOTAL_LEN];
-#endif /* WH_EVENT_NOTIFIER */
 #ifdef CONFIG_MAP_SUPPORT
 	BOOLEAN map_vendor_ie_found;
 	struct map_vendor_ie map_info;
 #endif
-#ifdef DPP_R2_SUPPORT
-	BOOLEAN cce_vendor_ie_found;
-	struct cce_vendor_ie cce_info;
-#endif
-
 };
 
 /* EDCA configuration from AP's BEACON/ProbeRsp */
@@ -1012,23 +940,6 @@ struct _vendor_ie_cap {
 #define WMM_AC_BE	1
 #define WMM_AC_VI	2
 #define WMM_AC_VO	3
-#define WMM_PBC_CTL_COUNT 2
-
-
-enum MU_EDCA_PARAM {
-	MU_EDCA_ECW_MIN		= 0,
-	MU_EDCA_ECW_MAX		= 1,
-	MU_EDCA_AIFSN		= 2,
-	MU_EDCA_TIMER		= 3
-};
-
-enum WMM_PE_PARAM {
-	WMM_PE_ECW_MIN		= 0,
-	WMM_PE_ECW_MAX		= 1,
-	WMM_PE_AIFSN		= 2,
-	WMM_PE_TXOP			= 3
-};
-
 typedef struct _EDCA_PARM {
 	BOOLEAN     bValid;         /* 1: variable contains valid value */
 	BOOLEAN     bAdd;         /* 1: variable contains valid value */
@@ -1043,7 +954,9 @@ typedef struct _EDCA_PARM {
 	UCHAR       Cwmax[WMM_NUM_OF_AC];
 	USHORT      Txop[WMM_NUM_OF_AC];      /* in unit of 32-us */
 	BOOLEAN     bACM[WMM_NUM_OF_AC];      /* 1: Admission Control of AC_BK is mandattory */
-	UINT8 mu_edca_timer[WMM_NUM_OF_AC];
+	UCHAR       BandIdx;
+	UCHAR	   WmmSet;
+	UCHAR        RefCnt;
 } EDCA_PARM, *PEDCA_PARM;
 
 typedef struct _WMM_CFG {
@@ -1061,16 +974,7 @@ struct rts_thld {
 	struct wifi_dev *wdev;
 	UCHAR pkt_thld;
 	UINT32 len_thld;
-};
-
-struct prot_info {
-	struct wifi_dev *wdev;
-	enum prot_service_type type;
-	union {
-		UINT32 protect_mode;
-		struct rts_thld rts;
-		UINT16 txop_dur_rts_thld;
-	} cookie;
+	UCHAR retry_limit;
 };
 
 enum _ac_type {
@@ -1080,7 +984,7 @@ enum _ac_type {
 	AC_VO = (1 << WMM_AC_VO),
 	AC_MSK = (AC_BK | AC_BE | AC_VI | AC_VO)
 };
-#ifndef WAPP_SUPPORT
+
 /* QBSS LOAD information from QAP's BEACON/ProbeRsp */
 typedef struct {
 	BOOLEAN     bValid;                     /* 1: variable contains valid value */
@@ -1088,7 +992,7 @@ typedef struct {
 	UCHAR       ChannelUtilization;
 	USHORT      RemainingAdmissionControl;  /* in unit of 32-us */
 } QBSS_LOAD_PARM, *PQBSS_LOAD_PARM;
-#endif
+
 
 /* QBSS Info field in QSTA's assoc req */
 typedef struct GNU_PACKED _QBSS_STA_INFO_PARM {
@@ -1144,141 +1048,6 @@ typedef struct {
 	UCHAR       EdcaUpdateCount;
 } QOS_CAPABILITY_PARM, *PQOS_CAPABILITY_PARM;
 
-#ifdef CUSTOMER_VENDOR_IE_SUPPORT
-struct customer_vendor_ie {
-	NDIS_SPIN_LOCK vendor_ie_lock;
-	CHAR *pointer;
-	UINT16 length;
-};
-
-typedef struct _CUSTOMER_PROBE_RSP_VENDOR_IE {
-	DL_LIST List;
-	UCHAR stamac[MAC_ADDR_LEN];
-	UCHAR band;
-	CHAR *pointer;
-	UINT16 length;
-}CUSTOMER_PROBE_RSP_VENDOR_IE, *PCUSTOMER_PROBE_RSP_VENDOR_IE;
-
-struct customer_oui_filter {
-	NDIS_SPIN_LOCK oui_filter_lock;
-	CHAR *pointer;
-	UINT16 length;
-};
-
-struct vendor_ie {
-	UCHAR element_id;
-	UCHAR len;
-	UCHAR custom_ie[255];
-};
-
-struct probe_req_report {
-	UCHAR band;/*0:2.4G, 1:5G*/
-	UCHAR sta_mac[MAC_ADDR_LEN];
-	struct vendor_ie vendor_ie;
-};
-
-struct customer_bss_entry {
-	CHAR ssid[MAX_LEN_OF_SSID];
-	UCHAR ssid_len;
-	UCHAR bssid[MAC_ADDR_LEN];
-	UCHAR channel;
-	USHORT beacon_period;  /* ms */
-	CHAR rssi;
-	CHAR noise;
-	UCHAR ht_ch_bandwidth;
-	UCHAR vht_ch_bandwidth;
-	UCHAR vht_tx_ss; /* vht spatial stream */
-	UCHAR vht_rx_ss;
-	UCHAR ht_tx_ss; /* ht spatial stream */
-	UCHAR ht_rx_ss;
-	UINT32 PairwiseCipher;	/* Pairwise Key */
-	UCHAR phy_mode;
-	UINT64 max_bit_rate;
-
-	struct customer_vendor_ie vendor_ie;
-};
-
-struct event_bss_entry {
-	UINT32 max_bit_rate;
-	UINT32 vendor_ie_len;
-	UINT32 PairwiseCipher;	/* Pairwise Key */
-	UINT32 beacon_period;  /* ms */
-
-	CHAR ssid[MAX_LEN_OF_SSID];
-	UCHAR ssid_len;
-	CHAR rssi;
-	CHAR noise;
-
-	UCHAR bssid[MAC_ADDR_LEN];
-	UCHAR channel;
-
-	UCHAR ht_ch_bandwidth;
-	UCHAR vht_ch_bandwidth;
-	UCHAR vht_tx_ss; /* vht spatial stream */
-	UCHAR vht_rx_ss;
-	UCHAR ht_tx_ss; /* ht spatial stream */
-	UCHAR ht_rx_ss;
-	UCHAR phy_mode;
-
-	/*must be last because vendor_ie len is not the same for each bss */
-	char vendor_ie[0];
-};
-#endif /* CUSTOMER_VENDOR_IE_SUPPORT */
-
-#ifdef CONFIG_STA_SUPPORT
-typedef struct {
-	UCHAR       IELen;
-	UCHAR       IE[MAX_CUSTOM_LEN];
-} WPA_IE_;
-#endif /* CONFIG_STA_SUPPORT */
-
-
-enum ie_exist {
-	HT_CAPS_EXIST       = 1,
-	HT_OP_EXIST         = (1 << 1),
-	VHT_CAPS_EXIST      = (1 << 2),
-	VHT_OP_EXIST        = (1 << 3),
-	HE_CAPS_EXIST       = (1 << 4),
-	HE_OP_EXIST         = (1 << 5),
-	WMM_CAPS_EXIST      = (1 << 6),
-	PREN_CAPS_EXIST     = (1 << 7),
-	HE_MU_EDCA_EXIST    = (1 << 8),
-	HE_6G_CAP_EXIST     = (1 << 9),
-};
-
-#define HAS_HT_CAPS_EXIST(exist)        ((exist) & HT_CAPS_EXIST)
-#define HAS_HT_OP_EXIST(exist)          ((exist) & HT_OP_EXIST)
-#define HAS_VHT_CAPS_EXIST(exist)       ((exist) & VHT_CAPS_EXIST)
-#define HAS_VHT_OP_EXIST(exist)         ((exist) & VHT_OP_EXIST)
-#define HAS_HE_CAPS_EXIST(exist)        ((exist) & HE_CAPS_EXIST)
-#define HAS_HE_OP_EXIST(exist)          ((exist) & HE_OP_EXIST)
-#define HAS_WMM_CAPS_EXIST(exist)       ((exist) & WMM_CAPS_EXIST)
-#define HAS_PREN_CAPS_EXIST(exist)      ((exist) & PREN_CAPS_EXIST)
-#define HAS_HE_MU_EDCA_EXIST(exist)     ((exist) & HE_MU_EDCA_EXIST)
-#define HAS_HE_6G_CAP_EXIST(exist)     ((exist) & HE_6G_CAP_EXIST)
-
-
-#define SET_HT_CAPS_EXIST(exist)        ((exist) |= HT_CAPS_EXIST)
-#define SET_HT_OP_EXIST(exist)          ((exist) |= HT_OP_EXIST)
-#define SET_VHT_CAPS_EXIST(exist)       ((exist) |= VHT_CAPS_EXIST)
-#define SET_VHT_OP_EXIST(exist)         ((exist) |= VHT_OP_EXIST)
-#define SET_HE_CAPS_EXIST(exist)        ((exist) |= HE_CAPS_EXIST)
-#define SET_HE_OP_EXIST(exist)          ((exist) |= HE_OP_EXIST)
-#define SET_WMM_CAPS_EXIST(exist)       ((exist) |= WMM_CAPS_EXIST)
-#define SET_PREN_CAPS_EXIST(exist)      ((exist) |= PREN_CAPS_EXIST)
-#define SET_HE_MU_EDCA_EXIST(exist)     ((exist) |= HE_MU_EDCA_EXIST)
-#define SET_HE_6G_CAP_EXIST(exist)     ((exist) |= HE_6G_CAP_EXIST)
-
-
-#define CLR_HT_CAPS_EXIST(exist)        ((exist) &= (~HT_CAPS_EXIST))
-#define CLR_HT_OP_EXIST(exist)          ((exist) &= (~HT_OP_EXIST))
-#define CLR_VHT_CAPS_EXIST(exist)       ((exist) &= (~VHT_CAPS_EXIST))
-#define CLR_VHT_OP_EXIST(exist)         ((exist) &= (~VHT_OP_EXIST))
-#define CLR_HE_CAPS_EXIST(exist)        ((exist) &= (~HE_CAPS_EXIST))
-#define CLR_HE_OP_EXIST(exist)          ((exist) &= (~HE_OP_EXIST))
-#define CLR_WMM_CAPS_EXIST(exist)       ((exist) &= (~WMM_CAPS_EXIST))
-#define CLR_PREN_CAPS_EXIST(exist)      ((exist) &= (~PREN_CAPS_EXIST))
-#define CLR_HE_MU_EDCA_EXIST(exist)     ((exist) &= (~HE_MU_EDCA_EXIST))
 
 
 typedef struct _BSS_ENTRY {
@@ -1286,7 +1055,6 @@ typedef struct _BSS_ENTRY {
 	UCHAR Bssid[MAC_ADDR_LEN];
 	UCHAR Channel;
 	UCHAR CentralChannel;	/*Store the wide-band central channel for 40MHz.  .used in 40MHz AP. Or this is the same as Channel. */
-	UCHAR SecCentralChannel;   /* The central channel of second channel for 80MHz+80MHz  */
 	ULONG ClientStatusFlags;
 	UCHAR BssType;
 	USHORT AtimWin;
@@ -1298,7 +1066,9 @@ typedef struct _BSS_ENTRY {
 	UCHAR ExtRateLen;
 	UCHAR Erp;
 	HT_CAPABILITY_IE HtCapability;
+	UCHAR HtCapabilityLen;
 	ADD_HT_INFO_IE AddHtInfo;	/* AP might use this additional ht info IE */
+	UCHAR AddHtInfoLen;
 	EXT_CAP_INFO_ELEMENT ExtCapInfo;	/* this is the extened capibility IE appreed in MGMT frames. Doesn't need to update once set in Init. */
 	UCHAR NewExtChanOffset;
 	CHAR Rssi;
@@ -1309,6 +1079,8 @@ typedef struct _BSS_ENTRY {
 #endif /* CFG80211_SCAN_SIGNAL_AVG */
 
 #ifdef DOT11_VHT_AC
+	UCHAR vht_cap_len;
+	UCHAR vht_op_len;
 	VHT_CAP_IE vht_cap_ie;
 	VHT_OP_IE vht_op_ie;
 #endif /* DOT11_VHT_AC */
@@ -1351,11 +1123,6 @@ typedef struct _BSS_ENTRY {
 #ifdef DOT11W_PMF_SUPPORT
 	BOOLEAN IsSupportSHA256KeyDerivation;
 #endif /* DOT11W_PMF_SUPPORT */
-	UCHAR rsnxe_content[MAX_LEN_OF_RSNXEIE];
-	UCHAR rsnxe_len;
-#if defined(DOT11_SAE_SUPPORT) || defined(SUPP_SAE_SUPPORT)
-	UCHAR sae_conn_type;
-#endif
 
 	/* CCX Ckip information */
 	UCHAR CkipFlag;
@@ -1374,16 +1141,6 @@ typedef struct _BSS_ENTRY {
 	USHORT WscDPIDFromWpsAP;
 #endif /* WSC_INCLUDED */
 
-#ifdef CONFIG_STA_SUPPORT
-	WPA_IE_ WpaIE;
-	WPA_IE_ RsnIE;
-	WPA_IE_ WpsIE;
-
-#ifdef EXT_BUILD_CHANNEL_LIST
-	UCHAR CountryString[3];
-	BOOLEAN bHasCountryIE;
-#endif /* EXT_BUILD_CHANNEL_LIST */
-#endif /* CONFIG_STA_SUPPORT */
 
 
 #if defined(DOT11R_FT_SUPPORT) || defined(DOT11K_RRM_SUPPORT)
@@ -1397,68 +1154,48 @@ typedef struct _BSS_ENTRY {
 	UINT8 CondensedPhyType;
 	UINT8 RSNI;
 #endif /* DOT11K_RRM_SUPPORT */
-#ifdef MWDS
-	BOOLEAN		bSupportMWDS;		/* Determine If own MWDS capability */
-#endif /* MWDS */
-#ifdef CUSTOMER_VENDOR_IE_SUPPORT
-	struct customer_bss_entry CustomerBssEntry;
-#endif/* CUSTOMER_VENDOR_IE_SUPPORT */
+#if defined(CUSTOMER_DCC_FEATURE) || defined(CONFIG_MAP_SUPPORT)
+	ULONG LastBeaconRxTimeT;
+	UCHAR  Snr[4];
+	CHAR   rssi[4];
+	UCHAR  vendorOUI0[3];
+	UCHAR  vendorOUI1[3];
+#endif
 #ifdef CONFIG_OWE_SUPPORT
 	/* it can find a pairing OWE bss,
 	 * hide this OPEN bss,
 	 * skip to show it in scan result and skip to connect to it.
 	 */
-	BOOLEAN		hide_open_owe_bss;
-	BOOLEAN     bhas_owe_trans_ie;
+	BOOLEAN		hide_owe_bss;
+	BOOLEAN 	bhas_owe_trans_ie;
+
+
 	UCHAR  owe_trans_ie[MAX_VIE_LEN];
 	USHORT owe_trans_ie_len;
+
+
 #endif /*CONFIG_OWE_SUPPORT*/
-	enum ie_exist ie_exists;
 #ifdef CONFIG_MAP_SUPPORT
-	BOOLEAN         map_vendor_ie_found;
+	BOOLEAN		map_vendor_ie_found;
 	struct map_vendor_ie map_info;
-#endif
-#ifdef OCE_SUPPORT
-	BOOLEAN	 is_oce_ap;
-	BOOLEAN	is_11bonly_ap;
-#endif /* OCE_SUPPORT */
-
-#ifdef DOT11V_MBSSID_SUPPORT
-	UINT8	max_bssid_indicator;
-	UINT8	mbssid_index;
-#endif
-#ifdef DOT11_HE_AX
-	struct he_cap_ie he_caps;
-	struct he_txrx_mcs_nss he_mcs_nss_160;
-	struct he_txrx_mcs_nss he_mcs_nss_8080;
-	struct he_op_ie he_ops;
-#endif /* DOT11_HE_AX */
-
-#ifdef DPP_R2_SUPPORT
-	BOOLEAN cce_vendor_ie_found;
-	struct cce_vendor_ie cce_info;
-#endif
-#ifdef CONFIG_6G_SUPPORT
-	UINT8	rnr_channel;
-#endif
-#ifdef MAP_6E_SUPPORT
-	struct map_rnr rnr_info;
+	INT32	rssi_sum;
+	INT32 avg_rssi;
+	INT32 rx_cnt;
 #endif
 } BSS_ENTRY;
 
-typedef struct _BSS_TABLE{
+typedef struct {
 	UINT BssNr;
-	UINT           BssOverlapNr;
+	UCHAR           BssOverlapNr;
 	BSS_ENTRY       BssEntry[MAX_LEN_OF_BSS_TABLE];
-#ifdef CUSTOMER_VENDOR_IE_SUPPORT
-	USHORT		EventBssEntryLen;
-	NDIS_SPIN_LOCK	event_bss_entry_lock;
-#endif /* CUSTOMER_VENDOR_IE_SUPPORT */
 } BSS_TABLE, *PBSS_TABLE;
 
 
 struct raw_rssi_info {
-	UCHAR raw_rssi[4];
+	CHAR raw_rssi[4];
+#if defined(CUSTOMER_DCC_FEATURE) || defined(CONFIG_MAP_SUPPORT)
+	UCHAR raw_Snr[4];
+#endif
 	UCHAR raw_snr;
 	UCHAR Channel;
 };
@@ -1472,7 +1209,7 @@ typedef struct _MLME_QUEUE_ELEM {
 	struct raw_rssi_info rssi_info;
 	UCHAR Signal;
 	UCHAR Channel;
-	UINT16 Wcid;
+	UCHAR Wcid;
 	BOOLEAN Occupied;
 	UCHAR OpMode;
 	ULONG Priv;
@@ -1485,40 +1222,11 @@ typedef struct _MLME_QUEUE {
 	ULONG Num;
 	ULONG Head;
 	ULONG Tail;
-	ULONG MaxLen;
 	NDIS_SPIN_LOCK Lock;
-#ifdef MLME_MULTI_QUEUE_SUPPORT
-	UCHAR Ration;
-#endif
 	MLME_QUEUE_ELEM Entry[MAX_LEN_OF_MLME_QUEUE];
 } MLME_QUEUE, *PMLME_QUEUE;
 
-#ifdef MLME_MULTI_QUEUE_SUPPORT
-/*Mlme High priority queue */
-typedef struct _MLME_HP_QUEUE {
-       ULONG Num;
-       ULONG Head;
-       ULONG Tail;
-       ULONG MaxLen;
-       NDIS_SPIN_LOCK Lock;
-       UCHAR Ration;
-       MLME_QUEUE_ELEM Entry[MAX_LEN_OF_MLME_HP_QUEUE];
-} MLME_HP_QUEUE, *PMLME_HP_QUEUE;
-
-/*Mlme Low priority queue */
-typedef struct _MLME_LP_QUEUE {
-       ULONG Num;
-       ULONG Head;
-       ULONG Tail;
-       ULONG MaxLen;
-       NDIS_SPIN_LOCK Lock;
-       UCHAR Ration;
-       MLME_QUEUE_ELEM Entry[MAX_LEN_OF_MLME_LP_QUEUE];
-} MLME_LP_QUEUE, *PMLME_LP_QUEUE;
-#endif /*MLME_MULTI_QUEUE_SUPPORT*/
-
 typedef VOID(*STATE_MACHINE_FUNC)(VOID * pAd, MLME_QUEUE_ELEM * Elem);
-typedef BOOLEAN (*STATE_MACHINE_MSG_CHECKER)(VOID *pAd, MLME_QUEUE_ELEM *Elem);
 
 typedef struct _STATE_MACHINE {
 	ULONG				Base;
@@ -1526,12 +1234,11 @@ typedef struct _STATE_MACHINE {
 	ULONG				NrMsg;
 	ULONG				CurrState;
 	STATE_MACHINE_FUNC	*TransFunc;
-    STATE_MACHINE_MSG_CHECKER MsgChecker;
 } STATE_MACHINE, *PSTATE_MACHINE;
 
 #ifdef CONFIG_AP_SUPPORT
 #ifdef APCLI_SUPPORT
-typedef VOID(*APCLI_STATE_MACHINE_FUNC)(VOID *pAd, MLME_QUEUE_ELEM *Elem, PULONG pCurrState, USHORT ifIndex);
+typedef VOID(*APCLI_STATE_MACHINE_FUNC)(VOID * pAd, MLME_QUEUE_ELEM * Elem, PULONG pCurrState, USHORT ifIndex);
 
 typedef struct _STA_STATE_MACHINE {
 	ULONG Base;
@@ -1542,25 +1249,6 @@ typedef struct _STA_STATE_MACHINE {
 } APCLI_STATE_MACHINE, *PSTA_STATE_MACHINE;
 #endif /* APCLI_SUPPORT */
 #endif /* CONFIG_AP_SUPPORT */
-
-struct legacy_rate {
-	UINT8 sup_rate_len;
-	UINT8 sup_rate[MAX_LEN_OF_SUPPORTED_RATES];
-	UINT8 ext_rate_len;
-	UINT8 ext_rate[MAX_LEN_OF_SUPPORTED_RATES];
-};
-
-struct rate_caps {
-	/* ht */
-	/* vht */
-	/* he */
-	UINT8 he80_tx_nss_mcs[HE_MAX_SUPPORT_STREAM];
-	UINT8 he80_rx_nss_mcs[HE_MAX_SUPPORT_STREAM];
-	UINT8 he160_tx_nss_mcs[HE_MAX_SUPPORT_STREAM];
-	UINT8 he160_rx_nss_mcs[HE_MAX_SUPPORT_STREAM];
-	UINT8 he8080_tx_nss_mcs[HE_MAX_SUPPORT_STREAM];
-	UINT8 he8080_rx_nss_mcs[HE_MAX_SUPPORT_STREAM];
-};
 
 /* MLME AUX data structure that hold temporarliy settings during a connection attempt. */
 /* Once this attemp succeeds, all settings will be copy to pAd->StaActive. */
@@ -1581,7 +1269,7 @@ typedef struct _MLME_AUX {
 	UCHAR				OldChannel;
 	UCHAR               CentralChannel;
 #ifdef FOLLOW_HIDDEN_SSID_FEATURE
-	UCHAR				Hidden;
+	UCHAR			Hidden;
 #endif
 #ifdef CONFIG_MULTI_CHANNEL
 	UCHAR               InfraChannel;
@@ -1596,14 +1284,20 @@ typedef struct _MLME_AUX {
 
 	/* Copy supported rate from desired AP's beacon. We are trying to match */
 	/* AP's supported and extended rate settings. */
-	struct legacy_rate  rate;
+	UCHAR		        SupRate[MAX_LEN_OF_SUPPORTED_RATES];
+	UCHAR		        ExtRate[MAX_LEN_OF_SUPPORTED_RATES];
+	UCHAR		        SupRateLen;
+	UCHAR		        ExtRateLen;
 	HT_CAPABILITY_IE		HtCapability;
+	UCHAR				HtCapabilityLen;
 	ADD_HT_INFO_IE		AddHtInfo;	/* AP might use this additional ht info IE */
 	EXT_CAP_INFO_ELEMENT ExtCapInfo; /* this is the extened capibility IE appreed in MGMT frames. Doesn't need to update once set in Init. */
 	UCHAR			NewExtChannelOffset;
 	/*RT_HT_CAPABILITY	SupportedHtPhy; */
 
 #ifdef DOT11_VHT_AC
+	UCHAR vht_cap_len;
+	UCHAR vht_op_len;
 	VHT_CAP_IE vht_cap;
 	VHT_OP_IE vht_op;
 	UCHAR vht_cent_ch;
@@ -1620,7 +1314,7 @@ typedef struct _MLME_AUX {
 	struct _vendor_ie_cap vendor_ie;
 
 	BSS_TABLE           SsidBssTab;     /* AP list for the same SSID */
-#ifdef CONFIG_OWE_SUPPORT
+#ifdef APCLI_OWE_SUPPORT
 	BSS_TABLE           owe_bss_tab;     /* AP list for the same SSID */
 #endif
 	BSS_TABLE           RoamTab;        /* AP list eligible for roaming */
@@ -1628,62 +1322,37 @@ typedef struct _MLME_AUX {
 	ULONG               RoamIdx;
 	BOOLEAN				CurrReqIsFromNdis;
 
-    RALINK_TIMER_STRUCT JoinTimer;
+	RALINK_TIMER_STRUCT BeaconTimer, ScanTimer;
 	RALINK_TIMER_STRUCT AuthTimer;
 	RALINK_TIMER_STRUCT AssocTimer, ReassocTimer, DisassocTimer;
 
-	TIMER_FUNC_CONTEXT  JoinTimerFuncContext;
+	TIMER_FUNC_CONTEXT  BeaconTimerFuncContext;
 	TIMER_FUNC_CONTEXT  ScanTimerFuncContext;
 	TIMER_FUNC_CONTEXT  AuthTimerFuncContext;
 	TIMER_FUNC_CONTEXT  AssocTimerFuncContext;
 	TIMER_FUNC_CONTEXT  ReassocTimerFuncContext;
 	TIMER_FUNC_CONTEXT  DisassocTimerFuncContext;
 
+#ifdef CONFIG_AP_SUPPORT
+#ifdef APCLI_SUPPORT
 	USHORT              VarIELen;           /* Length of next VIE include EID & Length */
 	UCHAR               VarIEs[MAX_VIE_LEN];
 	LONG				Rssi; /* Record the rssi value when receive Probe Rsp. */
-
+	RALINK_TIMER_STRUCT ProbeTimer, ApCliAssocTimer, ApCliAuthTimer;
 	RALINK_TIMER_STRUCT WpaDisassocAndBlockAssocTimer;
 #ifdef DOT11W_PMF_SUPPORT
 	RSN_CAPABILITIES	RsnCap;
 	BOOLEAN			IsSupportSHA256KeyDerivation;
 #endif /* DOT11W_PMF_SUPPORT */
-#if defined(DOT11_SAE_SUPPORT) || defined(SUPP_SAE_SUPPORT)
-	UCHAR sae_conn_type;
-#endif
-	UCHAR rsnxe_content[MAX_LEN_OF_RSNXEIE];
-	UCHAR rsnxe_len;
+#endif /* APCLI_SUPPORT */
+#endif /* CONFIG_AP_SUPPORT */
 
-#ifdef CONFIG_STA_SUPPORT
-#ifdef DOT11R_FT_SUPPORT
-	RALINK_TIMER_STRUCT FtOtdActTimer;
-	RALINK_TIMER_STRUCT FtOtaAuthTimer;
-	FT_MDIE_INFO	MdIeInfo;
-	FT_FTIE_INFO	FtIeInfo;
 
-	UINT8			InitialMDIE[5];
-	UINT8			InitialFTIE[256];
-	UINT			InitialFTIE_Len;
-#endif /* DOT11R_FT_SUPPORT */
-#endif /* CONFIG_STA_SUPPORT */
-
-#ifdef P2P_SUPPORT
-	BOOLEAN				bBwFallBack;
-	UCHAR				ConCurrentCentralChannel;
-#endif /* P2P_SUPPORT */
 	UINT32 AKMMap;
 	UINT32 PairwiseCipher;
 	UINT32 GroupCipher;
 	UINT32 IntegrityGroupCipher;
-#ifdef MWDS
-	BOOLEAN		bSupportMWDS;		/* Determine If own MWDS capability */
-#endif /* MWDS */
-	BOOLEAN isRecvJoinRsp;
-	enum ie_exist ie_exists;
-#ifdef DOT11V_MBSSID_SUPPORT
-	UINT8	max_bssid_indicator;
-	UINT8	mbssid_index;
-#endif
+	UINT32 candidate_score;
 } MLME_AUX, *PMLME_AUX;
 
 
@@ -1719,40 +1388,58 @@ typedef struct _MLME_AUX {
 
 
 typedef struct _MLME_ADDBA_REQ_STRUCT {
-	UINT16   Wcid;
+	UCHAR   Wcid;
 	UCHAR   pAddr[MAC_ADDR_LEN];
-	UINT16   BaBufSize;
+	UCHAR   BaBufSize;
 	USHORT	TimeOutValue;
 	UCHAR   TID;
 	UCHAR   Token;
 	USHORT	BaStartSeq;
-	BOOLEAN	amsdu_support;
 } MLME_ADDBA_REQ_STRUCT, *PMLME_ADDBA_REQ_STRUCT;
 
-typedef struct _MLME_ADDBA_RESP_STRUCT {
-	UINT16   wcid;
-	UCHAR   addr[MAC_ADDR_LEN];
-	UCHAR   status;
-	UCHAR   token;
-	BOOLEAN	amsdu_support;
-	UCHAR   tid;
-	USHORT  buf_size;
-	USHORT  timeout;
-} MLME_ADDBA_RESP_STRUCT, *PMLME_ADDBA_RESP_STRUCT;
 
 typedef struct _MLME_DELBA_REQ_STRUCT {
-	UINT16   Wcid;	/* */
+	UCHAR   Wcid;	/* */
 	UCHAR     Addr[MAC_ADDR_LEN];
 	UCHAR   TID;
 	UCHAR	Initiator;
 } MLME_DELBA_REQ_STRUCT, *PMLME_DELBA_REQ_STRUCT;
 
+/* assoc struct is equal to reassoc */
 typedef struct _MLME_ASSOC_REQ_STRUCT {
 	UCHAR     Addr[MAC_ADDR_LEN];
 	USHORT    CapabilityInfo;
 	USHORT    ListenIntv;
 	ULONG     Timeout;
 } MLME_ASSOC_REQ_STRUCT, *PMLME_ASSOC_REQ_STRUCT, MLME_REASSOC_REQ_STRUCT, *PMLME_REASSOC_REQ_STRUCT;
+
+typedef struct _MLME_DISASSOC_REQ_STRUCT {
+	UCHAR     Addr[MAC_ADDR_LEN];
+	USHORT    Reason;
+} MLME_DISASSOC_REQ_STRUCT, *PMLME_DISASSOC_REQ_STRUCT;
+
+typedef struct _MLME_AUTH_REQ_STRUCT {
+	UCHAR        Addr[MAC_ADDR_LEN];
+	USHORT       Alg;
+	ULONG        Timeout;
+#ifdef MAC_REPEATER_SUPPORT
+	UCHAR	BssIdx;
+	UCHAR	CliIdx;
+#endif /* MAC_REPEATER_SUPPORT */
+} MLME_AUTH_REQ_STRUCT, *PMLME_AUTH_REQ_STRUCT;
+
+typedef struct _MLME_DEAUTH_REQ_STRUCT {
+	UCHAR        Addr[MAC_ADDR_LEN];
+	USHORT       Reason;
+} MLME_DEAUTH_REQ_STRUCT, *PMLME_DEAUTH_REQ_STRUCT;
+typedef struct _MLME_BROADCAST_DEAUTH_REQ_STRUCT {
+    UCHAR        		Addr[MAC_ADDR_LEN];
+    USHORT       		Reason;
+	struct wifi_dev  	*wdev;
+} MLME_BROADCAST_DEAUTH_REQ_STRUCT, *PMLME_BROADCAST_DEAUTH_REQ_STRUCT;
+typedef struct {
+	ULONG      BssIdx;
+} MLME_JOIN_REQ_STRUCT;
 
 typedef struct _MLME_SCAN_REQ_STRUCT {
 	UCHAR      Bssid[MAC_ADDR_LEN];
@@ -1761,35 +1448,11 @@ typedef struct _MLME_SCAN_REQ_STRUCT {
 	UCHAR      SsidLen;
 	CHAR       Ssid[MAX_LEN_OF_SSID];
 } MLME_SCAN_REQ_STRUCT, *PMLME_SCAN_REQ_STRUCT;
-typedef struct _MLME_BROADCAST_DEAUTH_REQ_STRUCT {
-    UCHAR			Addr[MAC_ADDR_LEN];
-    USHORT		Reason;
-	struct wifi_dev	*wdev;
-} MLME_BROADCAST_DEAUTH_REQ_STRUCT, *PMLME_BROADCAST_DEAUTH_REQ_STRUCT;
 
-typedef struct _MLME_WNM_EVT_REPORT_STRUCT {
-	struct wifi_dev *wdev;
-	UCHAR           diag_token;
-	UCHAR           element_id;
-	UCHAR           token;
-	UCHAR           type;
-	UCHAR           status;
-	UCHAR           report[8];
-} MLME_WNM_EVT_REPORT_STRUCT, *PMLME_WNM_EVT_REPORT_STRUCT;
-
-typedef struct GNU_PACKED _FRAME_WNM_EVT_REPORT {
-	HEADER_802_11   Hdr;
-	UCHAR   Category;
-	UCHAR   Action;
-	UCHAR   Token;
-	UCHAR   Element_ID;
-	UCHAR   Length;
-	UCHAR   EvtToken;
-	UCHAR   EvtType;
-	UCHAR   EvtStatus;
-	UCHAR   TSF[8];
-	UCHAR   EvtReport[8];
-} FRAME_WNM_EVT_REPORT, *PFRAME_WNM_EVT_REPORT;
+typedef struct _MLME_START_REQ_STRUCT {
+	CHAR        Ssid[MAX_LEN_OF_SSID];
+	UCHAR       SsidLen;
+} MLME_START_REQ_STRUCT, *PMLME_START_REQ_STRUCT;
 
 /* Timing Measurement Frame REQ Format */
 typedef struct GNU_PACKED _FRAME_TMR_REQ_ACTION {
@@ -1813,6 +1476,13 @@ typedef struct GNU_PACKED _FRAME_FTM_ACTION {
 	/*TODO: three optional present IE. (LCI, LCivic, FTM IE)*/
 }   FRAME_FTM_ACTION, *PFRAME_FTM_ACTION;
 
+typedef struct GNU_PACKED _EID_STRUCT {
+	UCHAR   Eid;
+	UCHAR   Len;
+	UCHAR   Octet[1];
+} EID_STRUCT, *PEID_STRUCT, BEACON_EID_STRUCT, *PBEACON_EID_STRUCT;
+
+
 /* ========================== AP mlme.h =============================== */
 #define TBTT_PRELOAD_TIME       384        /* usec. LomgPreamble + 24-byte at 1Mbps */
 #define DEFAULT_DTIM_PERIOD     1
@@ -1829,9 +1499,6 @@ typedef struct GNU_PACKED _FRAME_FTM_ACTION {
 
 /* AP shall drop the sta if contine Tx fail count reach it. */
 #define MAC_ENTRY_LIFE_CHECK_CNT		1024			/* packet cnt. */
-#define CONTD_PER_ERR_CNT_UC			200				/* 200*300ms = 60s*/
-#define CONTD_TX_FAIL_CNT				(100 * 256)
-												/* mpdu fail per 300ms */
 
 /* Value domain of pMacEntry->Sst */
 typedef enum _Sst {
@@ -1855,15 +1522,12 @@ struct _build_ie_info {
 	UCHAR frame_subtype;
 	BOOLEAN g_band_256_qam;
 	UCHAR channel;
-	USHORT phy_mode;
+	UCHAR phy_mode;
 	BOOLEAN is_draft_n_type;
-	UINT16 ReptMacTabWCID;
 	struct wifi_dev *wdev;
-	UINT16 pos;
 };
 
 #ifdef HOSTAPD_OWE_SUPPORT
-#ifndef CONFIG_OWE_SUPPORT
 typedef struct GNU_PACKED _EXT_ECDH_PARAMETER_IE {
 	UCHAR ext_ie_id;
 	UCHAR length;
@@ -1872,11 +1536,12 @@ typedef struct GNU_PACKED _EXT_ECDH_PARAMETER_IE {
 	UCHAR public_key[128];
 } EXT_ECDH_PARAMETER_IE, *PEXT_ECDH_PARAMETER_IE;
 #endif
-#endif
+
 struct _op_info {
 	UINT8 bw;
 	UINT8 cent_ch;
 };
+
 
 #ifdef IGMP_TVM_SUPPORT
 #define IGMP_TVM_IE_LENGTH	7
@@ -1898,33 +1563,6 @@ struct GNU_PACKED _nec_tvm_ie {
 };
 #endif /* IGMP_TVM_SUPPORT */
 
-struct common_ies {
-	enum ie_exist ie_exists;
-	struct legacy_rate rate;
-	struct _vendor_ie_cap vendor_ie;
-	HT_CAPABILITY_IE ht_cap;
-	ADD_HT_INFO_IE ht_op;
-#ifdef DOT11_VHT_AC
-	VHT_CAP_IE vht_cap;
-	VHT_OP_IE vht_op;
-	OPERATING_MODE operating_mode;
-	UCHAR operating_mode_len;
-	WIDE_BW_CH_SWITCH_ELEMENT wb_info;
-#endif /* DOT11_VHT_AC */
-#ifdef DOT11_HE_AX
-	struct he_cap_ie he_caps;
-	struct he_txrx_mcs_nss mcs_nss_160;
-	struct he_txrx_mcs_nss mcs_nss_8080;
-	struct he_op_ie he_ops;
-	struct he_sr_ie he_sr_ies;
-	struct vht_opinfo he_vht_opinfo;
-	struct mu_edca_params he_mu_edca;
-	struct he_6g_cap_ie he6g_caps;
-	struct he_6g_op_info he6g_opinfo;
-	UINT8 he_max_co_hosted_bssid_ind;
-#endif /*DOT11_HE_AX*/
-};
-
 typedef struct _IE_lists {
 	UCHAR Addr1[MAC_ADDR_LEN];
 	UCHAR Addr2[MAC_ADDR_LEN];
@@ -1933,17 +1571,17 @@ typedef struct _IE_lists {
 	USHORT ListenInterval;
 	UCHAR SsidLen;
 	UCHAR Ssid[MAX_LEN_OF_SSID];
-	struct legacy_rate rate;
+	UCHAR SupportedRatesLen;
+	UCHAR SupportedRates[MAX_LEN_OF_SUPPORTED_RATES];
 	UCHAR SupportedChlLen;
 	UCHAR SupportedChl[MAX_LEN_OF_SUPPORTED_CHL];
 	UCHAR RSN_IE[MAX_LEN_OF_RSNIE];
 	UCHAR RSNIE_Len;
-	UCHAR rsnxe_ie[MAX_LEN_OF_RSNXEIE];
-	UCHAR rsnxe_ie_len;
 	BOOLEAN bWmmCapable;
 #if defined(WSC_AP_SUPPORT) || defined(RT_CFG80211_SUPPORT)
 	BOOLEAN bWscCapable;
 #endif /* defined(WSC_AP_SUPPORT) || defined(RT_CFG80211_SUPPORT) */
+	struct _vendor_ie_cap vendor_ie;
 	EXT_CAP_INFO_ELEMENT ExtCapInfo;
 #ifdef DOT11R_FT_SUPPORT
 	FT_INFO FtInfo;
@@ -1953,38 +1591,26 @@ typedef struct _IE_lists {
 #endif /* DOT11K_RRM_SUPPORT */
 #ifdef CONFIG_MAP_SUPPORT
 	UCHAR MAP_AttriValue;
-#ifdef MAP_R2
-	UCHAR MAP_ProfileValue;
-	UINT16 MAP_default_vid;
 #endif
-#endif
-#ifdef P2P_SUPPORT
-	ULONG P2PSubelementLen;
-	UCHAR P2pSubelement[MAX_VIE_LEN];
-#endif /* P2P_SUPPORT */
+	UCHAR ht_cap_len;
+	HT_CAPABILITY_IE HTCapability;
+#ifdef DOT11_VHT_AC
+	VHT_CAP_IE vht_cap;
+	VHT_OP_IE vht_op;
+	UCHAR vht_cap_len;
+	UCHAR vht_op_len;
+	UCHAR operating_mode_len;
+	OPERATING_MODE operating_mode;
+#endif /* DOT11_VHT_AC */
 #if defined(CONFIG_OWE_SUPPORT) || defined(HOSTAPD_OWE_SUPPORT)
 	EXT_ECDH_PARAMETER_IE ecdh_ie;
 #endif /*CONFIG_OWE_SUPPORT*/
-#ifdef DOT11_HE_AX
-#ifdef WIFI_TWT_SUPPORT
-	struct itwt_ie twt_ie;
-#endif /* WIFI_TWT_SUPPORT */
-#endif /* DOT11_HE_AX */
-	struct common_ies cmm_ies;
+
 #ifdef IGMP_TVM_SUPPORT
 	struct _nec_tvm_ie tvm_ie;
 #endif /* IGMP_TVM_SUPPORT */
-#ifdef QOS_R1
-	UCHAR has_mscs_req;
-#ifdef QOS_R2
-	UCHAR DSCPPolicyEnable;
-#endif
-#endif
-#ifdef CUSTOMER_VENDOR_IE_SUPPORT
-	struct customer_vendor_ie CustomerVendorIE;
-#endif /* CUSTOMER_VENDOR_IE_SUPPORT */
-	UINT8 current_opclass;
 } IE_LISTS;
+
 
 typedef struct _bcn_ie_list {
 	UCHAR Addr2[MAC_ADDR_LEN];
@@ -2000,11 +1626,12 @@ typedef struct _bcn_ie_list {
 	UCHAR Erp;
 	UCHAR DtimCount;
 	UCHAR DtimPeriod;
-#ifdef TR181_SUPPORT
-	UCHAR NbrDtimPeriod;
-#endif
 	UCHAR BcastFlag;
 	UCHAR MessageToMe;
+	UCHAR SupRate[MAX_LEN_OF_SUPPORTED_RATES];
+	UCHAR SupRateLen;
+	UCHAR ExtRate[MAX_LEN_OF_SUPPORTED_RATES];
+	UCHAR ExtRateLen;
 	UCHAR CkipFlag;
 	UCHAR AironetCellPowerLimit;
 	LARGE_INTEGER TimeStamp;
@@ -2014,29 +1641,28 @@ typedef struct _bcn_ie_list {
 	QOS_CAPABILITY_PARM QosCapability;
 	struct _vendor_ie_cap vendor_ie;
 	EXT_CAP_INFO_ELEMENT ExtCapInfo;
+	UCHAR HtCapabilityLen;
+	UCHAR PreNHtCapabilityLen;
+	HT_CAPABILITY_IE HtCapability;
+	UCHAR AddHtInfoLen;
+	ADD_HT_INFO_IE AddHtInfo;
 	UCHAR NewExtChannelOffset;
-#ifdef CONFIG_STA_SUPPORT
-#ifdef NATIVE_WPA_SUPPLICANT_SUPPORT
-	/* TODO: shiang-usw, is the size large enough? */
-	UCHAR selReg;
-#endif /* NATIVE_WPA_SUPPLICANT_SUPPORT */
-#endif /* CONFIG_STA_SUPPORT */
+#ifdef DOT11_VHT_AC
+	VHT_CAP_IE vht_cap_ie;
+	VHT_OP_IE vht_op_ie;
+	UCHAR vht_cap_len;
+	UCHAR vht_op_len;
+	WIDE_BW_CH_SWITCH_ELEMENT wb_info;
+#endif /* DOT11_VHT_AC */
 	BOOLEAN  FromBcnReport;
 	BOOLEAN is_marvell_ap;
-#ifdef CUSTOMER_VENDOR_IE_SUPPORT
-	struct customer_vendor_ie CustomerVendorIE;
-#endif /* CUSTOMER_VENDOR_IE_SUPPORT */
-#ifdef OCE_SUPPORT
-	BOOLEAN is_oce_ap;
-	BOOLEAN is_11bonly_ap;
-#endif /* OCE_SUPPORT */
-	struct common_ies cmm_ies;
-	CSA_IE_INFO CsaInfo;
-#ifdef CONFIG_6G_SUPPORT
-	UINT8	rnr_channel;
+	BOOLEAN is_atheros_ap;
+#if defined(CUSTOMER_DCC_FEATURE) || defined(CONFIG_MAP_SUPPORT)
+	UCHAR	VendorID0[3];
+	UCHAR	VendorID1[3];
 #endif
-#ifdef MAP_6E_SUPPORT
-	struct map_rnr rnr_info;
+#ifdef CONFIG_RCSA_SUPPORT
+	CSA_IE_INFO CsaInfo;
 #endif
 } BCN_IE_LIST;
 
@@ -2058,21 +1684,9 @@ typedef struct _MLME_QOS_ACTION_STRUCT {
 	QOSMAP_SET	QOSMap;
 } MLME_QOS_ACTION_STRUCT, *PMLME_QOS_ACTION_STRUCT;
 
-#ifdef CUSTOMER_VENDOR_IE_SUPPORT
-VOID CustomerBssEntrySet(
-	IN struct _RTMP_ADAPTER *pAd,
-	struct wifi_dev *wdev,
-	IN BCN_IE_LIST *ie_list,
-	IN BSS_ENTRY * pBss,
-	IN USHORT LengthVIE,
-	IN PNDIS_802_11_VARIABLE_IEs pVIE);
-#endif /* CUSTOMER_VENDOR_IE_SUPPORT */
+
 #ifdef CHANNEL_SWITCH_MONITOR_CONFIG
 extern VOID ch_switch_monitor_state_machine_init(struct _RTMP_ADAPTER *pAd);
-extern VOID ch_switch_monitor_exit(struct _RTMP_ADAPTER *pAd);
+extern VOID ch_switch_monitor_del(struct _RTMP_ADAPTER *pAd);
 #endif
-
-ULONG Crcbitbybitfast(unsigned char *p, unsigned long len);
-
 #endif	/* MLME_H__ */
-

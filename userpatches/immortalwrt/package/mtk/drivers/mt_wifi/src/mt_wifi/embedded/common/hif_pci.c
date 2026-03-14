@@ -1,624 +1,972 @@
-/*
- * Copyright (c) [2020], MediaTek Inc. All rights reserved.
- *
- * This software/firmware and related documentation ("MediaTek Software") are
- * protected under relevant copyright laws.
- * The information contained herein is confidential and proprietary to
- * MediaTek Inc. and/or its licensors.
- * Except as otherwise provided in the applicable licensing terms with
- * MediaTek Inc. and/or its licensors, any reproduction, modification, use or
- * disclosure of MediaTek Software, and information contained herein, in whole
- * or in part, shall be strictly prohibited.
-*/
 /***************************************************************************
+ * MediaTek Inc.
+ * 4F, No. 2 Technology 5th Rd.
+ * Science-based Industrial Park
+ * Hsin-chu, Taiwan, R.O.C.
+ *
+ * (c) Copyright 1997-2012, MediaTek, Inc.
+ *
+ * All rights reserved. MediaTek source code is an unpublished work and the
+ * use of a copyright notice does not imply otherwise. This source code
+ * contains confidential trade secret material of MediaTek. Any attemp
+ * or participation in deciphering, decoding, reverse engineering or in any
+ * way altering the source code is stricitly prohibited, unless the prior
+ * written consent of MediaTek Technology, Inc. is obtained.
  ***************************************************************************
 
 */
 
 #include "rt_config.h"
-#include "common/link_list.h"
-#include "multi_hif.h"
-#ifdef RX_RPS_SUPPORT
-#include "mac/mac_mt/fmac/mt_fmac.h"
-#endif
 
-#ifdef CONFIG_WIFI_MSI_SUPPORT
-#ifdef MT7916
-#include "chip/mt7916_cr.h"
-#endif
-#endif
+#ifdef RX_SCATTER
+static INT rx_scatter_info(
+	IN RTMP_RX_RING * pRxRing,
+	IN RXD_STRUC * pRxD,
+	OUT UINT * pPktSize);
 
-/*local func.*/
-/*internal io read/write*/
-/*Read Ops*/
-/*
-*
-*/
-static VOID int_pci_io_force_read32(void *hdev_ctrl, UINT32 reg, UINT32 *val)
+static INT rx_scatter_gather(
+	RTMP_ADAPTER *pAd,
+	UCHAR hif_idx,
+	RTMP_DMACB *pRxCell,
+	RXD_STRUC *pRxD,
+	UINT scatterCnt,
+	UINT pktSize,
+	UINT *skb_data_len);
+#endif /* RX_SCATTER */
+
+VOID dump_txd(RTMP_ADAPTER *pAd, TXD_STRUC *pTxD)
 {
-	struct _PCI_HIF_T *pci_hif = hc_get_hif_ctrl(hdev_ctrl);
-
-	*val = readl((void *)(pci_hif->CSRBaseAddress + reg));
+	MTWF_LOG(DBG_CAT_HIF, CATHIF_PCI, DBG_LVL_OFF, ("TxD:\n"));
+	MTWF_LOG(DBG_CAT_HIF, CATHIF_PCI, DBG_LVL_OFF, ("\tSDPtr0=0x%x\n", pTxD->SDPtr0));
+	MTWF_LOG(DBG_CAT_HIF, CATHIF_PCI, DBG_LVL_OFF, ("\tSDLen0=0x%x\n", pTxD->SDLen0));
+	MTWF_LOG(DBG_CAT_HIF, CATHIF_PCI, DBG_LVL_OFF, ("\tLastSec0=0x%x\n", pTxD->LastSec0));
+	MTWF_LOG(DBG_CAT_HIF, CATHIF_PCI, DBG_LVL_OFF, ("\tSDPtr1=0x%x\n", pTxD->SDPtr1));
+	MTWF_LOG(DBG_CAT_HIF, CATHIF_PCI, DBG_LVL_OFF, ("\tSDLen1=0x%x\n", pTxD->SDLen1));
+	MTWF_LOG(DBG_CAT_HIF, CATHIF_PCI, DBG_LVL_OFF, ("\tLastSec1=0x%x\n", pTxD->LastSec1));
+	MTWF_LOG(DBG_CAT_HIF, CATHIF_PCI, DBG_LVL_OFF, ("\tDMADONE=0x%x\n", pTxD->DMADONE));
+	MTWF_LOG(DBG_CAT_HIF, CATHIF_PCI, DBG_LVL_OFF, ("\tBurst=0x%x\n", pTxD->Burst));
 }
 
-/*
-*
-*/
-static VOID int_pci_io_read32(void *hdev_ctrl, UINT32 reg, UINT32 *val)
-{
-	struct _PCI_HIF_T *pci_hif = hc_get_hif_ctrl(hdev_ctrl);
 
-	if (pci_hif->bPCIclkOff == FALSE)
-		*val = readl((void *)(pci_hif->CSRBaseAddress + reg));
-	else
-		*val = 0;
+VOID dump_rxd(RTMP_ADAPTER *pAd, RXD_STRUC *pRxD)
+{
+	MTWF_LOG(DBG_CAT_HIF, CATHIF_PCI, DBG_LVL_OFF, ("RxD:\n"));
+	MTWF_LOG(DBG_CAT_HIF, CATHIF_PCI, DBG_LVL_OFF, ("\tSDPtr0/SDLen0/LastSec0=0x%x/0x%x/0x%x\n",
+			 pRxD->SDP0, pRxD->SDL0, pRxD->LS0));
+	MTWF_LOG(DBG_CAT_HIF, CATHIF_PCI, DBG_LVL_OFF, ("\tSDPtr1/SDLen1/LastSec1=0x%x/0x%x/0x%x\n",
+			 pRxD->SDP1, pRxD->SDL1, pRxD->LS1));
+	MTWF_LOG(DBG_CAT_HIF, CATHIF_PCI, DBG_LVL_OFF, ("\tDDONE=0x%x\n", pRxD->DDONE));
 }
 
-/*Write Ops*/
-/*
-*
-*/
-static VOID int_pci_io_force_write32(void *hdev_ctrl, UINT32 reg, UINT32 val)
+
+VOID dumpTxRing(RTMP_ADAPTER *pAd, INT ring_idx)
 {
-	struct _PCI_HIF_T *pci_hif = hc_get_hif_ctrl(hdev_ctrl);
+	RTMP_DMABUF *pDescRing;
+	RTMP_TX_RING *pTxRing;
+	TXD_STRUC *pTxD;
+	int index;
+	struct _RTMP_CHIP_CAP *cap = hc_get_chip_cap(pAd->hdev_ctrl);
+	UINT8 num_of_tx_ring = GET_NUM_OF_TX_RING(cap);
+	UINT16 tx_ring_size = GET_TX_RING_SIZE(cap);
+	struct _PCI_HIF_T *hif = hc_get_hif_ctrl(pAd->hdev_ctrl);
 
-	writel(val, (void *)(pci_hif->CSRBaseAddress + reg));
-}
+	ASSERT(ring_idx < num_of_tx_ring);
+	pDescRing = (RTMP_DMABUF *)hif->TxDescRing[ring_idx].AllocVa;
+	pTxRing = &hif->TxRing[ring_idx];
 
-/*
-*
-*/
-static VOID int_pci_io_write32(void *hdev_ctrl, UINT32 reg, UINT32 val)
-{
-	struct _PCI_HIF_T *pci_hif = hc_get_hif_ctrl(hdev_ctrl);
-
-	if (pci_hif->bPCIclkOff == FALSE)
-		writel(val, (void *)(pci_hif->CSRBaseAddress + reg));
-}
-
-/*handle specific CR and forwarding to platform handle*/
-#if defined(WHNAT_SUPPORT)
-/*
-*
-*/
-static VOID hook_pci_io_read32(void *hdev_ctrl, UINT32 addr, UINT32 *value)
-{
-	struct _RTMP_CHIP_OP *ops = hc_get_chip_ops(hdev_ctrl);
-
-	if (ops->hif_io_read32) {
-		if (ops->hif_io_read32(hdev_ctrl, addr, value) >= 0)
-			return;
-	}
-
-	int_pci_io_read32(hdev_ctrl, addr, value);
-}
-
-/*
-*
-*/
-static VOID hook_pci_io_write32(void *hdev_ctrl, UINT32 addr, UINT32 value)
-{
-	struct _RTMP_CHIP_OP *ops = hc_get_chip_ops(hdev_ctrl);
-
-	if (ops->hif_io_write32) {
-		if (ops->hif_io_write32(hdev_ctrl, addr, value) >= 0)
-			return;
-	}
-	int_pci_io_write32(hdev_ctrl, addr, value);
-}
-#endif /*WHNAT_SUPPORT*/
-
-/*
-*
-*/
-static VOID hook_pci_io_remap_read32(void *hdev_ctrl, UINT32 addr, UINT32 *value)
-{
-	struct _RTMP_CHIP_OP *ops = hc_get_chip_ops(hdev_ctrl);
-	struct _PCI_HIF_T *pci_hif = hc_get_hif_ctrl(hdev_ctrl);
-	ULONG flags = 0;
-
-	if (ops->hif_io_remap_read32) {
-		RTMP_SPIN_LOCK_IRQSAVE(&pci_hif->io_remap_lock, &flags);
-		ops->hif_io_remap_read32(hdev_ctrl, addr, value);
-		RTMP_SPIN_UNLOCK_IRQRESTORE(&pci_hif->io_remap_lock, &flags);
-		return;
+	for (index = 0; index < tx_ring_size; index++) {
+		pTxD = (TXD_STRUC *)pTxRing->Cell[index].AllocVa;
+		hex_dump("Dump TxDesc", (UCHAR *)pTxD, sizeof(TXD_STRUC));
+		dump_txd(pAd, pTxD);
 	}
 }
 
-/*
-*
-*/
-static VOID hook_pci_io_remap_write32(void *hdev_ctrl, UINT32 addr, UINT32 value)
+
+BOOLEAN MonitorTxRing(RTMP_ADAPTER *pAd)
 {
-	struct _RTMP_CHIP_OP *ops = hc_get_chip_ops(hdev_ctrl);
-	struct _PCI_HIF_T *pci_hif = hc_get_hif_ctrl(hdev_ctrl);
-	ULONG flags = 0;
+	UINT32 Value;
 
-	if (ops->hif_io_remap_write32) {
-		RTMP_SPIN_LOCK_IRQSAVE(&pci_hif->io_remap_lock, &flags);
-		ops->hif_io_remap_write32(hdev_ctrl, addr, value);
-		RTMP_SPIN_UNLOCK_IRQRESTORE(&pci_hif->io_remap_lock, &flags);
-		return;
-	}
-}
+	if (pAd->TxDMACheckTimes < 10) {
+		/* Check if TX DMA busy */
+		HIF_IO_READ32(pAd, MT_WPDMA_GLO_CFG, &Value);
 
-/*
-*
-*/
-static VOID pci_map_io_read32(void *hdev_ctrl, UINT32 reg, UINT32 *val)
-{
-	struct _PCI_HIF_T *pci_hif = hc_get_hif_ctrl(hdev_ctrl);
-	struct _RTMP_ADAPTER *ad = hc_get_hdev_privdata(hdev_ctrl);
+		if ((Value & TX_DMA_BUSY) == TX_DMA_BUSY) {
+			/* Check TX FIFO if have space */
+			HIF_IO_WRITE32(pAd, 0x4244, 0x98000000);
+			HIF_IO_READ32(pAd, 0x4244, &Value);
 
-	if (mt_mac_cr_range_mapping(ad, &reg) == TRUE) {
-
-		if (pci_hif->bPCIclkOff == FALSE)
-			*val = readl((void *)(pci_hif->CSRBaseAddress + reg));
-		else {
-			*val = 0;
+			if ((Value & (1 << 8)) == 0) {
+				pAd->TxDMACheckTimes = 0;
+				return FALSE;
+			} else {
+				pAd->TxDMACheckTimes++;
+				return FALSE;
+			}
+		} else {
+			pAd->TxDMACheckTimes = 0;
+			return FALSE;
 		}
 	} else {
-		hook_pci_io_remap_read32(hdev_ctrl, reg, val);
+		pAd->TxDMACheckTimes = 0;
+		return TRUE;
 	}
 }
 
-/*
-*
-*/
-static VOID pci_map_io_write32(void *hdev_ctrl, UINT32 reg, UINT32 val)
+
+BOOLEAN MonitorRxRing(RTMP_ADAPTER *pAd)
 {
-	struct _PCI_HIF_T *pci_hif = hc_get_hif_ctrl(hdev_ctrl);
-	struct _RTMP_ADAPTER *ad = hc_get_hdev_privdata(hdev_ctrl);
+	UINT32 Value;
 
-	if (mt_mac_cr_range_mapping(ad, &reg) == TRUE) {
+	if (pAd->RxDMACheckTimes < 10) {
+		/* Check if RX DMA busy */
+		HIF_IO_READ32(pAd, MT_WPDMA_GLO_CFG, &Value);
 
-		if (pci_hif->bPCIclkOff == FALSE)
-			writel(val, (void *)(pci_hif->CSRBaseAddress + reg));
+		if ((Value & RX_DMA_BUSY) == RX_DMA_BUSY) {
+			/* Check RX FIFO if have data */
+			HIF_IO_WRITE32(pAd, 0x4244, 0x28000000);
+			HIF_IO_READ32(pAd, 0x4244, &Value);
+
+			if ((Value & (1 << 8)) == 0) {
+				pAd->RxDMACheckTimes = 0;
+				return FALSE;
+			} else {
+				pAd->RxDMACheckTimes++;
+				return FALSE;
+			}
+		} else {
+			pAd->RxDMACheckTimes = 0;
+			return FALSE;
+		}
 	} else {
-		hook_pci_io_remap_write32(hdev_ctrl, reg, val);
+		pAd->RxDMACheckTimes = 0;
+		return TRUE;
 	}
 }
 
-/*
-*
-*/
-static VOID int_pci_io_ops_init(void *hdev_ctrl)
+
+VOID dumpRxRing(RTMP_ADAPTER *pAd, INT ring_idx)
 {
-	struct mt_io_ops *ops = hc_get_io_ops(hdev_ctrl);
-#ifdef WHNAT_SUPPORT
-	UINT32 cap = hc_get_asic_cap(hdev_ctrl);
-#endif /*WHNAT_SUPPORT*/
-	/*hif*/
-	ops->hif_io_forec_read32 = int_pci_io_force_read32;
-	ops->hif_io_forec_write32 = int_pci_io_force_write32;
-#ifdef WHNAT_SUPPORT
-	if (cap & fASIC_CAP_WHNAT) {
-		ops->hif_io_read32 = hook_pci_io_read32;
-		ops->hif_io_write32 = hook_pci_io_write32;
-	} else
-#endif
-	{
-		ops->hif_io_read32 = int_pci_io_read32;
-		ops->hif_io_write32 = int_pci_io_write32;
-	}
-	/*mac*/
-	ops->mac_io_read32 = pci_map_io_read32;
-	ops->mac_io_write32 = pci_map_io_write32;
-	/*phy*/
-	ops->phy_io_read32 = int_pci_io_read32;
-	ops->phy_io_write32 = int_pci_io_write32;
-	/*hw*/
-	ops->hw_io_read32 = pci_map_io_read32;
-	ops->hw_io_write32 = pci_map_io_write32;
-	/*mcu*/
-	ops->mcu_io_read32 = CmdIORead32;
-	ops->mcu_io_write32 = CmdIOWrite32;
-}
+	RTMP_DMABUF *pDescRing;
+	RTMP_RX_RING *pRxRing;
+	RXD_STRUC *pRxD;
+	int index;
+	struct _RTMP_CHIP_CAP *cap = hc_get_chip_cap(pAd->hdev_ctrl);
+	UINT16 rx0_ring_size = GET_RX0_RING_SIZE(cap);
+	UINT16 rx1_ring_size = GET_RX1_RING_SIZE(cap);
+	UINT16 RxRingSize = (ring_idx == 0) ? rx0_ring_size : rx1_ring_size;
+	struct _PCI_HIF_T *hif = hc_get_hif_ctrl(pAd->hdev_ctrl);
 
-/*mstar Platform*/
-#if defined(PLATFORM_M_STB)
-/*
-*
-*/
-static VOID mstar_pci_io_read32(void *hdev_ctrl, UINT32 reg, UINT32 *val)
-{
-	struct _PCI_HIF_T *pci_hif = hc_get_hif_ctrl(hdev_ctrl);
-	struct os_cookie *cookie = hc_get_os_cookie(hdev_ctrl);
+	pDescRing = (RTMP_DMABUF *)hif->RxDescRing[0].AllocVa;
+	pRxRing = &hif->RxRing[0];
 
-	if (pci_hif->bPCIclkOff == FALSE)
-		pci_read_config_dword(cookie->pci_dev, reg + 0x80000000, val);
-	else
-		*val = 0;
-}
-
-/*
-*
-*/
-static VOID mstar_pci_io_write32(void *hdev_ctrl, UINT32 reg, UINT32 val)
-{
-	struct _PCI_HIF_T *pci_hif = hc_get_hif_ctrl(hdev_ctrl);
-	struct os_cookie *cookie = hc_get_os_cookie(hdev_ctrl);
-
-	if (pci_hif->bPCIclkOff == FALSE)
-		pci_write_config_dword(cookie->pci_dev, reg + 0x80000000, val);
-}
-
-/*
-*
-*/
-static VOID mstar_pci_io_read16(void *hdev_ctrl, UINT32 reg, UINT32 *val)
-{
-	struct _PCI_HIF_T *pci_hif = hc_get_hif_ctrl(hdev_ctrl);
-	struct os_cookie *cookie = hc_get_os_cookie(hdev_ctrl);
-
-	if (pci_hif->bPCIclkOff == FALSE)
-		pci_read_config_word(cookie->pci_dev, reg + 0x80000000, val);
-	else
-		*val = 0;
-}
-
-/*
-*
-*/
-static VOID mstar_pci_io_write16(void *hdev_ctrl, UINT32 reg, UINT32 val)
-{
-	struct _PCI_HIF_T *pci_hif = hc_get_hif_ctrl(hdev_ctrl);
-	struct os_cookie *cookie = hc_get_os_cookie(hdev_ctrl);
-
-	if (pci_hif->bPCIclkOff == FALSE)
-		pci_write_config_word(cookie->pci_dev, reg + 0x80000000, val);
-}
-
-/*
-*
-*/
-static VOID mstar_pci_io_read8(void *hdev_ctrl, UINT32 reg, UINT32 *val)
-{
-	struct _PCI_HIF_T *pci_hif = hc_get_hif_ctrl(hdev_ctrl);
-	struct os_cookie *cookie = hc_get_os_cookie(hdev_ctrl);
-
-	if (pci_hif->bPCIclkOff == FALSE)
-		pci_read_config_byte(cookie->pci_dev, reg + 0x80000000, val);
-	else
-		*val = 0;
-}
-
-/*
-*
-*/
-static VOID mstar_pci_io_write8(void *hdev_ctrl, UINT32 reg, UINT32 val)
-{
-	struct _PCI_HIF_T *pci_hif = hc_get_hif_ctrl(hdev_ctrl);
-	struct os_cookie *cookie = hc_get_os_cookie(hdev_ctrl);
-
-	if (pci_hif->bPCIclkOff == FALSE)
-		pci_write_config_byte(cookie->pci_dev, reg + 0x80000000, val);
-}
-
-/*
-*
-*/
-static VOID mstar_pci_io_ops_init(void *hdev_ctrl)
-{
-	struct mt_io_ops *ops = hc_get_io_ops(hdev_ctrl);
-
-	/*hif*/
-	ops->hif_io_read32 = mstar_pci_io_read32;
-	ops->hif_io_write32 = mstar_pci_io_write32;
-	ops->hif_io_forec_read32 = NULL;
-	ops->hif_io_forec_write32 = NULL;
-	/*mac*/
-	ops->mac_io_read32 = mstar_pci_io_read32;
-	ops->mac_io_write32 = mstar_pci_io_write32;
-	/*phy*/
-	ops->phy_io_read32 = mstar_pci_io_read32;
-	ops->phy_io_write32 = mstar_pci_io_write32;
-}
-#endif /*PLATFORM_M_STB*/
-
-#if defined(INF_TWINPASS) || defined(INF_DANUBE) || defined(INF_AR9) || defined(IKANOS_VX_1X0)
-
-/*
-*
-*/
-static VOID ext_pci_forec_read32(void *hdev_ctrl, UINT32 reg, UINT32 *val)
-{
-	struct _PCI_HIF_T *pci_hif = hc_get_hif_ctrl(hdev_ctrl);
-
-	*val = readl((void *)((pci_hif->CSRBaseAddress + reg)));
-	*val = SWAP32(*((UINT32 *)(val)));
-}
-
-/*
-*
-*/
-static VOID ext_pci_io_read32(void *hdev_ctrl, UINT32 reg, UINT32 *val)
-{
-	struct _PCI_HIF_T *pci_hif = hc_get_hif_ctrl(hdev_ctrl);
-
-	if (pci_hif->bPCIclkOff == FALSE) {
-		*val = readl((void *)((pci_hif->CSRBaseAddress + reg)));
-		*val = SWAP32(*((UINT32 *)(val)));
+	for (index = 0; index < RxRingSize; index++) {
+		pRxD = (RXD_STRUC *)pRxRing->Cell[index].AllocVa;
+		hex_dump("Dump RxDesc", (UCHAR *)pRxD, sizeof(RXD_STRUC));
+		dump_rxd(pAd, pRxD);
 	}
 }
 
-/*
-*
-*/
-static VOID ext_pci_io_write32(void *hdev_ctrl, UINT32 reg, UINT32 val)
+VOID mt_write_txd(RTMP_ADAPTER *pAd, TXD_STRUC *pTxD)
 {
-	struct _PCI_HIF_T *pci_hif = hc_get_hif_ctrl(hdev_ctrl);
-
-	if (pci_hif->bPCIclkOff == FALSE) {
-		val = SWAP32(val);
-		writel(val, (pci_hif->CSRBaseAddress + reg));
-	}
+#ifdef LINUX
+	wmb();
+#endif /* LINUX */
+	pTxD->DMADONE = 0;
 }
 
-/*
-*
-*/
-static VOID ext_pci_io_ops_init(void *hdev_ctrl)
-{
-	struct mt_io_ops *ops = hc_get_io_ops(hdev_ctrl);
 
-	/*hif*/
-	ops->hif_io_read32 = ext_pci_io_read32;
-	ops->hif_io_write32 = ext_pci_io_write32;
-	ops->hif_io_forec_read32 = ext_pci_forec_read32;
-	ops->hif_io_forec_write32 = NULL;
-	/*mac*/
-	ops->mac_io_read32 = ext_pci_io_read32;
-	ops->mac_io_write32 = ext_pci_io_write32;
-	/*phy*/
-	ops->phy_io_read32 = ext_pci_io_read32;
-	ops->phy_io_write32 = ext_pci_io_write32;
-	/*hw*/
-	ops->hw_io_read32 = ext_pci_io_read32;
-	ops->hw_io_write32 = ext_pci_io_write32;
-}
-#endif
-
-/*
-*
-*/
-static VOID pci_io_ops_register(void *hdev_ctrl)
+VOID ComposePsPoll(
+	IN	RTMP_ADAPTER *pAd,
+	IN	PPSPOLL_FRAME pPsPollFrame,
+	IN	USHORT	Aid,
+	IN	UCHAR *pBssid,
+	IN	UCHAR *pTa)
 {
-#if defined(PLATFORM_M_STB)
-	mstar_pci_io_ops_init(hdev_ctrl);
-#elif defined(INF_TWINPASS) || defined(INF_DANUBE) || defined(INF_AR9) || defined(IKANOS_VX_1X0)
-	ext_pci_io_ops_init(hdev_ctrl);
-#else
-	int_pci_io_ops_init(hdev_ctrl);
-#endif
+	NdisZeroMemory(pPsPollFrame, sizeof(PSPOLL_FRAME));
+	pPsPollFrame->FC.Type = FC_TYPE_CNTL;
+	pPsPollFrame->FC.SubType = SUBTYPE_PS_POLL;
+	pPsPollFrame->Aid = Aid | 0xC000;
+	COPY_MAC_ADDR(pPsPollFrame->Bssid, pBssid);
+	COPY_MAC_ADDR(pPsPollFrame->Ta, pTa);
 }
 
-/*
-*
-*/
-static INT desc_ring_alloc(VOID *dev, RTMP_DMABUF *pDescRing, INT size)
+USHORT mt_pci_get_buf_len(RTMP_ADAPTER *pAd, TX_BLK *tx_blk)
 {
-	pDescRing->AllocSize = size;
-	RtmpAllocDescBuf(dev,
-					 0,
-					 pDescRing->AllocSize,
-					 FALSE,
-					 &pDescRing->AllocVa,
-					 &pDescRing->AllocPa);
+	struct _RTMP_CHIP_CAP *cap = hc_get_chip_cap(pAd->hdev_ctrl);
+	UINT tx_hw_hdr_len = cap->tx_hw_hdr_len;
 
-	if (pDescRing->AllocVa == NULL) {
-		MTWF_DBG(NULL, DBG_CAT_HIF, CATHIF_PCI, DBG_LVL_ERROR, "Failed to allocate a big buffer\n");
-		return ERRLOG_OUT_OF_SHARED_MEMORY;
-	}
-
-	/* Zero init this memory block*/
-	NdisZeroMemory(pDescRing->AllocVa, size);
-	return 0;
+	return tx_hw_hdr_len + tx_blk->txp_len + tx_blk->MpduHeaderLen + tx_blk->HdrPadLen - tx_blk->hw_rsv_len;
 }
 
-inline VOID *alloc_rx_buf_1k(void *hif_resource)
+USHORT write_first_buf(RTMP_ADAPTER *pAd, TX_BLK *tx_blk, UCHAR *dma_buf)
 {
-	struct hif_pci_rx_ring *rx_ring = (struct hif_pci_rx_ring *)hif_resource;
-	RTMP_DMABUF *dma_buf = &rx_ring->free_buf[rx_ring->free_buf_head];
+	struct _RTMP_CHIP_CAP *cap = hc_get_chip_cap(pAd->hdev_ctrl);
+	UINT tx_hw_hdr_len = cap->tx_hw_hdr_len;
+	USHORT first_buf_len;
 
-	INC_INDEX(rx_ring->free_buf_head, rx_ring->free_buf_size);
-
-	return dma_buf->AllocVa;
+	first_buf_len =  tx_hw_hdr_len + tx_blk->txp_len + tx_blk->MpduHeaderLen + tx_blk->HdrPadLen - tx_blk->hw_rsv_len;
+	NdisMoveMemory(dma_buf, (UCHAR *)(tx_blk->HeaderBuf + tx_blk->hw_rsv_len), first_buf_len);
+	return first_buf_len;
 }
 
-inline VOID free_rx_buf_1k(void *hif_resource)
+inline UINT32 pci_get_tx_resource_free_num_nolock(RTMP_ADAPTER *pAd, UINT8 resource_idx)
 {
-	struct hif_pci_rx_ring *rx_ring = (struct hif_pci_rx_ring *)hif_resource;
+	UINT32 free_num;
+	struct _PCI_HIF_T *hif = hc_get_hif_ctrl(pAd->hdev_ctrl);
+	struct _RTMP_CHIP_CAP *cap = hc_get_chip_cap(pAd->hdev_ctrl);
+	UINT16 tx_ring_size = GET_TX_RING_SIZE(cap);
+	RTMP_TX_RING *tx_ring = &hif->TxRing[resource_idx];
 
-	INC_INDEX(rx_ring->free_buf_tail, rx_ring->free_buf_size);
+	free_num = tx_ring->TxSwFreeIdx > tx_ring->TxCpuIdx ?
+			   tx_ring->TxSwFreeIdx - tx_ring->TxCpuIdx - 1 :
+			   tx_ring->TxSwFreeIdx + tx_ring_size - tx_ring->TxCpuIdx - 1;
+
+	return free_num;
 }
 
-inline VOID *alloc_rx_buf_64k(void *hif_resource)
-{
-	struct hif_pci_rx_ring *rx_ring = (struct hif_pci_rx_ring *)hif_resource;
-	RTMP_DMABUF *dma_buf = &rx_ring->free_buf_64k[rx_ring->free_buf_64k_head];
-
-	INC_INDEX(rx_ring->free_buf_64k_head, rx_ring->free_buf_64k_size);
-
-	return dma_buf->AllocVa;
-}
-
-inline VOID free_rx_buf_64k(void *hif_resource)
-{
-	struct hif_pci_rx_ring *rx_ring = (struct hif_pci_rx_ring *)hif_resource;
-
-	INC_INDEX(rx_ring->free_buf_64k_tail, rx_ring->free_buf_64k_size);
-}
-
-/*
-*
-*/
-static UINT32 alloc_rx_free_buffer(struct pci_hif_chip *hif, UCHAR resource_idx, UINT32 num)
-{
-	UINT32 i;
-	struct hif_pci_rx_ring *rx_ring = &hif->RxRing[resource_idx];
-	RTMP_DMABUF *dma_buf;
-
-	rx_ring->free_buf_head = 0;
-	rx_ring->free_buf_tail = 0;
-	rx_ring->free_buf_size = (num + 1);
-
-	os_alloc_mem(NULL, (UCHAR **)&rx_ring->free_buf, rx_ring->free_buf_size * sizeof(struct _RTMP_DMABUF));
-	NdisZeroMemory(rx_ring->free_buf, rx_ring->free_buf_size * sizeof(struct _RTMP_DMABUF));
-
-	for (i = 0; i < rx_ring->free_buf_size; i++) {
-		dma_buf = &rx_ring->free_buf[i];
-		dma_buf->AllocSize = RX1_BUFFER_SIZE;
-		os_alloc_mem(NULL, (UCHAR **)&dma_buf->AllocVa, dma_buf->AllocSize);
-		NdisZeroMemory(dma_buf->AllocVa, dma_buf->AllocSize);
-	}
-
-	rx_ring->free_buf_64k_head = 0;
-	rx_ring->free_buf_64k_tail = 0;
-	rx_ring->free_buf_64k_size = 1;
-
-	os_alloc_mem(NULL, (UCHAR **)&rx_ring->free_buf_64k, rx_ring->free_buf_64k_size * sizeof(struct _RTMP_DMABUF));
-	NdisZeroMemory(rx_ring->free_buf_64k, rx_ring->free_buf_64k_size * sizeof(struct _RTMP_DMABUF));
-
-	for (i = 0; i < rx_ring->free_buf_64k_size; i++) {
-		dma_buf = &rx_ring->free_buf_64k[i];
-		dma_buf->AllocSize = 65536;
-		os_alloc_mem(NULL, (UCHAR **)&dma_buf->AllocVa, dma_buf->AllocSize);
-		NdisZeroMemory(dma_buf->AllocVa, dma_buf->AllocSize);
-	}
-
-	return 0;
-}
-
-/*
-*
-*/
-static UINT32 reset_rx_free_buffer(void *hdev_ctrl, UINT8 resource_idx)
-{
-	struct _PCI_HIF_T *hif = hc_get_hif_ctrl(hdev_ctrl);
-	struct hif_pci_rx_ring *rx_ring = pci_get_rx_ring_by_ridx(hif, resource_idx);
-	UINT32 num = rx_ring->ring_size;
-	UINT32 i;
-	RTMP_DMABUF *dma_buf;
-
-	rx_ring->free_buf_head = 0;
-	rx_ring->free_buf_tail = 0;
-	rx_ring->free_buf_size = (num + 1);
-
-	for (i = 0; i < rx_ring->free_buf_size; i++) {
-		dma_buf = &rx_ring->free_buf[i];
-		dma_buf->AllocSize = RX1_BUFFER_SIZE;
-	}
-
-	rx_ring->free_buf_64k_head = 0;
-	rx_ring->free_buf_64k_tail = 0;
-	rx_ring->free_buf_64k_size = 1;
-
-	for (i = 0; i < rx_ring->free_buf_64k_size; i++) {
-		dma_buf = &rx_ring->free_buf_64k[i];
-		dma_buf->AllocSize = 65536;
-	}
-
-	return 0;
-}
-
-/*
-*
-*/
-static UINT32 release_rx_free_buffer(struct pci_hif_chip *chip_hif, UINT8 resource_idx)
-{
-	UINT32 i;
-	struct hif_pci_rx_ring *rx_ring = &chip_hif->RxRing[resource_idx];
-	RTMP_DMABUF *dma_buf;
-
-	for (i = 0; i < rx_ring->free_buf_size; i++) {
-		dma_buf = &rx_ring->free_buf[i];
-		os_free_mem(dma_buf->AllocVa);
-	}
-
-	os_free_mem(rx_ring->free_buf);
-
-	for (i = 0; i < rx_ring->free_buf_64k_size; i++) {
-		dma_buf = &rx_ring->free_buf_64k[i];
-		os_free_mem(dma_buf->AllocVa);
-	}
-
-	os_free_mem(rx_ring->free_buf_64k);
-
-	return 0;
-}
-
-/*
-*
-*/
-static INT desc_ring_free(struct pci_hif_chip *chip_hif, RTMP_DMABUF *pDescRing)
-{
-	if (pDescRing->AllocVa) {
-		RtmpFreeDescBuf(chip_hif->pdev,
-						pDescRing->AllocSize,
-						pDescRing->AllocVa,
-						pDescRing->AllocPa);
-	}
-
-	NdisZeroMemory(pDescRing, sizeof(RTMP_DMABUF));
-	return TRUE;
-}
-
-/*
-*
-*/
-static UINT32 pci_get_tx_free_num(struct hif_pci_tx_ring *ring)
+UINT32 pci_get_tx_resource_free_num(RTMP_ADAPTER *pAd, UINT8 resource_idx)
 {
 	UINT32 free_num;
 	ULONG flags;
-	NDIS_SPIN_LOCK *lock = &ring->tx_lock;
+	struct _PCI_HIF_T *hif = hc_get_hif_ctrl(pAd->hdev_ctrl);
+	struct _RTMP_CHIP_CAP *cap = hc_get_chip_cap(pAd->hdev_ctrl);
+	UINT16 tx_ring_size = GET_TX_RING_SIZE(cap);
+	NDIS_SPIN_LOCK *lock = &hif->TxRingLock[resource_idx];
+	RTMP_TX_RING *tx_ring = &hif->TxRing[resource_idx];
 
 	RTMP_IRQ_LOCK(lock, flags);
-	free_num = ((ring->TxSwFreeIdx > ring->TxCpuIdx) ?
-		(ring->TxSwFreeIdx - ring->TxCpuIdx - 1) :
-		(ring->TxSwFreeIdx + ring->ring_size - ring->TxCpuIdx - 1));
+	free_num = tx_ring->TxSwFreeIdx > tx_ring->TxCpuIdx ?
+			   tx_ring->TxSwFreeIdx - tx_ring->TxCpuIdx - 1 :
+			   tx_ring->TxSwFreeIdx + tx_ring_size - tx_ring->TxCpuIdx - 1;
 	RTMP_IRQ_UNLOCK(lock, flags);
 	return free_num;
 }
 
-VOID pci_rx_all(struct _PCI_HIF_T *pci_hif)
+UINT32 pci_get_tx_mgmt_free_num(RTMP_ADAPTER *pAd, UINT8 resource_idx)
 {
-	struct _RTMP_ADAPTER *pAd = RTMP_OS_NETDEV_GET_PRIV(pci_hif->net_dev);
-	UINT32 i;
+	return pci_get_tx_resource_free_num(pAd, resource_idx);
+}
+UINT32 pci_get_tx_bcn_free_num(RTMP_ADAPTER *pAd, UINT8 resource_idx)
+{
+	return pci_get_tx_resource_free_num(pAd, resource_idx);
+}
 
-	for (i = 0; i < pci_hif->rx_res_num; i++) {
-		struct hif_pci_rx_ring *rx_ring = pci_get_rx_ring_by_ridx(pci_hif, i);
+BOOLEAN pci_is_tx_resource_empty(RTMP_ADAPTER *pAd, UINT8 resource_idx)
+{
+	struct _PCI_HIF_T *hif = hc_get_hif_ctrl(pAd->hdev_ctrl);
 
-		pci_hif->dma_done_handle[rx_ring->ring_attr](pAd, rx_ring->resource_idx);
+	return ((hif->TxRing[resource_idx].TxDmaIdx == hif->TxRing[resource_idx].TxCpuIdx)	? 1 : 0);
+}
+
+BOOLEAN pci_is_rx_resource_empty(RTMP_ADAPTER *pAd, UINT8 resource_idx)
+{
+	struct _PCI_HIF_T *hif = hc_get_hif_ctrl(pAd->hdev_ctrl);
+
+	return ((hif->RxRing[resource_idx].RxDmaIdx == hif->RxRing[resource_idx].RxCpuIdx)	? 1 : 0);
+}
+
+UINT32 pci_get_tx_ctrl_free_num(RTMP_ADAPTER *pAd)
+{
+	UINT32 free_num;
+	ULONG flags;
+	struct _PCI_HIF_T *hif = hc_get_hif_ctrl(pAd->hdev_ctrl);
+	NDIS_SPIN_LOCK *lock = &hif->CtrlRingLock;
+	RTMP_CTRL_RING *ring = &hif->CtrlRing;
+
+	RTMP_IRQ_LOCK(lock, flags);
+	free_num = ((ring->TxSwFreeIdx > ring->TxCpuIdx) ?
+		(ring->TxSwFreeIdx - ring->TxCpuIdx - 1) :
+		(ring->TxSwFreeIdx + MGMT_RING_SIZE - ring->TxCpuIdx - 1));
+	RTMP_IRQ_UNLOCK(lock, flags);
+	return free_num;
+}
+
+UINT32 pci_get_rx_resource_pending_num(RTMP_ADAPTER *pAd, UINT8 resource_idx)
+{
+	UINT32 num;
+	ULONG flags;
+	struct _PCI_HIF_T *hif = hc_get_hif_ctrl(pAd->hdev_ctrl);
+	NDIS_SPIN_LOCK *lock = &hif->RxRingLock[resource_idx];
+	RTMP_RX_RING *rx_ring = &hif->RxRing[resource_idx];
+
+	RTMP_IRQ_LOCK(lock, flags);
+	num = ((rx_ring->RxDmaIdx > rx_ring->RxSwReadIdx) ?
+	(rx_ring->RxDmaIdx - rx_ring->RxSwReadIdx) :
+	(rx_ring->RxDmaIdx + rx_ring->RxRingSize - rx_ring->RxSwReadIdx));
+
+	RTMP_IRQ_UNLOCK(lock, flags);
+	return num;
+}
+
+inline VOID pci_inc_resource_full_cnt(RTMP_ADAPTER *pAd, UINT8 resource_idx)
+{
+	struct _PCI_HIF_T *hif = hc_get_hif_ctrl(pAd->hdev_ctrl);
+
+	hif->TxRing[resource_idx].tx_ring_full_cnt++;
+}
+
+inline VOID pci_dec_resource_full_cnt(RTMP_ADAPTER *pAd, UINT8 resource_idx)
+{
+	struct _PCI_HIF_T *hif = hc_get_hif_ctrl(pAd->hdev_ctrl);
+
+	hif->TxRing[resource_idx].tx_ring_full_cnt--;
+}
+
+inline BOOLEAN pci_get_resource_state(RTMP_ADAPTER *pAd, UINT8 resource_idx)
+{
+	struct _PCI_HIF_T *hif = hc_get_hif_ctrl(pAd->hdev_ctrl);
+
+	return hif->TxRing[resource_idx].tx_ring_state;
+}
+
+inline INT pci_set_resource_state(RTMP_ADAPTER *pAd, UINT8 resource_idx, BOOLEAN state)
+{
+	struct _PCI_HIF_T *hif = hc_get_hif_ctrl(pAd->hdev_ctrl);
+
+	hif->TxRing[resource_idx].tx_ring_state = state;
+	return NDIS_STATUS_SUCCESS;
+}
+
+UINT32 pci_check_resource_state(RTMP_ADAPTER *pAd, UINT8 resource_idx)
+{
+	struct _PCI_HIF_T *hif = hc_get_hif_ctrl(pAd->hdev_ctrl);
+	RTMP_TX_RING *tx_ring = &hif->TxRing[resource_idx];
+	BOOLEAN resource_state;
+	UINT free_num;
+
+	resource_state = pci_get_resource_state(pAd, resource_idx);
+	free_num = pci_get_tx_resource_free_num_nolock(pAd, resource_idx);
+
+	if (resource_state == TX_RING_HIGH) {
+		if (free_num >= tx_ring->tx_ring_low_water_mark)
+			return TX_RING_HIGH_TO_HIGH;
+		else
+			return TX_RING_HIGH_TO_LOW;
+	} else if (resource_state == TX_RING_LOW) {
+		if (free_num > tx_ring->tx_ring_high_water_mark)
+			return TX_RING_LOW_TO_HIGH;
+		else
+			return TX_RING_LOW_TO_LOW;
+	} else {
+		MTWF_LOG(DBG_CAT_CFG, DBG_SUBCAT_ALL, DBG_LVL_OFF, ("%s: unknow state %d, free ring number = %d",
+		__func__, resource_state, free_num));
+		return TX_RING_UNKNOW_CHANGE;
 	}
 }
 
-/*
-*
-*/
-static BOOLEAN pci_tx_dma_done_handle(RTMP_ADAPTER *pAd, UINT8 resource_idx)
+USHORT mtd_pci_write_tx_resource(
+	RTMP_ADAPTER *pAd,
+	TX_BLK *pTxBlk,
+	BOOLEAN bIsLast,
+	USHORT *FreeNumber)
+{
+	UCHAR *pDMAHeaderBufVA;
+	USHORT TxIdx, RetTxIdx;
+	TXD_STRUC *pTxD;
+	RTMP_DMACB *dma_cb;
+#ifdef RT_BIG_ENDIAN
+	TXD_STRUC *pDestTxD;
+	UCHAR tx_hw_info[TXD_SIZE];
+	UINT16 TmacLen;
+#endif
+	struct _RTMP_CHIP_CAP *cap = hc_get_chip_cap(pAd->hdev_ctrl);
+	UINT16 tx_ring_size = GET_TX_RING_SIZE(cap);
+	struct _PCI_HIF_T *hif = hc_get_hif_ctrl(pAd->hdev_ctrl);
+	RTMP_TX_RING *pTxRing;
+
+	pTxRing = &hif->TxRing[pTxBlk->resource_idx];
+	TxIdx = pTxRing->TxCpuIdx;
+	dma_cb = &pTxRing->Cell[TxIdx];
+	pDMAHeaderBufVA = (UCHAR *)dma_cb->DmaBuf.AllocVa;
+	dma_cb->pNextNdisPacket = NULL;
+	dma_cb->PacketPa = pTxBlk->SrcBufPA;
+
+if (pTxBlk->TxFrameType != TX_FRAG_FRAME)
+		dma_cb->DmaBuf.AllocSize = mt_pci_get_buf_len(pAd, pTxBlk);
+	else
+		dma_cb->DmaBuf.AllocSize = write_first_buf(pAd, pTxBlk, pDMAHeaderBufVA);
+
+#ifndef RT_BIG_ENDIAN
+	pTxD = (TXD_STRUC *)dma_cb->AllocVa;
+#else
+	pDestTxD = (TXD_STRUC *)dma_cb->AllocVa;
+	NdisMoveMemory(&tx_hw_info[0], (UCHAR *)pDestTxD, TXD_SIZE);
+	pTxD = (TXD_STRUC *)&tx_hw_info[0];
+	TmacLen = (cap->tx_hw_hdr_len - pTxBlk->hw_rsv_len);
+	MTMacInfoEndianChange(pAd,  (PUCHAR)(pDMAHeaderBufVA), TYPE_TMACINFO, TmacLen);
+
+	if (!TX_BLK_TEST_FLAG(pTxBlk, fTX_HDR_TRANS)) {
+		ra_dma_addr_t SrcBufPA = 0;
+
+		RTMPFrameEndianChange(pAd, (PUCHAR)(pTxBlk->pSrcBufData), DIR_WRITE, FALSE);
+		SrcBufPA = PCI_MAP_SINGLE(pAd, pTxBlk, 0, 1, RTMP_PCI_DMA_TODEVICE);
+	}
+#endif
+
+	dma_cb->DmaBuf.AllocPa = PCI_MAP_SINGLE(pAd, pDMAHeaderBufVA, dma_cb->DmaBuf.AllocSize, 0, RTMP_PCI_DMA_TODEVICE);
+	pTxD->SDPtr0 = dma_cb->DmaBuf.AllocPa;
+	pTxD->SDLen0 = dma_cb->DmaBuf.AllocSize;
+	pTxD->SDPtr1 = dma_cb->PacketPa;
+	pTxD->SDLen1 = pTxBlk->SrcBufLen < cap->CtParseLen ? pTxBlk->SrcBufLen : cap->CtParseLen;
+	pTxD->LastSec0 = !(pTxD->SDLen1);
+	pTxD->LastSec1 = (bIsLast && pTxD->SDLen1) ? 1 : 0;
+	pTxD->Burst = 0;
+	mt_write_txd(pAd, pTxD);
+
+#ifdef RT_BIG_ENDIAN
+	RTMPDescriptorEndianChange((PUCHAR)pTxD, TYPE_TXD);
+	WriteBackToDescriptor((PUCHAR)pDestTxD, (PUCHAR)pTxD, FALSE, TYPE_TXD);
+#endif /* RT_BIG_ENDIAN */
+
+	RetTxIdx = TxIdx;
+
+	/* flush dcache if no consistent memory is supported */
+	RTMP_DCACHE_FLUSH(dma_cb->DmaBuf.AllocPa, pTxD->SDLen0);
+	RTMP_DCACHE_FLUSH(pTxBlk->pSrcBufData, pTxBlk->SrcBufLen);
+	RTMP_DCACHE_FLUSH(dma_cb->AllocPa, RXD_SIZE);
+
+	INC_RING_INDEX(TxIdx, tx_ring_size);
+	pTxRing->TxCpuIdx = TxIdx;
+	*FreeNumber -= 1;
+	return RetTxIdx;
+}
+
+USHORT mt_pci_write_tx_resource(
+	RTMP_ADAPTER *pAd,
+	TX_BLK *pTxBlk,
+	BOOLEAN bIsLast,
+	USHORT *FreeNumber)
+{
+	UCHAR *pDMAHeaderBufVA;
+	UINT32 BufBasePaLow;
+	USHORT TxIdx, RetTxIdx;
+	TXD_STRUC *pTxD;
+	struct _PCI_HIF_T *hif = hc_get_hif_ctrl(pAd->hdev_ctrl);
+#ifdef RT_BIG_ENDIAN
+	TXD_STRUC *pDestTxD;
+	UCHAR tx_hw_info[TXD_SIZE];
+	UINT16 TmacLen;
+	struct _RTMP_CHIP_CAP *cap = hc_get_chip_cap(pAd->hdev_ctrl);
+#endif
+	RTMP_TX_RING *pTxRing;
+#ifdef USE_BMC
+
+	if (pTxBlk->QueIdx == QID_BMC) {
+		pTxRing = &pAd->TxBmcRing;
+		TxIdx = pAd->TxBmcRing.TxCpuIdx;
+	} else
+#endif /* USE_BMC */
+	{
+		/* get Tx Ring Resource*/
+		pTxRing = &hif->TxRing[pTxBlk->resource_idx];
+		TxIdx = hif->TxRing[pTxBlk->resource_idx].TxCpuIdx;
+	}
+
+	pDMAHeaderBufVA = (UCHAR *)pTxRing->Cell[TxIdx].DmaBuf.AllocVa;
+	BufBasePaLow = RTMP_GetPhysicalAddressLow(pTxRing->Cell[TxIdx].DmaBuf.AllocPa);
+	pTxRing->Cell[TxIdx].pNdisPacket = pTxBlk->pPacket;
+	pTxRing->Cell[TxIdx].pNextNdisPacket = NULL;
+	pTxRing->Cell[TxIdx].PacketPa = PCI_MAP_SINGLE(pAd, pTxBlk, 0, 1, RTMP_PCI_DMA_TODEVICE);
+	/* build Tx Descriptor*/
+#ifndef RT_BIG_ENDIAN
+	pTxD = (TXD_STRUC *)pTxRing->Cell[TxIdx].AllocVa;
+#else
+	pDestTxD = (TXD_STRUC *)pTxRing->Cell[TxIdx].AllocVa;
+	NdisMoveMemory(&tx_hw_info[0], (UCHAR *)pDestTxD, TXD_SIZE);
+	pTxD = (TXD_STRUC *)&tx_hw_info[0];
+#endif
+	pTxD->SDPtr0 = BufBasePaLow;
+	pTxD->SDLen0 = write_first_buf(pAd, pTxBlk, pDMAHeaderBufVA);
+	pTxD->SDPtr1 = pTxRing->Cell[TxIdx].PacketPa;
+	pTxD->SDLen1 = pTxBlk->SrcBufLen;
+	pTxD->LastSec0 = !(pTxD->SDLen1);
+	pTxD->LastSec1 = (bIsLast && pTxD->SDLen1) ? 1 : 0;
+	pTxD->Burst = 0;
+	mt_write_txd(pAd, pTxD);
+#ifdef RT_BIG_ENDIAN
+	TmacLen = (cap->tx_hw_hdr_len - pTxBlk->hw_rsv_len);
+	MTMacInfoEndianChange(pAd,  (PUCHAR)(pDMAHeaderBufVA), TYPE_TMACINFO, TmacLen);
+	RTMPFrameEndianChange(pAd, (PUCHAR)(pDMAHeaderBufVA + TmacLen), DIR_WRITE, FALSE);
+	RTMPDescriptorEndianChange((PUCHAR)pTxD, TYPE_TXD);
+	WriteBackToDescriptor((PUCHAR)pDestTxD, (PUCHAR)pTxD, FALSE, TYPE_TXD);
+#endif /* RT_BIG_ENDIAN */
+	RetTxIdx = TxIdx;
+	/* flush dcache if no consistent memory is supported */
+	RTMP_DCACHE_FLUSH(pTxRing->Cell[TxIdx].DmaBuf.AllocPa, pTxD->SDLen0);
+	RTMP_DCACHE_FLUSH(pTxBlk->pSrcBufData, pTxBlk->SrcBufLen);
+	RTMP_DCACHE_FLUSH(pTxRing->Cell[TxIdx].AllocPa, RXD_SIZE);
+	/* Update Tx index*/
+	pTxRing->TxCpuIdx = TxIdx;
+	*FreeNumber -= 1;
+	return RetTxIdx;
+}
+
+USHORT mt_pci_write_multi_tx_resource(
+	RTMP_ADAPTER *pAd,
+	TX_BLK *pTxBlk,
+	UCHAR frameNum,
+	USHORT *FreeNumber)
+{
+	BOOLEAN bIsLast;
+	UCHAR *pDMAHeaderBufVA;
+	USHORT TxIdx, RetTxIdx;
+	TXD_STRUC *pTxD;
+#ifdef RT_BIG_ENDIAN
+	TXD_STRUC *pDestTxD;
+	UCHAR tx_hw_info[TXD_SIZE];
+	UINT16 TmacLen;
+#endif
+	UINT32 BufBasePaLow;
+	RTMP_TX_RING *pTxRing;
+	UINT32 firstDMALen = 0;
+	struct _RTMP_CHIP_CAP *cap = hc_get_chip_cap(pAd->hdev_ctrl);
+	UINT16 tx_ring_size = GET_TX_RING_SIZE(cap);
+	struct _PCI_HIF_T *hif = hc_get_hif_ctrl(pAd->hdev_ctrl);
+
+	ASSERT((pTxBlk->TxFrameType == TX_AMSDU_FRAME));
+	bIsLast = ((frameNum == (pTxBlk->TotalFrameNum - 1)) ? 1 : 0);
+	/* get Tx Ring Resource */
+	pTxRing = &hif->TxRing[pTxBlk->resource_idx];
+	TxIdx = hif->TxRing[pTxBlk->resource_idx].TxCpuIdx;
+	pDMAHeaderBufVA = (PUCHAR) pTxRing->Cell[TxIdx].DmaBuf.AllocVa;
+	BufBasePaLow = RTMP_GetPhysicalAddressLow(pTxRing->Cell[TxIdx].DmaBuf.AllocPa);
+
+	if (frameNum == 0) {
+		/* copy TXINFO + TXWI + WLAN Header + LLC into DMA Header Buffer */
+		firstDMALen =  cap->tx_hw_hdr_len - pTxBlk->hw_rsv_len + pTxBlk->MpduHeaderLen + pTxBlk->HdrPadLen;
+		NdisMoveMemory(pDMAHeaderBufVA, pTxBlk->HeaderBuf + pTxBlk->hw_rsv_len, firstDMALen);
+	} else {
+		firstDMALen = pTxBlk->MpduHeaderLen;
+		NdisMoveMemory(pDMAHeaderBufVA, pTxBlk->HeaderBuf, firstDMALen);
+	}
+
+	pTxRing->Cell[TxIdx].pNdisPacket = pTxBlk->pPacket;
+	pTxRing->Cell[TxIdx].pNextNdisPacket = NULL;
+	pTxRing->Cell[TxIdx].PacketPa = PCI_MAP_SINGLE(pAd, pTxBlk, 0, 1, RTMP_PCI_DMA_TODEVICE);
+	/* build Tx Descriptor */
+#ifndef RT_BIG_ENDIAN
+	pTxD = (TXD_STRUC *) pTxRing->Cell[TxIdx].AllocVa;
+#else
+	pDestTxD = (TXD_STRUC *) pTxRing->Cell[TxIdx].AllocVa;
+	NdisMoveMemory(&tx_hw_info[0], (UCHAR *)pDestTxD, TXD_SIZE);
+	pTxD = (TXD_STRUC *)&tx_hw_info[0];
+#endif
+	pTxD->SDPtr0 = BufBasePaLow;
+	pTxD->SDLen0 = firstDMALen; /* include padding*/
+	pTxD->SDPtr1 = pTxRing->Cell[TxIdx].PacketPa;
+	pTxD->SDLen1 = pTxBlk->SrcBufLen;
+	pTxD->LastSec0 = !(pTxD->SDLen1);
+	pTxD->LastSec1 = (bIsLast && pTxD->SDLen1) ? 1 : 0;
+	pTxD->Burst = 0;
+	mt_write_txd(pAd, pTxD);
+#ifdef RT_BIG_ENDIAN
+	TmacLen = (cap->tx_hw_hdr_len - pTxBlk->hw_rsv_len);
+
+	if (frameNum == 0)
+		RTMPFrameEndianChange(pAd, (PUCHAR)(pDMAHeaderBufVA + TmacLen), DIR_WRITE, FALSE);
+
+	if (frameNum != 0)
+		MTMacInfoEndianChange(pAd,  (PUCHAR)(pDMAHeaderBufVA), TYPE_TMACINFO, TmacLen);
+
+	RTMPDescriptorEndianChange((PUCHAR)pTxD, TYPE_TXD);
+	WriteBackToDescriptor((PUCHAR)pDestTxD, (PUCHAR)pTxD, FALSE, TYPE_TXD);
+#endif /* RT_BIG_ENDIAN */
+	RetTxIdx = TxIdx;
+	/* flush dcache if no consistent memory is supported */
+	RTMP_DCACHE_FLUSH(pTxRing->Cell[TxIdx].DmaBuf.AllocPa, pTxD->SDLen0);
+	RTMP_DCACHE_FLUSH(pTxBlk->pSrcBufData, pTxBlk->SrcBufLen);
+	RTMP_DCACHE_FLUSH(pTxRing->Cell[TxIdx].AllocPa, RXD_SIZE);
+	/* Update Tx index*/
+	INC_RING_INDEX(TxIdx, tx_ring_size);
+	pTxRing->TxCpuIdx = TxIdx;
+	*FreeNumber -= 1;
+	return RetTxIdx;
+}
+
+VOID mt_pci_write_final_tx_resource(
+	RTMP_ADAPTER *pAd,
+	TX_BLK *pTxBlk,
+	USHORT totalMPDUSize,
+	USHORT FirstTxIdx)
+{
+	RTMP_TX_RING *pTxRing;
+	UCHAR *tmac_info;
+	TMAC_TXD_S *txd_s;
+	struct _RTMP_CHIP_CAP *cap = hc_get_chip_cap(pAd->hdev_ctrl);
+	UINT16 tx_ring_size = GET_TX_RING_SIZE(cap);
+	struct _PCI_HIF_T *hif = hc_get_hif_ctrl(pAd->hdev_ctrl);
+#ifdef RT_BIG_ENDIAN
+	UINT16  TmacLen = (cap->tx_hw_hdr_len - pTxBlk->hw_rsv_len);
+#endif /* RT_BIG_ENDIAN */
+	/* get Tx Ring Resource*/
+	pTxRing = &hif->TxRing[pTxBlk->resource_idx];
+
+	if (FirstTxIdx >= tx_ring_size)
+		return;
+
+	tmac_info = (UCHAR *)pTxRing->Cell[FirstTxIdx].DmaBuf.AllocVa;
+	txd_s = (TMAC_TXD_S *)tmac_info;
+	txd_s->TxD0.TxByteCount = totalMPDUSize;
+#ifdef RT_BIG_ENDIAN
+	MTMacInfoEndianChange(pAd, tmac_info, TYPE_TMACINFO, TmacLen);
+#endif /* RT_BIG_ENDIAN */
+}
+
+USHORT	mt_pci_write_frag_tx_resource(
+	RTMP_ADAPTER *pAd,
+	TX_BLK *pTxBlk,
+	UCHAR fragNum,
+	USHORT *FreeNumber)
+{
+	UCHAR *pDMAHeaderBufVA;
+	USHORT TxIdx, RetTxIdx;
+	TXD_STRUC *pTxD;
+	RTMP_DMACB *dma_cb;
+	struct _RTMP_CHIP_CAP *cap = hc_get_chip_cap(pAd->hdev_ctrl);
+	UINT16 tx_ring_size = GET_TX_RING_SIZE(cap);
+#ifdef RT_BIG_ENDIAN
+	TXD_STRUC *pDestTxD;
+	UCHAR tx_hw_info[TXD_SIZE];
+	UINT16 TmacLen;
+#endif
+	RTMP_TX_RING *pTxRing;
+	struct _PCI_HIF_T *hif = hc_get_hif_ctrl(pAd->hdev_ctrl);
+
+	pTxRing = &hif->TxRing[pTxBlk->resource_idx];
+	TxIdx = pTxRing->TxCpuIdx;
+	dma_cb = &pTxRing->Cell[TxIdx];
+	pDMAHeaderBufVA = (PUCHAR)dma_cb->DmaBuf.AllocVa;
+#ifndef RT_BIG_ENDIAN
+	pTxD = (TXD_STRUC *)dma_cb->AllocVa;
+#else
+	pDestTxD = (TXD_STRUC *)dma_cb->AllocVa;
+	NdisMoveMemory(&tx_hw_info[0], (UCHAR *)pDestTxD, TXD_SIZE);
+	pTxD = (TXD_STRUC *)&tx_hw_info[0];
+	TmacLen = (cap->tx_hw_hdr_len - pTxBlk->hw_rsv_len);
+	MTMacInfoEndianChange(pAd,  (PUCHAR)(pDMAHeaderBufVA), TYPE_TMACINFO, TmacLen);
+	RTMPFrameEndianChange(pAd, (PUCHAR)(pDMAHeaderBufVA + TmacLen), DIR_WRITE, FALSE);
+#endif
+
+	if (fragNum == pTxBlk->TotalFragNum) {
+		dma_cb->pNdisPacket = pTxBlk->pPacket;
+		dma_cb->pNextNdisPacket = NULL;
+	}
+
+	if (IS_ASIC_CAP(pAd, fASIC_CAP_CT))
+		dma_cb->PacketPa = pTxBlk->SrcBufPA;
+	else
+		dma_cb->PacketPa = PCI_MAP_SINGLE(pAd, pTxBlk, 0, 1, RTMP_PCI_DMA_TODEVICE);
+
+	dma_cb->DmaBuf.AllocSize = mt_pci_get_buf_len(pAd, pTxBlk);
+	dma_cb->DmaBuf.AllocPa = PCI_MAP_SINGLE(pAd, pDMAHeaderBufVA, dma_cb->DmaBuf.AllocSize, 0, RTMP_PCI_DMA_TODEVICE);
+
+	pTxD->SDPtr0 = dma_cb->DmaBuf.AllocPa;
+	pTxD->SDLen0 = dma_cb->DmaBuf.AllocSize;
+	pTxD->SDPtr1 = dma_cb->PacketPa;
+	pTxD->SDLen1 = pTxBlk->SrcBufLen;
+	pTxD->LastSec0 = !(pTxD->SDLen1);
+	pTxD->LastSec1 = (pTxD->SDLen1 ? 1 : 0);
+	pTxD->Burst = 0;
+	mt_write_txd(pAd, pTxD);
+#ifdef RT_BIG_ENDIAN
+	RTMPDescriptorEndianChange((PUCHAR)pTxD, TYPE_TXD);
+	WriteBackToDescriptor((PUCHAR)pDestTxD, (PUCHAR)pTxD, FALSE, TYPE_TXD);
+#endif /* RT_BIG_ENDIAN */
+	RetTxIdx = TxIdx;
+	pTxBlk->Priv += pTxBlk->SrcBufLen;
+	/* flush dcache if no consistent memory is supported */
+	RTMP_DCACHE_FLUSH(dma_cb->DmaBuf.AllocPa, pTxD->SDLen0);
+	RTMP_DCACHE_FLUSH(pTxBlk->pSrcBufData, pTxBlk->SrcBufLen);
+	RTMP_DCACHE_FLUSH(dma_cb->AllocPa, RXD_SIZE);
+	/* Update Tx index */
+	INC_RING_INDEX(TxIdx, tx_ring_size);
+	pTxRing->TxCpuIdx = TxIdx;
+	*FreeNumber -= 1;
+	return RetTxIdx;
+}
+
+VOID pci_kickout_data_tx(RTMP_ADAPTER *pAd, TX_BLK *tx_blk, UCHAR resource_idx)
+{
+	ULONG flags;
+	struct _PCI_HIF_T *hif = hc_get_hif_ctrl(pAd->hdev_ctrl);
+	NDIS_SPIN_LOCK *lock = &hif->TxRingLock[resource_idx];
+
+	RTMP_IRQ_LOCK(lock, flags);
+	HIF_IO_WRITE32(pAd, hif->TxRing[resource_idx].hw_cidx_addr, hif->TxRing[resource_idx].TxCpuIdx);
+	RTMP_IRQ_UNLOCK(lock, flags);
+}
+
+#ifdef CONFIG_AP_SUPPORT
+static VOID trPsTokenUpdate(RTMP_ADAPTER *pAd, UINT QueIdx, PNDIS_PACKET pPacket)
+{
+	struct tx_swq_fifo *fifo_swq;
+	STA_TR_ENTRY *tr_entry;
+	INT enq_idx;
+	UCHAR wcid;
+
+	wcid = RTMP_GET_PACKET_WCID(pPacket);
+
+	if (wcid < MAX_LEN_OF_TR_TABLE) {
+		tr_entry = &pAd->MacTab.tr_entry[wcid];
+
+		if (tr_entry->tx_queue[QueIdx].Number == 0)
+			tr_entry->TokenCount[QueIdx] = 0;
+		else if ((tr_entry->ps_state == APPS_RETRIEVE_IDLE) && (tr_entry->TokenCount[QueIdx] > 0)) {
+			fifo_swq = &pAd->tx_swq[QueIdx];
+			enq_idx = fifo_swq->enqIdx;
+
+			if ((fifo_swq->swq[enq_idx] == 0) && (tr_entry->enq_cap)) {
+				fifo_swq->swq[enq_idx] = tr_entry->wcid;
+				INC_RING_INDEX(fifo_swq->enqIdx, TX_SWQ_FIFO_LEN);
+				TR_TOKEN_COUNT_DEC(tr_entry, QueIdx);
+			}
+		}
+	}
+}
+
+#endif
+
+BOOLEAN RTMPFreeTXDUponTxDmaDone(
+	IN RTMP_ADAPTER *pAd,
+	IN UCHAR QueIdx,
+	IN UCHAR RingIdx,
+	BOOLEAN ForceFree)
+{
+	RTMP_TX_RING *pTxRing;
+	TXD_STRUC *pTxD;
+#ifdef RT_BIG_ENDIAN
+	TXD_STRUC *pDestTxD;
+	UCHAR tx_hw_info[TXD_SIZE];
+#endif
+	PNDIS_PACKET pPacket;
+	UCHAR FREE = 0;
+	BOOLEAN bReschedule = FALSE;
+	ULONG flags;
+	NDIS_SPIN_LOCK *lock;
+	struct _RTMP_CHIP_CAP *cap = hc_get_chip_cap(pAd->hdev_ctrl);
+	UINT8 num_of_tx_ring = GET_NUM_OF_TX_RING(cap);
+	UINT16 tx_ring_size = GET_TX_RING_SIZE(cap);
+	struct _PCI_HIF_T *hif = hc_get_hif_ctrl(pAd->hdev_ctrl);
+#ifdef MT_MAC
+
+	if (QueIdx == QID_BMC) {
+		pTxRing = &hif->TxBmcRing;
+		lock = &hif->TxBmcRingLock;
+	} else
+#endif /* MT_MAC */
+	{
+		ASSERT(RingIdx < num_of_tx_ring);
+
+		if (RingIdx >= num_of_tx_ring) {
+			MTWF_LOG(DBG_CAT_HIF, CATHIF_PCI, DBG_LVL_ERROR, ("%s: RingIdx=%d\n", __func__, RingIdx));
+			return FALSE;
+		}
+
+		lock = &hif->TxRingLock[RingIdx];
+		pTxRing = &hif->TxRing[RingIdx];
+	}
+
+	RTMP_IRQ_LOCK(lock, flags);
+#if (CFG_CPU_LOADING_DMADONE == 1)
+	RTMP_DCACHE_FLUSH(pTxRing->Cell[pTxRing->TxSwFreeIdx].AllocPa, RXD_SIZE);
+	pTxD = (TXD_STRUC *) (pTxRing->Cell[pTxRing->TxSwFreeIdx].AllocVa);
+
+	while (pTxD->DMADONE) {
+		pTxD->DMADONE = 0;
+#else
+	HIF_IO_READ32(pAd, pTxRing->hw_didx_addr, &pTxRing->TxDmaIdx);
+
+	while (pTxRing->TxSwFreeIdx != pTxRing->TxDmaIdx) {
+#endif
+#ifdef ERR_RECOVERY
+
+		if (IsStopingPdma(&pAd->ErrRecoveryCtl)) {
+			RTMP_IRQ_UNLOCK(lock, flags);
+			return FALSE;
+		}
+
+#endif /* ERR_RECOVERY */
+		/* Note : If (pAd->ate.bQATxStart == TRUE), we will never reach here. */
+		FREE++;
+#ifndef RT_BIG_ENDIAN
+		pTxD = (TXD_STRUC *)(pTxRing->Cell[pTxRing->TxSwFreeIdx].AllocVa);
+#else
+		pDestTxD = (TXD_STRUC *) (pTxRing->Cell[pTxRing->TxSwFreeIdx].AllocVa);
+		NdisMoveMemory(&tx_hw_info[0], pDestTxD, TXD_SIZE);
+		pTxD = (TXD_STRUC *)&tx_hw_info[0];
+		RTMPDescriptorEndianChange((PUCHAR)pTxD, TYPE_TXD);
+#endif
+		/* pTxD->DMADONE = 0; */
+#if defined(DOT11Z_TDLS_SUPPORT) || defined(CFG_TDLS_SUPPORT)
+#ifdef UAPSD_SUPPORT
+		UAPSD_SP_PacketCheck(pAd,
+			pTxRing->Cell[pTxRing->TxSwFreeIdx].pNdisPacket,
+			((UCHAR *)pTxRing->Cell[pTxRing->TxSwFreeIdx].DmaBuf.AllocVa) +
+			cap->TXWISize);
+#endif /* UAPSD_SUPPORT */
+#else
+#ifdef CONFIG_AP_SUPPORT
+#ifdef UAPSD_SUPPORT
+		IF_DEV_CONFIG_OPMODE_ON_AP(pAd)
+		{
+			UAPSD_SP_PacketCheck(pAd,
+								 pTxRing->Cell[pTxRing->TxSwFreeIdx].pNdisPacket,
+								 ((UCHAR *)pTxRing->Cell[pTxRing->TxSwFreeIdx].DmaBuf.AllocVa) + cap->TXWISize);
+		}
+
+#endif /* UAPSD_SUPPORT */
+#endif /* CONFIG_AP_SUPPORT */
+#endif /* defined(DOT11Z_TDLS_SUPPORT) || defined(CFG_TDLS_SUPPORT) */
+
+		/* Execution of this block is not allowed when ATE is running. */
+		if (1
+#ifdef CONFIG_ATE
+			&& !(ATE_ON(pAd))
+#endif /* CONFIG_ATE */
+#ifdef CUT_THROUGH /* leave packet free to TxD-Free Notification handler. */
+			&& !CUT_THROUGH_TX_ENABL(pAd->PktTokenCb)
+#endif /* CUT_THROUGH */
+		   ) {
+			pPacket = pTxRing->Cell[pTxRing->TxSwFreeIdx].pNdisPacket;
+
+			if (pPacket) {
+#ifdef CONFIG_5VT_ENHANCE
+
+				if (RTMP_GET_PACKET_5VT(pPacket))
+					PCI_UNMAP_SINGLE(pAd, pTxD->SDPtr1, 16, RTMP_PCI_DMA_TODEVICE);
+				else
+#endif /* CONFIG_5VT_ENHANCE */
+					PCI_UNMAP_SINGLE(pAd, pTxD->SDPtr1, pTxD->SDLen1, RTMP_PCI_DMA_TODEVICE);
+
+#ifdef CONFIG_AP_SUPPORT
+
+				if (QueIdx < WMM_QUE_NUM)
+					trPsTokenUpdate(pAd, QueIdx, pPacket);
+
+#endif /* CONFIG_AP_SUPPORT */
+#ifdef WLAN_SKB_RECYCLE
+
+				if (skb_queue_len(&pAd->rx0_recycle) < NUM_RX_DESC &&
+					skb_recycle_check(RTPKT_TO_OSPKT(pPacket), RX_BUFFER_NORMSIZE))
+					__skb_queue_head(&pAd->rx0_recycle, RTPKT_TO_OSPKT(pPacket));
+				else
+#endif /* WLAN_SKB_RECYCLE */
+					RELEASE_NDIS_PACKET(pAd, pPacket, NDIS_STATUS_SUCCESS);
+
+				pTxRing->Cell[pTxRing->TxSwFreeIdx].pNdisPacket = NULL;
+			}
+
+			pPacket = pTxRing->Cell[pTxRing->TxSwFreeIdx].pNextNdisPacket;
+
+			if (pPacket) {
+#ifdef CONFIG_5VT_ENHANCE
+
+				if (RTMP_GET_PACKET_5VT(pPacket))
+					PCI_UNMAP_SINGLE(pAd, pTxD->SDPtr1, 16, RTMP_PCI_DMA_TODEVICE);
+				else
+#endif /* CONFIG_5VT_ENHANCE */
+					PCI_UNMAP_SINGLE(pAd, pTxD->SDPtr1, pTxD->SDLen1, RTMP_PCI_DMA_TODEVICE);
+
+#ifdef WLAN_SKB_RECYCLE
+
+				if (skb_queue_len(&pAd->rx0_recycle) < NUM_RX_DESC &&
+					skb_recycle_check(RTPKT_TO_OSPKT(pPacket), RX_BUFFER_NORMSIZE))
+					__skb_queue_head(&pAd->rx0_recycle, RTPKT_TO_OSPKT(pPacket));
+				else
+#endif /* WLAN_SKB_RECYCLE */
+					RELEASE_NDIS_PACKET(pAd, pPacket, NDIS_STATUS_SUCCESS);
+
+				pTxRing->Cell[pTxRing->TxSwFreeIdx].pNextNdisPacket = NULL;
+			}
+		}
+
+#ifdef CUT_THROUGH
+		pTxRing->Cell[pTxRing->TxSwFreeIdx].pNdisPacket = NULL;
+		pTxRing->Cell[pTxRing->TxSwFreeIdx].pNextNdisPacket = NULL;
+#else
+		/* flush dcache if no consistent memory is supported */
+		RTMP_DCACHE_FLUSH(pTxRing->Cell[pTxRing->TxSwFreeIdx].AllocPa, TXD_SIZE);
+		pAd->RalinkCounters.TransmittedByteCount +=  (pTxD->SDLen1 + pTxD->SDLen0);
+		pAd->RalinkCounters.OneSecTransmittedByteCount += (pTxD->SDLen1 + pTxD->SDLen0);
+#endif /* CUT_THROUGH */
+#ifdef MT_MAC
+
+		if (QueIdx == QID_BMC)
+			pAd->RalinkCounters.OneSecDmaDoneCount[QID_AC_BE]++;
+		else
+#endif /* MT_MAC */
+			pAd->RalinkCounters.OneSecDmaDoneCount[QueIdx]++;
+
+		INC_RING_INDEX(pTxRing->TxSwFreeIdx, tx_ring_size);
+#ifdef RT_BIG_ENDIAN
+		RTMPDescriptorEndianChange((PUCHAR)pTxD, TYPE_TXD);
+		NdisMoveMemory(pDestTxD, pTxD, TXD_SIZE);
+#endif
+#if (CFG_CPU_LOADING_DMADONE == 1)
+		RTMP_DCACHE_FLUSH(pTxRing->Cell[pTxRing->TxSwFreeIdx].AllocPa, RXD_SIZE);
+		pTxD = (TXD_STRUC *) (pTxRing->Cell[pTxRing->TxSwFreeIdx].AllocVa);
+#endif
+	}
+
+	RTMP_IRQ_UNLOCK(lock, flags);
+	return  bReschedule;
+}
+
+BOOLEAN mtd_free_txd(RTMP_ADAPTER *pAd, UINT8 hif_idx)
+{
+	RTMP_TX_RING *tx_ring;
+	RTMP_DMACB *dma_cb;
+#ifdef RT_BIG_ENDIAN
+	TXD_STRUC *pTxD;
+	TXD_STRUC *pDestTxD;
+	UCHAR hw_hdr_info[TXD_SIZE];
+#endif
+	struct _RTMP_CHIP_CAP *cap = hc_get_chip_cap(pAd->hdev_ctrl);
+	UINT16 tx_ring_size = GET_TX_RING_SIZE(cap);
+#ifdef CONFIG_TP_DBG
+	struct tp_debug *tp_dbg = &pAd->tr_ctl.tp_dbg;
+#endif
+	struct _PCI_HIF_T *hif = hc_get_hif_ctrl(pAd->hdev_ctrl);
+	NDIS_SPIN_LOCK *lock = &hif->TxRingLock[hif_idx];
+
+	tx_ring = &hif->TxRing[hif_idx];
+
+	RTMP_SEM_LOCK(lock);
+	HIF_IO_READ32(pAd, tx_ring->hw_didx_addr, &tx_ring->TxDmaIdx);
+
+	while (tx_ring->TxSwFreeIdx != tx_ring->TxDmaIdx) {
+		dma_cb = &tx_ring->Cell[tx_ring->TxSwFreeIdx];
+
+		PCI_UNMAP_SINGLE(pAd, dma_cb->DmaBuf.AllocPa, dma_cb->DmaBuf.AllocSize, RTMP_PCI_DMA_TODEVICE);
+
+		/* flush dcache if no consistent memory is supported */
+		RTMP_DCACHE_FLUSH(dma_cb->AllocPa, TXD_SIZE);
+		INC_RING_INDEX(tx_ring->TxSwFreeIdx, tx_ring_size);
+	}
+	RTMP_SEM_UNLOCK(lock);
+
+	return FALSE;
+}
+
+BOOLEAN mtd_tx_dma_done_handle(RTMP_ADAPTER *pAd, UINT8 hif_idx)
 {
 	struct qm_ops *qm_ops = pAd->qm_ops;
 	struct _PCI_HIF_T *hif = hc_get_hif_ctrl(pAd->hdev_ctrl);
-	struct hif_pci_tx_ring *tx_ring = pci_get_tx_ring_by_ridx(hif, resource_idx);
+	RTMP_TX_RING *tx_ring = &hif->TxRing[hif_idx];
 	UINT free_num;
 
-	hif_free_txd(pAd, resource_idx);
+	mtd_free_txd(pAd, hif_idx);
 
-	free_num = pci_get_tx_resource_free_num_nolock(pAd, resource_idx);
-	if (free_num >= tx_ring->tx_ring_high_water_mark &&
-			pci_get_resource_state(pAd, resource_idx)) {
-		pci_set_resource_state(pAd, resource_idx, TX_RING_HIGH);
-		qm_ops->schedule_tx_que(pAd, (tx_ring->band_idx ? DBDC_BAND1 : DBDC_BAND0));
+	free_num = pci_get_tx_resource_free_num_nolock(pAd, hif_idx);
+	if (free_num >= tx_ring->tx_ring_high_water_mark && pci_get_resource_state(pAd, hif_idx) == TX_RING_LOW) {
+		pci_set_resource_state(pAd, hif_idx, TX_RING_HIGH);
+		qm_ops->schedule_tx_que(pAd);
 	}
 
 	return FALSE;
 }
 
-/*
-*
-*/
-static BOOLEAN pci_cmd_dma_done_handle(RTMP_ADAPTER *pAd, UINT8 resource_idx)
+BOOLEAN mt_cmd_dma_done_handle(RTMP_ADAPTER *pAd, UINT8 hif_idx)
 {
 	TXD_STRUC *pTxD;
 #ifdef RT_BIG_ENDIAN
@@ -627,11 +975,10 @@ static BOOLEAN pci_cmd_dma_done_handle(RTMP_ADAPTER *pAd, UINT8 resource_idx)
 #endif
 	PNDIS_PACKET pPacket;
 	struct _PCI_HIF_T *hif = hc_get_hif_ctrl(pAd->hdev_ctrl);
+	RTMP_CTRL_RING *pCtrlRing = &hif->CtrlRing;
 
-	struct hif_pci_tx_ring *pCtrlRing = pci_get_tx_ring_by_ridx(hif, resource_idx);
-
-	NdisAcquireSpinLock(&pCtrlRing->tx_done_lock);
-	HIF_IO_READ32(pAd->hdev_ctrl, pCtrlRing->hw_didx_addr, &pCtrlRing->TxDmaIdx);
+	NdisAcquireSpinLock(&hif->CtrlRingLock);
+	HIF_IO_READ32(pAd, pCtrlRing->hw_didx_addr, &pCtrlRing->TxDmaIdx);
 
 	while (pCtrlRing->TxSwFreeIdx != pCtrlRing->TxDmaIdx) {
 #ifdef RT_BIG_ENDIAN
@@ -645,7 +992,7 @@ static BOOLEAN pci_cmd_dma_done_handle(RTMP_ADAPTER *pAd, UINT8 resource_idx)
 		pPacket = pCtrlRing->Cell[pCtrlRing->TxSwFreeIdx].pNdisPacket;
 
 		if (pPacket == NULL) {
-			INC_RING_INDEX(pCtrlRing->TxSwFreeIdx, pCtrlRing->ring_size);
+			INC_RING_INDEX(pCtrlRing->TxSwFreeIdx, CTL_RING_SIZE);
 			continue;
 		}
 
@@ -657,7 +1004,7 @@ static BOOLEAN pci_cmd_dma_done_handle(RTMP_ADAPTER *pAd, UINT8 resource_idx)
 		pCtrlRing->Cell[pCtrlRing->TxSwFreeIdx].pNdisPacket = NULL;
 		/* flush dcache if no consistent memory is supported */
 		RTMP_DCACHE_FLUSH(pCtrlRing->Cell[pCtrlRing->TxSwFreeIdx].AllocPa, TXD_SIZE);
-		INC_RING_INDEX(pCtrlRing->TxSwFreeIdx, pCtrlRing->ring_size);
+		INC_RING_INDEX(pCtrlRing->TxSwFreeIdx, CTL_RING_SIZE);
 
 #ifdef RT_BIG_ENDIAN
 		RTMPDescriptorEndianChange((PUCHAR)pTxD, TYPE_TXD);
@@ -665,15 +1012,12 @@ static BOOLEAN pci_cmd_dma_done_handle(RTMP_ADAPTER *pAd, UINT8 resource_idx)
 #endif
 	}
 
-	NdisReleaseSpinLock(&pCtrlRing->tx_done_lock);
+	NdisReleaseSpinLock(&hif->CtrlRingLock);
 
 	return FALSE;
 }
 
-/*
-*
-*/
-static BOOLEAN pci_fwdl_dma_done_handle(RTMP_ADAPTER *pAd, UINT8 resource_idx)
+BOOLEAN mt_fwdl_dma_done_handle(RTMP_ADAPTER *pAd, UINT8 hif_idx)
 {
 	TXD_STRUC *pTxD;
 #ifdef RT_BIG_ENDIAN
@@ -681,14 +1025,15 @@ static BOOLEAN pci_fwdl_dma_done_handle(RTMP_ADAPTER *pAd, UINT8 resource_idx)
 	UCHAR hw_hdr_info[TXD_SIZE];
 #endif
 	PNDIS_PACKET pPacket;
+	UCHAR	FREE = 0;
 	struct _PCI_HIF_T *hif = hc_get_hif_ctrl(pAd->hdev_ctrl);
+	RTMP_RING *pRing = (RTMP_RING *)&hif->FwDwloRing;
 
-	struct hif_pci_tx_ring *pRing = pci_get_tx_ring_by_ridx(hif, resource_idx);
-
-	NdisAcquireSpinLock(&pRing->tx_done_lock);
-	HIF_IO_READ32(pAd->hdev_ctrl, pRing->hw_didx_addr, &pRing->TxDmaIdx);
+	NdisAcquireSpinLock(&pRing->RingLock);
+	HIF_IO_READ32(pAd, pRing->hw_didx_addr, &pRing->TxDmaIdx);
 
 	while (pRing->TxSwFreeIdx != pRing->TxDmaIdx) {
+		FREE++;
 #ifdef RT_BIG_ENDIAN
 		pDestTxD = (TXD_STRUC *)(pRing->Cell[pRing->TxSwFreeIdx].AllocVa);
 		NdisMoveMemory(&hw_hdr_info[0], pDestTxD, TXD_SIZE);
@@ -700,7 +1045,7 @@ static BOOLEAN pci_fwdl_dma_done_handle(RTMP_ADAPTER *pAd, UINT8 resource_idx)
 		pPacket = pRing->Cell[pRing->TxSwFreeIdx].pNdisPacket;
 
 		if (pPacket == NULL) {
-			INC_RING_INDEX(pRing->TxSwFreeIdx, pRing->ring_size);
+			INC_RING_INDEX(pRing->TxSwFreeIdx, MGMT_RING_SIZE);
 			continue;
 		}
 
@@ -712,148 +1057,175 @@ static BOOLEAN pci_fwdl_dma_done_handle(RTMP_ADAPTER *pAd, UINT8 resource_idx)
 		pRing->Cell[pRing->TxSwFreeIdx].pNdisPacket = NULL;
 		/* flush dcache if no consistent memory is supported */
 		RTMP_DCACHE_FLUSH(pRing->Cell[pRing->TxSwFreeIdx].AllocPa, TXD_SIZE);
-		INC_RING_INDEX(pRing->TxSwFreeIdx, pRing->ring_size);
+		INC_RING_INDEX(pRing->TxSwFreeIdx, MGMT_RING_SIZE);
 #ifdef RT_BIG_ENDIAN
 		RTMPDescriptorEndianChange((PUCHAR)pTxD, TYPE_TXD);
 		WriteBackToDescriptor((PUCHAR)pDestTxD, (PUCHAR)pTxD, TRUE, TYPE_TXD);
 #endif
 	}
 
-	NdisReleaseSpinLock(&pRing->tx_done_lock);
+	NdisReleaseSpinLock(&pRing->RingLock);
 	return FALSE;
 }
 
-VOID dump_rxd(RTMP_ADAPTER *pAd, RXD_STRUC *pRxD)
+
+/*
+	========================================================================
+
+	Routine Description:
+		Process MGMT ring DMA done interrupt, running in DPC level
+
+	Arguments:
+		pAd	Pointer to our adapter
+
+	Return Value:
+		None
+
+	IRQL = DISPATCH_LEVEL
+
+	Note:
+
+	========================================================================
+*/
+VOID RTMPHandleMgmtRingDmaDoneInterrupt(RTMP_ADAPTER *pAd)
 {
-	MTWF_PRINT("RxD:\n");
-	MTWF_PRINT("\tSDPtr0/SDLen0/LastSec0=0x%x/0x%x/0x%x\n",
-			 pRxD->SDP0, pRxD->SDL0, pRxD->LS0);
-	MTWF_PRINT("\tSDPtr1/SDLen1/LastSec1=0x%x/0x%x/0x%x\n",
-			 pRxD->SDP1, pRxD->SDL1, pRxD->LS1);
-	MTWF_PRINT("\tDDONE=0x%x\n", pRxD->DDONE);
-}
+	TXD_STRUC *pTxD;
+#ifdef RT_BIG_ENDIAN
+	TXD_STRUC *pDestTxD;
+	UCHAR tx_hw_info[TXD_SIZE];
+#endif
+	PNDIS_PACKET pPacket;
+	UCHAR	FREE = 0;
+	struct _PCI_HIF_T *hif = hc_get_hif_ctrl(pAd->hdev_ctrl);
+	RTMP_MGMT_RING *pMgmtRing = &hif->MgmtRing;
+	struct _RTMP_CHIP_CAP *cap;
 
-VOID dump_rxd_4dw(RXD_STRUC *pRxD)
-{
-	UINT32 *dw0 = (UINT32 *)((UCHAR *)pRxD);
-	UINT32 *dw1 = (UINT32 *)((UCHAR *)pRxD + 4);
-	UINT32 *dw2 = (UINT32 *)((UCHAR *)pRxD + 8);
-	UINT32 *dw3 = (UINT32 *)((UCHAR *)pRxD + 12);
-	MTWF_PRINT("RxD Raw:\n");
-	MTWF_PRINT("\tRxD DW0: 0x%x\n",
-				*dw0);
-	MTWF_PRINT("\tRxD DW1: 0x%x\n",
-				*dw1);
-	MTWF_PRINT("\tRxD DW2: 0x%x\n",
-				*dw2);
-	MTWF_PRINT("\tRxD DW3: 0x%x\n",
-				*dw3);
-	MTWF_PRINT("RxD:\n");
-	MTWF_PRINT("\tSDPtr0/SDLen0/LastSec0=0x%x/0x%x/0x%x\n",
-			 pRxD->SDP0, pRxD->SDL0, pRxD->LS0);
-	MTWF_PRINT("\tSDPtr1/SDLen1/LastSec1=0x%x/0x%x/0x%x\n",
-			 pRxD->SDP1, pRxD->SDL1, pRxD->LS1);
-	MTWF_PRINT("\tDDONE=0x%x\n", pRxD->DDONE);
-}
+	cap = hc_get_chip_cap(pAd->hdev_ctrl);
+	NdisAcquireSpinLock(&hif->MgmtRingLock);
+	HIF_IO_READ32(pAd, pMgmtRing->hw_didx_addr, &pMgmtRing->TxDmaIdx);
 
-#ifdef RXD_WED_SCATTER_SUPPORT
-VOID dump_rxd_history(RTMP_ADAPTER *pAd)
-{
-	UINT i = 0;
-	for (i = 0; i < MAX_RECORD; i++) {
-		MTWF_PRINT("History [%u]:\n", i);
-		MTWF_PRINT("\t DMAD entry [%u]:\n", i);
-		dump_rxd_4dw((RXD_STRUC *)&(pAd->RxDHisLog[i].RxD_dump));
-	}
-}
+	while (pMgmtRing->TxSwFreeIdx != pMgmtRing->TxDmaIdx) {
+		FREE++;
+#ifdef RT_BIG_ENDIAN
+		pDestTxD = (TXD_STRUC *) (pMgmtRing->Cell[pMgmtRing->TxSwFreeIdx].AllocVa);
+		NdisMoveMemory(&tx_hw_info[0], pDestTxD, TXD_SIZE);
+		pTxD = (TXD_STRUC *)&tx_hw_info[0];
+		RTMPDescriptorEndianChange((PUCHAR)pTxD, TYPE_TXD);
+#else
+		pTxD = (TXD_STRUC *) (pMgmtRing->Cell[pMgmtRing->TxSwFreeIdx].AllocVa);
+#endif
+		pTxD->DMADONE = 0;
+		pPacket = pMgmtRing->Cell[pMgmtRing->TxSwFreeIdx].pNdisPacket;
 
-VOID dump_rxd_scatter_history(RTMP_ADAPTER *pAd)
-{
-	UINT i = 0;
-	for (i = 0; i < MAX_RECORD; i++) {
-		MTWF_PRINT("History [%u]:\n", i);
-		MTWF_PRINT("\t Scatter entry [%u]: scatter_cnt=%u, gather_size=%u, rx_bytes_cnt=%u, build_skb_len=%u\n",
-			i, pAd->RxScatHisLog[i].scatter_cnt, pAd->RxScatHisLog[i].gather_size, pAd->RxScatHisLog[i].rx_bytes_cnt, pAd->RxScatHisLog[i].build_skb_len);
-	}
-}
-#endif /* RXD_WED_SCATTER_SUPPORT */
-
-VOID dump_rxd_debug(RTMP_ADAPTER *pAd, RXD_DEBUG_STRUC *pRxD)
-{
-	MTWF_PRINT("RxD:\n");
-	MTWF_PRINT("\tSDPtr0/SDLen0/LastSec0=0x%x/0x%x/0x%x\n",
-			 pRxD->SDP0, pRxD->SDL0, pRxD->LS0);
-	MTWF_PRINT("\tQID/DIDX/CIDX/SW_INFO=0x%x/0x%x/0x%x/0x%x\n",
-			 pRxD->QID, pRxD->DIDX, pRxD->CIDX, pRxD->SW_INFO);
-	MTWF_PRINT("\tDDONE=0x%x\n", pRxD->DDONE);
-}
-
-VOID dump_rxd_wed(RTMP_ADAPTER *pAd, RXD_STRUC *pRxD)
-{
-	UINT32 *dw0 = (UINT32 *)((UCHAR *)pRxD);
-	UINT32 *dw1 = (UINT32 *)((UCHAR *)pRxD + 4);
-	UINT32 *dw2 = (UINT32 *)((UCHAR *)pRxD + 8);
-	UINT32 *dw3 = (UINT32 *)((UCHAR *)pRxD + 12);
-
-	MTWF_PRINT("RxD:\n");
-	MTWF_PRINT("\tRxD DW0: 0x%x\n",
-				*dw0);
-	MTWF_PRINT("\tRxD DW1: 0x%x\n",
-				*dw1);
-	MTWF_PRINT("\tRxD DW2: 0x%x\n",
-				*dw2);
-	MTWF_PRINT("\tRxD DW3: 0x%x\n",
-				*dw3);
-}
-
-static INT32 dump_rx_info(struct _RTMP_ADAPTER *pAd, RTMP_DMACB *rx_cell,
-					RXD_DEBUG_STRUC *pRxD, UCHAR resource_idx, PNDIS_PACKET pRxPacket)
-{
-	INT32 status = NDIS_STATUS_SUCCESS;
-	UINT32 rx_pkt_type;
-	enum resource_attr res_attr = hif_get_resource_type(pAd->hdev_ctrl, resource_idx);
-	struct _PCI_HIF_T *pci_hif = hc_get_hif_ctrl(pAd->hdev_ctrl);
-	struct hif_pci_rx_ring *rx_ring = pci_get_rx_ring_by_ridx(pci_hif, resource_idx);
-	ULONG cpu_addr;
-
-	if (res_attr == HIF_RX_DATA) {
-
-		rx_pkt_type = asic_get_packet_type(pAd, GET_OS_PKT_DATAPTR(pRxPacket));
-
-		if ((rx_pkt_type == RMAC_RX_PKT_TYPE_RX_TXS) ||
-			(rx_pkt_type == RMAC_RX_PKT_TYPE_RX_TXRXV) ||
-			(rx_pkt_type == RMAC_RX_PKT_TYPE_RX_TMR)) {
-
-				if (rx_ring->buf_debug & BUF_RX_RXD) {
-					dump_rxd_debug(pAd, pRxD);
-				}
-
-				if (rx_ring->buf_debug & BUF_RX_ADDR) {
-					/*
-					MTWF_PRINT("RX Buffer Phy/Vir = 0x%llx/0x%p\n",
-								rx_cell->DmaBuf.AllocPa, rx_cell->DmaBuf.AllocVa);
-					*/
-				}
-
-				if (rx_ring->buf_debug & BUF_RX_PAYLOAD) {
-					hex_dump("RX BufferA:", (PUCHAR)GET_OS_PKT_DATAPTR(pRxPacket), GET_OS_PKT_LEN(pRxPacket));
-				}
-
-				if (rx_ring->buf_debug & BUF_RX_HW_PAYLOAD) {
-					cpu_addr = (ULONG)phys_to_virt(pRxD->SDP0);
-					hex_dump("RX BufferB:", (PUCHAR)cpu_addr, pRxD->SDL0);
-				}
-
-				status = NDIS_STATUS_FAILURE;
+		if (pPacket == NULL) {
+			INC_RING_INDEX(pMgmtRing->TxSwFreeIdx, MGMT_RING_SIZE);
+			continue;
 		}
+
+#define LMR_FRAME_GET()	(GET_OS_PKT_DATAPTR(pPacket) + cap->TXWISize)
+#ifdef UAPSD_SUPPORT
+#if defined(DOT11Z_TDLS_SUPPORT) || defined(CFG_TDLS_SUPPORT)
+		UAPSD_QoSNullTxMgmtTxDoneHandle(pAd,
+										pPacket,
+										LMR_FRAME_GET(), FALSE);
+#else
+#ifdef CONFIG_AP_SUPPORT
+		IF_DEV_CONFIG_OPMODE_ON_AP(pAd)
+		{
+			UAPSD_QoSNullTxMgmtTxDoneHandle(pAd,
+											pPacket, LMR_FRAME_GET(), FALSE);
+		}
+
+#endif /* CONFIG_AP_SUPPORT */
+#endif /* defined(DOT11Z_TDLS_SUPPORT) || defined(CFG_TDLS_SUPPORT) */
+#endif /* UAPSD_SUPPORT */
+#ifdef CONFIG_AP_SUPPORT
+#endif /* CONFIG_AP_SUPPORT */
+#ifdef CONFIG_ATE
+
+		if (ATE_ON(pAd))
+			MT_ATETxControl(pAd, 0xFF, pPacket);
+
+#endif
+
+		if (pPacket) {
+			PCI_UNMAP_SINGLE(pAd, pTxD->SDPtr0, pTxD->SDLen0, RTMP_PCI_DMA_TODEVICE);
+			RELEASE_NDIS_PACKET(pAd, pPacket, NDIS_STATUS_SUCCESS);
+		}
+
+		pMgmtRing->Cell[pMgmtRing->TxSwFreeIdx].pNdisPacket = NULL;
+		pPacket = pMgmtRing->Cell[pMgmtRing->TxSwFreeIdx].pNextNdisPacket;
+
+		if (pPacket) {
+			PCI_UNMAP_SINGLE(pAd, pTxD->SDPtr1, pTxD->SDLen1, RTMP_PCI_DMA_TODEVICE);
+			RELEASE_NDIS_PACKET(pAd, pPacket, NDIS_STATUS_SUCCESS);
+		}
+
+		pMgmtRing->Cell[pMgmtRing->TxSwFreeIdx].pNextNdisPacket = NULL;
+		/* flush dcache if no consistent memory is supported */
+		RTMP_DCACHE_FLUSH(pMgmtRing->Cell[pMgmtRing->TxSwFreeIdx].AllocPa, TXD_SIZE);
+		INC_RING_INDEX(pMgmtRing->TxSwFreeIdx, MGMT_RING_SIZE);
+#ifdef RT_BIG_ENDIAN
+		RTMPDescriptorEndianChange((PUCHAR)pTxD, TYPE_TXD);
+		WriteBackToDescriptor((PUCHAR)pDestTxD, (PUCHAR)pTxD, TRUE, TYPE_TXD);
+#endif
 	}
 
-	return status;
+	NdisReleaseSpinLock(&hif->MgmtRingLock);
 }
 
-static PNDIS_PACKET expand_pkt_dynamic_page(
+VOID RTMPHandleRxCoherentInterrupt(RTMP_ADAPTER *pAd)
+{
+	if (pAd == NULL) {
+		MTWF_LOG(DBG_CAT_HIF, CATHIF_PCI, DBG_LVL_TRACE, ("====> pAd is NULL, return.\n"));
+		return;
+	}
+
+	MTWF_LOG(DBG_CAT_HIF, CATHIF_PCI, DBG_LVL_TRACE, ("RTMPHandleRxCoherentInterrupt\n"));
+	return;
+}
+
+
+#ifdef CONFIG_AP_SUPPORT
+VOID RTMPHandleMcuInterrupt(RTMP_ADAPTER *pAd)
+{
+	UINT32 McuIntSrc = 0;
+
+	/* TODO: shiang-7603 */
+	if (IS_HIF_TYPE(pAd, HIF_MT)) {
+		MTWF_LOG(DBG_CAT_HIF, CATHIF_PCI, DBG_LVL_OFF, ("%s(): Not support for HIF_MT yet!\n",
+				 __func__));
+		return;
+	}
+
+	RTMP_IO_READ32(pAd, 0x7024, &McuIntSrc);
+	/* check mac 0x7024 */
+#ifdef CARRIER_DETECTION_SUPPORT
+
+	if (pAd->infType == RTMP_DEV_INF_PCIE &&
+		(McuIntSrc & (1 << 1)) && /*bit_1: carr_status interrupt */
+		(pAd->CommonCfg.CarrierDetect.Enable == TRUE))
+		RTMPHandleRadarInterrupt(pAd);
+
+#endif /* CARRIER_DETECTION_SUPPORT */
+	/* clear MCU Int source register.*/
+	RTMP_IO_WRITE32(pAd, 0x7024, 0);
+}
+#endif /* CONFIG_AP_SUPPORT */
+
+#ifdef RX_SCATTER
+
+/*
+ * pkt: original pkt
+ * pkt_len: original pkt len not inclduing SKB_BUF_HEADROOM_RSV
+ *		and SKB_BUF_TAILROOM_RSV
+ * ext_head_len: new pkt extend head room len
+ * ext_tail_len: new pkt extend tail room len
+*/
+PNDIS_PACKET ExpandPacketBuffer(
 	struct _RTMP_ADAPTER *pAd,
 	void *hif_resource,
+	enum  MEM_ALLOC_TYPE type,
 	PNDIS_PACKET original_pkt,
 	UINT32 original_pkt_len,
 	UINT32 new_pkt_len,
@@ -861,79 +1233,55 @@ static PNDIS_PACKET expand_pkt_dynamic_page(
 {
 	PNDIS_PACKET *new_pkt = NULL;
 	UINT32 skb_len;
-	struct hif_pci_rx_ring *rx_ring = (struct hif_pci_rx_ring *)hif_resource;
 
-	/*
-	 * calculate new skb data size
-	 * SKB_BUF_HEADROOM_RSV = NET_SKB_PAD + NET_IP_ALIGN
-	 * SKB_BUF_TAILROOM_RSV = sizeof(struct skb_shared_info)
-	 * skb_size = SKB_DATA_ALIGN(SKB_BUF_HEADROOM_RSV + ext_tail_len) +
-	 *		SKB_DATA_ALIGN(SKB_BUF_TAILROOM_RSV)
-	 * if skb_size <= PAGE_SIZE use DEV_ALLOC_FRAG else use kmalloc
-	 * to alocate skb data size
-	 */
-	skb_len = SKB_DATA_ALIGN(SKB_BUF_HEADROOM_RSV + new_pkt_len)
-			+ SKB_DATA_ALIGN(SKB_BUF_TAILROOM_RSV);
+	switch (type) {
+#ifdef CONFIG_WIFI_BUILD_SKB
+	case DYNAMIC_PAGE_ALLOC:
+		/*
+		 * calculate new skb data size
+		 * SKB_BUF_HEADROOM_RSV = NET_SKB_PAD + NET_IP_ALIGN
+		 * SKB_BUF_TAILROOM_RSV = sizeof(struct skb_shared_info)
+		 * skb_size = SKB_DATA_ALIGN(SKB_BUF_HEADROOM_RSV + ext_tail_len) +
+		 *		SKB_DATA_ALIGN(SKB_BUF_TAILROOM_RSV)
+		 * if skb_size <= PAGE_SIZE use DEV_ALLOC_FRAG else use kmalloc
+		 * to alocate skb data size
+		 */
+		skb_len = SKB_DATA_ALIGN(SKB_BUF_HEADROOM_RSV + new_pkt_len)
+				+ SKB_DATA_ALIGN(SKB_BUF_TAILROOM_RSV);
 
-#if (KERNEL_VERSION(4, 10, 0) <= LINUX_VERSION_CODE)
-	new_pkt = page_frag_alloc(&rx_ring->rx_page, skb_len, GFP_ATOMIC);
-	if (new_pkt)
-		MEM_DBG_PKT_ALLOC_INC_SIZE(new_pkt, skb_len);
-#elif (KERNEL_VERSION(4, 3, 0) < LINUX_VERSION_CODE)
-	new_pkt = __alloc_page_frag(&rx_ring->rx_page, skb_len, GFP_ATOMIC);
-	if (new_pkt)
-		MEM_DBG_PKT_ALLOC_INC_SIZE(new_pkt, skb_len);
-#else
-	DEV_ALLOC_FRAG(new_pkt, skb_len);
-#endif
+		if (skb_len <= PAGE_SIZE)
+			DEV_ALLOC_FRAG(new_pkt, skb_len);
+		else
+			os_alloc_mem(pAd, (PUCHAR *)&new_pkt, skb_len);
 
-	*new_skb_len = skb_len;
+		*new_skb_len = skb_len;
 
-	if (new_pkt && original_pkt)
-		os_move_mem(((PVOID)new_pkt + SKB_BUF_HEADROOM_RSV),
-			((PVOID)original_pkt + SKB_BUF_HEADROOM_RSV), original_pkt_len);
+		if (new_pkt && original_pkt)
+			os_move_mem(((PVOID)new_pkt + SKB_BUF_HEADROOM_RSV),
+				((PVOID)original_pkt + SKB_BUF_HEADROOM_RSV), original_pkt_len);
 
-	if (original_pkt) {
-#if (KERNEL_VERSION(4, 10, 0) <= LINUX_VERSION_CODE)
-			MEM_DBG_PKT_FREE_INC(original_pkt);
-			page_frag_free(original_pkt);
-#elif (KERNEL_VERSION(4, 3, 0) < LINUX_VERSION_CODE)
-			MEM_DBG_PKT_FREE_INC(original_pkt);
-			__free_page_frag(original_pkt);
-#else
+		if (original_pkt)
 			DEV_FREE_FRAG_BUF(original_pkt);
-#endif
+
+		break;
+#endif /* CONFIG_WIFI_BUILD_SKB */
+	case PRE_SLAB_ALLOC:
+		new_pkt = alloc_rx_buf_64k(hif_resource);
+
+		*new_skb_len = new_pkt_len;
+
+		if (new_pkt && original_pkt)
+			os_move_mem((PVOID)new_pkt, ((PVOID)original_pkt), original_pkt_len);
+
+		if (original_pkt)
+			free_rx_buf_1k(hif_resource);
+
+		break;
+	default:
+		MTWF_LOG(DBG_CAT_RX, DBG_SUBCAT_ALL, DBG_LVL_OFF,
+			("%s: unknown mem type %d\n", __func__, type));
+		break;
 	}
-
-	if (!new_pkt) {
-		MTWF_LOG(DBG_CAT_RX, DBG_SUBCAT_ALL, DBG_LVL_WARN,
-			("Extend Rx buffer %d size packet failed! drop pkt.\n",
-			(new_pkt_len)));
-			return NULL;
-	}
-
-	return new_pkt;
-}
-
-static PNDIS_PACKET expand_pkt_pre_slab(
-	struct _RTMP_ADAPTER *pAd,
-	void *hif_resource,
-	PNDIS_PACKET original_pkt,
-	UINT32 original_pkt_len,
-	UINT32 new_pkt_len)
-{
-	PNDIS_PACKET *new_pkt = NULL;
-
-	new_pkt = alloc_rx_buf_64k(hif_resource);
-
-	if (new_pkt && original_pkt) {
-		MTWF_DBG(NULL, DBG_CAT_RX, DBG_SUBCAT_ALL, DBG_LVL_DEBUG,
-				"%s, original_pkt_len = %d\n", __func__, original_pkt_len);
-		os_move_mem((PUCHAR)new_pkt, ((PUCHAR)original_pkt), original_pkt_len);
-	}
-
-	if (original_pkt)
-		free_rx_buf_1k(hif_resource);
 
 	if (!new_pkt) {
 		MTWF_LOG(DBG_CAT_RX, DBG_SUBCAT_ALL, DBG_LVL_WARN,
@@ -946,18 +1294,18 @@ static PNDIS_PACKET expand_pkt_pre_slab(
 }
 
 static INT rx_scatter_info(
-	struct hif_pci_rx_ring *pRxRing,
-	struct _RXD_STRUC *pRxD,
-	UINT *pPktSize)
+	IN RTMP_RX_RING *pRxRing,
+	IN RXD_STRUC *pRxD,
+	OUT UINT *pPktSize)
 {
-	UINT LoopCnt;
-	INT32 RxCellIdx;
-	RTMP_DMACB *pCurRxCell = NULL;
-	RXD_STRUC *pCurRxD;
 #ifdef RT_BIG_ENDIAN
 	RXD_STRUC *pDestRxD;
 	UCHAR rx_hw_info[RXD_SIZE];
 #endif
+	UINT LoopCnt;
+	INT32 RxCellIdx;
+	RTMP_DMACB *pCurRxCell = NULL;
+	RXD_STRUC *pCurRxD;
 
 	LoopCnt = 0;
 
@@ -969,15 +1317,17 @@ static INT rx_scatter_info(
 		pCurRxCell = &pRxRing->Cell[RxCellIdx];
 		/* flush dcache if no consistent memory is supported */
 		RTMP_DCACHE_FLUSH(pCurRxCell->AllocPa, RXD_SIZE);
-		/* Point to Rx indexed rx ring descriptor */
 #ifdef RT_BIG_ENDIAN
 		pDestRxD = (RXD_STRUC *)pCurRxCell->AllocVa;
+		/* RxD = *pDestRxD; */
 		NdisMoveMemory(&rx_hw_info[0], pDestRxD, RXD_SIZE);
 		pCurRxD = (RXD_STRUC *)&rx_hw_info[0];
 		RTMPDescriptorEndianChange((PUCHAR)pCurRxD, TYPE_RXD);
 #else
+		/* Point to Rx indexed rx ring descriptor */
 		pCurRxD = (RXD_STRUC *)pCurRxCell->AllocVa;
 #endif
+
 		if (pCurRxD->DDONE == 0) {
 			LoopCnt = 0;
 			break;
@@ -991,166 +1341,14 @@ static INT rx_scatter_info(
 			break;
 		}
 
-		INC_RING_INDEX(RxCellIdx, pRxRing->ring_size);
+		INC_RING_INDEX(RxCellIdx, pRxRing->RxRingSize);
 	} while (TRUE);
+
 	return LoopCnt;
 }
-
-#ifdef RXD_WED_SCATTER_SUPPORT
-/*
-	Add addition check for WED/WO/PPE :  Pop up RxD  extra check for Scatter cases
-*/
-static INT rx_scatter_info_wed(
-	struct _RTMP_ADAPTER *pAd,
-	struct hif_pci_rx_ring *pRxRing,
-	struct _RXD_STRUC *pRxD,
-	UINT *pPktSize)
-{
-	UINT LoopCnt;
-	INT32 RxCellIdx;
-	RTMP_DMACB *pCurRxCell = NULL;
-	RXD_STRUC *pCurRxD;
-#ifdef RT_BIG_ENDIAN
-	RXD_STRUC *pDestRxD;
-	UCHAR rx_hw_info[RXD_SIZE];
-#endif
-	UINT32 *dw1 = NULL, *dw3 = NULL;
-	UINT32 *dw2 = NULL;
-
-#ifdef WO_SCATTER_INDICATE
-	BOOLEAN bWO_head = FALSE;
-#endif /* WO_SCATTER_INDICATE */
-
-	/* Real Scatter Cnt , include  the PPE Interleave */
-	LoopCnt = 0;
-
-	*pPktSize = 0;
-	RxCellIdx =  pRxRing->RxSwReadIdx;
-
-	/* walk through rx-ring and find the rx-cell content LS0 to be 1. */
-	do {
-		pCurRxCell = &pRxRing->Cell[RxCellIdx];
-		/* flush dcache if no consistent memory is supported */
-		RTMP_DCACHE_FLUSH(pCurRxCell->AllocPa, RXD_SIZE);
-		/* Point to Rx indexed rx ring descriptor */
-#ifdef RT_BIG_ENDIAN
-		pDestRxD = (RXD_STRUC *)pCurRxCell->AllocVa;
-		NdisMoveMemory(&rx_hw_info[0], pDestRxD, RXD_SIZE);
-		pCurRxD = (RXD_STRUC *)&rx_hw_info[0];
-		RTMPDescriptorEndianChange((PUCHAR)pCurRxD, TYPE_RXD);
-#else
-		pCurRxD = (RXD_STRUC *)pCurRxCell->AllocVa;
-#endif
-
-		/*
-			Black List and suppose always non scatter
-				1). PPE : always non-scatter
-				2). RRO : DW1 RXDMAD_TO_HOST_A set
-		*/
-		dw1 = (UINT32 *)((UCHAR *)pCurRxD + 4);
-		dw3 = (UINT32 *)((UCHAR *)pCurRxD + sizeof(RXD_STRUC));
-
-		/*
-			White List of WO S/W pre-checked:
-			WO DW2 bit[8]
-		*/
-		dw2 = (UINT32 *)((UCHAR *)pCurRxD + 8);
-
-		if (pCurRxD->DDONE == 0) {
-			LoopCnt = 0;
-			break;
-		}
-
-#ifdef WO_SCATTER_INDICATE
-		/* only sum the WO scatter size, interleaved pkts no need to alloc page size */
-		if ((bWO_head && (*dw2 & RXDMAD_WO_INDICATE_SCATTER)) || LoopCnt == 0)
-#endif /* WO_SCATTER_INDICATE */
-		{
-			*pPktSize += pCurRxD->SDL0;
-		}
-
-		/* Scatter Count : include interleaved pkts */
-		LoopCnt++;
-
-		/* Black List A). suppose all non catter cases ! */
-		if ((LoopCnt == 1)
-			&& (*dw3 & RXDMAD_PPE_VLD)) {
-			if (pCurRxD->LS0 == 0) {
-				MTWF_PRINT(" !!!ERROR !!!A: head PPE_VLD but Scatter!\n");
-				dump_rxd_4dw((RXD_STRUC *)pCurRxD);
-			}
-			break;
-		}
-
-		if ((LoopCnt == 1)
-			&& (*dw1 & RXDMAD_TO_HOST_A)) {
-			if (pCurRxD->LS0 == 0) {
-				MTWF_PRINT(" !!!ERROR !!!B: head RXDMAD_TO_HOST_A but Scatter!\n");
-				dump_rxd_4dw((RXD_STRUC *)pCurRxD);
-			}
-			break;
-		}
-
-#ifdef WO_SCATTER_INDICATE
-		if ((LoopCnt == 1)
-			&& (!(*dw2 & RXDMAD_WO_INDICATE_SCATTER))) {
-			if (pCurRxD->LS0 == 0) {
-				MTWF_PRINT(" !!!ERROR !!!C: head DW2 b8 not set but Scatter!\n");
-				dump_rxd_4dw((RXD_STRUC *)pCurRxD);
-			}
-			break;
-		}
-#endif /* WO_SCATTER_INDICATE */
-
-#ifdef WO_SCATTER_INDICATE
-		/*
-			WO will S/W toggle the bit scatter bit[8] :
-			for host driver to double check the scatter is all from WO indicate
-		*/
-		/* Double sanity : non-Last but not toggle bit[8] by WO !!, should not happen !! */
-		if ((pCurRxD->LS0 == 0) &&  (!(*dw2 & RXDMAD_WO_INDICATE_SCATTER))) {
-			MTWF_PRINT(" !!!ERROR !!!D: middle[%d], DW2 b8 not set but Scatter!\n", LoopCnt);
-			dump_rxd_4dw((RXD_STRUC *)pCurRxD);
-		}
-
-		/*
-			Make sure the head is always mark by WO,
-			if unknown in middle of Scatter, it will be filter in rx_scatter_gather_copy()
-		*/
-		if (LoopCnt == 1) {
-			if ((pCurRxD->LS0 == 0) && (*dw2 & RXDMAD_WO_INDICATE_SCATTER)) {
-				bWO_head = TRUE;
-			} else {
-				pAd->rxd_unkown_head_drop_cnt++;
-				/* head unknown cases! */
-				MTWF_PRINT(" !!!ERROR !!!E: head is unkown !!\n");
-				dump_rxd_4dw((RXD_STRUC *)pCurRxD);
-				break;
-			}
-		}
-#endif /* WO_SCATTER_INDICATE */
-
-		/* find the last pice of rx scattering. */
-		if ((pCurRxD->LS0 == 1)
-#ifdef WO_SCATTER_INDICATE
-			/* make sure the last is mark by WO */
-			&& (*dw2 & RXDMAD_WO_INDICATE_SCATTER)
-			&& (bWO_head)
-#else /* WO_SCATTER_INDICATE */
-			&& (!(*dw3 & RXDMAD_PPE_VLD))
-			&& (!(*dw1 & RXDMAD_TO_HOST_A))
-#endif /* !WO_SCATTER_INDICATE */
-			) {
-				break;
-		}
-		INC_RING_INDEX(RxCellIdx, pRxRing->ring_size);
-	} while (TRUE);
-	return LoopCnt;
-}
-#endif /* RXD_WED_SCATTER_SUPPORT */
 
 static INT rx_scatter_info_io(
-	struct hif_pci_rx_ring *pRxRing,
+	struct _RTMP_RX_RING *pRxRing,
 	RXD_STRUC *pRxD,
 	UINT *pPktSize)
 {
@@ -1172,9 +1370,9 @@ static INT rx_scatter_info_io(
 	/* walk through rx-ring and find the rx-cell content LS0 to be 1. */
 	do {
 		if (RxCellIdx == pRxRing->RxDmaIdx) {
-			MTWF_DBG(NULL, DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_DEBUG, "%s: RxCellIdx == pRxRing->RxDmaIdx\n", __func__);
+			MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_INFO, ("%s: RxCellIdx == pRxRing->RxDmaIdx\n", __func__));
 			if (pRxD->LS0 == 0) {
-				MTWF_DBG(NULL, DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_DEBUG, "%s: pRxD->LS0 == 0\n", __func__);
+				MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_INFO, ("%s: pRxD->LS0 == 0\n", __func__));
 				LoopCnt = 0;
 			}
 
@@ -1196,13 +1394,13 @@ static INT rx_scatter_info_io(
 #endif
 
 		if (pCurRxD->DDONE == 0) {
-			MTWF_DBG(NULL, DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_DEBUG, "%s: pCurRxD->DDONE == 0 \n", __func__);
+			MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_INFO, ("%s: pCurRxD->DDONE == 0 \n", __func__));
 			break;
 		}
 
 		*pPktSize += pCurRxD->SDL0;
 		LoopCnt++;
-		INC_RING_INDEX(RxCellIdx, pRxRing->ring_size);
+		INC_RING_INDEX(RxCellIdx, pRxRing->RxRingSize);
 
 		/* find the last pice of rx scattering. */
 		if (pCurRxD->LS0 == 1) {
@@ -1214,33 +1412,31 @@ static INT rx_scatter_info_io(
 	return LoopCnt;
 }
 
-static INT rx_scatter_gather_dynamic_page(
+static INT rx_scatter_gather(
 	RTMP_ADAPTER *pAd,
-	UCHAR resource_idx,
+	UCHAR hif_idx,
 	RTMP_DMACB *pRxCell,
 	RXD_STRUC *pRxD,
 	UINT scatterCnt,
-	UINT gather_size,
-	UINT *build_skb_len)
+	UINT pktSize,
+	UINT *skb_data_len)
 {
-
+#ifdef RT_BIG_ENDIAN
+	RXD_STRUC *pDestRxD;
+	UCHAR rx_hw_info[RXD_SIZE];
+#endif
 	UINT LoopCnt;
 	INT32 RxCellIdx;
 	UINT32 buf_idx;
+
 	RTMP_DMACB *pCurRxCell = NULL;
 	RXD_STRUC *pCurRxD;
-#ifdef RT_BIG_ENDIAN
-	RXD_STRUC *pDestRxD;
-	UCHAR rx_hw_info[RXD_SIZE];
-#endif
-
 	PNDIS_PACKET pRxCellPacket;
-	struct _PCI_HIF_T *pci_hif = hc_get_hif_ctrl(pAd->hdev_ctrl);
-	struct hif_pci_rx_ring *rx_ring = pci_get_rx_ring_by_ridx(pci_hif, resource_idx);
+	RTMP_RX_RING *pRxRing = &pAd->PciHif.RxRing[hif_idx];
 
-	if (rx_ring == NULL || pRxCell == NULL || pRxD == NULL) {
-		MTWF_DBG(NULL, DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_DEBUG, "%s: pRxRing == NULL || pRxCell == NULL\
-					|| pRxD == NULL\n", __func__);
+	if (pRxRing == NULL || pRxCell == NULL || pRxD == NULL) {
+		MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_INFO, ("%s: pRxRing == NULL || pRxCell == NULL\
+					|| pRxD == NULL\n", __func__));
 		return FALSE;
 	}
 
@@ -1248,146 +1444,70 @@ static INT rx_scatter_gather_dynamic_page(
 	pRxCellPacket = pRxCell->pNdisPacket;
 
 	if (pRxCellPacket == NULL) {
-		MTWF_DBG(NULL, DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_DEBUG, "%s: pRxCellPacket == NULL\n", __func__);
+		MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_INFO, ("%s: pRxCellPacket == NULL\n", __func__));
 		return FALSE;
 	}
+
 	buf_idx = pRxD->SDL0;
+#ifdef CONFIG_WIFI_BUILD_SKB
+	if (hif_idx == HIF_RX_IDX0) {
+		pRxCell->pNdisPacket = ExpandPacketBuffer(pAd, pRxRing, DYNAMIC_PAGE_ALLOC,
+						pRxCellPacket, buf_idx, pktSize, skb_data_len);
 
-	pRxCell->pNdisPacket = expand_pkt_dynamic_page(pAd, rx_ring,
-					pRxCellPacket, buf_idx, gather_size, build_skb_len);
+		buf_idx += (SKB_BUF_HEADROOM_RSV);
 
+		if (pRxCell->pNdisPacket != NULL) {
+			pRxCell->DmaBuf.AllocVa = (PVOID)(pRxCell->pNdisPacket)
+							+ SKB_BUF_HEADROOM_RSV;
+		}
+	} else if (hif_idx == HIF_RX_IDX1) {
+		pRxCell->pNdisPacket = ExpandPacketBuffer(pAd, pRxRing, PRE_SLAB_ALLOC,
+						pRxCellPacket, buf_idx, pktSize, skb_data_len);
 
-	buf_idx += (SKB_BUF_HEADROOM_RSV);
+		if (pRxCell->pNdisPacket != NULL) {
+			pRxCell->DmaBuf.AllocVa = (PVOID)(pRxCell->pNdisPacket);
+		}
 
-	if (pRxCell->pNdisPacket != NULL) {
-		pRxCell->DmaBuf.AllocVa = (PVOID)(pRxCell->pNdisPacket)
-		+ SKB_BUF_HEADROOM_RSV;
+		pRxRing->cur_free_buf_len = FREE_BUF_64k;
 	}
 
-	if (pRxCell->pNdisPacket == NULL) {
-		MTWF_DBG(NULL, DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_DEBUG, "%s: pRxCell->pNdisPacket == NULL\n", __func__);
-		return TRUE;
+#else  /*CONFIG_WIFI_BUILD_SKB*/
+	if (hif_idx == HIF_RX_IDX0) {
+		OS_PKT_TAIL_BUF_EXTEND(pRxCellPacket, pRxD->SDL0);
+
+		pRxCell->pNdisPacket = ExpandPacket(NULL, pRxCellPacket, 0, pktSize);
+
+		if (pRxCell->pNdisPacket != NULL)
+			pRxCell->DmaBuf.AllocVa = GET_OS_PKT_DATAPTR(pRxCell->pNdisPacket);
+	} else if (hif_idx == HIF_RX_IDX1) {
+		pRxCell->pNdisPacket = ExpandPacketBuffer(pAd, pRxRing, PRE_SLAB_ALLOC,
+						pRxCellPacket, buf_idx, pktSize, skb_data_len);
+
+		if (pRxCell->pNdisPacket != NULL)
+			pRxCell->DmaBuf.AllocVa = (PVOID)(pRxCell->pNdisPacket);
+
+		pRxRing->cur_free_buf_len = FREE_BUF_64k;
 	}
-
-	RxCellIdx =  rx_ring->RxSwReadIdx;
-
-	for (LoopCnt = 0; LoopCnt < (scatterCnt - 1); LoopCnt++) {
-		INC_RING_INDEX(RxCellIdx, rx_ring->ring_size);
-		pCurRxCell = &rx_ring->Cell[RxCellIdx];
-		/* return tokens of all rx scatter-gather cells. */
-		PCI_UNMAP_SINGLE(pAd, pCurRxCell->DmaBuf.AllocPa,
-						 pCurRxCell->DmaBuf.AllocSize,
-						 RTMP_PCI_DMA_FROMDEVICE);
-		/* flush dcache if no consistent memory is supported */
-		RTMP_DCACHE_FLUSH(pCurRxCell->DmaBuf.AllocPa, pCurRxCell->DmaBuf.AllocSize);
-		/* Point to Rx indexed rx ring descriptor */
-#ifdef RT_BIG_ENDIAN
-		pDestRxD = (RXD_STRUC *)pCurRxCell->AllocVa;
-		NdisMoveMemory(&rx_hw_info[0], pDestRxD, RXD_SIZE);
-		pCurRxD = (RXD_STRUC *)&rx_hw_info[0];
-		RTMPDescriptorEndianChange((PUCHAR)pCurRxD, TYPE_RXD);
-#else
-		pCurRxD = (RXD_STRUC *)pCurRxCell->AllocVa;
-#endif
-		memcpy((pRxCell->pNdisPacket + buf_idx),
-		    (VOID *)(pCurRxCell->DmaBuf.AllocVa), pCurRxD->SDL0);
-
-		buf_idx += pCurRxD->SDL0;
-
-		/* update done bit of all rx scatter-gather cells to zero. */
-		MTWF_DBG(NULL, DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_DEBUG, "%s: pCurRxD->SDL0 = %d, \n", __func__, pCurRxD->SDL0);
-
-#if (KERNEL_VERSION(4, 10, 0) <= LINUX_VERSION_CODE)
-		MEM_DBG_PKT_FREE_INC(pCurRxCell->pNdisPacket);
-		page_frag_free(pCurRxCell->pNdisPacket);
-#elif (KERNEL_VERSION(4, 3, 0) < LINUX_VERSION_CODE)
-		MEM_DBG_PKT_FREE_INC(pCurRxCell->pNdisPacket);
-		__free_page_frag(pCurRxCell->pNdisPacket);
-#else
-		DEV_FREE_FRAG_BUF(pCurRxCell->pNdisPacket);
-#endif
-
-		pCurRxCell->pNdisPacket = RTMP_AllocateRxPacketBuffer(rx_ring,
-				((POS_COOKIE)(pAd->OS_Cookie))->pDev,
-				pCurRxCell->DmaBuf.AllocSize,
-				&pCurRxCell->DmaBuf.AllocVa, &pCurRxCell->DmaBuf.AllocPa);
-
-		pCurRxD->SDP0 = pCurRxCell->DmaBuf.AllocPa;
-		pCurRxD->SDL0 = rx_ring->RxBufferSize;
-		pCurRxD->DDONE = 0;
-#ifdef RT_BIG_ENDIAN
-	RTMPDescriptorEndianChange((PUCHAR)pCurRxD, TYPE_RXD);
-	WriteBackToDescriptor((PUCHAR)pDestRxD, (PUCHAR)pCurRxD, FALSE, TYPE_RXD);
-#endif
-	}
-
-	/* update pRxRing->RxSwReadIdx do last cell of rx scatter-gather. */
-	rx_ring->RxSwReadIdx = RxCellIdx;
-	return TRUE;
-}
-
-static INT rx_scatter_gather_dynamic_slab(
-	RTMP_ADAPTER *pAd,
-	UCHAR resource_idx,
-	RTMP_DMACB *pRxCell,
-	RXD_STRUC *pRxD,
-	UINT scatterCnt,
-	UINT gather_size)
-{
-
-	UINT LoopCnt;
-	INT32 RxCellIdx;
-	RTMP_DMACB *pCurRxCell = NULL;
-	RXD_STRUC *pCurRxD;
-#ifdef RT_BIG_ENDIAN
-	RXD_STRUC *pDestRxD;
-	UCHAR rx_hw_info[RXD_SIZE];
-#endif
-
-	PNDIS_PACKET pRxCellPacket;
-	struct _PCI_HIF_T *pci_hif = hc_get_hif_ctrl(pAd->hdev_ctrl);
-	struct hif_pci_rx_ring *rx_ring = pci_get_rx_ring_by_ridx(pci_hif, resource_idx);
-
-	if (rx_ring == NULL || pRxCell == NULL || pRxD == NULL) {
-		MTWF_DBG(NULL, DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_DEBUG, "%s: pRxRing == NULL || pRxCell == NULL\
-					|| pRxD == NULL\n", __func__);
-		return FALSE;
-	}
-
-	/* keep pRxCell value and replace pRxCell->pNdisPacket with expand skb buffer. */
-	pRxCellPacket = pRxCell->pNdisPacket;
-
-	if (pRxCellPacket == NULL) {
-		MTWF_DBG(NULL, DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_DEBUG, "%s: pRxCellPacket == NULL\n", __func__);
-		return FALSE;
-	}
-
-	OS_PKT_TAIL_BUF_EXTEND(pRxCellPacket, pRxD->SDL0);
-
-	pRxCell->pNdisPacket = ExpandPacket(NULL, pRxCellPacket, gather_size, 0);
-
-	if (pRxCell->pNdisPacket != NULL)
-		pRxCell->DmaBuf.AllocVa = GET_OS_PKT_DATAPTR(pRxCell->pNdisPacket);
+#endif  /*CONFIG_WIFI_BUILD_SKB*/
 	else
 		pRxCell->DmaBuf.AllocVa = NULL;
 
 	if (pRxCell->pNdisPacket == NULL) {
-		MTWF_DBG(NULL, DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_DEBUG, "%s: pRxCell->pNdisPacket == NULL\n", __func__);
+		MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_INFO, ("%s: pRxCell->pNdisPacket == NULL\n", __func__));
 		return TRUE;
 	}
 
-	RxCellIdx =  rx_ring->RxSwReadIdx;
+	RxCellIdx =  pRxRing->RxSwReadIdx;
 
 	for (LoopCnt = 0; LoopCnt < (scatterCnt - 1); LoopCnt++) {
-		INC_RING_INDEX(RxCellIdx, rx_ring->ring_size);
-		pCurRxCell = &rx_ring->Cell[RxCellIdx];
+		INC_RING_INDEX(RxCellIdx, pRxRing->RxRingSize);
+		pCurRxCell = &pRxRing->Cell[RxCellIdx];
 		/* return tokens of all rx scatter-gather cells. */
 		PCI_UNMAP_SINGLE(pAd, pCurRxCell->DmaBuf.AllocPa,
 						 pCurRxCell->DmaBuf.AllocSize,
 						 RTMP_PCI_DMA_FROMDEVICE);
 		/* flush dcache if no consistent memory is supported */
 		RTMP_DCACHE_FLUSH(pCurRxCell->DmaBuf.AllocPa, pCurRxCell->DmaBuf.AllocSize);
-		/* Point to Rx indexed rx ring descriptor */
 #ifdef RT_BIG_ENDIAN
 		pDestRxD = (RXD_STRUC *)pCurRxCell->AllocVa;
 		/* RxD = *pDestRxD; */
@@ -1395,125 +1515,54 @@ static INT rx_scatter_gather_dynamic_slab(
 		pCurRxD = (RXD_STRUC *)&rx_hw_info[0];
 		RTMPDescriptorEndianChange((PUCHAR)pCurRxD, TYPE_RXD);
 #else
-		pCurRxD = (RXD_STRUC *)pCurRxCell->AllocVa;
-#endif
-		memcpy(OS_PKT_TAIL_BUF_EXTEND(pRxCell->pNdisPacket, pCurRxD->SDL0),
-			   (VOID *)(pCurRxCell->DmaBuf.AllocVa), pCurRxD->SDL0);
-
-		/* update done bit of all rx scatter-gather cells to zero. */
-		MTWF_DBG(NULL, DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_DEBUG, "%s: pCurRxD->SDL0 = %d, \n", __func__, pCurRxD->SDL0);
-
-#if (KERNEL_VERSION(4, 10, 0) <= LINUX_VERSION_CODE)
-		MEM_DBG_PKT_FREE_INC(pCurRxCell->pNdisPacket);
-		page_frag_free(pCurRxCell->pNdisPacket);
-#elif (KERNEL_VERSION(4, 3, 0) < LINUX_VERSION_CODE)
-		MEM_DBG_PKT_FREE_INC(pCurRxCell->pNdisPacket);
-		__free_page_frag(pCurRxCell->pNdisPacket);
-#else
-		DEV_FREE_FRAG_BUF(pCurRxCell->pNdisPacket);
-#endif
-
-
-		pCurRxCell->pNdisPacket = RTMP_AllocateRxPacketBuffer(rx_ring,
-				((POS_COOKIE)(pAd->OS_Cookie))->pDev,
-				pCurRxCell->DmaBuf.AllocSize,
-				&pCurRxCell->DmaBuf.AllocVa, &pCurRxCell->DmaBuf.AllocPa);
-
-		pCurRxD->SDP0 = pCurRxCell->DmaBuf.AllocPa;
-		pCurRxD->SDL0 = rx_ring->RxBufferSize;
-		pCurRxD->DDONE = 0;
-#ifdef RT_BIG_ENDIAN
-	RTMPDescriptorEndianChange((PUCHAR)pCurRxD, TYPE_RXD);
-	WriteBackToDescriptor((PUCHAR)pDestRxD, (PUCHAR)pCurRxD, FALSE, TYPE_RXD);
-#endif
-	}
-
-	/* update pRxRing->RxSwReadIdx do last cell of rx scatter-gather. */
-	rx_ring->RxSwReadIdx = RxCellIdx;
-	return TRUE;
-}
-
-static INT rx_scatter_gather_pre_slab(
-	RTMP_ADAPTER *pAd,
-	UCHAR resource_idx,
-	RTMP_DMACB *pRxCell,
-	RXD_STRUC *pRxD,
-	UINT scatterCnt,
-	UINT gather_size)
-{
-	UINT LoopCnt;
-	INT32 RxCellIdx;
-	UINT32 buf_idx;
-	RTMP_DMACB *pCurRxCell = NULL;
-	RXD_STRUC *pCurRxD;
-#ifdef RT_BIG_ENDIAN
-	RXD_STRUC *pDestRxD;
-	UCHAR rx_hw_info[RXD_SIZE];
-#endif
-	PNDIS_PACKET pRxCellPacket;
-	struct _PCI_HIF_T *pci_hif = hc_get_hif_ctrl(pAd->hdev_ctrl);
-	struct hif_pci_rx_ring *rx_ring = pci_get_rx_ring_by_ridx(pci_hif, resource_idx);
-
-	if (rx_ring == NULL || pRxCell == NULL || pRxD == NULL) {
-		MTWF_DBG(NULL, DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_DEBUG, "%s: pRxRing == NULL || pRxCell == NULL\
-					|| pRxD == NULL\n", __func__);
-		return FALSE;
-	}
-
-	/* keep pRxCell value and replace pRxCell->pNdisPacket with expand skb buffer. */
-	pRxCellPacket = pRxCell->pNdisPacket;
-
-	if (pRxCellPacket == NULL) {
-		MTWF_DBG(NULL, DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_DEBUG, "%s: pRxCellPacket == NULL\n", __func__);
-		return FALSE;
-	}
-
-	buf_idx = pRxD->SDL0;
-
-	pRxCell->pNdisPacket = expand_pkt_pre_slab(pAd, rx_ring,
-			pRxCellPacket, buf_idx, gather_size);
-
-	if (pRxCell->pNdisPacket != NULL) {
-		pRxCell->DmaBuf.AllocVa = (PVOID)(pRxCell->pNdisPacket);
-	} else {
-		MTWF_DBG(NULL, DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_DEBUG, "%s: pRxCell->pNdisPacket == NULL\n", __func__);
-		return TRUE;
-	}
-
-	rx_ring->cur_free_buf_len = FREE_BUF_64k;
-
-	RxCellIdx = rx_ring->RxSwReadIdx;
-
-	for (LoopCnt = 0; LoopCnt < (scatterCnt - 1); LoopCnt++) {
-		INC_RING_INDEX(RxCellIdx, rx_ring->ring_size);
-		pCurRxCell = &rx_ring->Cell[RxCellIdx];
-		/* return tokens of all rx scatter-gather cells. */
-		PCI_UNMAP_SINGLE(pAd, pCurRxCell->DmaBuf.AllocPa,
-		pCurRxCell->DmaBuf.AllocSize, RTMP_PCI_DMA_FROMDEVICE);
-		/* flush dcache if no consistent memory is supported */
-		RTMP_DCACHE_FLUSH(pCurRxCell->DmaBuf.AllocPa, pCurRxCell->DmaBuf.AllocSize);
 		/* Point to Rx indexed rx ring descriptor */
-#ifdef RT_BIG_ENDIAN
-		pDestRxD = (RXD_STRUC *)pCurRxCell->AllocVa;
-		NdisMoveMemory(&rx_hw_info[0], pDestRxD, RXD_SIZE);
-		pCurRxD = (RXD_STRUC *)&rx_hw_info[0];
-		RTMPDescriptorEndianChange((PUCHAR)pCurRxD, TYPE_RXD);
-#else
 		pCurRxD = (RXD_STRUC *)pCurRxCell->AllocVa;
 #endif
-		memcpy((pRxCell->pNdisPacket + buf_idx), (VOID *)(pCurRxCell->DmaBuf.AllocVa), pCurRxD->SDL0);
+#ifdef CONFIG_WIFI_BUILD_SKB
+		memcpy((pRxCell->pNdisPacket + buf_idx),
+		    (VOID *)(pCurRxCell->DmaBuf.AllocVa), pCurRxD->SDL0);
+
 		buf_idx += pCurRxD->SDL0;
+#else	/* CONFIG_WIFI_BUILD_SKB */
+		if (hif_idx == HIF_RX_IDX0) {
+			memcpy(OS_PKT_TAIL_BUF_EXTEND(pRxCell->pNdisPacket, pCurRxD->SDL0),
+				   (VOID *)(pCurRxCell->DmaBuf.AllocVa), pCurRxD->SDL0);
+		} else if (hif_idx == HIF_RX_IDX1) {
+			memcpy((pRxCell->pNdisPacket + buf_idx),
+				(VOID *)(pCurRxCell->DmaBuf.AllocVa), pCurRxD->SDL0);
+
+			buf_idx += pCurRxD->SDL0;
+		}
+#endif  /* CONFIG_WIFI_BUILD_SKB */
 		/* update done bit of all rx scatter-gather cells to zero. */
-		MTWF_DBG(NULL, DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_DEBUG,
-					"%s: pCurRxD->SDL0 = %d, buf_idx = %d, LoopCnt = %d\n", __func__,
-					 pCurRxD->SDL0, buf_idx, LoopCnt);
-		free_rx_buf_1k(rx_ring);
-		pCurRxCell->pNdisPacket = RTMP_AllocateRxPacketBuffer(rx_ring, ((POS_COOKIE)(pAd->OS_Cookie))->pDev,
-													pCurRxCell->DmaBuf.AllocSize,
-													&pCurRxCell->DmaBuf.AllocVa, &pCurRxCell->DmaBuf.AllocPa);
+
+		MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_INFO, ("%s: pCurRxD->SDL0 = %d, \n", __func__, pCurRxD->SDL0));
+
+		if (hif_idx == HIF_RX_IDX0) {
+#ifdef CONFIG_WIFI_BUILD_SKB
+			DEV_FREE_FRAG_BUF(pCurRxCell->pNdisPacket);
+#else
+			RELEASE_NDIS_PACKET(pAd, pCurRxCell->pNdisPacket, NDIS_STATUS_SUCCESS);
+#endif
+
+			pCurRxCell->pNdisPacket = RTMP_AllocateRxPacketBuffer(pRxRing,
+					((POS_COOKIE)(pAd->OS_Cookie))->pDev,
+					DYNAMIC_PAGE_ALLOC,
+					pCurRxCell->DmaBuf.AllocSize,
+					&pCurRxCell->DmaBuf.AllocVa, &pCurRxCell->DmaBuf.AllocPa);
+		} else if (hif_idx == HIF_RX_IDX1) {
+			free_rx_buf_1k(pRxRing);
+			pCurRxCell->pNdisPacket = RTMP_AllocateRxPacketBuffer(pRxRing,
+					((POS_COOKIE)(pAd->OS_Cookie))->pDev,
+					PRE_SLAB_ALLOC,
+					pCurRxCell->DmaBuf.AllocSize,
+					&pCurRxCell->DmaBuf.AllocVa, &pCurRxCell->DmaBuf.AllocPa);
+		}
+
 		pCurRxD->SDP0 = pCurRxCell->DmaBuf.AllocPa;
-		pCurRxD->SDL0 = rx_ring->RxBufferSize;
+		pCurRxD->SDL0 = pRxRing->RxBufferSize;
 		pCurRxD->DDONE = 0;
+		/* update rx descriptor */
 #ifdef RT_BIG_ENDIAN
 		RTMPDescriptorEndianChange((PUCHAR)pCurRxD, TYPE_RXD);
 		WriteBackToDescriptor((PUCHAR)pDestRxD, (PUCHAR)pCurRxD, FALSE, TYPE_RXD);
@@ -1521,1123 +1570,48 @@ static INT rx_scatter_gather_pre_slab(
 	}
 
 	/* update pRxRing->RxSwReadIdx do last cell of rx scatter-gather. */
-	rx_ring->RxSwReadIdx = RxCellIdx;
+	pRxRing->RxSwReadIdx = RxCellIdx;
 	return TRUE;
 }
+#endif /* RX_SCATTER */
 
-static VOID build_rx_pkt_skb(PNDIS_PACKET *pkt, VOID *rx_data,
-								UINT32 build_skb_len, UINT32 gather_size)
+UINT8 swq_to_hif[PACKET_TYPE_NUM][WMM_QUE_NUM] = {
+	{HIF_TX_IDX0, HIF_TX_IDX1, HIF_TX_IDX2, HIF_TX_IDX4}, /* TX_DATA */
+	{HIF_TX_IDX0, HIF_TX_IDX1, HIF_TX_IDX2, HIF_TX_IDX4}, /* TX_DATA_HIGH_PRIO */
+	{HIF_TX_IDX1, HIF_TX_IDX1, HIF_TX_IDX1, HIF_TX_IDX1}, /* TX_MGMT */
+	{HIF_TX_IDX5, HIF_TX_IDX5, HIF_TX_IDX5, HIF_TX_IDX5} /*  TX_ALTX */
+};
+
+UINT32 mtd_pci_get_resource_idx(RTMP_ADAPTER *pAd, struct wifi_dev *wdev, enum PACKET_TYPE pkt_type, UCHAR q_idx)
 {
-	DEV_BUILD_SKB(*pkt, rx_data, build_skb_len);
-
-	if (*pkt) {
-		DEV_SKB_PTR_ADJUST(*pkt, gather_size, rx_data, 0);
-	} else {
-#if (KERNEL_VERSION(4, 10, 0) <= LINUX_VERSION_CODE)
-		MEM_DBG_PKT_FREE_INC(rx_data);
-		page_frag_free(rx_data);
-#elif (KERNEL_VERSION(4, 3, 0) < LINUX_VERSION_CODE)
-		MEM_DBG_PKT_FREE_INC(rx_data);
-		__free_page_frag(rx_data);
-#else
-		DEV_FREE_FRAG_BUF(rx_data);
-#endif
-		MTWF_LOG(DBG_CAT_RX, DBG_SUBCAT_ALL,
-				DBG_LVL_WARN,
-				("%s, build_skb return NULL\n",
-				__func__));
-	}
+	return swq_to_hif[pkt_type][q_idx];
 }
 
-#if defined(CONFIG_FAST_NAT_SUPPORT) && defined(WHNAT_SUPPORT)
-static BOOLEAN gen_tuple(struct _RTMP_ADAPTER *pAd, RXD_STRUC *pRxD, PNDIS_PACKET skb_pkt)
+UCHAR *mt_pci_get_hif_buf(RTMP_ADAPTER *pAd, struct _TX_BLK *tx_blk, UCHAR hif_idx, UCHAR frame_type)
 {
-	BOOLEAN ret = FALSE;
-
-	UINT32 *dw1 = (UINT32 *)((UCHAR *)pRxD + 4);
-	UINT32 *dw3 = (UINT32 *)((UCHAR *)pRxD + sizeof(RXD_STRUC));
-	if (*dw3 & RXDMAD_PPE_VLD) {
-		struct rxdmad_info info;
-		info.pkt = skb_pkt;
-		info.ppe_entry = ((*dw3 & RXDMAD_PPE_ENTRY_MASK) >> RXDMAD_PPE_ENTRY_SHIFT);
-		info.csrn = ((*dw3 & RXDMAD_CSRN_MASK) >> RXDMAD_CSRN_SHIFT);
-		WLAN_HOOK_CALL(WLAN_HOOK_RX, pAd, &info);
-		RTMP_SET_PACKET_TYPE(skb_pkt, RX_PPE_VALID);
-	} else {
-		RtmpOsPktNatMagicTagInvalid(skb_pkt);
-	}
-	ret = (*dw1 & (RXDMAD_RXD_DROP
-						| RXDMAD_TO_HOST_A)) ? 1 : 0;
-
-	return ret;
-	/* dump_rxd_wed(pAd, pRxD); */
-}
-#endif
-
-/* #define WHNAT_REFILL_SKB */
-
-#ifdef WHNAT_REFILL_SKB
-static PNDIS_PACKET pci_get_pkt_dynamic_page_ddone_token(
-	struct _RTMP_ADAPTER *pAd,
-	BOOLEAN *pbReschedule,
-	UINT32 *pRxPending,
-	UCHAR resource_idx)
-{
-	RXD_STRUC *pRxD;
-#ifdef RT_BIG_ENDIAN
-	RXD_STRUC *pDestRxD;
-	UCHAR rx_hw_info[RXD_SIZE];
-#endif
-	struct _PCI_HIF_T *pci_hif = hc_get_hif_ctrl(pAd->hdev_ctrl);
-	struct hif_pci_rx_ring *rx_ring = pci_get_rx_ring_by_ridx(pci_hif, resource_idx);
-	PNDIS_PACKET skb_pkt = NULL, pNewPacket = NULL, cur_pkt = NULL;
-	VOID *AllocVa, *cur_alloc_va;
-	NDIS_PHYSICAL_ADDRESS AllocPa, cur_alloc_pa;
-	BOOLEAN bReschedule = FALSE;
-	RTMP_DMACB *pRxCell = NULL;
-#ifdef CONFIG_CSO_SUPPORT
-	RX_CSO_STRUCT *prCso = NULL;
-	RTMP_CHIP_CAP *pChipCap = hc_get_chip_cap(pAd->hdev_ctrl);
-#endif
-	UINT scatterCnt = 1;
-	UINT32 gather_size = 0;
-	UINT32 build_skb_len = 0;
-	PKT_TOKEN_CB *cb = hc_get_ct_cb(pAd->hdev_ctrl);
-	static UINT8 ddone_check;
-	BOOLEAN drop_pkt = FALSE;
-	pRxCell = &rx_ring->Cell[rx_ring->RxSwReadIdx];
-
-	/* flush dcache if no consistent memory is supported */
-	RTMP_DCACHE_FLUSH(pRxCell->AllocPa, RXD_SIZE);
-	/* Point to Rx indexed rx ring descriptor */
-#ifdef RT_BIG_ENDIAN
-	pDestRxD = (RXD_STRUC *)pRxCell->AllocVa;
-	NdisMoveMemory(&rx_hw_info[0], pDestRxD, RXD_SIZE);
-	pRxD = (RXD_STRUC *)&rx_hw_info[0];
-	RTMPDescriptorEndianChange((PUCHAR)pRxD, TYPE_RXD);
-#else
-	pRxD = (RXD_STRUC *)pRxCell->AllocVa;
-#endif
-
-
-	if (pRxD->DDONE == 0) {
-		if (rx_ring->sw_read_idx_inc != 0) {
-			bReschedule = FALSE;
-		} else {
-			HIF_IO_READ32(pAd->hdev_ctrl, rx_ring->hw_didx_addr, &rx_ring->RxDmaIdx);
-			if (rx_ring->RxDmaIdx == rx_ring->RxSwReadIdx) {
-				bReschedule = FALSE;
-			} else {
-				ddone_check++;
-				bReschedule = TRUE;
-			}
-		}
-
-		if (ddone_check < MAX_DDONE_CHECK_TIMES)
-			goto done;
-	} else {
-		ddone_check = 0;
-	}
-
-	build_skb_len = SKB_DATA_ALIGN(SKB_BUF_HEADROOM_RSV + pRxCell->DmaBuf.AllocSize) +
-				SKB_DATA_ALIGN(SKB_BUF_TAILROOM_RSV);
-
-	scatterCnt = rx_scatter_info(rx_ring, pRxD, &gather_size);
-
-	if (scatterCnt < 1) {
-		bReschedule = TRUE;
-		goto done;
-	}
-
-	pNewPacket = RTMP_AllocateRxPacketBuffer(rx_ring,
-				((POS_COOKIE)(pAd->OS_Cookie))->pDev,
-				pRxCell->DmaBuf.AllocSize,
-				&AllocVa, &AllocPa);
-
-
-	if (pNewPacket) {
-		UINT32 tkn_rx_id = ((pRxD->SDP1 & RX_TOKEN_ID_MASK) >> RX_TOKEN_ID_SHIFT);
-		UINT32 tkn_rx_id_pa = 0;
-		INT32 search = -1;
-
-		if (tkn_rx_id >= cb->rx_que.pkt_tkid_cnt) {
-			MTWF_DBG(pAd, DBG_CAT_RX, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-				" Invalid tkn_rx_id: %d.\n", tkn_rx_id);
-			goto done;
-		}
-
-		if (pRxD->LS0 == 0) {
-			search = token_rx_dmad_lookup_pa(&cb->rx_que, &tkn_rx_id_pa, &cur_pkt,
-								&cur_alloc_va, pRxD->SDP0);
-
-			if (search == 0)
-				MTWF_DBG(pAd, DBG_CAT_RX, DBG_SUBCAT_ALL, DBG_LVL_DEBUG,
-						"\033[0;32;31m%s(): tkn_rx_id should be: %d.\n\033[m", __func__, tkn_rx_id_pa);
-			else
-				MTWF_DBG(pAd, DBG_CAT_RX, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-						"\033[0;32;31m%s(): map pa to tkn_rx_id failed!\nv\033[m", __func__);
-		} else {
-			/* RXD+RXP buffer lookup according token */
-			token_rx_dmad_lookup(&cb->rx_que, tkn_rx_id, &cur_pkt,
-									&cur_alloc_va, &cur_alloc_pa);
-		}
-
-		PCI_UNMAP_SINGLE(pAd, cur_alloc_pa,
-						 pRxCell->DmaBuf.AllocSize, RTMP_PCI_DMA_FROMDEVICE);
-
-		RTMP_DCACHE_FLUSH(cur_alloc_pa, pRxCell->DmaBuf.AllocSize);
-
-		if (scatterCnt > 1) {
-			if (rx_scatter_gather_dynamic_page(pAd, resource_idx, pRxCell,
-				pRxD, scatterCnt,
-				gather_size, &build_skb_len) == FALSE)	{
-				RELEASE_NDIS_PACKET_IRQ(pAd, pNewPacket, NDIS_STATUS_SUCCESS);
-				bReschedule = TRUE;
-				goto done;
-			}
-		}
-
-		if (cur_pkt) {
-			build_rx_pkt_skb(&skb_pkt, (VOID *)cur_pkt,
-									build_skb_len, gather_size);
-		} else {
-			skb_pkt = NULL;
-		}
-
-#ifdef CONFIG_CSO_SUPPORT
-		if (skb_pkt && (pChipCap->asic_caps & fASIC_CAP_CSO)) {
-			prCso = (RX_CSO_STRUCT *)((UCHAR *)pRxD + sizeof(RXD_STRUC));
-			NdisCopyMemory(&(pAd->rCso), prCso, sizeof(RX_CSO_STRUCT));
-		}
-#endif
-
-#if defined(CONFIG_FAST_NAT_SUPPORT) && defined(WHNAT_SUPPORT)
-		if (skb_pkt) {
-			drop_pkt = gen_tuple(pAd, pRxD, skb_pkt);
-		}
-#endif
-
-		pRxCell->pNdisPacket = (PNDIS_PACKET)pNewPacket;
-		pRxCell->DmaBuf.AllocVa = AllocVa;
-		pRxCell->DmaBuf.AllocPa = AllocPa;
-		pRxCell->DmaBuf.AllocSize = rx_ring->RxBufferSize;
-
-		/* RXD+RXP buffer "update" for RX token */
-		token_rx_dmad_update(&cb->rx_que, tkn_rx_id, pNewPacket,
-								rx_ring->RxBufferSize, AllocVa, AllocPa);
-
-		/* flush dcache if no consistent memory is supported */
-		RTMP_DCACHE_FLUSH(pRxCell->DmaBuf.AllocPa, pRxCell->DmaBuf.AllocSize);
-		pRxD->SDP0 = pRxCell->DmaBuf.AllocPa;
-		pRxD->SDL0 = rx_ring->RxBufferSize;
-
-		/*avoid dummy packet received before System Ready*/
-		if (!RTMP_TEST_FLAG(pAd, fRTMP_ADAPTER_SYSEM_READY) ||
-				ddone_check >= MAX_DDONE_CHECK_TIMES || drop_pkt) {
-			MTWF_DBG(NULL, DBG_CAT_RX, DBG_SUBCAT_ALL, DBG_LVL_DEBUG, "%s(): drop rx pkt.\n", __func__);
-			ddone_check = 0;
-
-			if (skb_pkt) {
-				RELEASE_NDIS_PACKET_IRQ(pAd, skb_pkt, NDIS_STATUS_SUCCESS);
-				skb_pkt = NULL;
-				bReschedule = TRUE;
-			}
-		}
-	} else {
-		bReschedule = TRUE;
-		goto done;
-	}
-
-	pRxD->DDONE = 0;
-#ifdef RT_BIG_ENDIAN
-	RTMPDescriptorEndianChange((PUCHAR)pRxD, TYPE_RXD);
-	WriteBackToDescriptor((PUCHAR)pDestRxD, (PUCHAR)pRxD, FALSE, TYPE_RXD);
-#endif
-
-
-	wmb();
-	INC_RING_INDEX(rx_ring->RxSwReadIdx, rx_ring->ring_size);
-	rx_ring->sw_read_idx_inc++;
-	rx_ring->RxCpuIdx = (rx_ring->RxSwReadIdx == 0)
-						? (rx_ring->ring_size - 1) : (rx_ring->RxSwReadIdx - 1);
-
-done:
-	*pbReschedule = bReschedule;
-	return skb_pkt;
-}
-#else
-
-static INT rx_scatter_gather_copy(
-	RTMP_ADAPTER *pAd,
-	UCHAR resource_idx,
-	RTMP_DMACB *pRxCell,
-	RXD_STRUC *pRxD,
-	UINT scatterCnt,
-	PNDIS_PACKET cp_skb_pkt,
-	BOOLEAN drop_scatter)
-{
-	UINT LoopCnt;
-	INT32 RxCellIdx;
-#if defined(CONFIG_WIFI_PAGE_ALLOC_SKB)
-	UINT32 buf_idx;
-#endif
-	RTMP_DMACB *pCurRxCell = NULL;
-	RXD_STRUC *pCurRxD;
-#ifdef RT_BIG_ENDIAN
-	RXD_STRUC *pDestRxD;
-	UCHAR rx_hw_info[RXD_SIZE];
-#endif
-	PKT_TOKEN_CB *cb = hc_get_ct_cb(pAd->hdev_ctrl);
-	PNDIS_PACKET skb_pkt = NULL;
-	VOID *cur_alloc_va;
-	NDIS_PHYSICAL_ADDRESS cur_alloc_pa;
-#ifdef RXD_WED_SCATTER_SUPPORT
-	UINT32 *dw1 = NULL, *dw3 = NULL;
-#ifdef WO_SCATTER_INDICATE
-	UINT32 *dw2 = NULL;
-#endif /* WO_SCATTER_INDICATE */
-#endif /* RXD_WED_SCATTER_SUPPORT */
-	struct _PCI_HIF_T *pci_hif = hc_get_hif_ctrl(pAd->hdev_ctrl);
-	struct hif_pci_rx_ring *rx_ring = pci_get_rx_ring_by_ridx(pci_hif, resource_idx);
-
-	if (rx_ring == NULL || pRxCell == NULL || pRxD == NULL) {
-#ifdef RXD_WED_SCATTER_SUPPORT
-		pAd->rxd_gather_fail_cnt++;
-#endif /* RXD_WED_SCATTER_SUPPORT */
-		MTWF_DBG(NULL, DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_DEBUG, "%s: pRxRing == NULL || pRxCell == NULL\
-					|| pRxD == NULL\n", __func__);
-		return FALSE;
-	}
-
-#if defined(CONFIG_WIFI_PAGE_ALLOC_SKB)
-	buf_idx = pRxD->SDL0;
-	buf_idx += SKB_BUF_HEADROOM_RSV;
-#endif
-
-	RxCellIdx =  rx_ring->RxSwReadIdx;
-
-	for (LoopCnt = 0; LoopCnt < (scatterCnt - 1); LoopCnt++) {
-		UINT32 tkn_rx_id = 0;
-
-		INC_RING_INDEX(RxCellIdx, rx_ring->ring_size);
-		pCurRxCell = &rx_ring->Cell[RxCellIdx];
-		/* flush dcache if no consistent memory is supported */
-		RTMP_DCACHE_FLUSH(pCurRxCell->DmaBuf.AllocPa, pCurRxCell->DmaBuf.AllocSize);
-		/* Point to Rx indexed rx ring descriptor */
-#ifdef RT_BIG_ENDIAN
-		pDestRxD = (RXD_STRUC *)pCurRxCell->AllocVa;
-		NdisMoveMemory(&rx_hw_info[0], pDestRxD, RXD_SIZE);
-		pCurRxD = (RXD_STRUC *)&rx_hw_info[0];
-		RTMPDescriptorEndianChange((PUCHAR)pCurRxD, TYPE_RXD);
-#else
-		pCurRxD = (RXD_STRUC *)pCurRxCell->AllocVa;
-#endif
-
-#ifdef RXD_WED_SCATTER_SUPPORT
-		dw1 = (UINT32 *)((UCHAR *)pCurRxD + 4);
-		dw3 = (UINT32 *)((UCHAR *)pCurRxD + sizeof(RXD_STRUC));
-#ifdef WO_SCATTER_INDICATE
-		dw2 = (UINT32 *)((UCHAR *)pCurRxD + 8);
-#endif /* WO_SCATTER_INDICATE */
-
-		/* Only gather (mark as white list by WO) (or the non PPE and non RRO Rx ) */
-		if (
-#ifdef WO_SCATTER_INDICATE
-			(*dw2 & RXDMAD_WO_INDICATE_SCATTER)
-#else /* WO_SCATTER_INDICATE */
-			(!(*dw3 & RXDMAD_PPE_VLD))
-			&& (!(*dw1 & RXDMAD_TO_HOST_A))
-#endif /* !WO_SCATTER_INDICATE */
-			) {
-			tkn_rx_id = ((pCurRxD->SDP1 & RX_TOKEN_ID_MASK) >> RX_TOKEN_ID_SHIFT);
-			MTWF_DBG(pAd, DBG_CAT_RX, DBG_SUBCAT_ALL, DBG_LVL_DEBUG, "%s: token id:%d\n", __func__, tkn_rx_id);
-			token_rx_dmad_lookup(&cb->rx_que, tkn_rx_id, &skb_pkt, &cur_alloc_va, &cur_alloc_pa);
-#if defined(CONFIG_WIFI_PAGE_ALLOC_SKB)
-			if (drop_scatter == FALSE) {
-				dma_sync_single_for_cpu((struct device *)(((POS_COOKIE)(pAd->OS_Cookie))->pDev),
-										(dma_addr_t)pCurRxD->SDP0, rx_ring->RxBufferSize, DMA_FROM_DEVICE);
-				memcpy((cp_skb_pkt + buf_idx), cur_alloc_va, pCurRxD->SDL0);
-				buf_idx += pCurRxD->SDL0;
-			}
-#else
-			memcpy(OS_PKT_TAIL_BUF_EXTEND(cp_skb_pkt, pCurRxD->SDL0), cur_alloc_va, pCurRxD->SDL0);
-#endif
-		} else {
-			pAd->rxd_total_drop_cnt++;
-			/* Unknon cases drop not in BlackLists */
-			if ((!(*dw3 & RXDMAD_PPE_VLD)) && (!(*dw1 & RXDMAD_TO_HOST_A)))
-				pAd->rxd_unkown_drop_cnt++;
-		}
-
-		INC_RING_INDEX(pAd->rxd_log_idx, MAX_RECORD);
-		NdisMoveMemory((UCHAR *)&(pAd->RxDHisLog[pAd->rxd_log_idx].RxD_dump), (UCHAR *)pCurRxD, RXD_SIZE);
-#else /* RXD_WED_SCATTER_SUPPORT */
-		tkn_rx_id = ((pCurRxD->SDP1 & RX_TOKEN_ID_MASK) >> RX_TOKEN_ID_SHIFT);
-		MTWF_DBG(NULL, DBG_CAT_RX, DBG_SUBCAT_ALL, DBG_LVL_DEBUG, "%s: token id:%d\n", __func__, tkn_rx_id);
-		token_rx_dmad_lookup(&cb->rx_que, tkn_rx_id, &skb_pkt, &cur_alloc_va, &cur_alloc_pa);
-#if defined(CONFIG_WIFI_PAGE_ALLOC_SKB)
-		memcpy((cp_skb_pkt + buf_idx), cur_alloc_va, pCurRxD->SDL0);
-		buf_idx += pCurRxD->SDL0;
-#else
-		memcpy(OS_PKT_TAIL_BUF_EXTEND(cp_skb_pkt, pCurRxD->SDL0), cur_alloc_va, pCurRxD->SDL0);
-#endif
-#endif /* !RXD_WED_SCATTER_SUPPORT */
-
-		/* update done bit of all rx scatter-gather cells to zero. */
-		MTWF_DBG(NULL, DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_DEBUG, "%s: pCurRxD->SDL0 = %d, \n", __func__, pCurRxD->SDL0);
-
-		pCurRxD->SDL0 = rx_ring->RxBufferSize;
-
-#ifdef WO_SCATTER_INDICATE
-		pCurRxD->SDP1 &= (~RXDMAD_WO_INDICATE_SCATTER);
-#endif /* WO_SCATTER_INDICATE */
-
-		pCurRxD->DDONE = 0;
-#ifdef RT_BIG_ENDIAN
-		RTMPDescriptorEndianChange((PUCHAR)pCurRxD, TYPE_RXD);
-		WriteBackToDescriptor((PUCHAR)pDestRxD, (PUCHAR)pCurRxD, FALSE, TYPE_RXD);
-#endif
-	}
-
-	/* update pRxRing->RxSwReadIdx do last cell of rx scatter-gather. */
-	rx_ring->RxSwReadIdx = RxCellIdx;
-
-	if (drop_scatter == TRUE)
-		return FALSE;
-	else
-		return TRUE;
-}
-
-static PNDIS_PACKET pci_copy_pkt_ddone_token(
-	struct _RTMP_ADAPTER *pAd,
-	BOOLEAN *pbReschedule,
-	UINT32 *pRxPending,
-	UCHAR resource_idx)
-{
-#ifdef RXD_WED_SCATTER_SUPPORT
-#define MAX_RX_ALLOC_LEN 13312
-/* chip_cap->ppdu.max_mpdu_len = MPDU_11454_OCTETS; */
-/* but MDP's is 13312 */
-struct tx_rx_ctl *tr_ctl = &pAd->tr_ctl;
-	UINT32  rx_pkt_type;
-	UINT32  rx_byte_cnt;
-	UINT8 pre_chk = 0;
-#endif /* RXD_WED_SCATTER_SUPPORT */
-
-	RXD_STRUC *pRxD;
-#ifdef RT_BIG_ENDIAN
-	RXD_STRUC *pDestRxD;
-	UCHAR rx_hw_info[RXD_SIZE];
-#endif
-	struct _PCI_HIF_T *pci_hif = hc_get_hif_ctrl(pAd->hdev_ctrl);
-	struct hif_pci_rx_ring *rx_ring = pci_get_rx_ring_by_ridx(pci_hif, resource_idx);
-	PNDIS_PACKET skb_pkt = NULL, cur_pkt = NULL, cp_skb_pkt = NULL;
-	VOID *cur_alloc_va;
-	NDIS_PHYSICAL_ADDRESS cur_alloc_pa;
-	BOOLEAN bReschedule = FALSE;
-	RTMP_DMACB *pRxCell = NULL;
-#ifdef CONFIG_CSO_SUPPORT
-	RX_CSO_STRUCT *prCso = NULL;
-	RTMP_CHIP_CAP *pChipCap = hc_get_chip_cap(pAd->hdev_ctrl);
-#endif
-	UINT scatterCnt;
-	UINT32 gather_size = 0;
-	UINT32 adjust_gather_size = 0;
-	UINT32 build_skb_len = 0;
-	PKT_TOKEN_CB *cb = hc_get_ct_cb(pAd->hdev_ctrl);
-	static UINT8 ddone_check;
-	BOOLEAN drop_pkt = FALSE;
-	BOOLEAN drop_pkt_len_err = FALSE;
-	BOOLEAN drop_scatter = FALSE;
-	UINT32 tkn_rx_id;
-	UINT32 tkn_rx_id_pa = cb->rx_que.pkt_tkid_cnt;
-	VOID *cpy_alloc_va;
-	pRxCell = &rx_ring->Cell[rx_ring->RxSwReadIdx];
-
-	/* flush dcache if no consistent memory is supported */
-	RTMP_DCACHE_FLUSH(pRxCell->AllocPa, RXD_SIZE);
-	/* Point to Rx indexed rx ring descriptor */
-#ifdef RT_BIG_ENDIAN
-	pDestRxD = (RXD_STRUC *)pRxCell->AllocVa;
-	NdisMoveMemory(&rx_hw_info[0], pDestRxD, RXD_SIZE);
-	pRxD = (RXD_STRUC *)&rx_hw_info[0];
-	RTMPDescriptorEndianChange((PUCHAR)pRxD, TYPE_RXD);
-#else
-	pRxD = (RXD_STRUC *)pRxCell->AllocVa;
-#endif
-
-
-	if (pRxD->DDONE == 0) {
-		if (rx_ring->sw_read_idx_inc != 0) {
-			bReschedule = FALSE;
-		} else {
-			HIF_IO_READ32(pAd->hdev_ctrl, rx_ring->hw_didx_addr, &rx_ring->RxDmaIdx);
-			if (rx_ring->RxDmaIdx == rx_ring->RxSwReadIdx) {
-				bReschedule = FALSE;
-			} else {
-				ddone_check++;
-				bReschedule = TRUE;
-			}
-		}
-
-		if (ddone_check < MAX_DDONE_CHECK_TIMES)
-			goto done;
-	} else {
-		ddone_check = 0;
-	}
-
-#ifdef RXD_WED_SCATTER_SUPPORT
-	/* add extra scatter check may suffer performance degrade */
-	scatterCnt = rx_scatter_info_wed(pAd, rx_ring, pRxD, &gather_size);
-	adjust_gather_size = gather_size;
-	/* HW RX AMSDU mode , no need to PASS to upper layer except ATE */
-	if (scatterCnt > 1) {
-		if (tr_ctl->damsdu_type == RX_HW_AMSDU) {
-#ifdef CONFIG_ATE
-			if (!ATE_ON(pAd))
-#endif /* CONFIG_ATE */
-			{
-				adjust_gather_size  = 1518;
-				drop_scatter = TRUE;
-			}
-		} else {
-			if (gather_size > MAX_RX_ALLOC_LEN) {
-				adjust_gather_size  = 1518;
-				drop_scatter = TRUE;
-			}
-		}
-	}
-#else /* RXD_WED_SCATTER_SUPPORT */
-	scatterCnt = rx_scatter_info(rx_ring, pRxD, &gather_size);
-	adjust_gather_size = gather_size;
-#endif /* !RXD_WED_SCATTER_SUPPORT */
-
-	build_skb_len = SKB_DATA_ALIGN(SKB_BUF_HEADROOM_RSV + adjust_gather_size) +
-				SKB_DATA_ALIGN(SKB_BUF_TAILROOM_RSV);
-
-	if (scatterCnt < 1) {
-		bReschedule = TRUE;
-		goto done;
-	} else {
-		tkn_rx_id = ((pRxD->SDP1 & RX_TOKEN_ID_MASK) >> RX_TOKEN_ID_SHIFT);
-
-		if (tkn_rx_id >= cb->rx_que.pkt_tkid_cnt) {
-			MTWF_DBG(pAd, DBG_CAT_RX, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-				" Invalid tkn_rx_id: %d.\n", tkn_rx_id);
-			goto done;
-		}
-
-		/* Due to SDP1's value will be overwritten as the last MSDU's DMAD content,
-		   correct it by lookup according to PA/SDP0 */
-		if (pRxD->LS0 == 0) {
-			INT32 search = token_rx_dmad_lookup_pa(&cb->rx_que, &tkn_rx_id_pa, &cur_pkt,
-								&cur_alloc_va, pRxD->SDP0);
-			if (search == 0) {
-#ifdef RXD_WED_SCATTER_SUPPORT
-								pAd->rxd_token_correct_1++;
-#endif /* RXD_WED_SCATTER_SUPPORT */
-				/* Correct first */
-				pRxD->SDP1 = (tkn_rx_id_pa << RX_TOKEN_ID_SHIFT);
-			} else {
-				MTWF_DBG(pAd, DBG_CAT_RX, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-						"@@ map PA=%08x to tkn_rx_id failed!, origianl tkn_rx_id =%u, scatterCnt=%u\n", pRxD->SDP0, tkn_rx_id, scatterCnt);
-				dump_rxd_4dw((RXD_STRUC *)pRxD);
-			}
-		} else {
-#ifdef RXD_WED_SCATTER_SUPPORT
-			/* this may lead the workaround not trigger!!! */
-			if (scatterCnt > 1) {
-				pAd->rxd_nonscatter_error_cnt++;
-				MTWF_DBG(pAd, DBG_CAT_RX, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-						"@@ ERROR scatterCnt=%u but LS0=1\n", scatterCnt);
-				dump_rxd_4dw((RXD_STRUC *)pRxD);
-			}
-#endif /* RXD_WED_SCATTER_SUPPORT */
-			/* RXD+RXP buffer lookup according token */
-			token_rx_dmad_lookup(&cb->rx_que, tkn_rx_id, &cur_pkt,
-									&cur_alloc_va, &cur_alloc_pa);
-		}
-
-		dma_sync_single_for_cpu((struct device *)(((POS_COOKIE)(pAd->OS_Cookie))->pDev),
-								(dma_addr_t)pRxD->SDP0, rx_ring->RxBufferSize, DMA_FROM_DEVICE);
-
-		RTMP_DCACHE_FLUSH(cur_alloc_pa, pRxCell->DmaBuf.AllocSize);
-
-		if (cur_pkt) {
-#if defined(CONFIG_WIFI_PAGE_ALLOC_SKB)
-#if (KERNEL_VERSION(4, 10, 0) <= LINUX_VERSION_CODE)
-			cp_skb_pkt = page_frag_alloc(&rx_ring->rx_page, build_skb_len, GFP_ATOMIC);
-			if (cp_skb_pkt)
-				MEM_DBG_PKT_ALLOC_INC_SIZE(cp_skb_pkt, build_skb_len);
-			else {
-				MTWF_DBG(pAd, DBG_CAT_RX, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-						"@@ ERROR !!!!! scatterCnt=%u\n", scatterCnt);
-			}
-#elif (KERNEL_VERSION(4, 3, 0) < LINUX_VERSION_CODE)
-			cp_skb_pkt = __alloc_page_frag(&rx_ring->rx_page, build_skb_len, GFP_ATOMIC);
-			if (cp_skb_pkt)
-				MEM_DBG_PKT_ALLOC_INC_SIZE(cp_skb_pkt, build_skb_len);
-#else
-			DEV_ALLOC_FRAG(cp_skb_pkt, build_skb_len);
-#endif
-			if (cp_skb_pkt) {
-				if (rx_ring->buf_flags & BUF_ZERO)
-					NdisZeroMemory((unsigned char *)cp_skb_pkt + SKB_BUF_HEADROOM_RSV, build_skb_len);
-
-				cpy_alloc_va = (unsigned char *)cp_skb_pkt + SKB_BUF_HEADROOM_RSV;
-			}
-#else
-			DEV_ALLOC_SKB(cp_skb_pkt, build_skb_len);
-#endif	/* End of CONFIG_WIFI_PAGE_ALLOC_SKB */
-		} else {
-			bReschedule = TRUE;
-#ifdef RXD_WED_SCATTER_SUPPORT
-			#endif /* RXD_WED_SCATTER_SUPPORT */
-			goto done;
-		}
-
-		if (cp_skb_pkt) {
-#ifdef SINGLE_DMAD_FIX
-copy:
-#endif /* SINGLE_DMAD_FIX */
-			NdisZeroMemory((unsigned char *)cp_skb_pkt, SKB_BUF_HEADROOM_RSV);
-#if defined(CONFIG_WIFI_PAGE_ALLOC_SKB)
-			/* double check boundry for safe */
-			if (pRxD->SDL0 > adjust_gather_size)
-				memcpy((UCHAR *)cpy_alloc_va, cur_alloc_va, adjust_gather_size);
-			else
-				memcpy((UCHAR *)cpy_alloc_va, cur_alloc_va, pRxD->SDL0);
-#else
-			memcpy(OS_PKT_TAIL_BUF_EXTEND(cp_skb_pkt, pRxD->SDL0), cur_alloc_va, pRxD->SDL0);
-#endif	/* End of CONFIG_WIFI_PAGE_ALLOC_SKB */
-#ifdef RXD_WED_SCATTER_SUPPORT
-			/*
-				Early check each DMAD's pkt type, may suffer Performance degrade
-			*/
-			/* if (scatterCnt > 1) */
-			{
-				/* backup DMAD */
-				/* move on record idx */
-				INC_RING_INDEX(pAd->rxd_log_idx, MAX_RECORD);
-				NdisMoveMemory((UCHAR *)&(pAd->RxDHisLog[pAd->rxd_log_idx].RxD_dump), (UCHAR *)pRxD, RXD_SIZE);
-				/* NdisMoveMemory((UCHAR *)&(pAd->RxDHisLog[rxd_log_idx].buffer), (UCHAR *)cpy_alloc_va, 20); */
-				rx_pkt_type = mtf_get_packet_type(pAd, (VOID *)cpy_alloc_va);
-				rx_byte_cnt = mtf_get_packet_rxbytes(pAd, (VOID *)cpy_alloc_va);
-				/* early check type : */
-				if (check_rx_pkt_type(rx_pkt_type) == FALSE) {
-					pAd->rxd_unknown_type_cnt++;
-					MTWF_DBG(pAd, DBG_CAT_RX, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-							"@@ rx type error! : rx_pkt_type=%u, scatterCnt =%u, pRxD->LS0=%u, pRxD->SDL0=%u, tkn_rx_id=%u, rx_byte_cnt=%u\n", rx_pkt_type, scatterCnt, pRxD->LS0, pRxD->SDL0, tkn_rx_id, rx_byte_cnt);
-					dump_rxd_4dw((RXD_STRUC *)pRxD);
-					mtf_dump_rmac_info_normal(pAd, cpy_alloc_va);
-					dump_rxd_history(pAd);
-				}
-
-				/* scatter but len mismatch case */
-				if ((scatterCnt > 1) && (gather_size != rx_byte_cnt)) {
-					pAd->rxd_scatter_len_error_cnt++;
-				}
-
-				/* early check len : */
-				if ((pre_chk == 0) && (scatterCnt == 1) && (pRxD->SDL0 != rx_byte_cnt)) {
-#ifdef SINGLE_DMAD_FIX
-					/* if len error, lookup pa one more time  */
-					pre_chk++;
-					/* maybe non-scatter search wrong token , lookup PA for one more chance ! */
-					INT32 search2 = token_rx_dmad_lookup_pa(&cb->rx_que, &tkn_rx_id_pa, &cur_pkt,
-										&cur_alloc_va, pRxD->SDP0);
-					if ((search2 == 0) && (tkn_rx_id_pa != tkn_rx_id)) { /* lookup pa success but rx token mismatch, worth to correct it */
-						pAd->rxd_len_error_searh_pa_cnt++;
-												/* Correct non-scatter cases !! , actually should not happen here as kown issues */
-						pRxD->SDP1 = (tkn_rx_id_pa << RX_TOKEN_ID_SHIFT);
-						goto copy;
-					} else
-#endif /* SINGLE_DMAD_FIX */
-					{ /* rx token is not wrong , maybe consys Rx error !! , direct drop for safe ! */
-						drop_pkt_len_err = TRUE;
-						pAd->rxd_len_error_drop_cnt++;
-						MTWF_DBG(pAd, DBG_CAT_RX, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-								"@@ rx len error! : rx_pkt_type=%u, scatterCnt =%u, pRxD->LS0=%u, pRxD->SDL0=%u, tkn_rx_id=%u, rx_byte_cnt=%u\n", rx_pkt_type, scatterCnt, pRxD->LS0, pRxD->SDL0, tkn_rx_id, rx_byte_cnt);
-						dump_rxd_4dw((RXD_STRUC *)pRxD);
-						mtf_dump_rmac_info_normal(pAd, cpy_alloc_va);
-						dump_rxd_history(pAd);
-					}
-				}
-			}
-#endif /* RXD_WED_SCATTER_SUPPORT */
-			if (scatterCnt > 1) {
-#ifdef RXD_WED_SCATTER_SUPPORT
-				INC_RING_INDEX(pAd->rxd_scat_log_idx, MAX_RECORD);
-				pAd->RxScatHisLog[pAd->rxd_scat_log_idx].scatter_cnt = scatterCnt;
-				pAd->RxScatHisLog[pAd->rxd_scat_log_idx].gather_size = gather_size;
-				pAd->RxScatHisLog[pAd->rxd_scat_log_idx].rx_bytes_cnt = rx_byte_cnt;
-				pAd->RxScatHisLog[pAd->rxd_scat_log_idx].build_skb_len = build_skb_len;
-				MTWF_DBG(pAd, DBG_CAT_RX, DBG_SUBCAT_ALL, DBG_LVL_DEBUG,
-						"@@ Scatter Log : scatterCnt=%u, gather_size =%u, rx_byte_cnt=%u, build_skb_len=%u\n", scatterCnt, gather_size, rx_byte_cnt, build_skb_len);
-#endif /* RXD_WED_SCATTER_SUPPORT */
-				if (rx_scatter_gather_copy(pAd, resource_idx, pRxCell,
-					pRxD, scatterCnt, cp_skb_pkt, drop_scatter) == FALSE) {
-#if defined(CONFIG_WIFI_PAGE_ALLOC_SKB)
-#if (KERNEL_VERSION(4, 10, 0) <= LINUX_VERSION_CODE)
-					MEM_DBG_PKT_FREE_INC(cp_skb_pkt);
-					page_frag_free(cp_skb_pkt);
-#elif (KERNEL_VERSION(4, 3, 0) < LINUX_VERSION_CODE)
-					MEM_DBG_PKT_FREE_INC(cp_skb_pkt);
-					__free_page_frag(cp_skb_pkt);
-#else
-					DEV_FREE_FRAG_BUF(cp_skb_pkt);
-#endif
-#else
-					RELEASE_NDIS_PACKET_IRQ(pAd, cp_skb_pkt, NDIS_STATUS_FAILURE);
-#endif	/* End of CONFIG_WIFI_PAGE_ALLOC_SKB */
-					bReschedule = TRUE;
-#ifdef RXD_WED_SCATTER_SUPPORT
-					if (drop_scatter == TRUE) {
-						pAd->rxd_scat_drop_cnt++;
-						MTWF_DBG(pAd, DBG_CAT_RX, DBG_SUBCAT_ALL, DBG_LVL_DEBUG,
-								"@@ Scatter drop : scatterCnt=%u, gather_size =%u, rx_byte_cnt=%u, build_skb_len=%u\n", scatterCnt, gather_size, rx_byte_cnt, build_skb_len);
-						skb_pkt = NULL;
-						goto skip;
-					} else
-#endif /* RXD_WED_SCATTER_SUPPORT */
-					goto done;
-				}
-			}
-			/*build skb*/
-#if defined(CONFIG_WIFI_PAGE_ALLOC_SKB)
-			build_rx_pkt_skb(&skb_pkt, (VOID *)cp_skb_pkt, build_skb_len, adjust_gather_size);
-#else
-			skb_pkt = cp_skb_pkt;
-#endif
-
-#ifdef CONFIG_CSO_SUPPORT
-			if (pChipCap->asic_caps & fASIC_CAP_CSO) {
-				prCso = (RX_CSO_STRUCT *)((UCHAR *)pRxD + sizeof(RXD_STRUC));
-				NdisCopyMemory(&(pAd->rCso), prCso, sizeof(RX_CSO_STRUCT));
-			}
-#endif
-
-#if defined(CONFIG_FAST_NAT_SUPPORT) && defined(WHNAT_SUPPORT)
-			if (skb_pkt)
-				drop_pkt = gen_tuple(pAd, pRxD, skb_pkt);
-			else
-				bReschedule = TRUE;
-#endif
-			/*avoid dummy packet received before System Ready*/
-			if ((skb_pkt) && (!RTMP_TEST_FLAG(pAd, fRTMP_ADAPTER_SYSEM_READY) ||
-					ddone_check >= MAX_DDONE_CHECK_TIMES || drop_pkt
-#ifdef RXD_WED_SCATTER_SUPPORT
-					|| drop_pkt_len_err
-#endif /* RXD_WED_SCATTER_SUPPORT */
-					)) {
-				MTWF_DBG(NULL, DBG_CAT_RX, DBG_SUBCAT_ALL, DBG_LVL_DEBUG, "%s(): drop rx pkt. drop_pkt=%d. drop_pkt_len_err=%d\n", __func__, drop_pkt, drop_pkt_len_err);
-				ddone_check = 0;
-
-				RELEASE_NDIS_PACKET_IRQ(pAd, skb_pkt, NDIS_STATUS_SUCCESS);
-				skb_pkt = NULL;
-				bReschedule = TRUE;
-			}
-		} else {
-			/* skb copy failed */
-			bReschedule = TRUE;
-#ifdef RXD_WED_SCATTER_SUPPORT
-			pAd->rxd_skb_copy_fail_cnt++;
-			#endif /* RXD_WED_SCATTER_SUPPORT */
-			goto done;
-		}
-	}
-#ifdef RXD_WED_SCATTER_SUPPORT
-skip:
-#endif /* RXD_WED_SCATTER_SUPPORT */
-	/* reset DMAD content to initial value */
-	if (tkn_rx_id_pa != cb->rx_que.pkt_tkid_cnt) {
-#ifdef RXD_WED_SCATTER_SUPPORT
-				pAd->rxd_token_correct_2++;
-#endif /* RXD_WED_SCATTER_SUPPORT */
-		/* Correct twice for safe  */
-		pRxD->SDP1 = (tkn_rx_id_pa << RX_TOKEN_ID_SHIFT);
-	}
-	pRxD->SDL0 = rx_ring->RxBufferSize;
-
-#ifdef WO_SCATTER_INDICATE
-	pRxD->SDP1 &= (~RXDMAD_WO_INDICATE_SCATTER);
-#endif /* WO_SCATTER_INDICATE */
-
-	pRxD->DDONE = 0;
-#ifdef RT_BIG_ENDIAN
-	RTMPDescriptorEndianChange((PUCHAR)pRxD, TYPE_RXD);
-	WriteBackToDescriptor((PUCHAR)pDestRxD, (PUCHAR)pRxD, FALSE, TYPE_RXD);
-#endif
-
-
-	wmb();
-	INC_RING_INDEX(rx_ring->RxSwReadIdx, rx_ring->ring_size);
-	rx_ring->sw_read_idx_inc++;
-	rx_ring->RxCpuIdx = (rx_ring->RxSwReadIdx == 0)
-						? (rx_ring->ring_size - 1) : (rx_ring->RxSwReadIdx - 1);
-
-done:
-	*pbReschedule = bReschedule;
-	return skb_pkt;
-}
-#endif
-
-static PNDIS_PACKET pci_get_pkt_dynamic_page_ddone(
-	struct _RTMP_ADAPTER *pAd,
-	BOOLEAN *pbReschedule,
-	UINT32 *pRxPending,
-	UCHAR resource_idx)
-{
-	RXD_STRUC *pRxD;
-#ifdef RT_BIG_ENDIAN
-	RXD_STRUC *pDestRxD;
-	UCHAR rx_hw_info[RXD_SIZE];
-#endif
-	struct _PCI_HIF_T *pci_hif = hc_get_hif_ctrl(pAd->hdev_ctrl);
-	struct hif_pci_rx_ring *rx_ring = pci_get_rx_ring_by_ridx(pci_hif, resource_idx);
-	PNDIS_PACKET pRxPacket = NULL, pNewPacket = NULL;
-	VOID *AllocVa;
-	NDIS_PHYSICAL_ADDRESS AllocPa;
-	BOOLEAN bReschedule = FALSE;
-	RTMP_DMACB *pRxCell = NULL;
-#ifdef CONFIG_CSO_SUPPORT
-	RX_CSO_STRUCT *prCso = NULL;
-#endif
-#if (defined (CONFIG_CSO_SUPPORT) || defined (RX_RPS_SUPPORT))
-	RTMP_CHIP_CAP *pChipCap = hc_get_chip_cap(pAd->hdev_ctrl);
-#endif
-	UINT scatterCnt;
-	UINT32 gather_size = 0;
-	UINT32 build_skb_len = 0;
-	static UINT8 ddone_check;
-
-	pRxCell = &rx_ring->Cell[rx_ring->RxSwReadIdx];
-
-	/* flush dcache if no consistent memory is supported */
-	RTMP_DCACHE_FLUSH(pRxCell->AllocPa, RXD_SIZE);
-	/* Point to Rx indexed rx ring descriptor */
-#ifdef RT_BIG_ENDIAN
-	pDestRxD = (RXD_STRUC *)pRxCell->AllocVa;
-	NdisMoveMemory(&rx_hw_info[0], pDestRxD, RXD_SIZE);
-	pRxD = (RXD_STRUC *)&rx_hw_info[0];
-	RTMPDescriptorEndianChange((PUCHAR)pRxD, TYPE_RXD);
-#else
-	pRxD = (RXD_STRUC *)pRxCell->AllocVa;
-#endif
-	if (pRxD->DDONE == 0) {
-		if (rx_ring->sw_read_idx_inc != 0) {
-			bReschedule = FALSE;
-		} else {
-			HIF_IO_READ32(pAd->hdev_ctrl, rx_ring->hw_didx_addr, &rx_ring->RxDmaIdx);
-			if (rx_ring->RxDmaIdx == rx_ring->RxSwReadIdx) {
-				bReschedule = FALSE;
-			} else {
-				ddone_check++;
-				bReschedule = TRUE;
-			}
-		}
-
-		if (ddone_check < MAX_DDONE_CHECK_TIMES)
-			goto done;
-	} else {
-		ddone_check = 0;
-	}
-
-	build_skb_len = SKB_DATA_ALIGN(SKB_BUF_HEADROOM_RSV + pRxCell->DmaBuf.AllocSize) +
-				SKB_DATA_ALIGN(SKB_BUF_TAILROOM_RSV);
-
-	scatterCnt = rx_scatter_info(rx_ring, pRxD, &gather_size);
-
-	if (scatterCnt < 1) {
-		bReschedule = TRUE;
-		goto done;
-	}
-
-	pNewPacket = RTMP_AllocateRxPacketBuffer(rx_ring,
-				((POS_COOKIE)(pAd->OS_Cookie))->pDev,
-				pRxCell->DmaBuf.AllocSize,
-				&AllocVa, &AllocPa);
-
-
-	if (pNewPacket) {
-		PCI_UNMAP_SINGLE(pAd, pRxCell->DmaBuf.AllocPa,
-						 pRxCell->DmaBuf.AllocSize, RTMP_PCI_DMA_FROMDEVICE);
-
-		RTMP_DCACHE_FLUSH(pRxCell->DmaBuf.AllocPa, pRxCell->DmaBuf.AllocSize);
-
-		if (scatterCnt > 1) {
-			if (rx_scatter_gather_dynamic_page(pAd, resource_idx, pRxCell,
-				pRxD, scatterCnt,
-				gather_size, &build_skb_len) == FALSE)	{
-				RELEASE_NDIS_PACKET_IRQ(pAd, pNewPacket, NDIS_STATUS_SUCCESS);
-				bReschedule = TRUE;
-				goto done;
-			}
-		}
-
-		if (pRxCell->pNdisPacket) {
-			build_rx_pkt_skb(&pRxPacket, (VOID *)pRxCell->pNdisPacket,
-									build_skb_len, gather_size);
-#ifdef RX_RPS_SUPPORT
-			if (pAd->ixia_mode_ctl.kernel_rps_en) {
-			if (pChipCap->rx_qm_en) {
-				UINT16 wcid = 0;
-					struct rxd_grp_0 *rxd_grp0 =
-						(struct rxd_grp_0 *) GET_OS_PKT_DATAPTR(pRxPacket);
-
-				if (rxd_grp0->rxd_2 & RXD_NDATA)
-					wcid = smp_processor_id()+1;
-				else {
-					wcid = (rxd_grp0->rxd_1 & RXD_WLAN_IDX_MASK);
-					if ((wcid == 0) || (wcid >= MAX_LEN_OF_MAC_TABLE))
-						wcid = smp_processor_id()+1;
-				}
-					RTPKT_TO_OSPKT(pRxPacket)->hash = wcid;
-			} else
-					RTPKT_TO_OSPKT(pRxPacket)->hash = smp_processor_id()+1;
-			}
-
-#endif
-		} else {
-			pRxPacket = NULL;
-		}
-
-#ifdef CONFIG_CSO_SUPPORT
-		if (pRxPacket && (pChipCap->asic_caps & fASIC_CAP_CSO)) {
-			prCso = (RX_CSO_STRUCT *)((UCHAR *)pRxD + sizeof(RXD_STRUC));
-			NdisCopyMemory(&(pAd->rCso), prCso, sizeof(RX_CSO_STRUCT));
-		}
-#endif
-		pRxCell->pNdisPacket = (PNDIS_PACKET)pNewPacket;
-		pRxCell->DmaBuf.AllocVa = AllocVa;
-		pRxCell->DmaBuf.AllocPa = AllocPa;
-		pRxCell->DmaBuf.AllocSize = rx_ring->RxBufferSize;
-		/* flush dcache if no consistent memory is supported */
-		RTMP_DCACHE_FLUSH(pRxCell->DmaBuf.AllocPa, pRxCell->DmaBuf.AllocSize);
-		pRxD->SDP0 = pRxCell->DmaBuf.AllocPa;
-		pRxD->SDL0 = rx_ring->RxBufferSize;
-
-		/*avoid dummy packet received before System Ready*/
-		if (!RTMP_TEST_FLAG(pAd, fRTMP_ADAPTER_SYSEM_READY) ||
-						ddone_check >= MAX_DDONE_CHECK_TIMES) {
-			MTWF_DBG(NULL, DBG_CAT_RX, DBG_SUBCAT_ALL, DBG_LVL_DEBUG, "%s(): system is not ready, rx pkt drop it.\n", __func__);
-			ddone_check = 0;
-
-			if (pRxPacket) {
-				RELEASE_NDIS_PACKET_IRQ(pAd, pRxPacket, NDIS_STATUS_SUCCESS);
-				pRxPacket = NULL;
-				bReschedule = TRUE;
-			}
-		}
-	} else {
-		bReschedule = TRUE;
-		goto done;
-	}
-
-	pRxD->DDONE = 0;
-#ifdef RT_BIG_ENDIAN
-	RTMPDescriptorEndianChange((PUCHAR)pRxD, TYPE_RXD);
-	WriteBackToDescriptor((PUCHAR)pDestRxD, (PUCHAR)pRxD, FALSE, TYPE_RXD);
-#endif
-
-	wmb();
-	INC_RING_INDEX(rx_ring->RxSwReadIdx, rx_ring->ring_size);
-	rx_ring->sw_read_idx_inc++;
-	rx_ring->RxCpuIdx = (rx_ring->RxSwReadIdx == 0)
-						? (rx_ring->ring_size - 1) : (rx_ring->RxSwReadIdx - 1);
-
-#ifdef CONFIG_WIFI_PREFETCH_RXDATA
-	/* prefetch to enhance throughput */
-	prefetch(rx_ring->Cell[rx_ring->RxSwReadIdx].pNdisPacket);
-#endif /* CONFIG_WIFI_PREFETCH_RXDATA */
-
-done:
-	*pbReschedule = bReschedule;
-	return pRxPacket;
-}
-
-static PNDIS_PACKET pci_get_pkt_dynamic_page_io(
-	struct _RTMP_ADAPTER *pAd,
-	BOOLEAN *pbReschedule,
-	UINT32 *pRxPending,
-	UCHAR resource_idx)
-{
-	RXD_STRUC *pRxD;
-#ifdef RT_BIG_ENDIAN
-	RXD_STRUC *pDestRxD;
-	UCHAR rx_hw_info[RXD_SIZE];
-#endif
 	struct _PCI_HIF_T *hif = hc_get_hif_ctrl(pAd->hdev_ctrl);
-	struct hif_pci_rx_ring *rx_ring = pci_get_rx_ring_by_ridx(hif, resource_idx);
-	PNDIS_PACKET pRxPacket = NULL, pNewPacket = NULL;
-	VOID *AllocVa;
-	NDIS_PHYSICAL_ADDRESS AllocPa;
-	BOOLEAN bReschedule = FALSE;
-	RTMP_DMACB *pRxCell = NULL;
-#ifdef CONFIG_CSO_SUPPORT
-	RX_CSO_STRUCT *prCso = NULL;
-	RTMP_CHIP_CAP *pChipCap = hc_get_chip_cap(pAd->hdev_ctrl);
-#endif
-	UINT scatterCnt;
-	UINT32 gather_size = 0;
-	UINT32 build_skb_len = 0;
-	UINT16 rx_ring_size = rx_ring->ring_size;
+	RTMP_TX_RING *tx_ring = &hif->TxRing[hif_idx];
+	USHORT tx_cpu_idx = tx_ring->TxCpuIdx;
 
-#ifdef CONFIG_TP_DBG
-	struct tp_debug *tp_dbg = &pAd->tr_ctl.tp_dbg;
-#endif
-
-	if (*pRxPending == 0) {
-		/* Get how may packets had been received */
-		HIF_IO_READ32(pAd->hdev_ctrl, rx_ring->hw_didx_addr, &rx_ring->RxDmaIdx);
-
-#ifdef CONFIG_TP_DBG
-		tp_dbg->IoReadRx++;
-#endif
-
-		if (rx_ring->RxDmaIdx == rx_ring->RxSwReadIdx) {
-			bReschedule = FALSE;
-			goto done;
-		}
-
-		/* get rx pending count */
-		if (rx_ring->RxDmaIdx > rx_ring->RxSwReadIdx)
-			*pRxPending = rx_ring->RxDmaIdx - rx_ring->RxSwReadIdx;
-		else
-			*pRxPending = rx_ring->RxDmaIdx + rx_ring_size - rx_ring->RxSwReadIdx;
-	}
-
-	pRxCell = &rx_ring->Cell[rx_ring->RxSwReadIdx];
-	/* flush dcache if no consistent memory is supported */
-	RTMP_DCACHE_FLUSH(pRxCell->AllocPa, RXD_SIZE);
-	/* Point to Rx indexed rx ring descriptor */
-#ifdef RT_BIG_ENDIAN
-	pDestRxD = (RXD_STRUC *)pRxCell->AllocVa;
-	NdisMoveMemory(&rx_hw_info[0], pDestRxD, RXD_SIZE);
-	pRxD = (RXD_STRUC *)&rx_hw_info[0];
-	RTMPDescriptorEndianChange((PUCHAR)pRxD, TYPE_RXD);
-#else
-	pRxD = (RXD_STRUC *)pRxCell->AllocVa;
-#endif
-
-
-	if (pRxD->DDONE == 0) {
-		*pRxPending = 0;
-		MTWF_DBG(NULL, DBG_CAT_HIF, CATHIF_PCI, DBG_LVL_DEBUG, "DDONE=0!\n");
-		/* DMAIndx had done but DDONE bit not ready */
-		bReschedule = TRUE;
-		goto done;
-	}
-
-	build_skb_len = SKB_DATA_ALIGN(SKB_BUF_HEADROOM_RSV + pRxCell->DmaBuf.AllocSize) +
-				SKB_DATA_ALIGN(SKB_BUF_TAILROOM_RSV);
-
-	scatterCnt = rx_scatter_info_io(rx_ring, pRxD, &gather_size);
-
-	if (scatterCnt < 1) {
-		bReschedule = TRUE;
-		goto done;
-	}
-
-	pNewPacket = RTMP_AllocateRxPacketBuffer(rx_ring,
-				((POS_COOKIE)(pAd->OS_Cookie))->pDev,
-				pRxCell->DmaBuf.AllocSize,
-				&AllocVa, &AllocPa);
-
-	if (pNewPacket) {
-		PCI_UNMAP_SINGLE(pAd, pRxCell->DmaBuf.AllocPa,
-						 pRxCell->DmaBuf.AllocSize, RTMP_PCI_DMA_FROMDEVICE);
-		/* flush dcache if no consistent memory is supported */
-		RTMP_DCACHE_FLUSH(pRxCell->DmaBuf.AllocPa, pRxCell->DmaBuf.AllocSize);
-
-		if (scatterCnt > 1) {
-			if (rx_scatter_gather_dynamic_page(pAd, resource_idx, pRxCell,
-				pRxD, scatterCnt,
-				gather_size, &build_skb_len) == FALSE)	{
-				RELEASE_NDIS_PACKET_IRQ(pAd, pNewPacket, NDIS_STATUS_SUCCESS);
-				bReschedule = TRUE;
-				goto done;
-			}
-		}
-
-		if (pRxCell->pNdisPacket) {
-			build_rx_pkt_skb(&pRxPacket, (VOID *)pRxCell->pNdisPacket,
-									build_skb_len, gather_size);
-		} else {
-			pRxPacket = NULL;
-		}
-
-#ifdef CONFIG_CSO_SUPPORT
-		if (pRxPacket && (pChipCap->asic_caps & fASIC_CAP_CSO)) {
-			prCso = (RX_CSO_STRUCT *)((UCHAR *)pRxD + sizeof(RXD_STRUC));
-			NdisCopyMemory(&(pAd->rCso), prCso, sizeof(RX_CSO_STRUCT));
-		}
-#endif
-		pRxCell->pNdisPacket = (PNDIS_PACKET)pNewPacket;
-		pRxCell->DmaBuf.AllocVa = AllocVa;
-		pRxCell->DmaBuf.AllocPa = AllocPa;
-		pRxCell->DmaBuf.AllocSize = rx_ring->RxBufferSize;
-		/* flush dcache if no consistent memory is supported */
-		RTMP_DCACHE_FLUSH(pRxCell->DmaBuf.AllocPa, pRxCell->DmaBuf.AllocSize);
-		pRxD->SDP0 = pRxCell->DmaBuf.AllocPa;
-		pRxD->SDL0 = rx_ring->RxBufferSize;
-
-		/*avoid dummy packet received before System Ready*/
-		if (!RTMP_TEST_FLAG(pAd, fRTMP_ADAPTER_SYSEM_READY)) {
-			MTWF_DBG(NULL, DBG_CAT_RX, DBG_SUBCAT_ALL, DBG_LVL_DEBUG, "%s(): system is not ready, rx pkt drop it.\n", __func__);
-
-			if (pRxPacket) {
-				RELEASE_NDIS_PACKET_IRQ(pAd, pRxPacket, NDIS_STATUS_SUCCESS);
-				pRxPacket = NULL;
-				bReschedule = TRUE;
-			}
-		}
-	} else {
-		bReschedule = TRUE;
-		goto done;
-	}
-
-	*pRxPending = *pRxPending - 1;
-	pRxD->DDONE = 0;
-#ifdef RT_BIG_ENDIAN
-	RTMPDescriptorEndianChange((PUCHAR)pRxD, TYPE_RXD);
-	WriteBackToDescriptor((PUCHAR)pDestRxD, (PUCHAR)pRxD, FALSE, TYPE_RXD);
-#endif
-
-	wmb();
-	INC_RING_INDEX(rx_ring->RxSwReadIdx, rx_ring_size);
-	rx_ring->sw_read_idx_inc++;
-	rx_ring->RxCpuIdx = (rx_ring->RxSwReadIdx == 0)
-						? (rx_ring_size - 1) : (rx_ring->RxSwReadIdx - 1);
-
-#ifdef CONFIG_WIFI_PREFETCH_RXDATA
-	/* prefetch to enhance throughput */
-	if (*pRxPending > 0)
-		prefetch(rx_ring->Cell[rx_ring->RxSwReadIdx].pNdisPacket);
-#endif /* CONFIG_WIFI_PREFETCH_RXDATA */
-
-done:
-	*pbReschedule = bReschedule;
-	return pRxPacket;
+	if (frame_type != TX_FRAG_FRAME)
+		return (UCHAR *)tx_ring->Cell[tx_cpu_idx].DmaBuf.AllocVa;
+	else
+		return (UCHAR *)tx_blk->HeaderBuffer;
 }
 
-/*
-*
-*/
-static PNDIS_PACKET pci_get_pkt_dynamic_slab_ddone(
+PNDIS_PACKET mtd_pci_get_pkt_from_rx_resource(
 	struct _RTMP_ADAPTER *pAd,
 	BOOLEAN *pbReschedule,
 	UINT32 *pRxPending,
-	UCHAR resource_idx)
+	UCHAR RxRingNo)
 {
 	RXD_STRUC *pRxD;
 #ifdef RT_BIG_ENDIAN
 	RXD_STRUC *pDestRxD;
 	UCHAR rx_hw_info[RXD_SIZE];
 #endif
-
-	struct _PCI_HIF_T *pci_hif = hc_get_hif_ctrl(pAd->hdev_ctrl);
-	struct hif_pci_rx_ring *rx_ring = pci_get_rx_ring_by_ridx(pci_hif, resource_idx);
+	RTMP_RX_RING *pRxRing = &pAd->PciHif.RxRing[RxRingNo];
+	NDIS_SPIN_LOCK *pRxRingLock = &pAd->PciHif.RxRingLock[RxRingNo];
 	PNDIS_PACKET pRxPacket = NULL, pNewPacket = NULL;
 	VOID *AllocVa;
 	NDIS_PHYSICAL_ADDRESS AllocPa;
@@ -2645,22 +1619,29 @@ static PNDIS_PACKET pci_get_pkt_dynamic_slab_ddone(
 	RTMP_DMACB *pRxCell = NULL;
 #ifdef CONFIG_CSO_SUPPORT
 	RX_CSO_STRUCT *prCso = NULL;
-	RTMP_CHIP_CAP *pChipCap = hc_get_chip_cap(pAd->hdev_ctrl);
+	RTMP_CHIP_CAP *pChipCap = &pAd->chipCap;
 #endif
-	UINT scatterCnt;
-	UINT32 gather_size = 0;
+#ifdef RX_SCATTER
+	UINT scatterCnt = 1;
+	UINT pktScatterGatherSize = 0;
+#endif /* RX_SCATTER */
+	UINT pkt_buf_size = 0;
+	UINT skb_data_len = 0;
 
-	pRxCell = &rx_ring->Cell[rx_ring->RxSwReadIdx];
+	RTMP_SEM_LOCK(pRxRingLock);
+
+	pRxCell = &pRxRing->Cell[pRxRing->RxSwReadIdx];
 
 	/* flush dcache if no consistent memory is supported */
 	RTMP_DCACHE_FLUSH(pRxCell->AllocPa, RXD_SIZE);
-	/* Point to Rx indexed rx ring descriptor */
 #ifdef RT_BIG_ENDIAN
 	pDestRxD = (RXD_STRUC *)pRxCell->AllocVa;
+	/* RxD = *pDestRxD; */
 	NdisMoveMemory(&rx_hw_info[0], pDestRxD, RXD_SIZE);
 	pRxD = (RXD_STRUC *)&rx_hw_info[0];
 	RTMPDescriptorEndianChange((PUCHAR)pRxD, TYPE_RXD);
 #else
+	/* Point to Rx indexed rx ring descriptor */
 	pRxD = (RXD_STRUC *)pRxCell->AllocVa;
 #endif
 	if (pRxD->DDONE == 0) {
@@ -2670,174 +1651,39 @@ static PNDIS_PACKET pci_get_pkt_dynamic_slab_ddone(
 
 	*pRxPending = 1;
 
-	scatterCnt = rx_scatter_info(rx_ring, pRxD, &gather_size);
+	skb_data_len = SKB_DATA_ALIGN(SKB_BUF_HEADROOM_RSV + pRxCell->DmaBuf.AllocSize) +
+				SKB_DATA_ALIGN(SKB_BUF_TAILROOM_RSV);
+#ifdef RX_SCATTER
+	if (IS_ASIC_CAP(pAd, fASIC_CAP_RX_DMA_SCATTER)) {
+		scatterCnt = rx_scatter_info(pRxRing, pRxD, &pktScatterGatherSize);
 
-	if (scatterCnt < 1) {
-		bReschedule = TRUE;
-		goto done;
-	}
-
-	pNewPacket = RTMP_AllocateRxPacketBuffer(rx_ring,
-				((POS_COOKIE)(pAd->OS_Cookie))->pDev,
-				pRxCell->DmaBuf.AllocSize,
-				&AllocVa, &AllocPa);
-
-	if (pNewPacket) {
-		PCI_UNMAP_SINGLE(pAd, pRxCell->DmaBuf.AllocPa,
-						 pRxCell->DmaBuf.AllocSize, RTMP_PCI_DMA_FROMDEVICE);
-		/* flush dcache if no consistent memory is supported */
-		RTMP_DCACHE_FLUSH(pRxCell->DmaBuf.AllocPa, pRxCell->DmaBuf.AllocSize);
-
-		if (scatterCnt > 1) {
-			if (rx_scatter_gather_dynamic_slab(pAd, resource_idx, pRxCell,
-				pRxD, scatterCnt,
-				gather_size) == FALSE)	{
-				RELEASE_NDIS_PACKET_IRQ(pAd, pNewPacket, NDIS_STATUS_SUCCESS);
-				bReschedule = TRUE;
-				goto done;
-			}
-		}
-
-		pRxPacket = pRxCell->pNdisPacket;
-
-#ifdef CONFIG_CSO_SUPPORT
-		if (pRxPacket && (pChipCap->asic_caps & fASIC_CAP_CSO)) {
-			prCso = (RX_CSO_STRUCT *)((UCHAR *)pRxD + sizeof(RXD_STRUC));
-			NdisCopyMemory(&(pAd->rCso), prCso, sizeof(RX_CSO_STRUCT));
-		}
-#endif
-		pRxCell->pNdisPacket = (PNDIS_PACKET)pNewPacket;
-		pRxCell->DmaBuf.AllocVa = AllocVa;
-		pRxCell->DmaBuf.AllocPa = AllocPa;
-		pRxCell->DmaBuf.AllocSize = rx_ring->RxBufferSize;
-		/* flush dcache if no consistent memory is supported */
-		RTMP_DCACHE_FLUSH(pRxCell->DmaBuf.AllocPa, pRxCell->DmaBuf.AllocSize);
-		pRxD->SDP0 = pRxCell->DmaBuf.AllocPa;
-		pRxD->SDL0 = rx_ring->RxBufferSize;
-
-		/*avoid dummy packet received before System Ready*/
-		if (!RTMP_TEST_FLAG(pAd, fRTMP_ADAPTER_SYSEM_READY)) {
-			MTWF_DBG(NULL, DBG_CAT_RX, DBG_SUBCAT_ALL, DBG_LVL_DEBUG, "%s(): system is not ready, rx pkt drop it.\n", __func__);
-
-			if (pRxPacket) {
-				RELEASE_NDIS_PACKET_IRQ(pAd, pRxPacket, NDIS_STATUS_SUCCESS);
-				pRxPacket = NULL;
-				bReschedule = TRUE;
-			}
-		}
-	} else {
-		bReschedule = TRUE;
-		goto done;
-	}
-
-	pRxD->DDONE = 0;
-#ifdef RT_BIG_ENDIAN
-	RTMPDescriptorEndianChange((PUCHAR)pRxD, TYPE_RXD);
-	WriteBackToDescriptor((PUCHAR)pDestRxD, (PUCHAR)pRxD, FALSE, TYPE_RXD);
-#endif
-
-	wmb();
-	INC_RING_INDEX(rx_ring->RxSwReadIdx, rx_ring->ring_size);
-	rx_ring->sw_read_idx_inc++;
-	rx_ring->RxCpuIdx = (rx_ring->RxSwReadIdx == 0)
-						? (rx_ring->ring_size - 1) : (rx_ring->RxSwReadIdx - 1);
-
-#ifdef CONFIG_WIFI_PREFETCH_RXDATA
-	/* prefetch to enhance throughput */
-	if (*pRxPending > 0)
-		prefetch(rx_ring->Cell[rx_ring->RxSwReadIdx].pNdisPacket);
-#endif /* CONFIG_WIFI_PREFETCH_RXDATA */
-
-done:
-	*pbReschedule = bReschedule;
-	return pRxPacket;
-}
-
-/*
-*
-*/
-static PNDIS_PACKET pci_get_pkt_dynamic_slab_io(
-	struct _RTMP_ADAPTER *pAd,
-	BOOLEAN *pbReschedule,
-	UINT32 *pRxPending,
-	UCHAR resource_idx)
-{
-	RXD_STRUC *pRxD;
-#ifdef RT_BIG_ENDIAN
-	RXD_STRUC *pDestRxD;
-	UCHAR rx_hw_info[RXD_SIZE];
-#endif
-
-	struct _PCI_HIF_T *hif = hc_get_hif_ctrl(pAd->hdev_ctrl);
-	struct hif_pci_rx_ring *rx_ring = pci_get_rx_ring_by_ridx(hif, resource_idx);
-	PNDIS_PACKET pRxPacket = NULL, pNewPacket = NULL;
-	VOID *AllocVa;
-	NDIS_PHYSICAL_ADDRESS AllocPa;
-	BOOLEAN bReschedule = FALSE;
-	RTMP_DMACB *pRxCell = NULL;
-#ifdef CONFIG_CSO_SUPPORT
-	RX_CSO_STRUCT *prCso = NULL;
-	RTMP_CHIP_CAP *pChipCap = hc_get_chip_cap(pAd->hdev_ctrl);
-#endif
-	UINT scatterCnt;
-	UINT32 gather_size = 0;
-	UINT16 rx_ring_size = rx_ring->ring_size;
-
-#ifdef CONFIG_TP_DBG
-	struct tp_debug *tp_dbg = &pAd->tr_ctl.tp_dbg;
-#endif
-
-	if (*pRxPending == 0) {
-		/* Get how may packets had been received */
-		HIF_IO_READ32(pAd->hdev_ctrl, rx_ring->hw_didx_addr, &rx_ring->RxDmaIdx);
-
-#ifdef CONFIG_TP_DBG
-		tp_dbg->IoReadRx++;
-#endif
-
-		if (rx_ring->RxDmaIdx == rx_ring->RxSwReadIdx) {
-			bReschedule = FALSE;
+		if (scatterCnt < 1) {
+			bReschedule = TRUE;
 			goto done;
 		}
 
-		/* get rx pending count */
-		if (rx_ring->RxDmaIdx > rx_ring->RxSwReadIdx)
-			*pRxPending = rx_ring->RxDmaIdx - rx_ring->RxSwReadIdx;
-		else
-			*pRxPending = rx_ring->RxDmaIdx + rx_ring_size - rx_ring->RxSwReadIdx;
+		pkt_buf_size = pktScatterGatherSize;
+	} else
+#endif /* RX_SCATTER */
+	{
+		pkt_buf_size = pRxD->SDL0;
 	}
 
-	pRxCell = &rx_ring->Cell[rx_ring->RxSwReadIdx];
-	/* flush dcache if no consistent memory is supported */
-	RTMP_DCACHE_FLUSH(pRxCell->AllocPa, RXD_SIZE);
-	/* Point to Rx indexed rx ring descriptor */
-#ifdef RT_BIG_ENDIAN
-	pDestRxD = (RXD_STRUC *)pRxCell->AllocVa;
-	NdisMoveMemory(&rx_hw_info[0], pDestRxD, RXD_SIZE);
-	pRxD = (RXD_STRUC *)&rx_hw_info[0];
-	RTMPDescriptorEndianChange((PUCHAR)pRxD, TYPE_RXD);
-#else
-	pRxD = (RXD_STRUC *)pRxCell->AllocVa;
-#endif
-	if (pRxD->DDONE == 0) {
-		*pRxPending = 0;
-		MTWF_DBG(NULL, DBG_CAT_HIF, CATHIF_PCI, DBG_LVL_DEBUG, "DDONE=0!\n");
-		/* DMAIndx had done but DDONE bit not ready */
-		bReschedule = TRUE;
-		goto done;
-	}
-
-	scatterCnt = rx_scatter_info_io(rx_ring, pRxD, &gather_size);
-
-	if (scatterCnt < 1) {
-		bReschedule = TRUE;
-		goto done;
-	}
-
-	pNewPacket = RTMP_AllocateRxPacketBuffer(rx_ring,
+	if (RxRingNo == HIF_RX_IDX0) {
+		pNewPacket = RTMP_AllocateRxPacketBuffer(pRxRing,
 				((POS_COOKIE)(pAd->OS_Cookie))->pDev,
+				DYNAMIC_PAGE_ALLOC,
 				pRxCell->DmaBuf.AllocSize,
 				&AllocVa, &AllocPa);
+	} else if (RxRingNo == HIF_RX_IDX1) {
+		pNewPacket = RTMP_AllocateRxPacketBuffer(pRxRing,
+				((POS_COOKIE)(pAd->OS_Cookie))->pDev,
+				PRE_SLAB_ALLOC,
+				pRxCell->DmaBuf.AllocSize,
+				&AllocVa, &AllocPa);
+
+		pRxRing->cur_free_buf_len = FREE_BUF_1k;
+	}
 
 	if (pNewPacket) {
 		PCI_UNMAP_SINGLE(pAd, pRxCell->DmaBuf.AllocPa,
@@ -2845,189 +1691,112 @@ static PNDIS_PACKET pci_get_pkt_dynamic_slab_io(
 		/* flush dcache if no consistent memory is supported */
 		RTMP_DCACHE_FLUSH(pRxCell->DmaBuf.AllocPa, pRxCell->DmaBuf.AllocSize);
 
-		if (scatterCnt > 1) {
+#ifdef RX_SCATTER
+		if (IS_ASIC_CAP(pAd, fASIC_CAP_RX_DMA_SCATTER)
+			&& (scatterCnt > 1)) {
 
-			if (rx_scatter_gather_dynamic_slab(pAd, resource_idx, pRxCell,
+			if (rx_scatter_gather(pAd, RxRingNo, pRxCell,
 				pRxD, scatterCnt,
-				gather_size) == FALSE)	{
+				pkt_buf_size, &skb_data_len) == FALSE)	{
 				RELEASE_NDIS_PACKET_IRQ(pAd, pNewPacket, NDIS_STATUS_SUCCESS);
 				bReschedule = TRUE;
 				goto done;
 			}
 		}
+#endif /* RX_SCATTER */
 
-		pRxPacket = pRxCell->pNdisPacket;
+#ifdef CONFIG_WIFI_BUILD_SKB
+		{
+			void *rx_data = pRxCell->pNdisPacket;
 
-#ifdef CONFIG_CSO_SUPPORT
-		if (pRxPacket && (pChipCap->asic_caps & fASIC_CAP_CSO)) {
-			prCso = (RX_CSO_STRUCT *)((UCHAR *)pRxD + sizeof(RXD_STRUC));
-			NdisCopyMemory(&(pAd->rCso), prCso, sizeof(RX_CSO_STRUCT));
-		}
-#endif
-		pRxCell->pNdisPacket = (PNDIS_PACKET)pNewPacket;
-		pRxCell->DmaBuf.AllocVa = AllocVa;
-		pRxCell->DmaBuf.AllocPa = AllocPa;
-		pRxCell->DmaBuf.AllocSize = rx_ring->RxBufferSize;
-		/* flush dcache if no consistent memory is supported */
-		RTMP_DCACHE_FLUSH(pRxCell->DmaBuf.AllocPa, pRxCell->DmaBuf.AllocSize);
-		pRxD->SDP0 = pRxCell->DmaBuf.AllocPa;
-		pRxD->SDL0 = rx_ring->RxBufferSize;
+			if (RxRingNo == HIF_RX_IDX0) {
+				if (rx_data) {
+					if (skb_data_len <= PAGE_SIZE) {
+						DEV_BUILD_SKB(pRxPacket, rx_data, skb_data_len);
+					} else {
+						DEV_BUILD_SKB(pRxPacket, rx_data, 0);
+					}
 
-		/*avoid dummy packet received before System Ready*/
-		if (!RTMP_TEST_FLAG(pAd, fRTMP_ADAPTER_SYSEM_READY)) {
-			MTWF_DBG(NULL, DBG_CAT_RX, DBG_SUBCAT_ALL, DBG_LVL_DEBUG, "%s(): system is not ready, rx pkt drop it.\n", __func__);
 
-			if (pRxPacket) {
-				RELEASE_NDIS_PACKET_IRQ(pAd, pRxPacket, NDIS_STATUS_SUCCESS);
-				pRxPacket = NULL;
-				bReschedule = TRUE;
-			}
-		}
-	} else {
-		bReschedule = TRUE;
-		goto done;
-	}
-
-	*pRxPending = *pRxPending - 1;
-	pRxD->DDONE = 0;
-	wmb();
-#ifdef RT_BIG_ENDIAN
-	RTMPDescriptorEndianChange((PUCHAR)pRxD, TYPE_RXD);
-	WriteBackToDescriptor((PUCHAR)pDestRxD, (PUCHAR)pRxD, FALSE, TYPE_RXD);
-#endif
-
-	INC_RING_INDEX(rx_ring->RxSwReadIdx, rx_ring_size);
-	rx_ring->sw_read_idx_inc++;
-	rx_ring->RxCpuIdx = (rx_ring->RxSwReadIdx == 0)
-						? (rx_ring_size - 1) : (rx_ring->RxSwReadIdx - 1);
-
-#ifdef CONFIG_WIFI_PREFETCH_RXDATA
-	/* prefetch to enhance throughput */
-	if (*pRxPending > 0)
-		prefetch(rx_ring->Cell[rx_ring->RxSwReadIdx].pNdisPacket);
-#endif /* CONFIG_WIFI_PREFETCH_RXDATA */
-
-done:
-	*pbReschedule = bReschedule;
-	return pRxPacket;
-}
-
-/*
-*
-*/
-static PNDIS_PACKET pci_get_pkt_pre_slab_ddone(
-	struct _RTMP_ADAPTER *pAd,
-	BOOLEAN *pbReschedule,
-	UINT32 *pRxPending,
-	UCHAR resource_idx)
-{
-	RXD_STRUC *pRxD;
-#ifdef RT_BIG_ENDIAN
-	RXD_STRUC *pDestRxD;
-	UCHAR rx_hw_info[RXD_SIZE];
-#endif
-	struct _PCI_HIF_T *pci_hif = hc_get_hif_ctrl(pAd->hdev_ctrl);
-	struct hif_pci_rx_ring *rx_ring = pci_get_rx_ring_by_ridx(pci_hif, resource_idx);
-	PNDIS_PACKET pRxPacket = NULL, pNewPacket = NULL;
-	VOID *AllocVa;
-	NDIS_PHYSICAL_ADDRESS AllocPa;
-	BOOLEAN bReschedule = FALSE;
-	RTMP_DMACB *pRxCell = NULL;
-#ifdef CONFIG_CSO_SUPPORT
-	RX_CSO_STRUCT *prCso = NULL;
-	RTMP_CHIP_CAP *pChipCap = hc_get_chip_cap(pAd->hdev_ctrl);
-#endif
-	UINT scatterCnt;
-	UINT32 gather_size = 0;
-	static UINT8 ddone_check;
-
-	pRxCell = &rx_ring->Cell[rx_ring->RxSwReadIdx];
-
-	/* flush dcache if no consistent memory is supported */
-	RTMP_DCACHE_FLUSH(pRxCell->AllocPa, RXD_SIZE);
-	/* Point to Rx indexed rx ring descriptor */
-#ifdef RT_BIG_ENDIAN
-	pDestRxD = (RXD_STRUC *)pRxCell->AllocVa;
-	NdisMoveMemory(&rx_hw_info[0], pDestRxD, RXD_SIZE);
-	pRxD = (RXD_STRUC *)&rx_hw_info[0];
-	RTMPDescriptorEndianChange((PUCHAR)pRxD, TYPE_RXD);
-#else
-	pRxD = (RXD_STRUC *)pRxCell->AllocVa;
-#endif
-	if (pRxD->DDONE == 0) {
-		if (rx_ring->sw_read_idx_inc != 0) {
-			bReschedule = FALSE;
-		} else {
-			HIF_IO_READ32(pAd->hdev_ctrl, rx_ring->hw_didx_addr, &rx_ring->RxDmaIdx);
-			if (rx_ring->RxDmaIdx == rx_ring->RxSwReadIdx) {
-				bReschedule = FALSE;
+					if (!pRxPacket) {
+						if (skb_data_len <= PAGE_SIZE) {
+							DEV_FREE_FRAG_BUF(rx_data);
+						} else {
+							os_free_mem(rx_data);
+						}
+						MTWF_LOG(DBG_CAT_RX, DBG_SUBCAT_ALL,
+							DBG_LVL_WARN,
+							("%s, build_skb return NULL\n",
+							__func__));
+					} else {
+						DEV_SKB_PTR_ADJUST(pRxPacket,
+							pkt_buf_size, rx_data);
+					}
+				} else
+					pRxPacket = NULL;
 			} else {
-				ddone_check++;
-				bReschedule = TRUE;
+				pRxPacket = pRxCell->pNdisPacket;
 			}
 		}
-
-		if (ddone_check < MAX_DDONE_CHECK_TIMES)
-			goto done;
-	} else {
-		ddone_check = 0;
-	}
-
-	scatterCnt = rx_scatter_info(rx_ring, pRxD, &gather_size);
-
-	if (scatterCnt < 1) {
-		bReschedule = TRUE;
-		goto done;
-	}
-
-	pNewPacket = RTMP_AllocateRxPacketBuffer(rx_ring,
-				((POS_COOKIE)(pAd->OS_Cookie))->pDev,
-				pRxCell->DmaBuf.AllocSize,
-				&AllocVa, &AllocPa);
-
-	rx_ring->cur_free_buf_len = FREE_BUF_1k;
-
-	if (pNewPacket) {
-		PCI_UNMAP_SINGLE(pAd, pRxCell->DmaBuf.AllocPa,
-						 pRxCell->DmaBuf.AllocSize, RTMP_PCI_DMA_FROMDEVICE);
-		/* flush dcache if no consistent memory is supported */
-		RTMP_DCACHE_FLUSH(pRxCell->DmaBuf.AllocPa, pRxCell->DmaBuf.AllocSize);
-
-		if (scatterCnt > 1) {
-
-			if (rx_scatter_gather_pre_slab(pAd, resource_idx, pRxCell,
-				pRxD, scatterCnt,
-				gather_size) == FALSE)	{
-				free_rx_buf_1k(rx_ring);
-				bReschedule = TRUE;
-				goto done;
-			}
-		}
-
+#else /* CONFIG_WIFI_BUILD_SKB */
 		pRxPacket = pRxCell->pNdisPacket;
-
+#endif /* CONFIG_WIFI_BUILD_SKB */
+#ifdef CONFIG_CSO_SUPPORT
+		if (pRxPacket && (pChipCap->asic_caps & fASIC_CAP_CSO)) {
+			prCso = (RX_CSO_STRUCT *)((UCHAR *)pRxD + sizeof(RXD_STRUC));
+			NdisCopyMemory(&(pAd->rCso), prCso, sizeof(RX_CSO_STRUCT));
+		}
+#endif
 		pRxCell->pNdisPacket = (PNDIS_PACKET)pNewPacket;
 		pRxCell->DmaBuf.AllocVa = AllocVa;
 		pRxCell->DmaBuf.AllocPa = AllocPa;
-		pRxCell->DmaBuf.AllocSize = rx_ring->RxBufferSize;
+		pRxCell->DmaBuf.AllocSize = pRxRing->RxBufferSize;
 		/* flush dcache if no consistent memory is supported */
 		RTMP_DCACHE_FLUSH(pRxCell->DmaBuf.AllocPa, pRxCell->DmaBuf.AllocSize);
 		pRxD->SDP0 = pRxCell->DmaBuf.AllocPa;
-		pRxD->SDL0 = rx_ring->RxBufferSize;
+		pRxD->SDL0 = pRxRing->RxBufferSize;
 
-		if (ddone_check >= MAX_DDONE_CHECK_TIMES) {
-			ddone_check = 0;
+		/*avoid dummy packet received before System Ready*/
+		if (!RTMP_TEST_FLAG(pAd, fRTMP_ADAPTER_SYSEM_READY) && RxRingNo == 0) {
+			MTWF_LOG(DBG_CAT_RX, DBG_SUBCAT_ALL, DBG_LVL_INFO, ("%s(): system is not ready, rx pkt drop it.\n", __func__));
 
 			if (pRxPacket) {
+				RELEASE_NDIS_PACKET_IRQ(pAd, pRxPacket, NDIS_STATUS_SUCCESS);
 				pRxPacket = NULL;
-				free_rx_buf_1k(rx_ring);
 				bReschedule = TRUE;
 			}
 		}
-
 	} else {
+		PCI_UNMAP_SINGLE(pAd, pRxCell->DmaBuf.AllocPa, pRxCell->DmaBuf.AllocSize, RTMP_PCI_DMA_FROMDEVICE);
+		/* flush dcache if no consistent memory is supported */
+		RTMP_DCACHE_FLUSH(pRxCell->DmaBuf.AllocPa, pRxCell->DmaBuf.AllocSize);
+
+		if (RxRingNo == HIF_RX_IDX0) {
+#ifdef CONFIG_WIFI_BUILD_SKB
+			DEV_FREE_FRAG_BUF(pRxCell->pNdisPacket);
+#else
+			RELEASE_NDIS_PACKET(pAd, pRxCell->pNdisPacket, NDIS_STATUS_SUCCESS);
+#endif
+
+			pRxCell->pNdisPacket = RTMP_AllocateRxPacketBuffer(pRxRing,
+					((POS_COOKIE)(pAd->OS_Cookie))->pDev,
+					DYNAMIC_PAGE_ALLOC,
+					pRxCell->DmaBuf.AllocSize,
+					&pRxCell->DmaBuf.AllocVa, &pRxCell->DmaBuf.AllocPa);
+		} else if (RxRingNo == HIF_RX_IDX1) {
+			pkt_alloc_fail_handle(pAd, pRxCell->pNdisPacket);
+			free_rx_buf_1k(pRxRing);
+			pRxCell->pNdisPacket = RTMP_AllocateRxPacketBuffer(pRxRing,
+					((POS_COOKIE)(pAd->OS_Cookie))->pDev,
+					PRE_SLAB_ALLOC,
+					pRxCell->DmaBuf.AllocSize,
+					&pRxCell->DmaBuf.AllocVa, &pRxCell->DmaBuf.AllocPa);
+		}
+
+		pRxD->SDP0 = pRxCell->DmaBuf.AllocPa;
+		pRxD->SDL0 = pRxRing->RxBufferSize;
+		pRxPacket = NULL;
 		bReschedule = TRUE;
-		goto done;
 	}
 
 	pRxD->DDONE = 0;
@@ -3035,34 +1804,37 @@ static PNDIS_PACKET pci_get_pkt_pre_slab_ddone(
 	RTMPDescriptorEndianChange((PUCHAR)pRxD, TYPE_RXD);
 	WriteBackToDescriptor((PUCHAR)pDestRxD, (PUCHAR)pRxD, FALSE, TYPE_RXD);
 #endif
-	wmb();
-	INC_RING_INDEX(rx_ring->RxSwReadIdx, rx_ring->ring_size);
-	rx_ring->sw_read_idx_inc++;
-	rx_ring->RxCpuIdx = (rx_ring->RxSwReadIdx == 0)
-						? (rx_ring->ring_size - 1) : (rx_ring->RxSwReadIdx - 1);
+	INC_RING_INDEX(pRxRing->RxSwReadIdx, pRxRing->RxRingSize);
+	pRxRing->sw_read_idx_inc++;
+	pRxRing->RxCpuIdx = (pRxRing->RxSwReadIdx == 0)
+						? (pRxRing->RxRingSize - 1) : (pRxRing->RxSwReadIdx - 1);
+
+#ifdef CONFIG_WIFI_PREFETCH_RXDATA
+	/* prefetch to enhance throughput */
+	if ((RxRingNo == 0) && *pRxPending > 0)
+		prefetch(pRxRing->Cell[pRxRing->RxSwReadIdx].pNdisPacket);
+#endif /* CONFIG_WIFI_PREFETCH_RXDATA */
 
 done:
+	RTMP_SEM_UNLOCK(pRxRingLock);
 	*pbReschedule = bReschedule;
 	return pRxPacket;
 }
 
-/*
-*
-*/
-static PNDIS_PACKET pci_get_pkt_pre_slab_io(
+PNDIS_PACKET mtd_pci_get_pkt_from_rx_resource_io(
 	struct _RTMP_ADAPTER *pAd,
 	BOOLEAN *pbReschedule,
 	UINT32 *pRxPending,
-	UCHAR resource_idx)
+	UCHAR RxRingNo)
 {
 	RXD_STRUC *pRxD;
 #ifdef RT_BIG_ENDIAN
 	RXD_STRUC *pDestRxD;
 	UCHAR rx_hw_info[RXD_SIZE];
 #endif
-
 	struct _PCI_HIF_T *hif = hc_get_hif_ctrl(pAd->hdev_ctrl);
-	struct hif_pci_rx_ring *rx_ring = pci_get_rx_ring_by_ridx(hif, resource_idx);
+	RTMP_RX_RING *pRxRing = &hif->RxRing[RxRingNo];
+	NDIS_SPIN_LOCK *pRxRingLock = &hif->RxRingLock[RxRingNo];
 	PNDIS_PACKET pRxPacket = NULL, pNewPacket = NULL;
 	VOID *AllocVa;
 	NDIS_PHYSICAL_ADDRESS AllocPa;
@@ -3072,369 +1844,98 @@ static PNDIS_PACKET pci_get_pkt_pre_slab_io(
 	RX_CSO_STRUCT *prCso = NULL;
 	RTMP_CHIP_CAP *pChipCap = hc_get_chip_cap(pAd->hdev_ctrl);
 #endif
-	UINT scatterCnt;
-	UINT32 gather_size = 0;
-	UINT16 rx_ring_size = rx_ring->ring_size;
+#ifdef RX_SCATTER
+	UINT scatterCnt = 1;
+	UINT pktScatterGatherSize = 0;
+#endif /* RX_SCATTER */
+	UINT pkt_buf_size = 0;
+	UINT skb_data_len = 0;
+	UINT16 rx_ring_size = pRxRing->RxRingSize;
 
 #ifdef CONFIG_TP_DBG
 	struct tp_debug *tp_dbg = &pAd->tr_ctl.tp_dbg;
 #endif
 
+	RTMP_SEM_LOCK(pRxRingLock);
+
 	if (*pRxPending == 0) {
 		/* Get how may packets had been received */
-		HIF_IO_READ32(pAd->hdev_ctrl, rx_ring->hw_didx_addr, &rx_ring->RxDmaIdx);
+		HIF_IO_READ32(pAd, pRxRing->hw_didx_addr, &pRxRing->RxDmaIdx);
 
 #ifdef CONFIG_TP_DBG
-		tp_dbg->IoReadRx1++;
+		if (RxRingNo == HIF_TX_IDX0)
+			tp_dbg->IoReadRx++;
+		else
+			tp_dbg->IoReadRx1++;
 #endif
 
-		if (rx_ring->RxDmaIdx == rx_ring->RxSwReadIdx) {
+		if (pRxRing->RxDmaIdx == pRxRing->RxSwReadIdx) {
 			bReschedule = FALSE;
 			goto done;
 		}
 
 		/* get rx pending count */
-		if (rx_ring->RxDmaIdx > rx_ring->RxSwReadIdx)
-			*pRxPending = rx_ring->RxDmaIdx - rx_ring->RxSwReadIdx;
+		if (pRxRing->RxDmaIdx > pRxRing->RxSwReadIdx)
+			*pRxPending = pRxRing->RxDmaIdx - pRxRing->RxSwReadIdx;
 		else
-			*pRxPending = rx_ring->RxDmaIdx + rx_ring_size - rx_ring->RxSwReadIdx;
+			*pRxPending = pRxRing->RxDmaIdx + rx_ring_size - pRxRing->RxSwReadIdx;
 	}
 
-	pRxCell = &rx_ring->Cell[rx_ring->RxSwReadIdx];
+	pRxCell = &pRxRing->Cell[pRxRing->RxSwReadIdx];
 	/* flush dcache if no consistent memory is supported */
 	RTMP_DCACHE_FLUSH(pRxCell->AllocPa, RXD_SIZE);
-	/* Point to Rx indexed rx ring descriptor */
 #ifdef RT_BIG_ENDIAN
-		pDestRxD = (RXD_STRUC *)pRxCell->AllocVa;
-		NdisMoveMemory(&rx_hw_info[0], pDestRxD, RXD_SIZE);
-		pRxD = (RXD_STRUC *)&rx_hw_info[0];
-		RTMPDescriptorEndianChange((PUCHAR)pRxD, TYPE_RXD);
+	pDestRxD = (RXD_STRUC *)pRxCell->AllocVa;
+	/* RxD = *pDestRxD; */
+	NdisMoveMemory(&rx_hw_info[0], pDestRxD, RXD_SIZE);
+	pRxD = (RXD_STRUC *)&rx_hw_info[0];
+	RTMPDescriptorEndianChange((PUCHAR)pRxD, TYPE_RXD);
 #else
-
+	/* Point to Rx indexed rx ring descriptor */
 	pRxD = (RXD_STRUC *)pRxCell->AllocVa;
 #endif
+
 	if (pRxD->DDONE == 0) {
 		*pRxPending = 0;
-		MTWF_DBG(NULL, DBG_CAT_HIF, CATHIF_PCI, DBG_LVL_DEBUG, "DDONE=0!\n");
+		MTWF_LOG(DBG_CAT_HIF, CATHIF_PCI, DBG_LVL_INFO, ("DDONE=0!\n"));
 		/* DMAIndx had done but DDONE bit not ready */
 		bReschedule = TRUE;
 		goto done;
 	}
 
-	scatterCnt = rx_scatter_info_io(rx_ring, pRxD, &gather_size);
-
-	if (scatterCnt < 1) {
-		bReschedule = TRUE;
-		goto done;
-	}
-
-	pNewPacket = RTMP_AllocateRxPacketBuffer(rx_ring,
-				((POS_COOKIE)(pAd->OS_Cookie))->pDev,
-				pRxCell->DmaBuf.AllocSize,
-				&AllocVa, &AllocPa);
-
-	rx_ring->cur_free_buf_len = FREE_BUF_1k;
-
-	if (pNewPacket) {
-		PCI_UNMAP_SINGLE(pAd, pRxCell->DmaBuf.AllocPa,
-						 pRxCell->DmaBuf.AllocSize, RTMP_PCI_DMA_FROMDEVICE);
-		/* flush dcache if no consistent memory is supported */
-		RTMP_DCACHE_FLUSH(pRxCell->DmaBuf.AllocPa, pRxCell->DmaBuf.AllocSize);
-
-		if (scatterCnt > 1) {
-
-			if (rx_scatter_gather_pre_slab(pAd, resource_idx, pRxCell,
-				pRxD, scatterCnt,
-				gather_size) == FALSE)	{
-				free_rx_buf_1k(rx_ring);
-				bReschedule = TRUE;
-				goto done;
-			}
-		}
-
-		pRxPacket = pRxCell->pNdisPacket;
-
-		pRxCell->pNdisPacket = (PNDIS_PACKET)pNewPacket;
-		pRxCell->DmaBuf.AllocVa = AllocVa;
-		pRxCell->DmaBuf.AllocPa = AllocPa;
-		pRxCell->DmaBuf.AllocSize = rx_ring->RxBufferSize;
-		/* flush dcache if no consistent memory is supported */
-		RTMP_DCACHE_FLUSH(pRxCell->DmaBuf.AllocPa, pRxCell->DmaBuf.AllocSize);
-		pRxD->SDP0 = pRxCell->DmaBuf.AllocPa;
-		pRxD->SDL0 = rx_ring->RxBufferSize;
-
-	} else {
-		bReschedule = TRUE;
-		goto done;
-	}
-
-	*pRxPending = *pRxPending - 1;
-	pRxD->DDONE = 0;
-#ifdef RT_BIG_ENDIAN
-	RTMPDescriptorEndianChange((PUCHAR)pRxD, TYPE_RXD);
-	WriteBackToDescriptor((PUCHAR)pDestRxD, (PUCHAR)pRxD, FALSE, TYPE_RXD);
-#endif
-	wmb();
-	INC_RING_INDEX(rx_ring->RxSwReadIdx, rx_ring_size);
-	rx_ring->sw_read_idx_inc++;
-	rx_ring->RxCpuIdx = (rx_ring->RxSwReadIdx == 0)
-						? (rx_ring_size - 1) : (rx_ring->RxSwReadIdx - 1);
-
-done:
-	*pbReschedule = bReschedule;
-	return pRxPacket;
-}
-
-/*
-*
-*/
-static PNDIS_PACKET pci_get_pkt_dynamic_page_ddone_debug(
-	struct _RTMP_ADAPTER *pAd,
-	BOOLEAN *pbReschedule,
-	UINT32 *pRxPending,
-	UCHAR resource_idx)
-{
-	RXD_DEBUG_STRUC *pRxD;
-#ifdef RT_BIG_ENDIAN
-	RXD_STRUC *pDestRxD;
-	UCHAR rx_hw_info[RXD_SIZE];
-#endif
-	struct _PCI_HIF_T *pci_hif = hc_get_hif_ctrl(pAd->hdev_ctrl);
-	struct hif_pci_rx_ring *rx_ring = pci_get_rx_ring_by_ridx(pci_hif, resource_idx);
-	PNDIS_PACKET pRxPacket = NULL, pNewPacket = NULL;
-	VOID *AllocVa;
-	NDIS_PHYSICAL_ADDRESS AllocPa;
-	BOOLEAN bReschedule = FALSE;
-	RTMP_DMACB *pRxCell = NULL;
-#ifdef CONFIG_CSO_SUPPORT
-	RX_CSO_STRUCT *prCso = NULL;
-	RTMP_CHIP_CAP *pChipCap = hc_get_chip_cap(pAd->hdev_ctrl);
-#endif
-	UINT scatterCnt;
-	UINT32 gather_size = 0;
-	UINT32 build_skb_len = 0;
-	static UINT64 ring_round;
-
-	pRxCell = &rx_ring->Cell[rx_ring->RxSwReadIdx];
-
-	/* flush dcache if no consistent memory is supported */
-	RTMP_DCACHE_FLUSH(pRxCell->AllocPa, RXD_SIZE);
-	/* Point to Rx indexed rx ring descriptor */
-#ifdef RT_BIG_ENDIAN
-	pDestRxD = (RXD_STRUC *)pRxCell->AllocVa;
-	NdisMoveMemory(&rx_hw_info[0], pDestRxD, RXD_SIZE);
-	pRxD = (RXD_STRUC *)&rx_hw_info[0];
-	RTMPDescriptorEndianChange((PUCHAR)pRxD, TYPE_RXD);
-#else
-	pRxD = (RXD_DEBUG_STRUC *)pRxCell->AllocVa;
-#endif
-	if (pRxD->DDONE == 0) {
-		bReschedule = FALSE;
-		goto done;
-	}
-
-	build_skb_len = SKB_DATA_ALIGN(SKB_BUF_HEADROOM_RSV + pRxCell->DmaBuf.AllocSize) +
+	skb_data_len = SKB_DATA_ALIGN(SKB_BUF_HEADROOM_RSV + pRxCell->DmaBuf.AllocSize) +
 				SKB_DATA_ALIGN(SKB_BUF_TAILROOM_RSV);
+#ifdef RX_SCATTER
+	if (IS_ASIC_CAP(pAd, fASIC_CAP_RX_DMA_SCATTER)) {
+		scatterCnt = rx_scatter_info_io(pRxRing, pRxD, &pktScatterGatherSize);
 
-	scatterCnt = rx_scatter_info(rx_ring, (struct _RXD_STRUC *)pRxD, &gather_size);
-
-	if (scatterCnt < 1) {
-		bReschedule = TRUE;
-		goto done;
-	}
-
-	pNewPacket = RTMP_AllocateRxPacketBuffer(rx_ring,
-				((POS_COOKIE)(pAd->OS_Cookie))->pDev,
-				pRxCell->DmaBuf.AllocSize,
-				&AllocVa, &AllocPa);
-
-	if (pNewPacket) {
-		PCI_UNMAP_SINGLE(pAd, pRxCell->DmaBuf.AllocPa,
-						 pRxCell->DmaBuf.AllocSize, RTMP_PCI_DMA_FROMDEVICE);
-		/* flush dcache if no consistent memory is supported */
-		RTMP_DCACHE_FLUSH(pRxCell->DmaBuf.AllocPa, pRxCell->DmaBuf.AllocSize);
-
-		if (scatterCnt > 1 && pRxD->SDL0 <= RX_BUFFER_AGGRESIZE) {
-			if (rx_scatter_gather_dynamic_page(pAd, resource_idx, pRxCell,
-				(struct _RXD_STRUC *)pRxD, scatterCnt,
-				gather_size, &build_skb_len) == FALSE)	{
-				RELEASE_NDIS_PACKET_IRQ(pAd, pNewPacket, NDIS_STATUS_SUCCESS);
-				bReschedule = TRUE;
-				goto done;
-			}
-		}
-
-		if (pRxCell->pNdisPacket) {
-			build_rx_pkt_skb(&pRxPacket, (VOID *)pRxCell->pNdisPacket,
-									build_skb_len, gather_size);
-		} else {
-			pRxPacket = NULL;
-		}
-
-#ifdef CONFIG_CSO_SUPPORT
-		if (pRxPacket && (pChipCap->asic_caps & fASIC_CAP_CSO)) {
-			prCso = (RX_CSO_STRUCT *)((UCHAR *)pRxD + sizeof(RXD_DEBUG_STRUC));
-			NdisCopyMemory(&(pAd->rCso), prCso, sizeof(RX_CSO_STRUCT));
-		}
-#endif
-
-		if (pRxPacket && pRxD->SDL0 <= RX_BUFFER_AGGRESIZE) {
-			if (dump_rx_info(pAd, pRxCell, pRxD, resource_idx, pRxPacket) == NDIS_STATUS_FAILURE) {
-				RELEASE_NDIS_PACKET_IRQ(pAd, pRxPacket, NDIS_STATUS_SUCCESS);
-				pRxPacket = NULL;
-
-			}
-		}
-
-		pRxCell->pNdisPacket = (PNDIS_PACKET)pNewPacket;
-		pRxCell->DmaBuf.AllocVa = AllocVa;
-		pRxCell->DmaBuf.AllocPa = AllocPa;
-		pRxCell->DmaBuf.AllocSize = rx_ring->RxBufferSize;
-		/* flush dcache if no consistent memory is supported */
-		RTMP_DCACHE_FLUSH(pRxCell->DmaBuf.AllocPa, pRxCell->DmaBuf.AllocSize);
-		pRxD->SDP0 = pRxCell->DmaBuf.AllocPa;
-		pRxD->SDL0 = rx_ring->RxBufferSize;
-
-		/*avoid dummy packet received before System Ready*/
-		if (!RTMP_TEST_FLAG(pAd, fRTMP_ADAPTER_SYSEM_READY)) {
-			MTWF_DBG(NULL, DBG_CAT_RX, DBG_SUBCAT_ALL, DBG_LVL_DEBUG,
-							"%s(): system is not ready, rx pkt drop it.\n", __func__);
-
-			if (pRxPacket) {
-				RELEASE_NDIS_PACKET_IRQ(pAd, pRxPacket, NDIS_STATUS_SUCCESS);
-				pRxPacket = NULL;
-				bReschedule = TRUE;
-			}
-		}
-	} else {
-		bReschedule = TRUE;
-		goto done;
-	}
-
-	pRxD->DIDX = 0;
-	pRxD->QID = 0;
-	pRxD->LS1 = 0;
-	pRxD->BURST = 0;
-	pRxD->CIDX = rx_ring->RxSwReadIdx;
-	INC_RING_INDEX(rx_ring->RxSwReadIdx, rx_ring->ring_size);
-	rx_ring->sw_read_idx_inc++;
-	rx_ring->RxCpuIdx = (rx_ring->RxSwReadIdx == 0)
-						? (rx_ring->ring_size - 1) : (rx_ring->RxSwReadIdx - 1);
-
-	if (rx_ring->RxSwReadIdx == 0) {
-		ring_round++;
-	}
-
-	pRxD->SW_INFO = ring_round;
-	pRxD->DDONE = 0;
-#ifdef RT_BIG_ENDIAN
-	RTMPDescriptorEndianChange((PUCHAR)pRxD, TYPE_RXD);
-	WriteBackToDescriptor((PUCHAR)pDestRxD, (PUCHAR)pRxD, FALSE, TYPE_RXD);
-#endif
-	wmb();
-
-#ifdef CONFIG_WIFI_PREFETCH_RXDATA
-	/* prefetch to enhance throughput */
-	if (*pRxPending > 0)
-		prefetch(rx_ring->Cell[rx_ring->RxSwReadIdx].pNdisPacket);
-#endif /* CONFIG_WIFI_PREFETCH_RXDATA */
-
-done:
-	*pbReschedule = bReschedule;
-	return pRxPacket;
-}
-
-/*
-*
-*/
-static PNDIS_PACKET pci_get_pkt_dynamic_page_io_debug(
-	struct _RTMP_ADAPTER *pAd,
-	BOOLEAN *pbReschedule,
-	UINT32 *pRxPending,
-	UCHAR resource_idx)
-{
-	RXD_DEBUG_STRUC *pRxD;
-#ifdef RT_BIG_ENDIAN
-	RXD_STRUC *pDestRxD;
-	UCHAR rx_hw_info[RXD_SIZE];
-#endif
-
-	struct _PCI_HIF_T *hif = hc_get_hif_ctrl(pAd->hdev_ctrl);
-	struct hif_pci_rx_ring *rx_ring = pci_get_rx_ring_by_ridx(hif, resource_idx);
-	PNDIS_PACKET pRxPacket = NULL, pNewPacket = NULL;
-	VOID *AllocVa;
-	NDIS_PHYSICAL_ADDRESS AllocPa;
-	BOOLEAN bReschedule = FALSE;
-	RTMP_DMACB *pRxCell = NULL;
-#ifdef CONFIG_CSO_SUPPORT
-	RX_CSO_STRUCT *prCso = NULL;
-	RTMP_CHIP_CAP *pChipCap = hc_get_chip_cap(pAd->hdev_ctrl);
-#endif
-	UINT scatterCnt;
-	UINT32 gather_size = 0;
-	UINT32 build_skb_len = 0;
-	UINT16 rx_ring_size = rx_ring->ring_size;
-	static UINT64 ring_round;
-
-#ifdef CONFIG_TP_DBG
-	struct tp_debug *tp_dbg = &pAd->tr_ctl.tp_dbg;
-#endif
-
-	if (*pRxPending == 0) {
-		/* Get how may packets had been received */
-		HIF_IO_READ32(pAd->hdev_ctrl, rx_ring->hw_didx_addr, &rx_ring->RxDmaIdx);
-
-#ifdef CONFIG_TP_DBG
-		tp_dbg->IoReadRx++;
-#endif
-
-		if (rx_ring->RxDmaIdx == rx_ring->RxSwReadIdx) {
-			bReschedule = FALSE;
+		if (scatterCnt < 1) {
+			bReschedule = TRUE;
 			goto done;
 		}
 
-		/* get rx pending count */
-		if (rx_ring->RxDmaIdx > rx_ring->RxSwReadIdx)
-			*pRxPending = rx_ring->RxDmaIdx - rx_ring->RxSwReadIdx;
-		else
-			*pRxPending = rx_ring->RxDmaIdx + rx_ring_size - rx_ring->RxSwReadIdx;
+		pkt_buf_size = pktScatterGatherSize;
+	} else
+#endif /* RX_SCATTER */
+	{
+		pkt_buf_size = pRxD->SDL0;
 	}
 
-	pRxCell = &rx_ring->Cell[rx_ring->RxSwReadIdx];
-	/* flush dcache if no consistent memory is supported */
-	RTMP_DCACHE_FLUSH(pRxCell->AllocPa, RXD_SIZE);
-	/* Point to Rx indexed rx ring descriptor */
-#ifdef RT_BIG_ENDIAN
-	pDestRxD = (RXD_STRUC *)pRxCell->AllocVa;
-	NdisMoveMemory(&rx_hw_info[0], pDestRxD, RXD_SIZE);
-	pRxD = (RXD_STRUC *)&rx_hw_info[0];
-	RTMPDescriptorEndianChange((PUCHAR)pRxD, TYPE_RXD);
-#else
-
-	pRxD = (RXD_DEBUG_STRUC *)pRxCell->AllocVa;
-#endif
-	if (pRxD->DDONE == 0) {
-		*pRxPending = 0;
-		MTWF_DBG(NULL, DBG_CAT_HIF, CATHIF_PCI, DBG_LVL_DEBUG, "DDONE=0!\n");
-		/* DMAIndx had done but DDONE bit not ready */
-		bReschedule = TRUE;
-		goto done;
-	}
-
-	build_skb_len = SKB_DATA_ALIGN(SKB_BUF_HEADROOM_RSV + pRxCell->DmaBuf.AllocSize) +
-				SKB_DATA_ALIGN(SKB_BUF_TAILROOM_RSV);
-
-	scatterCnt = rx_scatter_info_io(rx_ring, (struct _RXD_STRUC *)pRxD, &gather_size);
-
-	if (scatterCnt < 1) {
-		bReschedule = TRUE;
-		goto done;
-	}
-
-	pNewPacket = RTMP_AllocateRxPacketBuffer(rx_ring,
+	if (RxRingNo == HIF_RX_IDX0) {
+		pNewPacket = RTMP_AllocateRxPacketBuffer(pRxRing,
 				((POS_COOKIE)(pAd->OS_Cookie))->pDev,
+				DYNAMIC_PAGE_ALLOC,
 				pRxCell->DmaBuf.AllocSize,
 				&AllocVa, &AllocPa);
+	} else if (RxRingNo == HIF_RX_IDX1) {
+		pNewPacket = RTMP_AllocateRxPacketBuffer(pRxRing,
+				((POS_COOKIE)(pAd->OS_Cookie))->pDev,
+				PRE_SLAB_ALLOC,
+				pRxCell->DmaBuf.AllocSize,
+				&AllocVa, &AllocPa);
+
+		pRxRing->cur_free_buf_len = FREE_BUF_1k;
+	}
 
 	if (pNewPacket) {
 		PCI_UNMAP_SINGLE(pAd, pRxCell->DmaBuf.AllocPa,
@@ -3442,51 +1943,75 @@ static PNDIS_PACKET pci_get_pkt_dynamic_page_io_debug(
 		/* flush dcache if no consistent memory is supported */
 		RTMP_DCACHE_FLUSH(pRxCell->DmaBuf.AllocPa, pRxCell->DmaBuf.AllocSize);
 
-		if (scatterCnt > 1 && pRxD->SDL0 <= RX_BUFFER_AGGRESIZE) {
+#ifdef RX_SCATTER
+		if (IS_ASIC_CAP(pAd, fASIC_CAP_RX_DMA_SCATTER)
+			&& (scatterCnt > 1)) {
 
-			if (rx_scatter_gather_dynamic_page(pAd, resource_idx, pRxCell,
-				(struct _RXD_STRUC *)pRxD, scatterCnt,
-				gather_size, &build_skb_len) == FALSE)	{
+			if (rx_scatter_gather(pAd, RxRingNo, pRxCell,
+				pRxD, scatterCnt,
+				pkt_buf_size, &skb_data_len) == FALSE)	{
 				RELEASE_NDIS_PACKET_IRQ(pAd, pNewPacket, NDIS_STATUS_SUCCESS);
 				bReschedule = TRUE;
 				goto done;
 			}
 		}
+#endif /* RX_SCATTER */
 
-		if (pRxCell->pNdisPacket) {
-			build_rx_pkt_skb(&pRxPacket, (VOID *)pRxCell->pNdisPacket,
-									build_skb_len, gather_size);
-		} else {
-			pRxPacket = NULL;
+#ifdef CONFIG_WIFI_BUILD_SKB
+		{
+			void *rx_data = pRxCell->pNdisPacket;
+
+			if (RxRingNo == HIF_RX_IDX0) {
+				if (rx_data) {
+					if (skb_data_len <= PAGE_SIZE) {
+						DEV_BUILD_SKB(pRxPacket, rx_data, skb_data_len);
+					} else {
+						DEV_BUILD_SKB(pRxPacket, rx_data, 0);
+					}
+
+
+					if (!pRxPacket) {
+						if (skb_data_len <= PAGE_SIZE) {
+							DEV_FREE_FRAG_BUF(rx_data);
+						} else {
+							os_free_mem(rx_data);
+						}
+						MTWF_LOG(DBG_CAT_RX, DBG_SUBCAT_ALL,
+							DBG_LVL_WARN,
+							("%s, build_skb return NULL\n",
+							__func__));
+					} else {
+						DEV_SKB_PTR_ADJUST(pRxPacket,
+							pkt_buf_size, rx_data);
+					}
+				} else
+					pRxPacket = NULL;
+			} else {
+				pRxPacket = pRxCell->pNdisPacket;
+			}
 		}
+#else /* CONFIG_WIFI_BUILD_SKB */
+		pRxPacket = pRxCell->pNdisPacket;
+#endif /* CONFIG_WIFI_BUILD_SKB */
 
 #ifdef CONFIG_CSO_SUPPORT
 		if (pRxPacket && (pChipCap->asic_caps & fASIC_CAP_CSO)) {
-			prCso = (RX_CSO_STRUCT *)((UCHAR *)pRxD + sizeof(RXD_DEBUG_STRUC));
+			prCso = (RX_CSO_STRUCT *)((UCHAR *)pRxD + sizeof(RXD_STRUC));
 			NdisCopyMemory(&(pAd->rCso), prCso, sizeof(RX_CSO_STRUCT));
 		}
 #endif
-
-		if (pRxPacket && pRxD->SDL0 <= RX_BUFFER_AGGRESIZE) {
-			if (dump_rx_info(pAd, pRxCell, pRxD, resource_idx, pRxPacket) == NDIS_STATUS_FAILURE) {
-				RELEASE_NDIS_PACKET_IRQ(pAd, pRxPacket, NDIS_STATUS_SUCCESS);
-				pRxPacket = NULL;
-			}
-		}
-
 		pRxCell->pNdisPacket = (PNDIS_PACKET)pNewPacket;
 		pRxCell->DmaBuf.AllocVa = AllocVa;
 		pRxCell->DmaBuf.AllocPa = AllocPa;
-		pRxCell->DmaBuf.AllocSize = rx_ring->RxBufferSize;
+		pRxCell->DmaBuf.AllocSize = pRxRing->RxBufferSize;
 		/* flush dcache if no consistent memory is supported */
 		RTMP_DCACHE_FLUSH(pRxCell->DmaBuf.AllocPa, pRxCell->DmaBuf.AllocSize);
 		pRxD->SDP0 = pRxCell->DmaBuf.AllocPa;
-		pRxD->SDL0 = rx_ring->RxBufferSize;
+		pRxD->SDL0 = pRxRing->RxBufferSize;
 
 		/*avoid dummy packet received before System Ready*/
-		if (!RTMP_TEST_FLAG(pAd, fRTMP_ADAPTER_SYSEM_READY)) {
-			MTWF_DBG(NULL, DBG_CAT_RX, DBG_SUBCAT_ALL, DBG_LVL_DEBUG,
-						"%s(): system is not ready, rx pkt drop it.\n", __func__);
+		if (!RTMP_TEST_FLAG(pAd, fRTMP_ADAPTER_SYSEM_READY) && RxRingNo == 0) {
+			MTWF_LOG(DBG_CAT_RX, DBG_SUBCAT_ALL, DBG_LVL_INFO, ("%s(): system is not ready, rx pkt drop it.\n", __func__));
 
 			if (pRxPacket) {
 				RELEASE_NDIS_PACKET_IRQ(pAd, pRxPacket, NDIS_STATUS_SUCCESS);
@@ -3495,3334 +2020,1018 @@ static PNDIS_PACKET pci_get_pkt_dynamic_page_io_debug(
 			}
 		}
 	} else {
+		PCI_UNMAP_SINGLE(pAd, pRxCell->DmaBuf.AllocPa, pRxCell->DmaBuf.AllocSize, RTMP_PCI_DMA_FROMDEVICE);
+		/* flush dcache if no consistent memory is supported */
+		RTMP_DCACHE_FLUSH(pRxCell->DmaBuf.AllocPa, pRxCell->DmaBuf.AllocSize);
+
+		if (RxRingNo == HIF_RX_IDX0) {
+#ifdef CONFIG_WIFI_BUILD_SKB
+			DEV_FREE_FRAG_BUF(pRxCell->pNdisPacket);
+#else
+			RELEASE_NDIS_PACKET(pAd, pRxCell->pNdisPacket, NDIS_STATUS_SUCCESS);
+#endif
+
+			pRxCell->pNdisPacket = RTMP_AllocateRxPacketBuffer(pRxRing,
+					((POS_COOKIE)(pAd->OS_Cookie))->pDev,
+					DYNAMIC_PAGE_ALLOC,
+					pRxCell->DmaBuf.AllocSize,
+					&pRxCell->DmaBuf.AllocVa, &pRxCell->DmaBuf.AllocPa);
+		} else if (RxRingNo == HIF_RX_IDX1) {
+			pkt_alloc_fail_handle(pAd, pRxCell->pNdisPacket);
+			free_rx_buf_1k(pRxRing);
+			pRxCell->pNdisPacket = RTMP_AllocateRxPacketBuffer(pRxRing,
+					((POS_COOKIE)(pAd->OS_Cookie))->pDev,
+					PRE_SLAB_ALLOC,
+					pRxCell->DmaBuf.AllocSize,
+					&pRxCell->DmaBuf.AllocVa, &pRxCell->DmaBuf.AllocPa);
+		}
+
+		pRxD->SDP0 = pRxCell->DmaBuf.AllocPa;
+		pRxD->SDL0 = pRxRing->RxBufferSize;
+		pRxPacket = NULL;
 		bReschedule = TRUE;
-		goto done;
 	}
 
 	*pRxPending = *pRxPending - 1;
-	pRxD->DIDX = 0;
-	pRxD->QID = 0;
-	pRxD->LS1 = 0;
-	pRxD->BURST = 0;
-	pRxD->CIDX = rx_ring->RxSwReadIdx;
-	INC_RING_INDEX(rx_ring->RxSwReadIdx, rx_ring_size);
-	rx_ring->sw_read_idx_inc++;
-	rx_ring->RxCpuIdx = (rx_ring->RxSwReadIdx == 0)
-						? (rx_ring_size - 1) : (rx_ring->RxSwReadIdx - 1);
-
-	if (rx_ring->RxSwReadIdx == 0) {
-		ring_round++;
-	}
-
-	pRxD->SW_INFO = ring_round;
 	pRxD->DDONE = 0;
-
 #ifdef RT_BIG_ENDIAN
 	RTMPDescriptorEndianChange((PUCHAR)pRxD, TYPE_RXD);
 	WriteBackToDescriptor((PUCHAR)pDestRxD, (PUCHAR)pRxD, FALSE, TYPE_RXD);
 #endif
-	wmb();
+	INC_RING_INDEX(pRxRing->RxSwReadIdx, rx_ring_size);
+	pRxRing->sw_read_idx_inc++;
+	pRxRing->RxCpuIdx = (pRxRing->RxSwReadIdx == 0)
+						? (rx_ring_size - 1) : (pRxRing->RxSwReadIdx - 1);
 
 #ifdef CONFIG_WIFI_PREFETCH_RXDATA
 	/* prefetch to enhance throughput */
-	if (*pRxPending > 0)
-		prefetch(rx_ring->Cell[rx_ring->RxSwReadIdx].pNdisPacket);
+	if ((RxRingNo == 0) && *pRxPending > 0)
+		prefetch(pRxRing->Cell[pRxRing->RxSwReadIdx].pNdisPacket);
 #endif /* CONFIG_WIFI_PREFETCH_RXDATA */
 
 done:
+	RTMP_SEM_UNLOCK(pRxRingLock);
 	*pbReschedule = bReschedule;
 	return pRxPacket;
+
 }
 
-/*
-*
-*/
-static BOOLEAN pci_rx_dma_done_handle(RTMP_ADAPTER *pAd, UINT8 resource_idx)
+PNDIS_PACKET pci_get_pkt_from_rx_resource(
+	IN RTMP_ADAPTER *pAd,
+	OUT BOOLEAN *pbReschedule,
+	INOUT UINT32 *pRxPending,
+	UCHAR RxRingNo)
 {
-	BOOLEAN bReschedule = FALSE;
-	UINT32 RxProcessed, RxPending;
-	PNDIS_PACKET pkt = NULL;
-	struct _PCI_HIF_T *hif = hc_get_hif_ctrl(pAd->hdev_ctrl);
-	struct hif_pci_rx_ring *rx_ring = pci_get_rx_ring_by_ridx(hif, resource_idx);
-	NDIS_SPIN_LOCK *lock = &rx_ring->ring_lock;
-	RX_BLK rx_blk, *p_rx_blk = NULL;
-	UINT16 max_rx_process_cnt = rx_ring->max_rx_process_cnt;
 
+	return NULL;
+}
+
+BOOLEAN RxRing1DoneInterruptHandle(RTMP_ADAPTER *pAd)
+{
+	UINT32 RxProcessed, RxPending;
+	BOOLEAN bReschedule = FALSE;
+	RX_BLK rx_blk, *p_rx_blk = NULL;
+	PNDIS_PACKET pkt = NULL;
+	RTMP_ARCH_OP *arch_ops = &pAd->archOps;
+	struct _PCI_HIF_T *hif = hc_get_hif_ctrl(pAd->hdev_ctrl);
+	RTMP_RX_RING *pRxRing = &hif->RxRing[HIF_RX_IDX1];
+	UINT16 max_rx_process_cnt = pRxRing->max_rx_process_cnt;
 #ifdef CONFIG_TP_DBG
 	struct tp_debug *tp_dbg = &pAd->tr_ctl.tp_dbg;
 #endif
 
 	RxProcessed = RxPending = 0;
 
-	RTMP_SEM_LOCK(lock);
-
+	/* process whole rx ring */
 	while (1) {
-		if (RTMP_TEST_FLAG(pAd, fRTMP_ADAPTER_NIC_NOT_EXIST)
-			&& (!RTMP_TEST_FLAG(pAd, fRTMP_ADAPTER_POLL_IDLE)))
+		if (!RTMP_TEST_FLAG(pAd, fRTMP_ADAPTER_START_UP))
 			break;
 
 #ifdef ERR_RECOVERY
-#ifdef WHNAT_SUPPORT
-		if (IsStopingPdma(&pAd->ErrRecoveryCtl)) {
-			if (IsStopingRxDma(&pAd->ErrRecoveryCtl))
-				break;
-
-			/* Process rx pkts for WHNAT RX */
-			if (RxProcessed++ > max_rx_process_cnt) {
-				bReschedule = TRUE;
-				break;
-			}
-
-			pkt = hif->get_pkt_from_rx_resource[rx_ring->buf_type][rx_ring->get_pkt_method]
-						(pAd, &bReschedule, &RxPending, resource_idx);
-			if (pkt) {
-				/* Drop rx pkts during error recovery */
-				RELEASE_NDIS_PACKET_IRQ(pAd, pkt, NDIS_STATUS_SUCCESS);
-				continue;
-			} else {
-				break;
-			}
-		}
-#else
 		if (IsStopingPdma(&pAd->ErrRecoveryCtl))
 			break;
-#endif
+
 #endif /* ERR_RECOVERY */
 
+#ifdef RTMP_MAC_PCI
 		if (RxProcessed++ > max_rx_process_cnt) {
 			bReschedule = TRUE;
 			break;
 		}
+#endif /* RTMP_MAC_PCI */
 
-		pkt = hif->get_pkt_from_rx_resource[rx_ring->buf_type][rx_ring->get_pkt_method]
-					(pAd, &bReschedule, &RxPending, resource_idx);
+		pkt = arch_ops->get_pkt_from_rx1_resource(pAd, &bReschedule, &RxPending, HIF_RX_IDX1);
 
 		if (pkt) {
 			os_zero_mem(&rx_blk, sizeof(RX_BLK));
 			p_rx_blk = &rx_blk;
-			asic_rx_pkt_process(pAd, resource_idx, p_rx_blk, pkt);
-		} else {
+			arch_ops->rx_pkt_process(pAd, HIF_RX_IDX1, p_rx_blk, pkt);
+		} else
 			break;
-		}
 	}
 
-	if (rx_ring->sw_read_idx_inc > 0) {
-		HIF_IO_WRITE32(pAd->hdev_ctrl, rx_ring->hw_cidx_addr, rx_ring->RxCpuIdx);
-		rx_ring->sw_read_idx_inc = 0;
+	if (pRxRing->sw_read_idx_inc > 0) {
+		HIF_IO_WRITE32(pAd, pRxRing->hw_cidx_addr, pRxRing->RxCpuIdx);
+		pRxRing->sw_read_idx_inc = 0;
 #ifdef CONFIG_TP_DBG
-		tp_dbg->IoWriteRx++;
+		tp_dbg->IoWriteRx1++;
 #endif
 	}
 
-	RTMP_SEM_UNLOCK(lock);
-
 #ifdef CONFIG_TP_DBG
 	RxProcessed--;
-	/* 0 <= RxMaxProcessCntA <= 1/4 <= RxMaxProcessCntB <= 1/2 <= RxMaxProcessCntC < 1 == RxMaxProcessCntD */
-	if (RxProcessed <= (max_rx_process_cnt >> 2))
-		tp_dbg->RxMaxProcessCntA++;
-	else if (RxProcessed <= (max_rx_process_cnt >> 1))
-		tp_dbg->RxMaxProcessCntB++;
-	else if (RxProcessed < max_rx_process_cnt)
-		tp_dbg->RxMaxProcessCntC++;
+	if ((RxProcessed >= 1) && (RxProcessed <= (max_rx_process_cnt / 4)))
+		tp_dbg->Rx1MaxProcessCntA++;
+	else if ((RxProcessed > (max_rx_process_cnt / 4)) &&
+		(RxProcessed <= ((max_rx_process_cnt / 4) * 2)))
+		tp_dbg->Rx1MaxProcessCntB++;
+	else if ((RxProcessed > ((max_rx_process_cnt / 4) * 2)) &&
+		(RxProcessed <= ((max_rx_process_cnt / 4) * 3)))
+		tp_dbg->Rx1MaxProcessCntC++;
 	else
-		tp_dbg->RxMaxProcessCntD++;
+		tp_dbg->Rx1MaxProcessCntD++;
 #endif
 
 	return bReschedule;
 }
 
-static BOOLEAN pci_rx_dma_done_rxq_handle(RTMP_ADAPTER *pAd, UINT8 resource_idx)
+#ifdef MT_MAC
+VOID RTMPHandleBcnDmaDoneInterrupt(RTMP_ADAPTER *pAd)
 {
-	BOOLEAN bReschedule = FALSE;
-	UINT32 RxProcessed, RxPending;
-	PNDIS_PACKET pkt = NULL;
-	struct _PCI_HIF_T *hif = hc_get_hif_ctrl(pAd->hdev_ctrl);
-	struct hif_pci_rx_ring *rx_ring = pci_get_rx_ring_by_ridx(hif, resource_idx);
-	NDIS_SPIN_LOCK *lock = &rx_ring->ring_lock;
-	struct qm_ops *qm_ops = pAd->qm_ops;
-	struct tm_ops *tm_ops = pAd->tm_qm_ops;
-#ifndef RX_RPS_SUPPORT
-	struct _RTMP_CHIP_CAP *cap = hc_get_chip_cap(pAd->hdev_ctrl);
-#endif
-	UINT16 max_rx_process_cnt = rx_ring->max_rx_process_cnt;
-
-#ifdef CONFIG_TP_DBG
-	struct tp_debug *tp_dbg = &pAd->tr_ctl.tp_dbg;
-#endif
-
-	RxProcessed = RxPending = 0;
-
-	RTMP_SEM_LOCK(lock);
-#ifdef KERNEL_RPS_ADJUST
-	if (pAd->ixia_mode_ctl.mode_entered)
-		max_rx_process_cnt = 512;
-#endif
-
-	while (1) {
-		if (RTMP_TEST_FLAG(pAd, fRTMP_ADAPTER_NIC_NOT_EXIST)
-			&& (!RTMP_TEST_FLAG(pAd, fRTMP_ADAPTER_POLL_IDLE)))
-			break;
-
-#ifdef ERR_RECOVERY
-#ifdef WHNAT_SUPPORT
-		if (IsStopingPdma(&pAd->ErrRecoveryCtl)) {
-			if (IsStopingRxDma(&pAd->ErrRecoveryCtl))
-				break;
-
-			/* Process rx pkts for WHNAT RX */
-			if (RxProcessed++ > max_rx_process_cnt) {
-				bReschedule = TRUE;
-				break;
-			}
-
-			pkt = hif->get_pkt_from_rx_resource[rx_ring->buf_type][rx_ring->get_pkt_method]
-						(pAd, &bReschedule, &RxPending, resource_idx);
-			if (pkt) {
-				/* Drop rx pkts during error recovery */
-				RELEASE_NDIS_PACKET_IRQ(pAd, pkt, NDIS_STATUS_SUCCESS);
-				continue;
-			} else {
-				break;
-			}
-		}
-#else
-		if (IsStopingPdma(&pAd->ErrRecoveryCtl))
-			break;
-#endif
-#endif /* ERR_RECOVERY */
-
-		if (RxProcessed++ > max_rx_process_cnt) {
-			bReschedule = TRUE;
-			break;
-		}
-
-		pkt = hif->get_pkt_from_rx_resource[rx_ring->buf_type][rx_ring->get_pkt_method]
-					(pAd, &bReschedule, &RxPending, resource_idx);
-
-		if (pkt)
-			qm_ops->enq_rx_dataq_pkt(pAd, pkt);
-		else
-			break;
-	}
-
-	if (rx_ring->sw_read_idx_inc > 0) {
-		HIF_IO_WRITE32(pAd->hdev_ctrl, rx_ring->hw_cidx_addr, rx_ring->RxCpuIdx);
-		rx_ring->sw_read_idx_inc = 0;
-#ifdef CONFIG_TP_DBG
-		tp_dbg->IoWriteRx++;
-#endif
-		if (pAd->rx_dequeue_sw_rps_enable)
-#ifdef RX_RPS_SUPPORT
-		{
-			UINT cpu;
-			for (cpu = 0; cpu < NR_CPUS; cpu++) {
-				if (cpu_online(cpu) && (pAd->rx_que[cpu].Number > 0) && (cpu != smp_processor_id()))
-					smp_call_function_single(cpu, (smp_call_func_t)RTMPRxDataDeqOffloadToOtherCPU, pAd, 0);
-			}
-			if (pAd->rx_que[smp_processor_id()].Number > 0)
-				RTMPRxDataDeqOffloadToOtherCPU(pAd);
-
-		}
-#else
-			smp_call_function_single(cap->RxSwRpsCpu, (smp_call_func_t)RTMPRxDataDeqOffloadToOtherCPU, pAd, 0);
-#endif
-		else
-			tm_ops->schedule_task(pAd, RX_DEQ_TASK, 0);
-	}
-
-	RTMP_SEM_UNLOCK(lock);
-
-#ifdef CONFIG_TP_DBG
-	RxProcessed--;
-	/* 0 <= RxMaxProcessCntA <= 1/4 <= RxMaxProcessCntB <= 1/2 <= RxMaxProcessCntC < 1 == RxMaxProcessCntD */
-	if (RxProcessed <= (max_rx_process_cnt >> 2))
-		tp_dbg->RxMaxProcessCntA++;
-	else if (RxProcessed <= (max_rx_process_cnt >> 1))
-		tp_dbg->RxMaxProcessCntB++;
-	else if (RxProcessed < max_rx_process_cnt)
-		tp_dbg->RxMaxProcessCntC++;
-	else
-		tp_dbg->RxMaxProcessCntD++;
-#endif
-
-	return bReschedule;
-}
-
-/*
-*
-*/
-BOOLEAN pci_rx_event_dma_done_handle(RTMP_ADAPTER *pAd, UINT8 resource_idx)
-{
-	BOOLEAN bReschedule = FALSE;
-	UINT32 RxProcessed, RxPending;
-	PNDIS_PACKET pkt = NULL;
-	struct _PCI_HIF_T *hif = hc_get_hif_ctrl(pAd->hdev_ctrl);
-	struct hif_pci_rx_ring *rx_ring = pci_get_rx_ring_by_ridx(hif, resource_idx);
-	NDIS_SPIN_LOCK *lock = &rx_ring->ring_lock;
-	RX_BLK rx_blk, *p_rx_blk = NULL;
-	UINT16 max_rx_process_cnt = rx_ring->max_rx_process_cnt;
-
-#ifdef CONFIG_TP_DBG
-	struct tp_debug *tp_dbg = &pAd->tr_ctl.tp_dbg;
-#endif
-
-	RxProcessed = RxPending = 0;
-
-	RTMP_SEM_LOCK(lock);
-
-	while (1) {
-		if (RTMP_TEST_FLAG(pAd, fRTMP_ADAPTER_NIC_NOT_EXIST)
-			&& (!RTMP_TEST_FLAG(pAd, fRTMP_ADAPTER_POLL_IDLE)))
-			break;
-
-#ifdef ERR_RECOVERY
-		if (IsStopingPdma(&pAd->ErrRecoveryCtl))
-			break;
-#endif /* ERR_RECOVERY */
-
-		if (RxProcessed++ > max_rx_process_cnt) {
-			bReschedule = TRUE;
-			break;
-		}
-
-		pkt = hif->get_pkt_from_rx_resource[rx_ring->buf_type][rx_ring->get_pkt_method]
-					(pAd, &bReschedule, &RxPending, resource_idx);
-
-		if (pkt) {
-				os_zero_mem(&rx_blk, sizeof(RX_BLK));
-				p_rx_blk = &rx_blk;
-				asic_rx_pkt_process(pAd, resource_idx, p_rx_blk, pkt);
-		} else {
-			break;
-		}
-	}
-
-	if (rx_ring->sw_read_idx_inc > 0) {
-		HIF_IO_WRITE32(pAd->hdev_ctrl, rx_ring->hw_cidx_addr, rx_ring->RxCpuIdx);
-		rx_ring->sw_read_idx_inc = 0;
-#ifdef CONFIG_TP_DBG
-		tp_dbg->IoWriteRx++;
-#endif
-	}
-
-	RTMP_SEM_UNLOCK(lock);
-
-#ifdef CONFIG_TP_DBG
-	RxProcessed--;
-	/* 0 <= RxMaxProcessCntA <= 1/4 <= RxMaxProcessCntB <= 1/2 <= RxMaxProcessCntC < 1 == RxMaxProcessCntD */
-	if (RxProcessed <= (max_rx_process_cnt >> 2))
-		tp_dbg->RxMaxProcessCntA++;
-	else if (RxProcessed <= (max_rx_process_cnt >> 1))
-		tp_dbg->RxMaxProcessCntB++;
-	else if (RxProcessed < max_rx_process_cnt)
-		tp_dbg->RxMaxProcessCntC++;
-	else
-		tp_dbg->RxMaxProcessCntD++;
-#endif
-
-	return bReschedule;
-}
-
-/*generic pcie hook func*/
-/*
-*
-*/
-static VOID pci_tx_dma_done_func(unsigned long data)
-{
-	unsigned long flags;
-	struct pci_hif_chip *pci_hif_chip = (struct pci_hif_chip *)data;
-	struct _PCI_HIF_T *pci_hif = pci_hif_chip->hif;
-	struct _RTMP_ADAPTER *pAd = RTMP_OS_NETDEV_GET_PRIV(pci_hif->net_dev);
-	struct pci_task_group *task_group = &pci_hif_chip->task_group;
-	struct pci_schedule_task_ops *sched_ops = pci_hif_chip->schedule_task_ops;
-	UINT32 int_pending, int_mask;
-	struct hif_pci_ring_bh_group *bh_group = &pci_hif_chip->tx_bh_group;
-	UINT32 i, ring_num;
-	UINT8 *ring_idx;
-
-	int_mask = bh_group->int_mask;
-	ring_num = bh_group->ring_num;
-	ring_idx = bh_group->ring_idx;
-
-	/* Do nothing if the driver is starting halt state. */
-	/* This might happen when timer already been fired before cancel timer with mlmehalt */
-	if (RTMP_TEST_FLAG(pAd, fRTMP_ADAPTER_HALT_IN_PROGRESS | fRTMP_ADAPTER_NIC_NOT_EXIST)) {
-		RTMP_INT_LOCK(&pci_hif_chip->LockInterrupt, flags);
-		pci_hif_chip->intDisableMask &= ~(int_mask);
-		RTMP_INT_UNLOCK(&pci_hif_chip->LockInterrupt, flags);
-		return;
-	}
-
-#ifdef ERR_RECOVERY
-	if (IsStopingPdma(&pAd->ErrRecoveryCtl)) {
-		RTMP_INT_LOCK(&pci_hif_chip->LockInterrupt, flags);
-		pci_hif_chip->intDisableMask &= ~(int_mask);
-		RTMP_INT_UNLOCK(&pci_hif_chip->LockInterrupt, flags);
-		return;
-	}
-#endif /* ERR_RECOVERY */
-
-	RTMP_INT_LOCK(&pci_hif_chip->LockInterrupt, flags);
-	int_pending = pci_hif_chip->IntPending;
-	pci_hif_chip->IntPending &= ~(int_mask);
-	RTMP_INT_UNLOCK(&pci_hif_chip->LockInterrupt, flags);
-
-	for (i = 0; i < ring_num; i++) {
-		struct hif_pci_tx_ring *tx_ring;
-
-		tx_ring = &pci_hif_chip->TxRing[ring_idx[i]];
-		if (int_pending & tx_ring->hw_int_mask)
-			pci_hif->dma_done_handle[tx_ring->ring_attr](pAd, tx_ring->resource_idx);
-	}
-
-	RTMP_INT_LOCK(&pci_hif_chip->LockInterrupt, flags);
-	/* double check to avoid lose of interrupts */
-	if (pci_hif_chip->IntPending & int_mask) {
-		sched_ops->schedule_tx_dma_done(task_group);
-		RTMP_INT_UNLOCK(&pci_hif_chip->LockInterrupt, flags);
-		return;
-	}
-
-	mt_int_enable(pAd, pci_hif_chip, int_mask);
-	RTMP_INT_UNLOCK(&pci_hif_chip->LockInterrupt, flags);
-}
-
-#ifdef CONFIG_WIFI_MSI_SUPPORT
-static VOID pci_rx_data_done_func_msi_band0(unsigned long data)
-{
-	struct pci_hif_chip *pci_hif_chip = (struct pci_hif_chip *)data;
-	struct _PCI_HIF_T *pci_hif = pci_hif_chip->hif;
-	struct _RTMP_ADAPTER *pAd = RTMP_OS_NETDEV_GET_PRIV(pci_hif->net_dev);
-	BOOLEAN need_reschdule = FALSE;
-	struct pci_task_group *task_group = &pci_hif_chip->task_group;
-	struct pci_schedule_task_ops *sched_ops = pci_hif_chip->schedule_task_ops;
-	struct hif_pci_rx_ring *rx_ring;
-
-	if (RTMP_TEST_FLAG(pAd, fRTMP_ADAPTER_NIC_NOT_EXIST)) {
-		HIF_IO_WRITE32(pAd->hdev_ctrl, MT_INT_MASK_CSR_W1S_DMA0_PCIE0,
-			MT_INT_DMA0_R4_DONE);
-		return;
-	}
-
-	rx_ring = &pci_hif_chip->RxRing[0];
-
-	need_reschdule = pci_hif->dma_done_handle[HIF_RX_DATA](pAd, rx_ring->resource_idx);
-
-	if (need_reschdule) {
-		sched_ops->schedule_rx_data_done_msi(task_group, 0);
-		return;
-	}
-}
-
-static VOID pci_rx_data_done_func_msi_band1(unsigned long data)
-{
-	struct pci_hif_chip *pci_hif_chip = (struct pci_hif_chip *)data;
-	struct _PCI_HIF_T *pci_hif = pci_hif_chip->hif;
-	struct _RTMP_ADAPTER *pAd = RTMP_OS_NETDEV_GET_PRIV(pci_hif->net_dev);
-	BOOLEAN need_reschdule = FALSE;
-	struct pci_task_group *task_group = &pci_hif_chip->task_group;
-	struct pci_schedule_task_ops *sched_ops = pci_hif_chip->schedule_task_ops;
-	struct hif_pci_rx_ring *rx_ring;
-	if (pci_hif_chip->is_main == TRUE) {
-		if (RTMP_TEST_FLAG(pAd, fRTMP_ADAPTER_NIC_NOT_EXIST)) {
-			HIF_IO_WRITE32(pAd->hdev_ctrl, MT_INT_MASK_CSR_W1S_DMA0_PCIE0,
-				MT_INT_DMA0_R5_DONE);
-			return;
-		}
-
-		rx_ring = &pci_hif_chip->RxRing[1];
-
-		need_reschdule = pci_hif->dma_done_handle[HIF_RX_DATA](pAd, rx_ring->resource_idx);
-
-		if (need_reschdule) {
-			sched_ops->schedule_rx_data_done_msi(task_group, 1);
-			return;
-		}
-	} else {
-		if (RTMP_TEST_FLAG(pAd, fRTMP_ADAPTER_NIC_NOT_EXIST)) {
-			HIF_IO_WRITE32(pAd->hdev_ctrl, MT_INT_MASK_CSR_W1S_DMA0_PCIE1,
-				MT_INT_DMA0_R5_DONE);
-			return;
-		}
-
-		rx_ring = &pci_hif_chip->RxRing[0];
-
-		need_reschdule = pci_hif->dma_done_handle[HIF_RX_DATA](pAd, rx_ring->resource_idx);
-
-		if (need_reschdule) {
-			sched_ops->schedule_rx_data_done_msi(task_group, 1);
-			return;
-		}
-	}
-}
-#endif
-
-/*
-*
-*/
-static VOID pci_rx_data_done_func(unsigned long data)
-{
-	unsigned long flags;
-	static unsigned long need_reschdule;
-	struct pci_hif_chip *pci_hif_chip = (struct pci_hif_chip *)data;
-	struct _PCI_HIF_T *pci_hif = pci_hif_chip->hif;
-	struct _RTMP_ADAPTER *pAd = RTMP_OS_NETDEV_GET_PRIV(pci_hif->net_dev);
-	struct pci_task_group *task_group = &pci_hif_chip->task_group;
-	struct pci_schedule_task_ops *sched_ops = pci_hif_chip->schedule_task_ops;
-	struct ba_control *ba_ctl = &pAd->tr_ctl.ba_ctl;
-	UINT32 i, int_mask, ring_num;
-	struct hif_pci_ring_bh_group *bh_group = &pci_hif_chip->rx_data_bh_group;
-	UINT8 *ring_idx;
-	UINT32 int_pending = 0;
-#ifdef RX_RPS_SUPPORT
-	struct _RTMP_CHIP_CAP *cap = hc_get_chip_cap(pAd->hdev_ctrl);
-#endif
-
-	int_mask = bh_group->int_mask;
-	ring_num = bh_group->ring_num;
-	ring_idx = bh_group->ring_idx;
-#ifdef RX_RPS_SUPPORT
-	if (cap->rx_qm_en == FALSE)
-#endif
-	{
-	if (ba_ctl->ba_timeout_check) {
-		ba_timeout_flush(pAd);
-		RTMP_INT_LOCK(&pci_hif_chip->LockInterrupt, flags);
-		if (!((pci_hif_chip->IntPending & int_mask) ||
-			(pci_hif_chip->intDisableMask & int_mask))) {
-			RTMP_INT_UNLOCK(&pci_hif_chip->LockInterrupt, flags);
-			return;
-		}
-		RTMP_INT_UNLOCK(&pci_hif_chip->LockInterrupt, flags);
-	}
-	}
-
-	if (RTMP_TEST_FLAG(pAd, fRTMP_ADAPTER_NIC_NOT_EXIST)) {
-		RTMP_INT_LOCK(&pci_hif_chip->LockInterrupt, flags);
-		pci_hif_chip->intDisableMask &= ~(int_mask);
-		RTMP_INT_UNLOCK(&pci_hif_chip->LockInterrupt, flags);
-		return;
-	}
-
-	RTMP_INT_LOCK(&pci_hif_chip->LockInterrupt, flags);
-	int_pending = pci_hif_chip->IntPending;
-	pci_hif_chip->IntPending &= ~(int_mask);
-	RTMP_INT_UNLOCK(&pci_hif_chip->LockInterrupt, flags);
-
-	for (i = 0; i < ring_num; i++) {
-		struct hif_pci_rx_ring *rx_ring;
-
-		rx_ring = &pci_hif_chip->RxRing[ring_idx[i]];
-		if ((int_pending & rx_ring->hw_int_mask) || (test_and_clear_bit(i, &need_reschdule))) {
-			if (pci_hif->dma_done_handle[HIF_RX_DATA](pAd, rx_ring->resource_idx))
-				set_bit(i, &need_reschdule);
-		}
-	}
-
-	RTMP_INT_LOCK(&pci_hif_chip->LockInterrupt, flags);
-
-	if ((pci_hif_chip->IntPending & int_mask) || need_reschdule) {
-		sched_ops->schedule_rx_data_done(task_group);
-		RTMP_INT_UNLOCK(&pci_hif_chip->LockInterrupt, flags);
-		return;
-	}
-
-	mt_int_enable(pAd, pci_hif_chip, int_mask);
-
-	RTMP_INT_UNLOCK(&pci_hif_chip->LockInterrupt, flags);
-}
-
-#ifndef PROPRIETARY_DRIVER_SUPPORT
-static INT pci_rx_data_done_poll_func(struct napi_struct *napi, int budget)
-{
-	INT done = 0;
-	unsigned long flags;
-	struct pci_task_group *task_group = container_of(napi, struct pci_task_group, rx_data_done_napi_task);
-	struct pci_hif_chip *pci_hif_chip = (struct pci_hif_chip *)(task_group->priv);
-	struct _PCI_HIF_T *pci_hif = pci_hif_chip->hif;
-	struct _RTMP_ADAPTER *pAd = RTMP_OS_NETDEV_GET_PRIV(pci_hif->net_dev);
-	RTMP_ARCH_OP *arch_ops = hc_get_arch_ops(pAd->hdev_ctrl);
-	struct ba_control *ba_ctl = &pAd->tr_ctl.ba_ctl;
-	UINT32 i, int_mask, ring_num;
-	struct hif_pci_ring_bh_group *bh_group = &pci_hif_chip->rx_data_bh_group;
-	UINT8 *ring_idx;
-	UINT32 int_pending = 0;
-	UINT32 rx_pending;
-	static BOOLEAN need_re_schedule = FALSE;
-	PNDIS_PACKET pkt = NULL;
-	RX_BLK rx_blk;
-
-	int_mask = bh_group->int_mask;
-	ring_num = bh_group->ring_num;
-	ring_idx = bh_group->ring_idx;
-
-	if (ba_ctl->ba_timeout_check) {
-		ba_timeout_flush(pAd);
-
-		RTMP_INT_LOCK(&pci_hif_chip->LockInterrupt, flags);
-		if (!((pci_hif_chip->IntPending & int_mask) ||
-			(pci_hif_chip->intDisableMask & int_mask))) {
-			RTMP_INT_UNLOCK(&pci_hif_chip->LockInterrupt, flags);
-			napi_complete(napi);
-			return done;
-		}
-		RTMP_INT_UNLOCK(&pci_hif_chip->LockInterrupt, flags);
-	}
-
-	if (RTMP_TEST_FLAG(pAd, fRTMP_ADAPTER_NIC_NOT_EXIST)) {
-		RTMP_INT_LOCK(&pci_hif_chip->LockInterrupt, flags);
-		pci_hif_chip->intDisableMask &= ~(int_mask);
-		RTMP_INT_UNLOCK(&pci_hif_chip->LockInterrupt, flags);
-		napi_complete(napi);
-		return done;
-	}
-
-
-	RTMP_INT_LOCK(&pci_hif_chip->LockInterrupt, flags);
-	int_pending = pci_hif_chip->IntPending;
-	pci_hif_chip->IntPending &= ~(int_mask);
-	RTMP_INT_UNLOCK(&pci_hif_chip->LockInterrupt, flags);
-
-	for (i = 0; i < ring_num; i++) {
-		struct hif_pci_rx_ring *rx_ring;
-		NDIS_SPIN_LOCK *lock = NULL;
-		BOOLEAN re_schedule = FALSE;
-
-		rx_ring = &pci_hif_chip->RxRing[ring_idx[i]];
-		lock = &rx_ring->ring_lock;
-
-		RTMP_SEM_LOCK(lock);
-		if ((int_pending & rx_ring->hw_int_mask) || need_re_schedule) {
-			do {
-				pkt = pci_hif->get_pkt_from_rx_resource[rx_ring->buf_type][rx_ring->get_pkt_method]
-								(pAd, &re_schedule,
-								&rx_pending, rx_ring->resource_idx);
-				if (pkt) {
-					os_zero_mem(&rx_blk, sizeof(RX_BLK));
-					arch_ops->rx_pkt_process(pAd, rx_ring->resource_idx, &rx_blk, pkt);
-				} else {
-					break;
-				}
-
-				done++;
-			} while (done < budget);
-
-			if (rx_ring->sw_read_idx_inc > 0) {
-				HIF_IO_WRITE32(pAd->hdev_ctrl, rx_ring->hw_cidx_addr, rx_ring->RxCpuIdx);
-				rx_ring->sw_read_idx_inc = 0;
-			}
-
-			if (re_schedule)
-				need_re_schedule = TRUE;
-		}
-		RTMP_SEM_UNLOCK(lock);
-	}
-
-	if (done < budget) {
-		napi_complete(napi);
-		RTMP_INT_LOCK(&pci_hif_chip->LockInterrupt, flags);
-		if ((pci_hif_chip->IntPending & int_mask) || need_re_schedule) {
-			RTMP_INT_UNLOCK(&pci_hif_chip->LockInterrupt, flags);
-			napi_reschedule(napi);
-		} else {
-			mt_int_enable(pAd, pci_hif_chip, int_mask);
-			RTMP_INT_UNLOCK(&pci_hif_chip->LockInterrupt, flags);
-			need_re_schedule = FALSE;
-		}
-	} else {
-		need_re_schedule = TRUE;
-	}
-
-	return done;
-}
-#endif
-
-/*
-*
-*/
-static VOID pci_rx_event_done_func(unsigned long data)
-{
-	unsigned long flags;
-	static unsigned long need_reschdule;
-	struct pci_hif_chip *pci_hif_chip = (struct pci_hif_chip *)data;
-	struct _PCI_HIF_T *pci_hif = pci_hif_chip->hif;
-	struct _RTMP_ADAPTER *pAd = RTMP_OS_NETDEV_GET_PRIV(pci_hif->net_dev);
-	struct pci_task_group *task_group = &pci_hif_chip->task_group;
-	struct pci_schedule_task_ops *sched_ops = pci_hif_chip->schedule_task_ops;
-	struct hif_pci_ring_bh_group *bh_group = &pci_hif_chip->rx_event_bh_group;
-	UINT32 i, ring_num, int_mask;
-	UINT8 *ring_idx;
-	UINT32 int_pending = 0;
-
-	int_mask = bh_group->int_mask;
-	ring_num = bh_group->ring_num;
-	ring_idx = bh_group->ring_idx;
-
-	/* Do nothing if the driver is starting halt state. */
-	/* This might happen when timer already been fired before cancel timer with mlmehalt */
-	/* if (RTMP_TEST_FLAG(pAd, fRTMP_ADAPTER_HALT_IN_PROGRESS | fRTMP_ADAPTER_NIC_NOT_EXIST)) */
-	if (RTMP_TEST_FLAG(pAd, fRTMP_ADAPTER_NIC_NOT_EXIST)) {
-		RTMP_INT_LOCK(&pci_hif_chip->LockInterrupt, flags);
-		pci_hif_chip->intDisableMask &= ~(int_mask);
-		RTMP_INT_UNLOCK(&pci_hif_chip->LockInterrupt, flags);
-		return;
-	}
-
-	RTMP_INT_LOCK(&pci_hif_chip->LockInterrupt, flags);
-	int_pending = pci_hif_chip->IntPending;
-	pci_hif_chip->IntPending &= ~(int_mask);
-	RTMP_INT_UNLOCK(&pci_hif_chip->LockInterrupt, flags);
-
-	for (i = 0; i < ring_num; i++) {
-		struct hif_pci_rx_ring *rx_ring;
-
-		rx_ring = &pci_hif_chip->RxRing[ring_idx[i]];
-		if ((int_pending & rx_ring->hw_int_mask) || (test_and_clear_bit(i, &need_reschdule))) {
-			if (pci_hif->dma_done_handle[HIF_RX_EVENT](pAd, rx_ring->resource_idx))
-				set_bit(i, &need_reschdule);
-		}
-	}
-
-	RTMP_INT_LOCK(&pci_hif_chip->LockInterrupt, flags);
-
-	/* double check to avoid rotting packet  */
-	if ((pci_hif_chip->IntPending & int_mask) || need_reschdule) {
-		sched_ops->schedule_rx_event_done(task_group);
-		RTMP_INT_UNLOCK(&pci_hif_chip->LockInterrupt, flags);
-		return;
-	}
-
-	mt_int_enable(pAd, pci_hif_chip, int_mask);
-
-	RTMP_INT_UNLOCK(&pci_hif_chip->LockInterrupt, flags);
-}
-
-/*
-*
-*/
-static VOID pci_rx_dly_done_func(unsigned long data)
-{
-	unsigned long flags;
-	struct pci_hif_chip *pci_hif_chip = (struct pci_hif_chip *)data;
-	struct _PCI_HIF_T *pci_hif = pci_hif_chip->hif;
-	struct _RTMP_ADAPTER *pAd = RTMP_OS_NETDEV_GET_PRIV(pci_hif->net_dev);
-	UINT32 int_pending = 0;
-	static BOOLEAN resch_data = FALSE, resch_event = FALSE;
-	struct hif_pci_ring_bh_group *bh_group = &pci_hif_chip->rx_bh_group;
-	UINT32 i, ring_num, int_mask;
-	struct pci_task_group *task_group = &pci_hif_chip->task_group;
-	struct pci_schedule_task_ops *sched_ops = pci_hif_chip->schedule_task_ops;
-	struct ba_control *ba_ctl = &pAd->tr_ctl.ba_ctl;
-#ifdef CONFIG_TP_DBG
-	UINT32 timestamp = 0;
-	struct tp_debug *tp_dbg = &pAd->tr_ctl.tp_dbg;
-#endif
-
-	int_mask = bh_group->int_mask;
-	ring_num = bh_group->ring_num;
-
-#ifdef CONFIG_TP_DBG
-	if (tp_dbg->debug_flag & TP_DEBUG_TIMING) {
-		RTMP_IO_READ32(pAd->hdev_ctrl, LPON_FRCR, &timestamp);
-		tp_dbg->TRDoneInterval[tp_dbg->TRDoneTimes++ % TP_DBG_TIME_SLOT_NUMS] = (timestamp - tp_dbg->TRDoneTimeStamp);
-		tp_dbg->TRDoneTimeStamp = timestamp;
-	}
-#endif /* CONFIG_TP_DBG */
-
-	if (ba_ctl->ba_timeout_check) {
-		ba_timeout_flush(pAd);
-
-		RTMP_INT_LOCK(&pci_hif_chip->LockInterrupt, flags);
-		if (!((pci_hif_chip->IntPending & int_mask) ||
-			(pci_hif_chip->intDisableMask & int_mask))) {
-			RTMP_INT_UNLOCK(&pci_hif_chip->LockInterrupt, flags);
-			return;
-		}
-		RTMP_INT_UNLOCK(&pci_hif_chip->LockInterrupt, flags);
-	}
-
-	if (RTMP_TEST_FLAG(pAd, fRTMP_ADAPTER_NIC_NOT_EXIST)) {
-		RTMP_INT_LOCK(&pci_hif_chip->LockInterrupt, flags);
-		pci_hif_chip->intDisableMask &= ~(int_mask | MT_INT_RX_DLY_BIT);
-		RTMP_INT_UNLOCK(&pci_hif_chip->LockInterrupt, flags);
-		return;
-	}
-
-	/* renew IntPending if called by ISR */
-	RTMP_INT_LOCK(&pci_hif_chip->LockInterrupt, flags);
-	int_pending = pci_hif_chip->IntPending;
-	pci_hif_chip->IntPending &= ~(int_mask | MT_INT_RX_DLY_BIT);
-	RTMP_INT_UNLOCK(&pci_hif_chip->LockInterrupt, flags);
-
-	for (i = 0; i < ring_num; i++) {
-		struct hif_pci_rx_ring *rx_ring;
-
-		rx_ring = &pci_hif_chip->RxRing[i];
-
-		if (rx_ring->ring_attr == HIF_RX_DATA) {
-			if ((int_pending & rx_ring->hw_int_mask) || resch_data) {
-				resch_data = pci_hif->dma_done_handle[HIF_RX_DATA](pAd, 0);
-				resch_event = pci_hif->dma_done_handle[HIF_RX_EVENT](pAd, 1);
-				break;
-			}
-		} else if (rx_ring->ring_attr == HIF_RX_EVENT) {
-			if ((int_pending & rx_ring->hw_int_mask) || resch_event) {
-				resch_event = pci_hif->dma_done_handle[HIF_RX_EVENT](pAd, 1);
-				resch_data = pci_hif->dma_done_handle[HIF_RX_DATA](pAd, 0);
-				break;
-			}
-		}
-	}
-
-
-	RTMP_INT_LOCK(&pci_hif_chip->LockInterrupt, flags);
-
-	/* double check to avoid rotting packet  */
-	if ((pci_hif_chip->IntPending & int_mask)
-				|| resch_data || resch_event) {
-		sched_ops->schedule_rx_dly_done(task_group);
-		RTMP_INT_UNLOCK(&pci_hif_chip->LockInterrupt, flags);
-		return;
-	}
-
-	mt_int_enable(pAd, pci_hif_chip, int_mask | MT_INT_RX_DLY_BIT);
-	RTMP_INT_UNLOCK(&pci_hif_chip->LockInterrupt, flags);
-}
-
-#ifdef ERR_RECOVERY
-/*
-*
-*/
-static VOID pci_mac_recovery_func(unsigned long data)
-{
-	unsigned long Flags;
-	UINT32 status;
-	UINT32 INT_MCU_CMD = MT_McuCommand;
-	struct pci_hif_chip *pci_hif_chip = (struct pci_hif_chip *)data;
-	struct _RTMP_ADAPTER *pAd = RTMP_OS_NETDEV_GET_PRIV(pci_hif_chip->hif->net_dev);
-
-#if defined(MT7663) || defined(AXE) || defined(MT7915) || defined(MT7986) || defined(MT7916) || defined(MT7981)
-	if (IS_MT7663(pAd) || IS_AXE(pAd) || IS_MT7915(pAd) || IS_MT7986(pAd) || IS_MT7916(pAd) || IS_MT7981(pAd))
-		INT_MCU_CMD = MT_INT_MCU2HOST_SW_INT_STS_BIT;
-#endif
-
-	RTMP_SPIN_LOCK_IRQSAVE(&pci_hif_chip->LockInterrupt, &Flags);
-	status = pAd->ErrRecoveryCtl.status;
-	pAd->ErrRecoveryCtl.status = 0;
-	RTMP_SPIN_UNLOCK_IRQRESTORE(&pci_hif_chip->LockInterrupt, &Flags);
-
-	RTMP_MAC_RECOVERY(pAd, status);
-
-	RTMP_INT_LOCK(&pci_hif_chip->LockInterrupt, Flags);
-	pci_hif_chip->IntPending &= ~INT_MCU_CMD;
-	mt_int_enable(pAd, pci_hif_chip, INT_MCU_CMD);
-	RTMP_INT_UNLOCK(&pci_hif_chip->LockInterrupt, Flags);
-}
-#endif
-
-#ifdef CONFIG_FWOWN_SUPPORT
-/*
-*
-*/
-static VOID pci_mac_fw_own_func(unsigned long data)
-{
-	unsigned long Flags;
-	UINT32 INT_FW_CLEAR_OWN = MT_FW_CLEAR_OWN_BIT;
-	struct pci_hif_chip *pci_hif_chip = (struct pci_hif_chip *)data;
-	struct _RTMP_ADAPTER *pAd = RTMP_OS_NETDEV_GET_PRIV(pci_hif_chip->hif->net_dev);
-
-	RTMP_INT_LOCK(&pci_hif_chip->LockInterrupt, Flags);
-	mt_int_enable(pAd, pci_hif_chip, INT_FW_CLEAR_OWN);
-	RTMP_INT_UNLOCK(&pci_hif_chip->LockInterrupt, Flags);
-}
-#endif
-
-/*
-*
-*/
-static VOID pci_subsys_int_func(unsigned long data)
-{
-	struct pci_hif_chip *pci_hif_chip = (struct pci_hif_chip *)data;
-	struct _RTMP_ADAPTER *pAd = RTMP_OS_NETDEV_GET_PRIV(pci_hif_chip->hif->net_dev);
-
-	chip_subsys_int_handler(pAd, pci_hif_chip);
-}
-
-/*
-*
-*/
-static VOID pci_sw_int_func(unsigned long data)
-{
-	struct pci_hif_chip *pci_hif_chip = (struct pci_hif_chip *)data;
-	struct _RTMP_ADAPTER *pAd = RTMP_OS_NETDEV_GET_PRIV(pci_hif_chip->hif->net_dev);
-
-	chip_sw_int_handler(pAd, pci_hif_chip);
-}
-
-/*
-*
-*/
-#ifdef WF_RESET_SUPPORT
-static VOID pci_wf_reset_func(unsigned long data)
-{
-	struct pci_hif_chip *pci_hif_chip = (struct pci_hif_chip *)data;
-	struct _RTMP_ADAPTER *pAd = RTMP_OS_NETDEV_GET_PRIV(pci_hif_chip->hif->net_dev);
-
-	pAd->wf_reset_in_progress = TRUE;
-	RTCMDUp(&pAd->wf_reset_thread);
-}
-#endif
-
-
-/*
-*
-*/
-VOID pci_free_rx_buf(void *hdev_ctrl, UCHAR resource_idx)
-{
-	struct _PCI_HIF_T *hif = hc_get_hif_ctrl(hdev_ctrl);
-	struct hif_pci_rx_ring *rx_ring = pci_get_rx_ring_by_ridx(hif, resource_idx);
-
-	if (rx_ring->cur_free_buf_len == FREE_BUF_1k) {
-		free_rx_buf_1k(rx_ring);
-	} else if (rx_ring->cur_free_buf_len == FREE_BUF_64k) {
-		free_rx_buf_64k(rx_ring);
-	} else {
-		MTWF_DBG(NULL, DBG_CAT_HIF, CATHIF_PCI, DBG_LVL_ERROR,
-			"fail, rx_ring->cur_free_buf_len = %d\n", rx_ring->cur_free_buf_len);
-	}
-}
-
-/*
-*
-*/
-static BOOLEAN pci_free_txd(RTMP_ADAPTER *pAd, UINT8 resource_idx)
-{
-	struct hif_pci_tx_ring *tx_ring;
-	RTMP_DMACB *dma_cb;
-#ifdef RT_BIG_ENDIAN
 	TXD_STRUC *pTxD;
+#ifdef RT_BIG_ENDIAN
 	TXD_STRUC *pDestTxD;
 	UCHAR hw_hdr_info[TXD_SIZE];
 #endif
-	UINT16 tx_ring_size;
-#ifdef CONFIG_TP_DBG
-	/* struct tp_debug *tp_dbg = &pAd->tr_ctl->tp_dbg;*/
-#endif
+	PNDIS_PACKET pPacket;
 	struct _PCI_HIF_T *hif = hc_get_hif_ctrl(pAd->hdev_ctrl);
-	NDIS_SPIN_LOCK *lock;
+	RTMP_BCN_RING *pBcnRing = &hif->BcnRing;
+	UCHAR *tmac_info = NULL;
 
-	tx_ring = pci_get_tx_ring_by_ridx(hif, resource_idx);
-	lock = &tx_ring->tx_done_lock;
-	tx_ring_size = tx_ring->ring_size;
+	RTMP_SEM_LOCK(&hif->BcnRingLock);
+	HIF_IO_READ32(pAd, pBcnRing->hw_didx_addr, &pBcnRing->TxDmaIdx);
 
-	RTMP_SEM_LOCK(lock);
-	HIF_IO_READ32(pAd->hdev_ctrl, tx_ring->hw_didx_addr, &tx_ring->TxDmaIdx);
-
-	while (tx_ring->TxSwFreeIdx != tx_ring->TxDmaIdx) {
-		dma_cb = &tx_ring->Cell[tx_ring->TxSwFreeIdx];
-
+	while (pBcnRing->TxSwFreeIdx != pBcnRing->TxDmaIdx) {
 #ifdef RT_BIG_ENDIAN
-		pDestTxD = (TXD_STRUC *)(dma_cb->AllocVa);
+		pDestTxD = (TXD_STRUC *) (pBcnRing->Cell[pBcnRing->TxSwFreeIdx].AllocVa);
 		NdisMoveMemory(&hw_hdr_info[0], pDestTxD, TXD_SIZE);
 		pTxD = (TXD_STRUC *)&hw_hdr_info[0];
 		RTMPDescriptorEndianChange((PUCHAR)pTxD, TYPE_TXD);
+#else
+		pTxD = (TXD_STRUC *) (pBcnRing->Cell[pBcnRing->TxSwFreeIdx].AllocVa);
 #endif
+		pPacket = pBcnRing->Cell[pBcnRing->TxSwFreeIdx].pNdisPacket;
 
-		PCI_UNMAP_SINGLE(pAd, dma_cb->DmaBuf.AllocPa, dma_cb->DmaBuf.AllocSize, RTMP_PCI_DMA_TODEVICE);
+		if (pPacket == NULL) {
+			INC_RING_INDEX(pBcnRing->TxSwFreeIdx, BCN_RING_SIZE);
+			continue;
+		}
 
+		PCI_UNMAP_SINGLE(pAd, pTxD->SDPtr0, pTxD->SDLen0, RTMP_PCI_DMA_TODEVICE);
+		tmac_info = GET_OS_PKT_DATAPTR(pPacket);
+		pBcnRing->Cell[pBcnRing->TxSwFreeIdx].pNdisPacket = NULL;
 		/* flush dcache if no consistent memory is supported */
-		RTMP_DCACHE_FLUSH(dma_cb->AllocPa, TXD_SIZE);
-		INC_RING_INDEX(tx_ring->TxSwFreeIdx, tx_ring_size);
+		RTMP_DCACHE_FLUSH(pBcnRing->Cell[pBcnRing->TxSwFreeIdx].AllocPa, TXD_SIZE);
+		INC_RING_INDEX(pBcnRing->TxSwFreeIdx, BCN_RING_SIZE);
 #ifdef RT_BIG_ENDIAN
 		RTMPDescriptorEndianChange((PUCHAR)pTxD, TYPE_TXD);
 		WriteBackToDescriptor((PUCHAR)pDestTxD, (PUCHAR)pTxD, TRUE, TYPE_TXD);
 #endif
 	}
-	RTMP_SEM_UNLOCK(lock);
 
-	return FALSE;
+	RTMP_SEM_UNLOCK(&hif->BcnRingLock);
+}
+#endif /* MT_MAC */
+
+#ifdef MT_MAC
+#ifdef CUT_THROUGH
+#ifdef MANUAL_MU
+static UINT32 mu_pkt_tx_cnt;
+static UINT32 fake_pkt_tx_cnt;
+#endif /* MANUAL_MU */
+#endif /* CUT_THROUGH */
+#endif /* MT_MAC */
+
+VOID rtmp_hif_data_init(RTMP_ADAPTER *pAd)
+{
+	PCI_HIF_T *pci_hif = hc_get_hif_ctrl(pAd->hdev_ctrl);
+	RTMP_ARCH_OP *ops = &pAd->archOps;
+
+	pci_hif->dma_done_handle[TX_DATA] = ops->tx_dma_done_handle;
+	pci_hif->dma_done_handle[TX_DATA_HIGH_PRIO] = ops->tx_dma_done_handle;
+	pci_hif->dma_done_handle[TX_MGMT] = ops->tx_dma_done_handle;
+	pci_hif->dma_done_handle[TX_CMD] = ops->cmd_dma_done_handle;
+	pci_hif->dma_done_handle[TX_FW_DL] = ops->fwdl_dma_done_handle;
+	pci_hif->dma_done_handle[TX_ALTX] = ops->tx_dma_done_handle;
+	return;
 }
 
-/*
-*
-*/
-static NDIS_STATUS pci_build_resource_idx_ge(struct _PCI_HIF_T *pci_hif)
+NDIS_STATUS RTMPFreeHifAdapterBlock(RTMP_ADAPTER *pAd)
 {
-	UINT32 i, j;
-	UINT8 data_ring_idx[5] = {0}; /* total should be 4 AC + 1 ALTX */
-	UINT8 data_ring_cnt = 0;
-	UINT8 tx_res_num = pci_hif->tx_res_num;
+	struct _PCI_HIF_T *hif;
 
-	/* find out tx data ring's resource index */
-	for (i = 0; i < tx_res_num; i++) {
-		struct hif_pci_tx_ring *tx_ring = pci_get_tx_ring_by_ridx(pci_hif, i);
-
-		if (tx_ring->ring_attr == HIF_TX_DATA && data_ring_cnt < 5) {
-			data_ring_idx[data_ring_cnt] = tx_ring->resource_idx;
-			data_ring_cnt++;
-		}
-	}
-
-	/* check number of tx ring matches */
-	if (data_ring_cnt != 5)
-		return NDIS_STATUS_FAILURE;
-
-	/* build swq to SW TxRing mapping */
-	for (i = 0; i < DBDC_BAND_NUM; i++) {
-		for (j = 0; j < PACKET_TYPE_NUM; j++) {
-			switch (j) {
-			case TX_DATA:
-				pci_hif->swq_to_tx_ring[i][j][0] = data_ring_idx[0];
-				pci_hif->swq_to_tx_ring[i][j][1] = data_ring_idx[1];
-				pci_hif->swq_to_tx_ring[i][j][2] = data_ring_idx[2];
-				pci_hif->swq_to_tx_ring[i][j][3] = data_ring_idx[3];
-				break;
-			case TX_DATA_HIGH_PRIO:
-				pci_hif->swq_to_tx_ring[i][j][0] = data_ring_idx[0];
-				pci_hif->swq_to_tx_ring[i][j][1] = data_ring_idx[1];
-				pci_hif->swq_to_tx_ring[i][j][2] = data_ring_idx[2];
-				pci_hif->swq_to_tx_ring[i][j][3] = data_ring_idx[3];
-				break;
-			case TX_MGMT:
-				pci_hif->swq_to_tx_ring[i][j][0] = data_ring_idx[1];
-				pci_hif->swq_to_tx_ring[i][j][1] = data_ring_idx[1];
-				pci_hif->swq_to_tx_ring[i][j][2] = data_ring_idx[1];
-				pci_hif->swq_to_tx_ring[i][j][3] = data_ring_idx[1];
-				break;
-			case TX_ALTX:
-				pci_hif->swq_to_tx_ring[i][j][0] = data_ring_idx[4];
-				pci_hif->swq_to_tx_ring[i][j][1] = data_ring_idx[4];
-				pci_hif->swq_to_tx_ring[i][j][2] = data_ring_idx[4];
-				pci_hif->swq_to_tx_ring[i][j][3] = data_ring_idx[4];
-				break;
-			default:
-				pci_hif->swq_to_tx_ring[i][j][0] = 0;
-				pci_hif->swq_to_tx_ring[i][j][1] = 0;
-				pci_hif->swq_to_tx_ring[i][j][2] = 0;
-				pci_hif->swq_to_tx_ring[i][j][3] = 0;
-				break;
-			}
-		}
-	}
-
+	hif = hc_get_hif_ctrl(pAd->hdev_ctrl);
+	NdisFreeSpinLock(&pAd->McuCmdLock);
+	NdisFreeSpinLock(&pAd->LockInterrupt);
+#ifdef CONFIG_ANDES_SUPPORT
+	NdisFreeSpinLock(&hif->CtrlRingLock);
+#if defined(MT7615) || defined(MT7622) || defined(P18) || defined(MT7663)
+	NdisFreeSpinLock(&hif->FwDwloRing.RingLock);
+#endif /* defined(MT7615) || defined(MT7622) || defined(P18) || defined(MT7663) */
+#endif
+	NdisFreeSpinLock(&pAd->tssi_lock);
+	NdisFreeSpinLock(&hif->TxBmcRingLock);
 	return NDIS_STATUS_SUCCESS;
 }
 
-/*
-*
-*/
-static NDIS_STATUS pci_build_resource_idx_fp(struct _PCI_HIF_T *pci_hif)
+NDIS_STATUS RTMPInitHifAdapterBlock(RTMP_ADAPTER *pAd)
 {
-	UINT32 i, j;
-	UINT8 data_ring_idx[2] = {0}; /* total should be 2 band */
-	UINT8 data_ring_cnt = 0;
-	UINT8 tx_res_num = pci_hif->tx_res_num;
-	struct _RTMP_ADAPTER *pAd = RTMP_OS_NETDEV_GET_PRIV(pci_hif->net_dev);
-
-	/* find out tx data ring's resource index */
-	for (i = 0; i < tx_res_num; i++) {
-		struct hif_pci_tx_ring *tx_ring = pci_get_tx_ring_by_ridx(pci_hif, i);
-
-		if (tx_ring->ring_attr == HIF_TX_DATA && data_ring_cnt < 2) {
-			data_ring_idx[data_ring_cnt] = tx_ring->resource_idx;
-			data_ring_cnt++;
-		}
-	}
-
-	/* chip specific ring assignment */
-	chip_hif_pci_data_ring_assign(pAd->hdev_ctrl, data_ring_idx);
-
-	/* check number of tx ring matches */
-	if (data_ring_cnt != 2)
-		return NDIS_STATUS_FAILURE;
-
-	/* build swq to SW TxRing mapping */
-	for (i = 0; i < DBDC_BAND_NUM; i++) {
-		for (j = 0; j < PACKET_TYPE_NUM; j++) {
-			pci_hif->swq_to_tx_ring[i][j][0] = data_ring_idx[i];
-			pci_hif->swq_to_tx_ring[i][j][1] = data_ring_idx[i];
-			pci_hif->swq_to_tx_ring[i][j][2] = data_ring_idx[i];
-			pci_hif->swq_to_tx_ring[i][j][3] = data_ring_idx[i];
-		}
-	}
-
+	/*first hif initial part on adapter allocate*/
+	struct _PCI_HIF_T *hif = &pAd->PciHif;
+#ifdef CONFIG_ANDES_SUPPORT
+	NdisAllocateSpinLock(pAd, &hif->CtrlRingLock);
+#if defined(MT7615) || defined(MT7622) || defined(P18) || defined(MT7663)
+	NdisAllocateSpinLock(pAd, &hif->FwDwloRing.RingLock);
+	hif->FwDwloRing.ring_size = CTL_RING_SIZE;
+#endif /* defined(MT7615) || defined(MT7622) || defined(P18) || defined(MT7663) */
+#endif /* CONFIG_ANDES_SUPPORT */
+	NdisAllocateSpinLock(pAd, &hif->TxBmcRingLock);
+#ifdef MT_MAC
+	NdisAllocateSpinLock(pAd, &hif->BcnRingLock);
+#endif /* MT_MAC */
+	NdisAllocateSpinLock(pAd, &hif->MgmtRingLock);
 	return NDIS_STATUS_SUCCESS;
 }
 
-/*
-*
-*/
-static INT pci_irq_init(void *hdev_ctrl)
+static inline void mt_int_enable(RTMP_ADAPTER *pAd, unsigned int mode)
 {
-	unsigned long irqFlags;
-	struct _RTMP_CHIP_OP *ops = hc_get_chip_ops(hdev_ctrl);
-	struct _PCI_HIF_T *hif = hc_get_hif_ctrl(hdev_ctrl);
-	struct _RTMP_ADAPTER *ad = hc_get_hdev_privdata(hdev_ctrl);
-	int i;
+	UINT32 regValue;
+	PCI_HIF_T *pci_hif = hc_get_hif_ctrl(pAd->hdev_ctrl);
 
-	RTMP_INT_LOCK(&ad->irq_lock, irqFlags);
+	pci_hif->intDisableMask &= ~(mode);
+	regValue = pci_hif->IntEnableReg & ~(pci_hif->intDisableMask);
+	HIF_IO_WRITE32(pAd, MT_INT_MASK_CSR, regValue);
 
-	/* traverse each pci_hif_chip */
-	for (i = 0; i < hif->pci_hif_chip_num; i++) {
-		struct pci_hif_chip *hif_chip = hif->pci_hif_chip[i];
-
-		hif_chip->intDisableMask = 0;
-		hif_chip->IntPending = 0;
-	}
-
-	RTMP_INT_UNLOCK(&ad->irq_lock, irqFlags);
-
-	/* init sub-layer interrupt enable mask, only for chips after P18 */
-	if (ops->irq_init)
-		ops->irq_init(ad);
-
-	return FALSE;
+	if (regValue != 0)
+		RTMP_SET_FLAG(pAd, fRTMP_ADAPTER_INTERRUPT_ACTIVE);
 }
 
-/*
-*
-*/
-static NDIS_STATUS pci_alloc_ring(struct pci_hif_chip *pci_hif, UINT8 tx_res_num, UINT8 rx_res_num)
+static inline void mt_int_disable(RTMP_ADAPTER *pAd, unsigned int mode)
 {
-	INT index;
-	struct hif_pci_rx_ring *pRxRing = NULL;
-	struct hif_pci_tx_ring *pTxRing = NULL;
+	UINT32 regValue;
+	PCI_HIF_T *pci_hif = hc_get_hif_ctrl(pAd->hdev_ctrl);
 
-	/* allocate pci hif data structure which depends on ChipCap */
-	os_alloc_mem(NULL, (UCHAR **)&pTxRing, (tx_res_num)*sizeof(struct hif_pci_tx_ring));
+	pci_hif->intDisableMask |= mode;
+	regValue = pci_hif->IntEnableReg & ~(pci_hif->intDisableMask);
+	HIF_IO_WRITE32(pAd, MT_INT_MASK_CSR, regValue);
+#ifdef RTMP_MAC_PCI
+	/*  Push write command to take effect quickly (i.e. flush the write data)  */
+	HIF_IO_READ32(pAd, MT_INT_MASK_CSR, &regValue);
+#endif /* RTMP_MAC_PCI */
 
-	if (pTxRing == NULL)
-		return NDIS_STATUS_FAILURE;
-
-	NdisZeroMemory(pTxRing, (tx_res_num)*sizeof(struct hif_pci_tx_ring));
-	pci_hif->TxRing = pTxRing;
-
-	os_alloc_mem(NULL, (UCHAR **)&pRxRing, (rx_res_num)*sizeof(struct hif_pci_rx_ring));
-
-	if (pRxRing == NULL)
-		return NDIS_STATUS_FAILURE;
-
-	NdisZeroMemory(pRxRing, (rx_res_num)*sizeof(struct hif_pci_rx_ring));
-	pci_hif->RxRing = pRxRing;
-
-	/* spinlock is allocated after data structure is ready */
-	for (index = 0; index < tx_res_num; index++) {
-		OS_NdisAllocateSpinLock(&pci_hif->TxRing[index].tx_lock);
-		OS_NdisAllocateSpinLock(&pci_hif->TxRing[index].tx_done_lock);
-	}
-
-	for (index = 0; index < rx_res_num; index++)
-		OS_NdisAllocateSpinLock(&pci_hif->RxRing[index].ring_lock);
-
-	return NDIS_STATUS_SUCCESS;
+	if (regValue == 0)
+		RTMP_CLEAR_FLAG(pAd, fRTMP_ADAPTER_INTERRUPT_ACTIVE);
 }
 
-/*
-*
-*/
-static VOID pci_free_ring(struct pci_hif_chip *hif, UINT8 tx_res_num, UINT8 rx_res_num)
+static inline void mt_int_status_clear(RTMP_ADAPTER *ad, unsigned int clear)
 {
-	INT index;
-
-	/* spinlock must be freed before its data structure is freed */
-	for (index = 0; index < tx_res_num; index++)
-		OS_NdisFreeSpinLock(&hif->TxRing[index].ring_lock);
-
-	for (index = 0; index < rx_res_num; index++)
-		OS_NdisFreeSpinLock(&hif->RxRing[index].ring_lock);
-
-	/* free pci hif data structure which depends on ChipCap */
-	os_free_mem(hif->TxRing);
-	os_free_mem(hif->RxRing);
-}
-
-/*
-* pci_data_init: fill in the data struct PCI_HIF_T
-*/
-static NDIS_STATUS pci_data_init(VOID *hif_ctrl)
-{
-	struct pci_hif_chip *pci_hif = hif_ctrl;
-	const struct hif_pci_tx_ring_desc *tx_ring_layout;
-	const struct hif_pci_rx_ring_desc *rx_ring_layout;
-	struct hif_pci_ring_bh_group *ring_bh_group;
-	UINT32 i;
-	UINT8 tx_res_num = pci_hif->tx_res_num;
-	UINT8 rx_res_num = pci_hif->rx_res_num;
-
-	pci_alloc_ring(pci_hif, tx_res_num, rx_res_num);
-
-	NdisAllocateSpinLock(NULL, &pci_hif->LockInterrupt);
-
-	/* tx: init pci hif data struct based on hif_pci_ring_desc */
-	tx_ring_layout = pci_hif->ring_layout.tx_ring_layout;
-
-	for (i = 0; i < tx_res_num; i++) {
-		struct hif_pci_tx_ring_desc ring_desc = tx_ring_layout[i];
-		struct hif_pci_tx_ring *tx_ring = &pci_hif->TxRing[i];
-
-		tx_ring->hw_desc_base = ring_desc.hw_desc_base;
-		tx_ring->hw_int_mask = ring_desc.hw_int_mask;
-		tx_ring->ring_attr = ring_desc.ring_attr;
-		tx_ring->ring_size = ring_desc.ring_size;
-		tx_ring->band_idx = ring_desc.band_idx;
-	}
-
-	/* rx: init pci hif data struct based on hif_pci_ring_desc */
-	rx_ring_layout = pci_hif->ring_layout.rx_ring_layout;
-
-	for (i = 0; i < rx_res_num; i++) {
-		struct hif_pci_rx_ring_desc ring_desc = rx_ring_layout[i];
-		struct hif_pci_rx_ring *rx_ring = &pci_hif->RxRing[i];
-
-		rx_ring->hw_desc_base = ring_desc.hw_desc_base;
-		rx_ring->hw_int_mask = ring_desc.hw_int_mask;
-		rx_ring->ring_attr = ring_desc.ring_attr;
-		rx_ring->event_type = ring_desc.event_type;
-		rx_ring->ring_size = ring_desc.ring_size;
-		rx_ring->delay_int_en = ring_desc.delay_int_en;
-		rx_ring->dl_dly_ctl_tbl = ring_desc.dl_dly_ctl_tbl;
-		rx_ring->dl_dly_ctl_tbl_size = ring_desc.dl_dly_ctl_tbl_size;
-		rx_ring->ul_dly_ctl_tbl = ring_desc.ul_dly_ctl_tbl;
-		rx_ring->ul_dly_ctl_tbl_size = ring_desc.ul_dly_ctl_tbl_size;
-		rx_ring->max_rx_process_cnt = ring_desc.max_rx_process_cnt;
-		rx_ring->max_sw_read_idx_inc = ring_desc.max_sw_read_idx_inc;
-		rx_ring->buf_type = ring_desc.buf_type;
-		rx_ring->band_idx = ring_desc.band_idx;
-	}
-
-	/* rx buffer allocation type */
-	for (i = 0; i < rx_res_num; i++) {
-		struct hif_pci_rx_ring *rx_ring = &pci_hif->RxRing[i];
-
-		if (rx_ring->ring_attr == HIF_RX_DATA) {
-			rx_ring->get_pkt_method = GET_PKT_DDONE;
-			rx_ring->buf_flags = BUF_DEFAULT;
-			rx_ring->buf_debug = 0;
-		} else if (rx_ring->ring_attr == HIF_RX_EVENT) {
-			rx_ring->get_pkt_method = GET_PKT_DDONE;
-			rx_ring->buf_flags = BUF_DEFAULT;
-			rx_ring->buf_debug = 0;
-		} else {
-			MTWF_DBG(NULL, DBG_CAT_HIF, CATHIF_PCI, DBG_LVL_ERROR,
-						"ring_attr:%d, unknown ring_attr\n",
-						rx_ring->ring_attr);
-		}
-	}
-
-	/* build ring group for bottom-half's reference */
-	ring_bh_group = &pci_hif->tx_bh_group;
-	ring_bh_group->int_mask = 0;
-	ring_bh_group->ring_num = 0;
-	for (i = 0; i < tx_res_num; i++) {
-		struct hif_pci_tx_ring *tx_ring = &pci_hif->TxRing[i];
-
-		ring_bh_group->int_mask |= tx_ring->hw_int_mask;
-		ring_bh_group->ring_idx[ring_bh_group->ring_num] = i;
-		ring_bh_group->ring_num++;
-	}
-
-	ring_bh_group = &pci_hif->rx_bh_group;
-	ring_bh_group->int_mask = 0;
-	ring_bh_group->ring_num = 0;
-	for (i = 0; i < rx_res_num; i++) {
-		struct hif_pci_rx_ring *rx_ring = &pci_hif->RxRing[i];
-
-		ring_bh_group->int_mask |= rx_ring->hw_int_mask;
-		ring_bh_group->ring_idx[ring_bh_group->ring_num] = i;
-		ring_bh_group->ring_num++;
-	}
-
-	ring_bh_group = &pci_hif->rx_data_bh_group;
-	ring_bh_group->int_mask = 0;
-	ring_bh_group->ring_num = 0;
-	for (i = 0; i < rx_res_num ; i++) {
-		struct hif_pci_rx_ring *rx_ring = &pci_hif->RxRing[i];
-
-		if (rx_ring->ring_attr != HIF_RX_DATA)
-			continue;
-
-		ring_bh_group->int_mask |= rx_ring->hw_int_mask;
-		ring_bh_group->ring_idx[ring_bh_group->ring_num] = i;
-		ring_bh_group->ring_num++;
-	}
-
-	ring_bh_group = &pci_hif->rx_event_bh_group;
-	ring_bh_group->int_mask = 0;
-	ring_bh_group->ring_num = 0;
-	for (i = 0; i < rx_res_num; i++) {
-		struct hif_pci_rx_ring *rx_ring = &pci_hif->RxRing[i];
-
-		if (rx_ring->ring_attr != HIF_RX_EVENT)
-			continue;
-
-		ring_bh_group->int_mask |= rx_ring->hw_int_mask;
-		ring_bh_group->ring_idx[ring_bh_group->ring_num] = i;
-		ring_bh_group->ring_num++;
-	}
-
-	return NDIS_STATUS_SUCCESS;
-}
-
-/*
-*
-*/
-static NDIS_STATUS pci_data_exit(void *hif_ctrl)
-{
-	struct pci_hif_chip *pci_hif = hif_ctrl;
-	UINT8 tx_res_num = pci_hif->tx_res_num;
-	UINT8 rx_res_num = pci_hif->rx_res_num;
-
-	NdisFreeSpinLock(&pci_hif->LockInterrupt);
-	pci_free_ring(pci_hif, tx_res_num, rx_res_num);
-	return NDIS_STATUS_SUCCESS;
-}
-
-
-/*
-*
-*/
-static UINT32 pci_get_resouce_type(void *hif, UINT8 resource_idx)
-{
-	struct hif_pci_rx_ring *rx_ring = pci_get_rx_ring_by_ridx(hif, resource_idx);
-	enum resource_attr ring_attr = rx_ring->ring_attr;
-
-	return ring_attr;
-}
-
-/*
-*
-*/
-static VOID pci_hif_chip_link_deinit(struct _PCI_HIF_T *hif)
-{
-	os_free_mem(hif->tx_ring);
-	os_free_mem(hif->rx_ring);
-	os_free_mem(hif->pci_hif_chip);
-}
-
-
-/*
-*
-*/
-static VOID pci_reset_txrx_ring_mem(void *hdev_ctrl)
-{
-	int index, j;
-	TXD_STRUC *pTxD;
-	RTMP_DMACB *dma_cb;
-#ifdef RT_BIG_ENDIAN
-	TXD_STRUC *pDestTxD;
-	UCHAR tx_hw_info[TXD_SIZE];
-#endif /* RT_BIG_ENDIAN */
-	PNDIS_PACKET pPacket;
-	struct _PCI_HIF_T *hif = hc_get_hif_ctrl(hdev_ctrl);
-	UINT8 num_of_tx_ring = hif->tx_res_num;
-	UINT8 num_of_rx_ring = hif->rx_res_num;
-	UINT16 tx_ring_size = 0;
-	struct _RTMP_ADAPTER *ad = hc_get_hdev_privdata(hdev_ctrl);
-
-	/* Free Tx Ring Packet*/
-	for (index = 0; index < num_of_tx_ring; index++) {
-		struct hif_pci_tx_ring *tx_ring = pci_get_tx_ring_by_ridx(hif, index);
-		tx_ring_size = tx_ring->ring_size;
-
-		for (j = 0; j < tx_ring_size; j++) {
-			dma_cb = &tx_ring->Cell[j];
-#ifdef RT_BIG_ENDIAN
-			pDestTxD = (TXD_STRUC *)(dma_cb->AllocVa);
-			NdisMoveMemory(&tx_hw_info[0], (UCHAR *)pDestTxD, TXD_SIZE);
-			pTxD = (TXD_STRUC *)&tx_hw_info[0];
-			RTMPDescriptorEndianChange((PUCHAR)pTxD, TYPE_TXD);
-#else
-			pTxD = (TXD_STRUC *) (dma_cb->AllocVa);
-#endif /* RT_BIG_ENDIAN */
-
-			if (dma_cb->DmaBuf.AllocSize > 0)
-				PCI_UNMAP_SINGLE(ad, dma_cb->DmaBuf.AllocPa, dma_cb->DmaBuf.AllocSize, RTMP_PCI_DMA_TODEVICE);
-
-			pPacket = dma_cb->pNdisPacket;
-
-			if (pPacket) {
-				/*the type of packet is hooked at DATA ring hook which should be skb.*/
-				if (tx_ring->ring_attr == HIF_TX_DATA) {
-					PCI_UNMAP_SINGLE(ad,
-							 dma_cb->PacketPa,
-							 GET_OS_PKT_LEN(pPacket),
-							 RTMP_PCI_DMA_TODEVICE);
-				/*the type of packet is hooked at cmd ring hook which is internal pakcet*/
-				} else if (tx_ring->ring_attr == HIF_TX_CMD || tx_ring->ring_attr == HIF_TX_CMD_WM) {
-					pTxD->DMADONE = 0;
-					PCI_UNMAP_SINGLE(ad,
-							 pTxD->SDPtr0,
-							 pTxD->SDLen0,
-							 RTMP_PCI_DMA_TODEVICE);
-				} else {
-					MTWF_DBG(ad, DBG_CAT_HIF, CATHIF_PCI, DBG_LVL_ERROR,
-						"ring_attr:%d, specific handle is needed?\n",
-							tx_ring->ring_attr);
-				}
-
-				RELEASE_NDIS_PACKET(ad, pPacket, NDIS_STATUS_SUCCESS);
-			}
-
-			/*Always assign pNdisPacket as NULL after clear*/
-			dma_cb->pNdisPacket = NULL;
-			pPacket = dma_cb->pNextNdisPacket;
-
-			if (pPacket) {
-				PCI_UNMAP_SINGLE(ad, pTxD->SDPtr1, pTxD->SDLen1, RTMP_PCI_DMA_TODEVICE);
-				RELEASE_NDIS_PACKET(ad, pPacket, NDIS_STATUS_SUCCESS);
-			}
-
-			/*Always assign pNextNdisPacket as NULL after clear*/
-			dma_cb->pNextNdisPacket = NULL;
-#ifdef RT_BIG_ENDIAN
-			RTMPDescriptorEndianChange((PUCHAR)pTxD, TYPE_TXD);
-			WriteBackToDescriptor((PUCHAR)pDestTxD, (PUCHAR)pTxD, FALSE, TYPE_TXD);
-#endif /* RT_BIG_ENDIAN */
-		}
-
-		NdisZeroMemory(tx_ring->Cell, tx_ring_size * sizeof(RTMP_DMACB));
-	}
-
-	for (index = 0; index < num_of_rx_ring; index++) {
-		UINT16 RxRingSize;
-		struct hif_pci_rx_ring *rx_ring = pci_get_rx_ring_by_ridx(hif, index);
-		enum resource_attr attr = rx_ring->ring_attr;
-		UINT8 rx_buf_type = rx_ring->buf_type;
-
-		RxRingSize = rx_ring->ring_size;
-
-		for (j = RxRingSize - 1; j >= 0; j--) {
-			PNDIS_PACKET cur_pkt = NULL;
-			VOID *cur_va;
-			NDIS_PHYSICAL_ADDRESS cur_pa;
-			struct _RTMP_CHIP_CAP *cap = hc_get_chip_cap(hdev_ctrl);
-			BOOLEAN whnat_en = FALSE;
-
-			dma_cb = &rx_ring->Cell[j];
-
-#ifdef WHNAT_SUPPORT
-			whnat_en = ad->CommonCfg.whnat_en;
-#endif
-
-			if (whnat_en && (cap->tkn_info.feature & TOKEN_RX)
-					&& (attr == HIF_RX_DATA)) {
-				cur_va = NULL;
-				cur_pkt = NULL;
-			} else {
-				cur_va = dma_cb->DmaBuf.AllocVa;
-				cur_pa = dma_cb->DmaBuf.AllocPa;
-				cur_pkt = dma_cb->pNdisPacket;
-			}
-
-			if (cur_va && cur_pkt) {
-				PCI_UNMAP_SINGLE(ad, cur_pa, dma_cb->DmaBuf.AllocSize, RTMP_PCI_DMA_FROMDEVICE);
-
-				if (attr == HIF_RX_DATA) {
-					switch (rx_buf_type) {
-					case DYNAMIC_PAGE_ALLOC:
-#if (KERNEL_VERSION(4, 10, 0) <= LINUX_VERSION_CODE)
-						MEM_DBG_PKT_FREE_INC(cur_pkt);
-						page_frag_free(cur_pkt);
-#elif (KERNEL_VERSION(4, 3, 0) < LINUX_VERSION_CODE)
-						MEM_DBG_PKT_FREE_INC(cur_pkt);
-						__free_page_frag(cur_pkt);
-#else
-						DEV_FREE_FRAG_BUF(cur_pkt);
-#endif
-						break;
-					case DYNAMIC_SLAB_ALLOC:
-						RELEASE_NDIS_PACKET(ad, cur_pkt, NDIS_STATUS_FAILURE);
-						break;
-					default:
-						MTWF_DBG(ad, DBG_CAT_HIF, CATHIF_PCI, DBG_LVL_ERROR,
-							"specific RX_DATA ring_buf_type:%d need handle?\n",
-							rx_buf_type);
-					}
-				}
-			}
-		}
-
-		if (attr == HIF_RX_EVENT)
-			reset_rx_free_buffer(hdev_ctrl, index);
-
-		NdisZeroMemory(rx_ring->Cell, RxRingSize * sizeof(RTMP_DMACB));
-
-#if LINUX_VERSION_CODE > KERNEL_VERSION(4, 3, 0)
-		if (rx_ring->buf_type == DYNAMIC_PAGE_ALLOC) {
-
-			if (rx_ring->rx_page.va) {
-				struct page *page;
-
-				page = virt_to_page(rx_ring->rx_page.va);
-				rx_page_frag_cache_drain(page, rx_ring->rx_page.pagecnt_bias);
-				NdisZeroMemory(&rx_ring->rx_page, sizeof(rx_ring->rx_page));
-			}
-		}
-#endif
-
-	}
-
-	if (ad->FragFrame.pFragPacket) {
-		RELEASE_NDIS_PACKET(ad, ad->FragFrame.pFragPacket, NDIS_STATUS_SUCCESS);
-		ad->FragFrame.pFragPacket = NULL;
-	}
-
-	pci_hif_chip_link_deinit(hif);
-
-	NdisFreeSpinLock(&ad->CmdQLock);
-}
-
-/*
-*
-*/
-static VOID pci_free_txrx_ring_mem(void *hif_ctrl)
-{
-	INT num;
-	struct pci_hif_chip *hif = hif_ctrl;
-	VOID *pdev = hif->pdev;
-	UINT8 num_of_tx_ring = hif->tx_res_num;
-	UINT8 num_of_rx_ring = hif->rx_res_num;
-
-
-	MTWF_DBG(NULL, DBG_CAT_HIF, CATHIF_PCI, DBG_LVL_INFO, "--> %s\n", __func__);
-
-	for (num = 0; num < num_of_rx_ring; num++) {
-		enum resource_attr attr = hif->RxRing[num].ring_attr;
-
-		desc_ring_free(hif, &hif->RxRing[num].desc_ring);
-
-		if (attr == HIF_RX_EVENT)
-			release_rx_free_buffer(hif, num);
-
-		os_free_mem(hif->RxRing[num].Cell);
-	}
-
-	/* Free 1st TxBufSpace and TxDesc buffer*/
-	for (num = 0; num < num_of_tx_ring; num++) {
-
-		if (hif->TxRing[num].buf_space.AllocVa) {
-			RTMP_FreeFirstTxBuffer(pdev,
-						hif->TxRing[num].buf_space.AllocSize,
-						FALSE, hif->TxRing[num].buf_space.AllocVa,
-						hif->TxRing[num].buf_space.AllocPa);
-		}
-		NdisZeroMemory(&hif->TxRing[num].buf_space, sizeof(RTMP_DMABUF));
-		desc_ring_free(hif, &hif->TxRing[num].desc_ring);
-		os_free_mem(hif->TxRing[num].Cell);
-	}
-
-	MTWF_DBG(NULL, DBG_CAT_HIF, CATHIF_PCI, DBG_LVL_INFO, "<-- %s\n", __func__);
-}
-
-static NDIS_STATUS pci_hif_chip_link(struct _PCI_HIF_T *pci_hif)
-{
-	struct pci_hif_chip *hif_chip = pci_hif->main_hif_chip;
-	struct _DL_LIST head;
-	struct multi_hif_entry *hif_entry;
-	UINT32 gid;
-	UINT8 i = 0;
-
-	gid = multi_hif_entry_gid_get(hif_chip);
-	multi_hif_entry_get_by_gid(gid, &head);
-	pci_hif->pci_hif_chip_num = DlListLen(&head);
-
-	os_alloc_mem(NULL, (UCHAR **)&pci_hif->pci_hif_chip,
-			pci_hif->pci_hif_chip_num * sizeof(struct pci_hif_chip *));
-
-	if (pci_hif->pci_hif_chip == NULL)
-		return NDIS_STATUS_FAILURE;
-
-	/* link _PCI_HIF_T to pci_hif_chip */
-	DlListForEach(hif_entry, &head, struct multi_hif_entry, glist) {
-		pci_hif->pci_hif_chip[i++] = (struct pci_hif_chip *)&hif_entry->hif_ctrl;
-	}
-
-	/* link pci_hif_chip to _PCI_HIF_T */
-	for (i = 0; i < pci_hif->pci_hif_chip_num; i++) {
-		struct pci_hif_chip *hif_chip_entry;
-		hif_chip_entry = pci_hif->pci_hif_chip[i];
-		hif_chip_entry->hif = pci_hif;
-	}
-
-	return NDIS_STATUS_SUCCESS;
-}
-
-
-static NDIS_STATUS pci_hif_chip_merge_txrx_ring(struct _PCI_HIF_T *pci_hif)
-{
-	UINT8 i = 0;
-	UINT8 j = 0;
-	UINT8 tx_ring_ridx = 0;
-	UINT8 rx_ring_ridx = 0;
-	struct pci_hif_chip *hif_chip = NULL;
-
-	pci_hif->tx_res_num = 0;
-	pci_hif->rx_res_num = 0;
-	for (i = 0; i < pci_hif->pci_hif_chip_num; i++) {
-		pci_hif->tx_res_num += pci_hif->pci_hif_chip[i]->tx_res_num;
-		pci_hif->rx_res_num += pci_hif->pci_hif_chip[i]->rx_res_num;
-	}
-
-	os_alloc_mem(NULL, (UCHAR **)&pci_hif->tx_ring, pci_hif->tx_res_num * sizeof(struct hif_pci_tx_ring *));
-	if (pci_hif->tx_ring == NULL)
-		return NDIS_STATUS_FAILURE;
-	os_zero_mem(pci_hif->tx_ring, pci_hif->tx_res_num * sizeof(struct hif_pci_tx_ring *));
-
-	os_alloc_mem(NULL, (UCHAR **)&pci_hif->rx_ring, pci_hif->rx_res_num * sizeof(struct hif_pci_rx_ring *));
-	if (pci_hif->rx_ring == NULL)
-		return NDIS_STATUS_FAILURE;
-	os_zero_mem(pci_hif->rx_ring, pci_hif->rx_res_num * sizeof(struct hif_pci_rx_ring *));
-
-	for (i = 0; i < pci_hif->pci_hif_chip_num; i++) {
-		hif_chip = pci_hif->pci_hif_chip[i];
-		for (j = 0; j < hif_chip->tx_res_num; j++) {
-			hif_chip->TxRing[j].resource_idx = tx_ring_ridx;
-			pci_hif->tx_ring[tx_ring_ridx] = &hif_chip->TxRing[j];
-			tx_ring_ridx++;
-		}
-
-		for (j = 0; j < hif_chip->rx_res_num; j++) {
-			hif_chip->RxRing[j].resource_idx = rx_ring_ridx;
-			if (hif_chip->RxRing[j].event_type & HOST_MSDU_ID_RPT)
-				pci_hif->host_msdu_id_rpt_idx = rx_ring_ridx;
-			pci_hif->rx_ring[rx_ring_ridx] = &hif_chip->RxRing[j];
-			rx_ring_ridx++;
-		}
-	}
-
-	return NDIS_STATUS_SUCCESS;
-}
-
-/*
-*
-*/
-static NDIS_STATUS pci_hif_chip_merge(void *hdev_ctrl)
-{
-	struct _RTMP_CHIP_CAP *cap = hc_get_chip_cap(hdev_ctrl);
-	struct _PCI_HIF_T *pci_hif = hc_get_hif_ctrl(hdev_ctrl);
-	UINT32 asic_caps = hc_get_asic_cap(hdev_ctrl);
-#ifdef WHNAT_SUPPORT
-	struct _RTMP_ADAPTER *ad = hc_get_hdev_privdata(hdev_ctrl);
-#endif
-	int i = 0;
-	BOOLEAN whnat_en = FALSE;
-#ifdef WHNAT_SUPPORT
-	whnat_en = ad->CommonCfg.whnat_en;
-#endif
-
-	/*link slave or specific merge depend on chip*/
-	chip_hif_pci_slave_chip_defer_create(hdev_ctrl);
-
-	chip_hif_chip_match(hdev_ctrl);
-
-	pci_hif_chip_link(pci_hif);
-
-	pci_hif_chip_merge_txrx_ring(pci_hif);
-
-	/* _PCI_HIF_T init */
-	pci_hif->dma_done_handle[HIF_TX_DATA] = pci_tx_dma_done_handle;
-	pci_hif->dma_done_handle[HIF_TX_CMD] = pci_cmd_dma_done_handle;
-	pci_hif->dma_done_handle[HIF_TX_CMD_WM] = pci_cmd_dma_done_handle;
-	pci_hif->dma_done_handle[HIF_TX_FWDL] = pci_fwdl_dma_done_handle;
-
-	if (cap->rx_qm_en)
-		pci_hif->dma_done_handle[HIF_RX_DATA] = pci_rx_dma_done_rxq_handle;
-	else
-		pci_hif->dma_done_handle[HIF_RX_DATA] = pci_rx_dma_done_handle;
-
-	pci_hif->dma_done_handle[HIF_RX_EVENT] = pci_rx_event_dma_done_handle;
-
-	if (whnat_en && (cap->tkn_info.feature & TOKEN_RX)) {
-#ifdef WHNAT_REFILL_SKB
-		pci_hif->get_pkt_from_rx_resource[DYNAMIC_PAGE_ALLOC][GET_PKT_DDONE] =
-							pci_get_pkt_dynamic_page_ddone_token;
-#else
-		pci_hif->get_pkt_from_rx_resource[DYNAMIC_PAGE_ALLOC][GET_PKT_DDONE] =
-							pci_copy_pkt_ddone_token;
-#endif
-	} else {
-		pci_hif->get_pkt_from_rx_resource[DYNAMIC_PAGE_ALLOC][GET_PKT_DDONE] =
-							pci_get_pkt_dynamic_page_ddone;
-	}
-
-	pci_hif->get_pkt_from_rx_resource[DYNAMIC_PAGE_ALLOC][GET_PKT_IO] =
-						pci_get_pkt_dynamic_page_io;
-	pci_hif->get_pkt_from_rx_resource[DYNAMIC_PAGE_ALLOC_DEBUG][GET_PKT_DDONE] =
-						pci_get_pkt_dynamic_page_ddone_debug;
-	pci_hif->get_pkt_from_rx_resource[DYNAMIC_PAGE_ALLOC_DEBUG][GET_PKT_IO] =
-						pci_get_pkt_dynamic_page_io_debug;
-	pci_hif->get_pkt_from_rx_resource[DYNAMIC_SLAB_ALLOC][GET_PKT_DDONE] =
-						pci_get_pkt_dynamic_slab_ddone;
-	pci_hif->get_pkt_from_rx_resource[DYNAMIC_SLAB_ALLOC][GET_PKT_IO] =
-						pci_get_pkt_dynamic_slab_io;
-	pci_hif->get_pkt_from_rx_resource[PRE_SLAB_ALLOC][GET_PKT_DDONE] =
-						pci_get_pkt_pre_slab_ddone;
-	pci_hif->get_pkt_from_rx_resource[PRE_SLAB_ALLOC][GET_PKT_IO] =
-						pci_get_pkt_pre_slab_io;
-
-	for (i = 0; i < pci_hif->tx_res_num; i++) {
-		struct hif_pci_tx_ring *tx_ring = pci_get_tx_ring_by_ridx(pci_hif, i);
-
-		switch (tx_ring->ring_attr) {
-		case HIF_TX_CMD:
-			/* point pci_hif->cmd_ring to its TxRing instance */
-			pci_hif->ctrl_ring = tx_ring;
-			break;
-		case HIF_TX_FWDL:
-			/* point pci_hif->fwdl_ring to its TxRing instance */
-			pci_hif->fwdl_ring = tx_ring;
-			break;
-		default:
-			break;
-		}
-	}
-
-	for (i = 0; i < pci_hif->rx_res_num; i++) {
-		struct hif_pci_rx_ring *rx_ring = pci_get_rx_ring_by_ridx(pci_hif, i);
-
-		if ((asic_caps & fASIC_CAP_WHNAT) &&
-			(rx_ring->ring_attr == HIF_RX_EVENT))
-			rx_ring->get_pkt_method = GET_PKT_IO;
-	}
-
-	if (IS_GE_QM(cap->qm) && pci_build_resource_idx_ge(pci_hif) != NDIS_STATUS_SUCCESS)
-		return NDIS_STATUS_FAILURE;
-
-	if (!IS_GE_QM(cap->qm) && pci_build_resource_idx_fp(pci_hif) != NDIS_STATUS_SUCCESS)
-		return NDIS_STATUS_FAILURE;
-
-	return NDIS_STATUS_SUCCESS;
-}
-
-/*
-*
-*/
-static NDIS_STATUS pci_init_txrx_ring_mem(void *hdev_ctrl)
-{
-	INT num, index;
-	ULONG RingBasePaHigh, RingBasePaLow;
-	VOID *RingBaseVa;
-	struct hif_pci_rx_ring *rx_ring;
-	struct hif_pci_tx_ring *tx_ring;
-	RTMP_DMABUF *pDmaBuf, *pDescRing;
-	RTMP_DMACB *dma_cb;
-	PNDIS_PACKET pPacket = NULL;
-	TXD_STRUC *pTxD;
-	RXD_STRUC *pRxD;
-	ULONG ErrorValue = 0;
-	NDIS_STATUS Status = NDIS_STATUS_SUCCESS;
-	struct _PCI_HIF_T *hif = hc_get_hif_ctrl(hdev_ctrl);
-	UINT8 num_of_tx_ring = 0;
-	UINT8 num_of_rx_ring = 0;
-	UINT16 tx_ring_size = 0;
-	VOID *pdev = NULL;
-	struct _RTMP_ADAPTER *ad = hc_get_hdev_privdata(hdev_ctrl);
-	struct pci_hif_chip *hif_chip = hif->main_hif_chip;
-	struct pci_hif_chip *slave_hif_chip = NULL;
-	PKT_TOKEN_CB *cb = hc_get_ct_cb(hdev_ctrl);
-	struct _RTMP_CHIP_CAP *cap = hc_get_chip_cap(hdev_ctrl);
-	BOOLEAN whnat_en = FALSE;
-#ifdef WHNAT_SUPPORT
-	whnat_en = ad->CommonCfg.whnat_en;
-#endif
-	/*merge hif_chip*/
-	pci_hif_chip_merge(hdev_ctrl);
-
-	slave_hif_chip = hif->slave_hif_chip;
-	num_of_tx_ring = hif->tx_res_num;
-	num_of_rx_ring = hif->rx_res_num;
-	pdev = hif_chip->pdev;
-
-	/* Initialize All Tx Ring Descriptors and associated buffer memory*/
-	for (num = 0; num < num_of_tx_ring; num++) {
-		tx_ring = pci_get_tx_ring_by_ridx(hif, num);
-		tx_ring_size = tx_ring->ring_size;
-		pDescRing = &tx_ring->desc_ring;
-
-		switch (tx_ring->ring_attr) {
-		case (HIF_TX_DATA):
-		{
-			VOID *BufBaseVa;
-			/* linking Tx Ring Descriptor and associated buffer memory */
-			/* memory zero the  Tx ring descriptor's memory */
-			NdisZeroMemory(pDescRing->AllocVa, pDescRing->AllocSize);
-			/* Save PA & VA for further operation*/
-			RingBasePaHigh = RTMP_GetPhysicalAddressHigh(pDescRing->AllocPa);
-			RingBasePaLow = RTMP_GetPhysicalAddressLow(pDescRing->AllocPa);
-			RingBaseVa = pDescRing->AllocVa;
-			/* Zero init all 1st TXBuf's memory for this TxRing*/
-			NdisZeroMemory(tx_ring->buf_space.AllocVa, tx_ring->buf_space.AllocSize);
-
-			/* Save PA & VA for further operation */
-			BufBaseVa = tx_ring->buf_space.AllocVa;
-
-			for (index = 0; index < tx_ring_size; index++) {
-				dma_cb = &tx_ring->Cell[index];
-				dma_cb->pNdisPacket = NULL;
-				dma_cb->pNextNdisPacket = NULL;
-				/* Init Tx Ring Size, Va, Pa variables*/
-				dma_cb->AllocSize = TXD_SIZE;
-				dma_cb->AllocVa = RingBaseVa;
-				RTMP_SetPhysicalAddressHigh(dma_cb->AllocPa, RingBasePaHigh);
-				RTMP_SetPhysicalAddressLow(dma_cb->AllocPa, RingBasePaLow);
-				/* Setup Tx Buffer size & address. only 802.11 header will store in this space */
-				pDmaBuf = &dma_cb->DmaBuf;
-				pDmaBuf->AllocSize = hif_chip->tx_dma_1st_buffer_size;
-				pDmaBuf->AllocVa = BufBaseVa;
-				/* link the pre-allocated TxBuf to TXD */
-				pTxD = (TXD_STRUC *)dma_cb->AllocVa;
-				pTxD->DMADONE = 0;
-#ifdef RT_BIG_ENDIAN
-				RTMPDescriptorEndianChange((PUCHAR)pTxD, TYPE_TXD);
-#endif
-				/* flush dcache if no consistent memory is supported */
-				RTMP_DCACHE_FLUSH(pTxD, dma_cb->AllocSize);
-				RingBasePaLow += TXD_SIZE;
-				RingBaseVa = (PUCHAR)RingBaseVa + TXD_SIZE;
-				/* advance to next TxBuf address */
-				BufBaseVa = (PUCHAR)BufBaseVa + pDmaBuf->AllocSize;
-			}
-
-			tx_ring->tx_ring_state = TX_RING_HIGH;
-			tx_ring->tx_ring_low_water_mark = 5;
-			tx_ring->tx_ring_high_water_mark = tx_ring->tx_ring_low_water_mark + 10;
-			tx_ring->tx_ring_full_cnt = 0;
-			MTWF_DBG(ad, DBG_CAT_HIF, CATHIF_PCI, DBG_LVL_INFO,
-				 "TxRing[%d]: attr:%d, total %d entry initialized\n", num, tx_ring->ring_attr, index);
-		}
-			break;
-		case (HIF_TX_CMD):
-		case (HIF_TX_CMD_WM):
-		case (HIF_TX_FWDL):
-		{
-			/* Initialize CTRL Ring and associated buffer memory */
-			RingBasePaHigh = RTMP_GetPhysicalAddressHigh(pDescRing->AllocPa);
-			RingBasePaLow = RTMP_GetPhysicalAddressLow(pDescRing->AllocPa);
-			RingBaseVa = pDescRing->AllocVa;
-			NdisZeroMemory(pDescRing->AllocVa, pDescRing->AllocSize);
-
-			for (index = 0; index < tx_ring_size; index++) {
-				dma_cb = &tx_ring->Cell[index];
-				dma_cb->pNdisPacket = NULL;
-				dma_cb->pNextNdisPacket = NULL;
-				/* Init Ctrl Ring Size, Va, Pa variables */
-				dma_cb->AllocSize = TXD_SIZE;
-				dma_cb->AllocVa = RingBaseVa;
-				RTMP_SetPhysicalAddressHigh(dma_cb->AllocPa, RingBasePaHigh);
-				RTMP_SetPhysicalAddressLow(dma_cb->AllocPa, RingBasePaLow);
-				/* Offset to next ring descriptor address */
-				RingBasePaLow += TXD_SIZE;
-				RingBaseVa = (PUCHAR) RingBaseVa + TXD_SIZE;
-				/* link the pre-allocated TxBuf to TXD */
-				pTxD = (TXD_STRUC *)dma_cb->AllocVa;
-				pTxD->DMADONE = 1;
-#ifdef RT_BIG_ENDIAN
-				RTMPDescriptorEndianChange((PUCHAR)pTxD, TYPE_TXD);
-#endif
-				/* flush dcache if no consistent memory is supported */
-				RTMP_DCACHE_FLUSH(pTxD, dma_cb->AllocSize);
-				/* no pre-allocated buffer required in CtrlRing for scatter-gather case */
-			}
-			/* init CTRL ring index pointer */
-			tx_ring->TxSwFreeIdx = 0;
-			tx_ring->TxCpuIdx = 0;
-
-			MTWF_DBG(ad, DBG_CAT_HIF, CATHIF_PCI, DBG_LVL_INFO,
-				"ring_attr:%d, total %d entry initialized\n", tx_ring->ring_attr, index);
-		}
-			break;
-		default:
-			MTWF_DBG(ad, DBG_CAT_HIF, CATHIF_PCI, DBG_LVL_ERROR,
-				 "TxRing[%d]: wrong attr:%d\n", num, tx_ring->ring_attr);
-			Status = NDIS_STATUS_INVALID_DATA;
-			return	Status;
-		}
-	}
-
-	/* Initialize Rx Ring and associated buffer memory */
-	for (num = 0; num < num_of_rx_ring; num++) {
-		UINT16 RxRingSize;
-		UINT16 RxBufferSize = 0;
-		enum resource_attr attr;
-
-		rx_ring = pci_get_rx_ring_by_ridx(hif, num);
-		pDescRing = &rx_ring->desc_ring;
-		attr = rx_ring->ring_attr;
-		NdisZeroMemory(pDescRing->AllocVa, pDescRing->AllocSize);
-		MTWF_DBG(ad, DBG_CAT_HIF, CATHIF_PCI, DBG_LVL_DEBUG,  "RX[%d] DESC %p size = %lu\n",
-				 num, pDescRing->AllocVa, pDescRing->AllocSize);
-		/* Save PA & VA for further operation */
-		RingBasePaHigh = RTMP_GetPhysicalAddressHigh(pDescRing->AllocPa);
-		RingBasePaLow = RTMP_GetPhysicalAddressLow(pDescRing->AllocPa);
-		RingBaseVa = pDescRing->AllocVa;
-
-		if (attr == HIF_RX_DATA) {
-			RxBufferSize = RX_BUFFER_AGGRESIZE;
-		} else if (attr == HIF_RX_EVENT) {
-			RxBufferSize = RX1_BUFFER_SIZE;
-		}
-
-		if (slave_hif_chip &&
-			rx_ring->band_idx == BAND1_RX_PCIE0) {
-			rx_ring->ring_size = 10;
-		}
-		/* workaround for warp 2.0 , warp 2.1 support fASIC_CAP_TX_FREE_NOTIFY_V4*/
-		else if (whnat_en && (cap->tkn_info.feature & TOKEN_RX)
-			&& !(cap->asic_caps & fASIC_CAP_TX_FREE_NOTIFY_V4)) {
-			if ((rx_ring->band_idx == BAND0_RX_PCIE0) ||
-				(rx_ring->band_idx == BAND1_RX_PCIE0))
-				rx_ring->ring_size = 0xf8;
-		}
-#ifdef MEMORY_SHRINK
-		else if (whnat_en && (cap->tkn_info.feature & TOKEN_RX)) {
-			if (attr == HIF_RX_DATA)
-				rx_ring->ring_size = cap->rx_sw_ring_size;
-		}
-#endif
-
-		RxRingSize = rx_ring->ring_size;
-
-		/* Linking Rx Ring and associated buffer memory */
-		for (index = 0; index < RxRingSize; index++) {
-			dma_cb = &rx_ring->Cell[index];
-			/* Init RX Ring Size, Va, Pa variables*/
-			dma_cb->AllocSize = RXD_SIZE;
-			dma_cb->AllocVa = RingBaseVa;
-			RTMP_SetPhysicalAddressHigh(dma_cb->AllocPa, RingBasePaHigh);
-			RTMP_SetPhysicalAddressLow(dma_cb->AllocPa, RingBasePaLow);
-			/* Offset to next ring descriptor address */
-			RingBasePaLow += RXD_SIZE;
-			RingBaseVa = (PUCHAR)RingBaseVa + RXD_SIZE;
-			/* Setup Rx associated Buffer size & allocate share memory */
-			pDmaBuf = &dma_cb->DmaBuf;
-			pDmaBuf->AllocSize = RxBufferSize;
-
-			pPacket = RTMP_AllocateRxPacketBuffer(
-						rx_ring,
-						pdev,
-						pDmaBuf->AllocSize,
-						&pDmaBuf->AllocVa,
-						&pDmaBuf->AllocPa);
-
-			/* keep allocated rx packet */
-			dma_cb->pNdisPacket = pPacket;
-
-			/* Error handling*/
-			if (pDmaBuf->AllocVa == NULL) {
-				ErrorValue = ERRLOG_OUT_OF_SHARED_MEMORY;
-				MTWF_DBG(ad, DBG_CAT_HIF, CATHIF_PCI, DBG_LVL_ERROR, "Failed to allocate RxRing's 1st buffer\n");
-				Status = NDIS_STATUS_RESOURCES;
-				break;
-			}
-
-			/* Write RxD buffer address & allocated buffer length */
-			pRxD = (RXD_STRUC *)dma_cb->AllocVa;
-			pRxD->SDP0 = RTMP_GetPhysicalAddressLow(pDmaBuf->AllocPa);
-			pRxD->DDONE = 0;
-			pRxD->SDL0 = RxBufferSize;
-
-			/* rx token initialization */
-			if (whnat_en && (cap->tkn_info.feature & TOKEN_RX)
-					&& (attr == HIF_RX_DATA)) {
-				UINT32 tkn_rx_id;
-				tkn_rx_id = token_rx_dmad_init(&cb->rx_que, pPacket,
-										pDmaBuf->AllocSize, pDmaBuf->AllocVa, pDmaBuf->AllocPa);
-				pRxD->SDP1 |= (tkn_rx_id << RX_TOKEN_ID_SHIFT);
-				pRxD->SDL1 |= (1 << TO_HOST_SHIFT);
-			}
-
-#ifdef RT_BIG_ENDIAN
-			RTMPDescriptorEndianChange((PUCHAR)pRxD, TYPE_RXD);
-#endif
-			/* flush dcache if no consistent memory is supported */
-			RTMP_DCACHE_FLUSH(pRxD, dma_cb->AllocSize);
-		}
-	}
-
-	NdisZeroMemory(&ad->FragFrame, sizeof(FRAGMENT_FRAME));
-	ad->FragFrame.pFragPacket = RTMP_AllocateFragPacketBuffer(ad, RX_BUFFER_NORMSIZE);
-
-	if (ad->FragFrame.pFragPacket == NULL)
-		Status = NDIS_STATUS_RESOURCES;
-
-	for (index = 0; index < num_of_tx_ring; index++) {
-		tx_ring = pci_get_tx_ring_by_ridx(hif, index);
-
-		/* Init TX rings index pointer */
-		tx_ring->TxSwFreeIdx = 0;
-		tx_ring->TxCpuIdx = 0;
-	}
-
-	/* Init RX Ring index pointer */
-	for (index = 0; index < num_of_rx_ring; index++) {
-		UINT16 RxRingSize;
-		UINT16 RxBufferSize = 0;
-		enum resource_attr attr;
-
-		rx_ring = pci_get_rx_ring_by_ridx(hif, index);
-
-		attr = rx_ring->ring_attr;
-
-		if (attr == HIF_RX_DATA) {
-			RxBufferSize = RX_BUFFER_AGGRESIZE;
-		} else if (attr == HIF_RX_EVENT) {
-			RxBufferSize = RX1_BUFFER_SIZE;
-		}
-
-		RxRingSize = rx_ring->ring_size;
-		rx_ring->RxSwReadIdx = 0;
-		rx_ring->RxCpuIdx = RxRingSize - 1;
-		rx_ring->ring_size = RxRingSize;
-		rx_ring->RxBufferSize = RxBufferSize;
-	}
-
-	ad->PrivateInfo.TxRingFullCnt = 0;
-	return Status;
-}
-
-/*
-*
-*/
-static NDIS_STATUS pci_alloc_tx_rx_ring_mem(void *hif_ctrl)
-{
-	NDIS_STATUS Status = NDIS_STATUS_SUCCESS;
-	INT num;
-	ULONG ErrorValue = 0;
-	UINT16 tx_ring_size = 0;
-	struct pci_hif_chip *hif = hif_ctrl;
-	VOID *pdev = hif->pdev;
-	UINT8 num_of_tx_ring = hif->tx_res_num;
-	UINT8 num_of_rx_ring = hif->rx_res_num;
-
-	do {
-		for (num = 0; num < num_of_tx_ring; num++) {
-			struct hif_pci_tx_ring *pTxRing = &hif->TxRing[num];
-
-			tx_ring_size = pTxRing->ring_size;
-			/* Allocate Tx ring descriptor's memory (5 TX rings = 4 ACs + 1 HCCA)*/
-			desc_ring_alloc(pdev, &pTxRing->desc_ring, tx_ring_size * TXD_SIZE);
-
-			if (pTxRing->desc_ring.AllocVa == NULL) {
-				Status = NDIS_STATUS_RESOURCES;
-				break;
-			}
-
-			MTWF_DBG(NULL, DBG_CAT_HIF, CATHIF_PCI, DBG_LVL_INFO,
-				"TxRing[%d]: Attr:%d, total %d bytes allocated\n",
-					num, pTxRing->ring_attr, (INT)pTxRing->desc_ring.AllocSize);
-			if (pTxRing->ring_attr == HIF_TX_DATA) {
-				/* Allocate all 1st TXBuf's memory for this TxRing */
-				pTxRing->buf_space.AllocSize = tx_ring_size * hif->tx_dma_1st_buffer_size;
-
-				RTMP_AllocateFirstTxBuffer(
-					pdev,
-					num,
-					pTxRing->buf_space.AllocSize,
-					FALSE,
-					&pTxRing->buf_space.AllocVa,
-					&pTxRing->buf_space.AllocPa);
-
-				if (pTxRing->buf_space.AllocVa == NULL) {
-					ErrorValue = ERRLOG_OUT_OF_SHARED_MEMORY;
-					MTWF_DBG(NULL, DBG_CAT_HIF, CATHIF_PCI, DBG_LVL_ERROR,
-						"Failed to allocate a big buffer\n");
-					Status = NDIS_STATUS_RESOURCES;
-					break;
-				}
-			}
-
-			os_alloc_mem(NULL, (UCHAR **)&pTxRing->Cell, tx_ring_size * sizeof(struct _RTMP_DMACB));
-			NdisZeroMemory(pTxRing->Cell, tx_ring_size * sizeof(struct _RTMP_DMACB));
-		}
-
-		if (Status == NDIS_STATUS_RESOURCES)
-			break;
-
-		/* Alloc RX ring desc memory */
-		for (num = 0; num < num_of_rx_ring; num++) {
-			UINT16 RxRingSize;
-			struct hif_pci_rx_ring *pRxRing = &hif->RxRing[num];
-			enum resource_attr attr = pRxRing->ring_attr;
-
-			RxRingSize = pRxRing->ring_size;
-
-			desc_ring_alloc(pdev,
-					&hif->RxRing[num].desc_ring,
-					RxRingSize * RXD_SIZE);
-
-			if (hif->RxRing[num].desc_ring.AllocVa == NULL) {
-				Status = NDIS_STATUS_RESOURCES;
-				break;
-			}
-
-			/* Allocate RX Free Buf */
-			if (attr == HIF_RX_EVENT)
-				alloc_rx_free_buffer(hif, num, RxRingSize);
-
-			MTWF_DBG(NULL, DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_INFO, "Rx[%d] Ring: total %d bytes allocated\n",
-				num, (INT)hif->RxRing[num].desc_ring.AllocSize);
-
-
-			os_alloc_mem(NULL, (UCHAR **)&pRxRing->Cell, RxRingSize * sizeof(struct _RTMP_DMACB));
-			NdisZeroMemory(pRxRing->Cell, RxRingSize * sizeof(struct _RTMP_DMACB));
-		}
-	} while (FALSE);
-
-	MTWF_DBG(NULL, DBG_CAT_HIF, CATHIF_PCI, DBG_LVL_INFO,
-			 "<-- Status=%x\n", Status);
-	return Status;
-}
-
-/*
-*
-*/
-static VOID pci_dma_disable(void *hdev_ctrl)
-{
-	struct _RTMP_ADAPTER *ad = hc_get_hdev_privdata(hdev_ctrl);
-
-	chip_set_hif_dma(ad, DMA_TX_RX, FALSE);
-}
-
-/*
-*
-*/
-static VOID pci_dma_enable(void *hdev_ctrl)
-{
-	struct _RTMP_ADAPTER *ad = hc_get_hdev_privdata(hdev_ctrl);
 #ifdef CONFIG_WIFI_MSI_SUPPORT
-#ifndef MT7916
-	UINT32 val = 0;
-#endif
-#endif
+	struct _PCI_HIF_T *pci_hif = hc_get_hif_ctrl(ad->hdev_ctrl);
 
-	chip_wait_hif_dma_idle(ad, ALL_DMA, 200, 1000);
-	RtmpusecDelay(50);
-#ifdef CONFIG_WIFI_MSI_SUPPORT
-#ifndef MT7916
-	RTMP_IO_READ32(ad->hdev_ctrl, (MT_PCIE_MAC_BASE_ADDR + 0x1ac), &val);
-	val |= 0x00000002;
-	RTMP_IO_WRITE32(ad->hdev_ctrl, (MT_PCIE_MAC_BASE_ADDR + 0x1ac), val);
-	RTMP_IO_WRITE32(ad->hdev_ctrl, (MT_PCIE_MAC_BASE_ADDR + 0x18c), 0xff);
-#endif
-#endif
-	chip_set_hif_dma(ad, DMA_TX_RX, TRUE);
-}
-
-/*
-*
-*/
-static VOID pci_dma_reset(void *hdev_ctrl)
-{
-	struct _RTMP_ADAPTER *ad = hc_get_hdev_privdata(hdev_ctrl);
-
-	/* disable WPDMA Tx/Rx */
-	chip_set_hif_dma(ad, DMA_TX_RX, FALSE);
-
-	/* wait WPDMA idle then reset*/
-	if (chip_wait_hif_dma_idle(ad, ALL_DMA, 200, 1000)) {
-		chip_reset_hif_dma(ad);
-	} else {
-		MTWF_DBG(ad, DBG_CAT_HIF, CATHIF_PCI, DBG_LVL_INFO, "<== (): WPDMA reset fail! \n");
-	}
-}
-
-/*
-*
-*/
-static BOOLEAN pci_poll_txrx_empty(void *hdev_ctrl, UINT8 pcie_port_or_all)
-{
-	struct _RTMP_ADAPTER *ad = hc_get_hdev_privdata(hdev_ctrl);
-	BOOLEAN sts = FALSE;
-
-	RtmpOsMsDelay(100);
-
-	/* Fix Rx Ring FULL lead DMA Busy, when DUT is in reset stage */
-	RTMP_SET_FLAG(ad, fRTMP_ADAPTER_POLL_IDLE);
-
-	sts = chip_wait_hif_dma_idle(ad, pcie_port_or_all, 20000, 50);
-
-	/* Fix Rx Ring FULL lead DMA Busy, when DUT is in reset stage */
-	RTMP_CLEAR_FLAG(ad, fRTMP_ADAPTER_POLL_IDLE);
-
-	return sts;
-}
-
-/*mcu*/
-/*
-*
-*/
-static INT32 pci_kick_out_cmd_msg(PRTMP_ADAPTER pAd, struct cmd_msg *msg)
-{
-	int ret = NDIS_STATUS_SUCCESS;
-	unsigned long flags = 0;
-	ULONG FreeNum;
-	PNDIS_PACKET net_pkt = msg->net_pkt;
-	UINT32 SwIdx = 0;
-	UCHAR *pSrcBufVA;
-	UINT SrcBufLen = 0;
-	PACKET_INFO PacketInfo;
-	TXD_STRUC *pTxD;
-	struct MCU_CTRL *ctl = &pAd->MCUCtrl;
-#ifdef RT_BIG_ENDIAN
-	TXD_STRUC *pDestTxD;
-	UCHAR tx_hw_info[TXD_SIZE];
-#endif
-	struct _PCI_HIF_T *hif = hc_get_hif_ctrl(pAd->hdev_ctrl);
-	struct hif_pci_tx_ring *ring = hif->ctrl_ring;
-	NDIS_SPIN_LOCK *lock = &ring->tx_lock;
-
-	if (!OS_TEST_BIT(MCU_INIT, &ctl->flags)) {
-		MTWF_DBG(pAd, DBG_CAT_FW, DBG_SUBCAT_ALL, DBG_LVL_WARN,
-				"fail for MCU_INIT 1\n");
-		return NDIS_STATUS_FAILURE;
-	}
-
-	FreeNum = pci_get_tx_free_num(ring);
-	if (FreeNum < 10) {
-		hif->dma_done_handle[ring->ring_attr](pAd, ring->resource_idx);
-		FreeNum = pci_get_tx_free_num(ring);
-	}
-
-	if (FreeNum == 0) {
-		MTWF_LOG(DBG_CAT_FW, DBG_SUBCAT_ALL, DBG_LVL_WARN,
-				 ("%s FreeNum == 0 (TxCpuIdx = %d, TxDmaIdx = %d, TxSwFreeIdx = %d)\n",
-				  __func__, ring->TxCpuIdx,
-				  ring->TxDmaIdx, ring->TxSwFreeIdx));
-		return NDIS_STATUS_FAILURE;
-	}
-
-	RTMP_SPIN_LOCK_IRQSAVE(lock, &flags);
-	RTMP_QueryPacketInfo(net_pkt, &PacketInfo, &pSrcBufVA, &SrcBufLen);
-
-	if (pSrcBufVA == NULL) {
-		RTMP_SPIN_UNLOCK_IRQRESTORE(lock, &flags);
-		MTWF_DBG(pAd, DBG_CAT_FW, DBG_SUBCAT_ALL, DBG_LVL_WARN,
-				"fail for pSrcBufVA == NULL\n");
-		return NDIS_STATUS_FAILURE;
-	}
-
-	SwIdx = ring->TxCpuIdx;
-#ifdef RT_BIG_ENDIAN
-	pDestTxD  = (TXD_STRUC *)ring->Cell[SwIdx].AllocVa;
-	NdisMoveMemory(&tx_hw_info[0], (UCHAR *)pDestTxD, TXD_SIZE);
-	pTxD = (TXD_STRUC *)&tx_hw_info[0];
-#else
-	pTxD  = (TXD_STRUC *)ring->Cell[SwIdx].AllocVa;
-#endif
-#ifdef RT_BIG_ENDIAN
-	RTMPDescriptorEndianChange((PUCHAR)pTxD, TYPE_TXD);
-#endif /* RT_BIG_ENDIAN */
-	ring->Cell[SwIdx].pNdisPacket = net_pkt;
-	ring->Cell[SwIdx].pNextNdisPacket = NULL;
-	ring->Cell[SwIdx].PacketPa = PCI_MAP_SINGLE(pAd, (pSrcBufVA),
-			(SrcBufLen), 0, RTMP_PCI_DMA_TODEVICE);
-	pTxD->LastSec0 = 1;
-	pTxD->LastSec1 = 0;
-	pTxD->SDLen0 = SrcBufLen;
-	pTxD->SDLen1 = 0;
-	pTxD->SDPtr0 = ring->Cell[SwIdx].PacketPa;
-	pTxD->Burst = 0;
-	pTxD->DMADONE = 0;
-#ifdef RT_BIG_ENDIAN
-	RTMPDescriptorEndianChange((PUCHAR)pTxD, TYPE_TXD);
-	WriteBackToDescriptor((PUCHAR)pDestTxD, (PUCHAR)pTxD, FALSE, TYPE_TXD);
-#endif
-	/* flush dcache if no consistent memory is supported */
-	RTMP_DCACHE_FLUSH(SrcBufPA, SrcBufLen);
-	RTMP_DCACHE_FLUSH(ring->Cell[SwIdx].AllocPa, TXD_SIZE);
-	/* Increase TX_CTX_IDX, but write to register later.*/
-	INC_RING_INDEX(ring->TxCpuIdx, ring->ring_size);
-
-	if (IS_CMD_MSG_NEED_SYNC_WITH_FW_FLAG_SET(msg)) {
-		AndesQueueTailCmdMsg(&ctl->ackq, msg, wait_ack);
-		msg->sending_time_in_jiffies = jiffies;
+	if (pci_hif->is_msi) {
+		HIF_IO_WRITE32(ad, MT_INT_MASK_CSR, 0);
+		HIF_IO_WRITE32(ad, MT_INT_SOURCE_CSR, clear);
+		HIF_IO_WRITE32(ad, MT_INT_MASK_CSR, pci_hif->IntEnableReg);
 	} else
-		AndesQueueTailCmdMsg(&ctl->tx_doneq, msg, tx_done);
+#endif /*CONFIG_WIFI_MSI_SUPPORT*/
+		HIF_IO_WRITE32(ad, MT_INT_SOURCE_CSR, clear);
+}
 
-	if (!OS_TEST_BIT(MCU_INIT, &ctl->flags)) {
-		RTMP_SPIN_UNLOCK_IRQRESTORE(lock, &flags);
-		MTWF_DBG(pAd, DBG_CAT_FW, DBG_SUBCAT_ALL, DBG_LVL_WARN,
-				"fail for MCU_INIT 2\n");
-		return -1;
+VOID tx_dma_done_func(RTMP_ADAPTER *pAd)
+{
+	unsigned long flags;
+	PCI_HIF_T *pci_hif = hc_get_hif_ctrl(pAd->hdev_ctrl);
+	UINT32 int_pending;
+	RTMP_CHIP_CAP *chip_cap = hc_get_chip_cap(pAd->hdev_ctrl);
+	struct tm_ops *tm_ops = pAd->tm_hif_ops;
+
+	/* Do nothing if the driver is starting halt state. */
+	/* This might happen when timer already been fired before cancel timer with mlmehalt */
+	if (RTMP_TEST_FLAG(pAd, fRTMP_ADAPTER_HALT_IN_PROGRESS | fRTMP_ADAPTER_NIC_NOT_EXIST)) {
+		RTMP_INT_LOCK(&pAd->LockInterrupt, flags);
+		pci_hif->intDisableMask &= ~(MT_INT_TX_DONE);
+		RTMP_INT_UNLOCK(&pAd->LockInterrupt, flags);
+		return;
 	}
-
-	HIF_IO_WRITE32(pAd->hdev_ctrl, ring->hw_cidx_addr, ring->TxCpuIdx);
-	RTMP_SPIN_UNLOCK_IRQRESTORE(lock, &flags);
-	return ret;
-}
-
-/*
-*
-*/
-static INT32 pci_kick_out_fwdl_msg(PRTMP_ADAPTER pAd, struct cmd_msg *msg)
-{
-	int ret = NDIS_STATUS_SUCCESS;
-	unsigned long flags = 0;
-	ULONG FreeNum;
-	PNDIS_PACKET net_pkt = msg->net_pkt;
-	UINT32 SwIdx = 0;
-	UCHAR *pSrcBufVA;
-	UINT SrcBufLen = 0;
-	PACKET_INFO PacketInfo;
-	TXD_STRUC *pTxD;
-	struct MCU_CTRL *ctl = &pAd->MCUCtrl;
-	struct hif_pci_tx_ring *pRing;
-#ifdef RT_BIG_ENDIAN
-	TXD_STRUC *pDestTxD;
-	UCHAR tx_hw_info[TXD_SIZE];
-#endif
-	struct _PCI_HIF_T *hif = hc_get_hif_ctrl(pAd->hdev_ctrl);
-
-	if (!OS_TEST_BIT(MCU_INIT, &ctl->flags))
-		return -1;
-
-	pRing = hif->fwdl_ring;
-	FreeNum = pci_get_tx_free_num(pRing);
-
-	if (FreeNum < 10) {
-		hif->dma_done_handle[pRing->ring_attr](pAd, pRing->resource_idx);
-		FreeNum = pci_get_tx_free_num(pRing);
-	}
-
-	if (FreeNum == 0) {
-		MTWF_LOG(DBG_CAT_FW, DBG_SUBCAT_ALL, DBG_LVL_WARN,
-				 ("%s FreeNum == 0 (TxCpuIdx = %d, TxDmaIdx = %d, TxSwFreeIdx = %d)\n",
-				  __func__, pRing->TxCpuIdx, pRing->TxDmaIdx, pRing->TxSwFreeIdx));
-		return NDIS_STATUS_FAILURE;
-	}
-
-	RTMP_SPIN_LOCK_IRQSAVE(&pRing->tx_lock, &flags);
-	RTMP_QueryPacketInfo(net_pkt, &PacketInfo, &pSrcBufVA, &SrcBufLen);
-
-	if (pSrcBufVA == NULL) {
-		RTMP_SPIN_UNLOCK_IRQRESTORE(&pRing->tx_lock, &flags);
-		return NDIS_STATUS_FAILURE;
-	}
-
-	SwIdx = pRing->TxCpuIdx;
-#ifdef RT_BIG_ENDIAN
-	pDestTxD  = (TXD_STRUC *)pRing->Cell[SwIdx].AllocVa;
-	NdisMoveMemory(&tx_hw_info[0], (UCHAR *)pDestTxD, TXD_SIZE);
-	pTxD = (TXD_STRUC *)&tx_hw_info[0];
-#else
-	pTxD  = (TXD_STRUC *)pRing->Cell[SwIdx].AllocVa;
-#endif
-#ifdef RT_BIG_ENDIAN
-	/* RTMPDescriptorEndianChange((PUCHAR)pTxD, TYPE_TXD); */
-#endif /* RT_BIG_ENDIAN */
-	pRing->Cell[SwIdx].pNdisPacket = net_pkt;
-	pRing->Cell[SwIdx].pNextNdisPacket = NULL;
-	pRing->Cell[SwIdx].PacketPa = PCI_MAP_SINGLE(pAd, (pSrcBufVA),
-								  (SrcBufLen), 0, RTMP_PCI_DMA_TODEVICE);
-	pTxD->LastSec0 = 1;
-	pTxD->LastSec1 = 0;
-	pTxD->SDLen0 = SrcBufLen;
-	pTxD->SDLen1 = 0;
-	pTxD->SDPtr0 = pRing->Cell[SwIdx].PacketPa;
-	pTxD->Burst = 0;
-	pTxD->DMADONE = 0;
-#ifdef RT_BIG_ENDIAN
-	RTMPDescriptorEndianChange((PUCHAR)pTxD, TYPE_TXD);
-	WriteBackToDescriptor((PUCHAR)pDestTxD, (PUCHAR)pTxD, FALSE, TYPE_TXD);
-#endif
-	/* flush dcache if no consistent memory is supported */
-	RTMP_DCACHE_FLUSH(pRing->Cell[SwIdx].PacketPa, SrcBufLen);
-	RTMP_DCACHE_FLUSH(pRing->Cell[SwIdx].AllocPa, TXD_SIZE);
-	/* Increase TX_CTX_IDX, but write to register later.*/
-	INC_RING_INDEX(pRing->TxCpuIdx, pRing->ring_size);
-
-	if (IS_CMD_MSG_NEED_SYNC_WITH_FW_FLAG_SET(msg))
-		AndesQueueTailCmdMsg(&ctl->ackq, msg, wait_ack);
-	else
-		AndesQueueTailCmdMsg(&ctl->tx_doneq, msg, tx_done);
-
-	if (!OS_TEST_BIT(MCU_INIT, &ctl->flags)) {
-		RTMP_SPIN_UNLOCK_IRQRESTORE(&pRing->tx_lock, &flags);
-		return -1;
-	}
-
-	HIF_IO_WRITE32(pAd->hdev_ctrl, pRing->hw_cidx_addr, pRing->TxCpuIdx);
-	RTMP_SPIN_UNLOCK_IRQRESTORE(&pRing->tx_lock, &flags);
-	return ret;
-}
-
-/*
-*
-*/
-static VOID pci_kick_out_data_tx(RTMP_ADAPTER *pAd, TX_BLK *tx_blk, UCHAR resource_idx)
-{
-	ULONG flags;
-	struct _PCI_HIF_T *hif = hc_get_hif_ctrl(pAd->hdev_ctrl);
-	struct hif_pci_tx_ring *tx_ring = pci_get_tx_ring_by_ridx(hif, resource_idx);
-	NDIS_SPIN_LOCK *lock = &tx_ring->tx_lock;
-
-	RTMP_IRQ_LOCK(lock, flags);
-#if defined(CTXD_SCATTER_AND_GATHER) || defined(CTXD_MEM_CPY)
-	if (hif->main_hif_chip->max_ctxd_agg_num > 1)
-		asic_write_last_tx_resource(pAd, resource_idx);
-#endif
-
-	HIF_IO_WRITE32(pAd->hdev_ctrl, tx_ring->hw_cidx_addr, tx_ring->TxCpuIdx);
-	RTMP_IRQ_UNLOCK(lock, flags);
-}
-
-/*
-*
-*/
-static UCHAR *pci_get_tx_buf(void *hdev_ctrl, struct _TX_BLK *tx_blk, UCHAR resource_idx, UCHAR frame_type)
-{
-	struct _PCI_HIF_T *hif = hc_get_hif_ctrl(hdev_ctrl);
-	struct hif_pci_tx_ring *tx_ring = pci_get_tx_ring_by_ridx(hif, resource_idx);
-	USHORT tx_cpu_idx = tx_ring->TxCpuIdx;
-	UINT32 offset = 0;
-
-	if (frame_type != TX_FRAG_FRAME) {
-#ifdef CTXD_MEM_CPY
-
-		if (hif->main_hif_chip->max_ctxd_agg_num > 1)
-			offset = tx_ring->cur_txd_cnt * hif->main_hif_chip->ctxd_size_unit;
-#endif
-		return (UCHAR *)tx_ring->Cell[tx_cpu_idx].DmaBuf.AllocVa + offset;
-	} else
-		return (UCHAR *)tx_blk->HeaderBuffer;
-}
-
-/*
-*
-*/
-static UINT32 pci_get_tx_resource_free_num(void *hdev_ctrl, UINT8 resource_idx)
-{
-	UINT32 free_num;
-	ULONG flags;
-	struct _PCI_HIF_T *hif = hc_get_hif_ctrl(hdev_ctrl);
-	struct hif_pci_tx_ring *tx_ring = pci_get_tx_ring_by_ridx(hif, resource_idx);
-	UINT16 tx_ring_size = tx_ring->ring_size;
-	NDIS_SPIN_LOCK *lock = &tx_ring->tx_lock;
-
-	RTMP_IRQ_LOCK(lock, flags);
-	free_num = tx_ring->TxSwFreeIdx > tx_ring->TxCpuIdx ?
-			   tx_ring->TxSwFreeIdx - tx_ring->TxCpuIdx - 1 :
-			   tx_ring->TxSwFreeIdx + tx_ring_size - tx_ring->TxCpuIdx - 1;
-	RTMP_IRQ_UNLOCK(lock, flags);
-	return free_num;
-}
-
-/*
-*
-*/
-static VOID pci_rx_event_process(RTMP_ADAPTER *ad, struct cmd_msg *rx_msg)
-{
-	switch (rx_msg->state) {
-	case rx_receive_fail:
-		break;
-	default:
-		MTWF_DBG(ad, DBG_CAT_FW, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-				 "unknown msg state(%d)\n", rx_msg->state);
-		break;
-	}
-}
-
-/*
-*
-*/
-static VOID pci_mcu_init(void *hdev_ctrl)
-{
-	/*no pcie hif specific */
-}
-
-/*
-*
-*/
-static VOID pci_mcu_exit(void *hdev_ctrl)
-{
-	/*no pcie hif specific */
-}
-
-/*
-*
-*/
-static VOID pci_mcu_fw_init(void *hdev_ctrl)
-{
-	struct _RTMP_ADAPTER *pAd = hc_get_hdev_privdata(hdev_ctrl);
-	struct MCU_CTRL *Ctl = &pAd->MCUCtrl;
-
-	MTWF_DBG(pAd, DBG_CAT_FW, DBG_SUBCAT_ALL, DBG_LVL_INFO, "\n");
-	Ctl->fwdl_ctrl.stage = FWDL_STAGE_FW_NOT_DL;
-
-	/* Enable Interrupt*/
-	chip_interrupt_enable(pAd);
-	hif_dma_enable(pAd->hdev_ctrl);
-	RTMP_SET_FLAG(pAd, fRTMP_ADAPTER_START_UP);
-	RTMP_SET_FLAG(pAd, fRTMP_ADAPTER_MCU_SEND_IN_BAND_CMD);
-}
-
-/*
-*
-*/
-static VOID pci_mcu_fw_exit(void *hdev_ctrl)
-{
-	struct _RTMP_ADAPTER *pAd = hc_get_hdev_privdata(hdev_ctrl);
-
-	MTWF_DBG(pAd, DBG_CAT_FW, DBG_SUBCAT_ALL, DBG_LVL_INFO, "\n");
-	RTMP_CLEAR_FLAG(pAd, fRTMP_ADAPTER_START_UP);
-	RTMP_CLEAR_FLAG(pAd, fRTMP_ADAPTER_MCU_SEND_IN_BAND_CMD);
-	hif_dma_disable(pAd->hdev_ctrl);
-	chip_interrupt_disable(pAd);
-}
-
-/*
-*
-*/
-static INT pci_sys_init(void *hdev_ctrl)
-{
-	struct _RTMP_ADAPTER *ad = hc_get_hdev_privdata(hdev_ctrl);
-
-	pci_irq_init(hdev_ctrl);
-	chip_init_hif_dma(ad);
-	asic_init_txrx_ring(ad);
-	chip_init_dmasch(ad);
-
-	return NDIS_STATUS_SUCCESS;
-}
-
-/*
-*
-*/
-static UINT32 pci_get_resource_idx(void *hdev_ctrl, UINT8 band_idx, enum PACKET_TYPE pkt_type, UCHAR q_idx)
-{
-	struct _PCI_HIF_T *pci_hif = hc_get_hif_ctrl(hdev_ctrl);
-
-	return pci_hif->swq_to_tx_ring[band_idx][pkt_type][q_idx];
-}
-
-static INT tasklet_schedule_tx_done(struct pci_task_group *task_group)
-{
-	RTMP_OS_TASKLET_SCHE(&task_group->tx_dma_done_task);
-	return NDIS_STATUS_SUCCESS;
-}
-
-static INT tasklet_schedule_rx_data_done(struct pci_task_group *task_group)
-{
-	RTMP_OS_TASKLET_SCHE(&task_group->rx_data_done_task);
-	return NDIS_STATUS_SUCCESS;
-}
-#ifdef CONFIG_WIFI_MSI_SUPPORT
-static INT tasklet_schedule_rx_data_done_msi(struct pci_task_group *task_group, UINT8 resource_idx)
-{
-	if (resource_idx == 0)
-		RTMP_OS_TASKLET_SCHE(&task_group->rx_data_done_task_msi_band0);
-
-	if (resource_idx == 1)
-		RTMP_OS_TASKLET_SCHE(&task_group->rx_data_done_task_msi_band1);
-	return NDIS_STATUS_SUCCESS;
-}
-#endif
-
-static INT tasklet_schedule_rx_event_done(struct pci_task_group *task_group)
-{
-	RTMP_OS_TASKLET_SCHE(&task_group->rx_event_done_task);
-	return NDIS_STATUS_SUCCESS;
-}
-static INT tasklet_schedule_rx_dly_done(struct pci_task_group *task_group)
-{
-	RTMP_OS_TASKLET_SCHE(&task_group->rx_dly_done_task);
-	return NDIS_STATUS_SUCCESS;
-}
-
-#ifndef PROPRIETARY_DRIVER_SUPPORT
-static INT napi_schedule_rx_data_done(struct pci_task_group *task_group)
-{
-	napi_schedule(&task_group->rx_data_done_napi_task);
-	return NDIS_STATUS_SUCCESS;
-}
-#endif
 
 #ifdef ERR_RECOVERY
-static INT tasklet_schedule_mac_recovery(struct pci_task_group *task_group)
-{
-	RTMP_OS_TASKLET_SCHE(&task_group->mac_error_recovey_task);
-	return NDIS_STATUS_SUCCESS;
-}
-#endif
+	if (IsStopingPdma(&pAd->ErrRecoveryCtl)) {
+		RTMP_INT_LOCK(&pAd->LockInterrupt, flags);
+		pci_hif->intDisableMask &= ~(MT_INT_TX_DONE);
+		RTMP_INT_UNLOCK(&pAd->LockInterrupt, flags);
+		return;
+	}
+#endif /* ERR_RECOVERY */
 
-#ifdef CONFIG_FWOWN_SUPPORT
-static INT tasklet_schedule_mac_fw_own(struct pci_task_group *task_group)
-{
-	RTMP_OS_TASKLET_SCHE(&task_group->mac_fw_own_task);
-	return NDIS_STATUS_SUCCESS;
-}
-#endif
+	RTMP_INT_LOCK(&pAd->LockInterrupt, flags);
+	int_pending = pci_hif->IntPending;
+	pci_hif->IntPending &= ~(MT_INT_TX_DONE);
+	RTMP_INT_UNLOCK(&pAd->LockInterrupt, flags);
 
-static INT tasklet_schedule_subsys_int(struct pci_task_group *task_group)
-{
-	RTMP_OS_TASKLET_SCHE(&task_group->subsys_int_task);
-	return NDIS_STATUS_SUCCESS;
-}
+	if (int_pending & MT_INT_T15_DONE)
+		pci_hif->dma_done_handle[chip_cap->hif_pkt_type[HIF_TX_IDX15]](pAd, HIF_TX_IDX15);
 
-static INT tasklet_schedule_sw_int(struct pci_task_group *task_group)
-{
-	RTMP_OS_TASKLET_SCHE(&task_group->sw_int_task);
-	return NDIS_STATUS_SUCCESS;
-}
+	if (int_pending & MT_INT_T5_DONE)
+		pci_hif->dma_done_handle[chip_cap->hif_pkt_type[HIF_TX_IDX5]](pAd, HIF_TX_IDX5);
 
-#ifdef WF_RESET_SUPPORT
-static INT tasklet_schedule_wf_reset(struct pci_task_group *task_group)
-{
-	RTMP_OS_TASKLET_SCHE(&task_group->wf_reset_task);
-	return NDIS_STATUS_SUCCESS;
-}
-#endif
+	if (int_pending & MT_INT_T4_DONE)
+		pci_hif->dma_done_handle[chip_cap->hif_pkt_type[HIF_TX_IDX4]](pAd, HIF_TX_IDX4);
 
-static struct pci_schedule_task_ops tasklet_schedule_ops = {
-	.schedule_tx_dma_done = tasklet_schedule_tx_done,
-	.schedule_rx_data_done = tasklet_schedule_rx_data_done,
-#ifdef CONFIG_WIFI_MSI_SUPPORT
-	.schedule_rx_data_done_msi = tasklet_schedule_rx_data_done_msi,
-#endif
-	.schedule_rx_event_done = tasklet_schedule_rx_event_done,
-	.schedule_rx_dly_done = tasklet_schedule_rx_dly_done,
-#ifdef ERR_RECOVERY
-	.schedule_mac_recovery = tasklet_schedule_mac_recovery,
-#endif
-#ifdef CONFIG_FWOWN_SUPPORT
-	.schedule_mac_fw_own = tasklet_schedule_mac_fw_own,
-#endif
-	.schedule_subsys_int = tasklet_schedule_subsys_int,
-	.schedule_sw_int = tasklet_schedule_sw_int,
-#ifdef WF_RESET_SUPPORT
-	.schedule_wf_reset = tasklet_schedule_wf_reset,
-#endif
-};
+	if (int_pending & MT_INT_T3_DONE)
+		pci_hif->dma_done_handle[chip_cap->hif_pkt_type[HIF_TX_IDX3]](pAd, HIF_TX_IDX3);
 
-#ifndef PROPRIETARY_DRIVER_SUPPORT
-static struct pci_schedule_task_ops tasklet_napi_schedule_ops = {
-	.schedule_tx_dma_done = tasklet_schedule_tx_done,
-	.schedule_rx_data_done = napi_schedule_rx_data_done,
-	.schedule_rx_event_done = tasklet_schedule_rx_event_done,
-	.schedule_rx_dly_done = tasklet_schedule_rx_dly_done,
-#ifdef ERR_RECOVERY
-	.schedule_mac_recovery = tasklet_schedule_mac_recovery,
-#endif
-#ifdef CONFIG_FWOWN_SUPPORT
-	.schedule_mac_fw_own = tasklet_schedule_mac_fw_own,
-#endif
-	.schedule_subsys_int = tasklet_schedule_subsys_int,
-	.schedule_sw_int = tasklet_schedule_sw_int,
-#ifdef WF_RESET_SUPPORT
-	.schedule_wf_reset = tasklet_schedule_wf_reset,
-#endif
-};
-#endif
+	if (int_pending & MT_INT_T2_DONE)
+		pci_hif->dma_done_handle[chip_cap->hif_pkt_type[HIF_TX_IDX2]](pAd, HIF_TX_IDX2);
 
-/*
- *
- */
-static NDIS_STATUS pci_init_task_group(void *hdev_ctrl)
-{
-	struct _RTMP_CHIP_CAP *cap = hc_get_chip_cap(hdev_ctrl);
-	struct _PCI_HIF_T *hif = hc_get_hif_ctrl(hdev_ctrl);
-	struct pci_hif_chip *hif_chip;
-	struct pci_task_group *task_group;
-	UINT8 i;
+	if (int_pending & MT_INT_T1_DONE)
+		pci_hif->dma_done_handle[chip_cap->hif_pkt_type[HIF_TX_IDX1]](pAd, HIF_TX_IDX1);
 
-	for (i = 0; i < hif->pci_hif_chip_num; i++) {
-		hif_chip = hif->pci_hif_chip[i];
-		task_group = &hif_chip->task_group;
+	if (int_pending & MT_INT_T0_DONE)
+		pci_hif->dma_done_handle[chip_cap->hif_pkt_type[HIF_TX_IDX0]](pAd, HIF_TX_IDX0);
 
-		if (cap->hif_tm == TASKLET_METHOD) {
-			hif_chip->schedule_task_ops = &tasklet_schedule_ops;
-			RTMP_OS_TASKLET_INIT(NULL, &task_group->tx_dma_done_task, pci_tx_dma_done_func, (unsigned long)hif_chip);
-			RTMP_OS_TASKLET_INIT(NULL, &task_group->rx_data_done_task, pci_rx_data_done_func, (unsigned long)hif_chip);
-#ifdef CONFIG_WIFI_MSI_SUPPORT
-			RTMP_OS_TASKLET_INIT(NULL, &task_group->rx_data_done_task_msi_band0, pci_rx_data_done_func_msi_band0, (unsigned long)hif_chip);
-			RTMP_OS_TASKLET_INIT(NULL, &task_group->rx_data_done_task_msi_band1, pci_rx_data_done_func_msi_band1, (unsigned long)hif_chip);
-#endif
-			RTMP_OS_TASKLET_INIT(NULL, &task_group->rx_event_done_task, pci_rx_event_done_func, (unsigned long)hif_chip);
-			RTMP_OS_TASKLET_INIT(NULL, &task_group->rx_dly_done_task, pci_rx_dly_done_func, (unsigned long)hif_chip);
-#ifdef ERR_RECOVERY
-			RTMP_OS_TASKLET_INIT(NULL, &task_group->mac_error_recovey_task, pci_mac_recovery_func, (unsigned long)hif_chip);
-#endif
-#ifdef CONFIG_FWOWN_SUPPORT
-			RTMP_OS_TASKLET_INIT(NULL, &task_group->mac_fw_own_task, pci_mac_fw_own_func, (unsigned long)hif_chip);
-#endif
-			RTMP_OS_TASKLET_INIT(NULL, &task_group->subsys_int_task, pci_subsys_int_func, (unsigned long)hif_chip);
-			RTMP_OS_TASKLET_INIT(NULL, &task_group->sw_int_task, pci_sw_int_func, (unsigned long)hif_chip);
-#ifdef WF_RESET_SUPPORT
-			RTMP_OS_TASKLET_INIT(NULL, &task_group->wf_reset_task, pci_wf_reset_func, (unsigned long)hif_chip);
-#endif
-		}
-#ifndef PROPRIETARY_DRIVER_SUPPORT
-		else if (cap->hif_tm == TASKLET_NAPI_METHOD) {
-			struct _RTMP_ADAPTER *ad = hc_get_hdev_privdata(hdev_ctrl);
-
-			hif_chip->schedule_task_ops = &tasklet_napi_schedule_ops;
-			init_dummy_netdev(&task_group->napi_dev);
-			task_group->priv = (VOID *)hif_chip;
-			netif_napi_add(&task_group->napi_dev, &task_group->rx_data_done_napi_task, pci_rx_data_done_poll_func, NAPI_POLL_WEIGHT);
-			ad->tr_ctl.napi = (VOID *)&task_group->rx_data_done_napi_task;
-			napi_enable(&task_group->rx_data_done_napi_task);
-			RTMP_OS_TASKLET_INIT(NULL, &task_group->rx_event_done_task, pci_rx_event_done_func, (unsigned long)hif_chip);
-			RTMP_OS_TASKLET_INIT(NULL, &task_group->rx_dly_done_task, pci_rx_dly_done_func, (unsigned long)hif_chip);
-			RTMP_OS_TASKLET_INIT(NULL, &task_group->tx_dma_done_task, pci_tx_dma_done_func, (unsigned long)hif_chip);
-#ifdef ERR_RECOVERY
-			RTMP_OS_TASKLET_INIT(NULL, &task_group->mac_error_recovey_task, pci_mac_recovery_func, (unsigned long)hif_chip);
-#endif
-#ifdef CONFIG_FWOWN_SUPPORT
-			RTMP_OS_TASKLET_INIT(NULL, &task_group->mac_fw_own_task, pci_mac_fw_own_func, (unsigned long)hif_chip);
-#endif
-			RTMP_OS_TASKLET_INIT(NULL, &task_group->subsys_int_task, pci_subsys_int_func, (unsigned long)hif_chip);
-			RTMP_OS_TASKLET_INIT(NULL, &task_group->sw_int_task, pci_sw_int_func, (unsigned long)hif_chip);
-#ifdef WF_RESET_SUPPORT
-			RTMP_OS_TASKLET_INIT(NULL, &task_group->wf_reset_task, pci_wf_reset_func, (unsigned long)hif_chip);
-#endif
-		}
-#endif
+	RTMP_INT_LOCK(&pAd->LockInterrupt, flags);
+	/* double check to avoid lose of interrupts */
+	if (pci_hif->IntPending & MT_INT_TX_DONE) {
+		tm_ops->schedule_task(pAd, TX_DONE_TASK);
+		RTMP_INT_UNLOCK(&pAd->LockInterrupt, flags);
+		return;
 	}
 
-	return NDIS_STATUS_SUCCESS;
+	mt_int_enable(pAd, MT_INT_TX_DONE);
+	RTMP_INT_UNLOCK(&pAd->LockInterrupt, flags);
 }
 
-/*
- *
- */
-static NDIS_STATUS pci_reset_task_group(void *hdev_ctrl)
+VOID rx_done_func(RTMP_ADAPTER *pAd)
 {
-	struct _RTMP_CHIP_CAP *cap = hc_get_chip_cap(hdev_ctrl);
-	struct _PCI_HIF_T *hif = hc_get_hif_ctrl(hdev_ctrl);
-	struct pci_hif_chip *hif_chip;
-	struct pci_task_group *task_group;
-	UINT8 i;
+	unsigned long flags;
+	BOOLEAN	bReschedule = 0;
+	POS_COOKIE pObj;
+	RTMP_ARCH_OP *arch_ops = &pAd->archOps;
+	struct tm_ops *tm_ops = pAd->tm_hif_ops;
+	PCI_HIF_T *pci_hif = hc_get_hif_ctrl(pAd->hdev_ctrl);
 
-	for (i = 0; i < hif->pci_hif_chip_num; i++) {
-		hif_chip = hif->pci_hif_chip[i];
-		task_group = &hif_chip->task_group;
+	MTWF_LOG(DBG_CAT_FPGA, DBG_SUBCAT_ALL, DBG_LVL_NOISY, ("-->%s():\n", __func__));
 
-		if (cap->hif_tm == TASKLET_METHOD) {
-			RTMP_OS_TASKLET_KILL(&task_group->tx_dma_done_task);
-			RTMP_OS_TASKLET_KILL(&task_group->rx_data_done_task);
-#ifdef CONFIG_WIFI_MSI_SUPPORT
-			RTMP_OS_TASKLET_KILL(&task_group->rx_data_done_task_msi_band0);
-			RTMP_OS_TASKLET_KILL(&task_group->rx_data_done_task_msi_band1);
-#endif
-			RTMP_OS_TASKLET_KILL(&task_group->rx_event_done_task);
-			RTMP_OS_TASKLET_KILL(&task_group->rx_dly_done_task);
-#ifdef ERR_RECOVERY
-			RTMP_OS_TASKLET_KILL(&task_group->mac_error_recovey_task);
-#endif
-#ifdef CONFIG_FWOWN_SUPPORT
-			RTMP_OS_TASKLET_KILL(&task_group->mac_fw_own_task);
-#endif
-			RTMP_OS_TASKLET_KILL(&task_group->subsys_int_task);
-			RTMP_OS_TASKLET_KILL(&task_group->sw_int_task);
-		}
-#ifndef PROPRIETARY_DRIVER_SUPPORT
-		else if (cap->hif_tm == TASKLET_NAPI_METHOD) {
-			RTMP_OS_TASKLET_KILL(&task_group->tx_dma_done_task);
-			netif_napi_del(&task_group->rx_data_done_napi_task);
-			RTMP_OS_TASKLET_KILL(&task_group->rx_event_done_task);
-			RTMP_OS_TASKLET_KILL(&task_group->rx_dly_done_task);
-#ifdef ERR_RECOVERY
-			RTMP_OS_TASKLET_KILL(&task_group->mac_error_recovey_task);
-#endif
-#ifdef CONFIG_FWOWN_SUPPORT
-			RTMP_OS_TASKLET_KILL(&task_group->mac_fw_own_task);
-#endif
-			RTMP_OS_TASKLET_KILL(&task_group->subsys_int_task);
-			RTMP_OS_TASKLET_KILL(&task_group->sw_int_task);
-		}
-#endif
+	if (pAd->BATable.ba_timeout_check) {
+		ba_timeout_flush(pAd);
+
+		if (!((pci_hif->IntPending & MT_INT_RX_DATA) ||
+			(pci_hif->intDisableMask & MT_INT_RX_DATA)))
+			return;
 	}
 
-	return NDIS_STATUS_SUCCESS;
-}
-
-/*
- *
- */
-static NDIS_STATUS pci_register_irq(void *hdev_ctrl)
-{
-	struct _PCI_HIF_T *hif = hc_get_hif_ctrl(hdev_ctrl);
-	struct pci_hif_chip *hif_chip;
-	struct device *dev = NULL;
-	int i, ret;
-
-	for (i = 0; i < hif->pci_hif_chip_num; i++) {
-		hif_chip = hif->pci_hif_chip[i];
-		dev = (struct device *)(hif_chip->pdev);
-#ifdef MULTI_INTR_SUPPORT
-		if (hif_chip->is_multi_intr == 1 && hif_chip->multi_irq_2nd != 0 &&
-			hif_chip->multi_irq_3rd != 0 && hif_chip->multi_irq_4th != 0) {
-			ret = RtmpOSIRQRequest(hif_chip->irq, dev_name(dev), rt2860_multi_interrupt, hif_chip);
-			if (ret)
-				return NDIS_STATUS_FAILURE;
-
-			ret = RtmpOSIRQRequest(hif_chip->multi_irq_2nd, dev_name(dev), rt2860_multi_interrupt_2nd, hif_chip);
-			if (ret)
-				return NDIS_STATUS_FAILURE;
-
-			ret = RtmpOSIRQRequest(hif_chip->multi_irq_3rd, dev_name(dev), rt2860_multi_interrupt_3rd, hif_chip);
-			if (ret)
-				return NDIS_STATUS_FAILURE;
-
-			ret = RtmpOSIRQRequest(hif_chip->multi_irq_4th, dev_name(dev), rt2860_multi_interrupt_4th, hif_chip);
-			if (ret)
-				return NDIS_STATUS_FAILURE;
-		} else
-#endif
-#ifdef CONFIG_WIFI_MSI_SUPPORT
-			if (hif_chip->is_msi) {
-				UINT32 irq;
-				UINT8 j;
-				irq = hif_chip->first_irq;
-
-				for (j = 0; j < 8; j++) {
-					ret = RtmpOSIRQRequest((j + irq), dev_name(dev), rt2860_interrupt, hif_chip);
-					if (ret) {
-						MTWF_DBG(NULL, DBG_CAT_HIF, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-							"register irq[%d] Fail!\n", (j + irq));
-						return NDIS_STATUS_FAILURE;
-					} else
-						MTWF_DBG(NULL, DBG_CAT_HIF, DBG_SUBCAT_ALL, DBG_LVL_INFO,
-							"register irq[%d] Success!\n", (j + irq));
-				}
-			} else
-#endif
-
-			ret = RtmpOSIRQRequest(hif_chip->irq, dev_name(dev), rt2860_interrupt, hif_chip);
-
-		if (ret)
-			return NDIS_STATUS_FAILURE;
+	/* Do nothing if the driver is starting halt state. */
+	/* This might happen when timer already been fired before cancel timer with mlmehalt */
+	/* Fix Rx Ring FULL lead DMA Busy, when DUT is in reset stage */
+	if (RTMP_TEST_FLAG(pAd, fRTMP_ADAPTER_NIC_NOT_EXIST)) {
+		RTMP_INT_LOCK(&pAd->LockInterrupt, flags);
+		pci_hif->intDisableMask &= ~(MT_INT_RX_DATA);
+		RTMP_INT_UNLOCK(&pAd->LockInterrupt, flags);
+		return;
 	}
 
-	return NDIS_STATUS_SUCCESS;
-}
+	pObj = (POS_COOKIE)pAd->OS_Cookie;
+	RTMP_INT_LOCK(&pAd->LockInterrupt, flags);
+	pci_hif->IntPending &= ~(MT_INT_RX_DATA);
+	RTMP_INT_UNLOCK(&pAd->LockInterrupt, flags);
+	bReschedule = arch_ops->rx_done_handle(pAd);
+	RTMP_INT_LOCK(&pAd->LockInterrupt, flags);
 
-/*
- *
- */
-static NDIS_STATUS pci_free_irq_local(void *hdev_ctrl)
-{
-	struct _PCI_HIF_T *hif = hc_get_hif_ctrl(hdev_ctrl);
-	struct pci_hif_chip *hif_chip;
-	UINT32 i;
-
-	for (i = 0; i < hif->pci_hif_chip_num; i++) {
-		hif_chip = hif->pci_hif_chip[i];
-#ifdef CONFIG_WIFI_MSI_SUPPORT
-		if (hif_chip->is_msi) {
-			UINT32 irq;
-			UINT8 j;
-			irq = hif_chip->first_irq;
-
-			for (j = 0; j < 8; j++)
-				RtmpOSIRQRelease((j + irq), hif_chip);
-		} else
-#endif
-		RtmpOSIRQRelease(hif_chip->irq, hif_chip);
-#ifdef MULTI_INTR_SUPPORT
-		if (hif_chip->is_multi_intr == 1 && hif_chip->multi_irq_2nd != 0 &&
-			hif_chip->multi_irq_3rd != 0 && hif_chip->multi_irq_4th != 0) {
-			RtmpOSIRQRelease(hif_chip->multi_irq_2nd, hif_chip);
-			RtmpOSIRQRelease(hif_chip->multi_irq_3rd, hif_chip);
-			RtmpOSIRQRelease(hif_chip->multi_irq_4th, hif_chip);
-		}
-#endif
+	if (pci_hif->IntPending & MT_INT_RX_DATA || bReschedule) {
+		tm_ops->schedule_task(pAd, RX_DONE_TASK);
+		RTMP_INT_UNLOCK(&pAd->LockInterrupt, flags);
+		return;
 	}
 
-	return NDIS_STATUS_SUCCESS;
+	mt_int_enable(pAd, MT_INT_RX_DATA);
+
+	RTMP_INT_UNLOCK(&pAd->LockInterrupt, flags);
 }
 
-#ifdef CONFIG_WIFI_MSI_SUPPORT
-VOID pci_handle_msi_irq(int irq, void *hif_chip)
+VOID rx1_done_func(RTMP_ADAPTER *pAd)
 {
-	struct pci_hif_chip *pci_hif_chip = (struct pci_hif_chip *)hif_chip;
-	UCHAR msi_message;
-	struct _PCI_HIF_T *pci_hif = pci_hif_chip->hif;
-	struct _RTMP_ADAPTER *pAd = RTMP_OS_NETDEV_GET_PRIV(pci_hif->net_dev);
-	struct _RTMP_CHIP_OP *chip_ops = hc_get_chip_ops(pAd->hdev_ctrl);
-	UINT32 value = DEFAULT_RID;
+	unsigned long flags;
+	BOOLEAN	bReschedule = 0;
+	POS_COOKIE pObj;
+	PCI_HIF_T *pci_hif = hc_get_hif_ctrl(pAd->hdev_ctrl);
+	struct tm_ops *tm_ops = pAd->tm_hif_ops;
 
-	msi_message = irq - pci_hif_chip->first_irq;
+	/* Do nothing if the driver is starting halt state. */
+	/* This might happen when timer already been fired before cancel timer with mlmehalt */
+	/* if (RTMP_TEST_FLAG(pAd, fRTMP_ADAPTER_HALT_IN_PROGRESS | fRTMP_ADAPTER_NIC_NOT_EXIST)) */
+	if (RTMP_TEST_FLAG(pAd, fRTMP_ADAPTER_NIC_NOT_EXIST)) {
+		RTMP_INT_LOCK(&pAd->LockInterrupt, flags);
+		pci_hif->intDisableMask &= ~(MT_INT_RX_CMD);
+		RTMP_INT_UNLOCK(&pAd->LockInterrupt, flags);
+		return;
+	}
 
-	if (pci_hif_chip->is_main == TRUE) {
-		pAd->irq_num[msi_message]++;
-#if defined(MT7986) || defined(MT7916) || defined(MT7981)
-		if (chip_ops->get_rid_value())
-			value = chip_ops->get_rid_value();
-#else
-		value = get_rid_value(pci_hif_chip);
-#endif
-		if (value != DEFAULT_RID) {
-			if (msi_message == MSI_IRQ2) {
-				pci_hif_chip->msi_isr_message3(pci_hif_chip);
-			} else if (msi_message == MSI_IRQ0 || msi_message == MSI_IRQ1 || msi_message == MSI_IRQ3 ||
-				msi_message == MSI_IRQ4 || msi_message == MSI_IRQ5 || msi_message == MSI_IRQ6) {
-				pci_hif_chip->isr(pci_hif_chip);
-			}
-		} else {
-			if (msi_message == MSI_IRQ3) {
-				pci_hif_chip->msi_isr_message3(pci_hif_chip);
-			} else if (msi_message == MSI_IRQ4) {
-				pci_hif_chip->msi_isr_message4(pci_hif_chip);
-			} else if (msi_message == MSI_IRQ7 || msi_message == MSI_IRQ0 || msi_message == MSI_IRQ1 ||
-				msi_message == MSI_IRQ2 || msi_message == MSI_IRQ5 || msi_message == MSI_IRQ6) {
-				pci_hif_chip->isr(pci_hif_chip);
-			}
-		}
+	pObj = (POS_COOKIE)pAd->OS_Cookie;
+	RTMP_INT_LOCK(&pAd->LockInterrupt, flags);
+	pci_hif->IntPending &= ~(MT_INT_RX_CMD);
+	RTMP_INT_UNLOCK(&pAd->LockInterrupt, flags);
+	bReschedule = RxRing1DoneInterruptHandle(pAd);
+	RTMP_INT_LOCK(&pAd->LockInterrupt, flags);
+
+	/* double check to avoid rotting packet  */
+	if ((pci_hif->IntPending & MT_INT_RX_CMD) || bReschedule) {
+		tm_ops->schedule_task(pAd, RX1_DONE_TASK);
+		RTMP_INT_UNLOCK(&pAd->LockInterrupt, flags);
+		return;
+	}
+
+	mt_int_enable(pAd, MT_INT_RX_CMD);
+
+	RTMP_INT_UNLOCK(&pAd->LockInterrupt, flags);
+}
+
+VOID tr_done_func(RTMP_ADAPTER *pAd)
+{
+	unsigned long flags;
+	PCI_HIF_T *pci_hif = &pAd->PciHif;
+	RTMP_ARCH_OP *arch_ops = &pAd->archOps;
+	UINT32 int_pending;
+	BOOLEAN	reschedule_rx0 = pAd->reschedule_rx0;
+	BOOLEAN reschedule_rx1 = pAd->reschedule_rx1;
+	struct tm_ops *tm_ops = pAd->tm_hif_ops;
+
+	RTMP_INT_LOCK(&pAd->LockInterrupt, flags);
+
+	if (RTMP_TEST_FLAG(pAd, fRTMP_ADAPTER_NIC_NOT_EXIST)) {
+		pci_hif->intDisableMask &= ~(MT_INT_RX | MT_INT_RX_DLY);
+		RTMP_INT_UNLOCK(&pAd->LockInterrupt, flags);
+		return;
+	}
+
+	int_pending = pci_hif->IntPending;
+	pci_hif->IntPending &= ~(MT_INT_RX | MT_INT_RX_DLY);
+	RTMP_INT_UNLOCK(&pAd->LockInterrupt, flags);
+
+
+	if ((int_pending & MT_INT_RX_DATA) || reschedule_rx0) {
+		reschedule_rx0 = arch_ops->rx_done_handle(pAd);
+		reschedule_rx1 = RxRing1DoneInterruptHandle(pAd);
+	} else if ((int_pending & MT_INT_RX_CMD) || reschedule_rx1) {
+		reschedule_rx1 = RxRing1DoneInterruptHandle(pAd);
+		reschedule_rx0 = arch_ops->rx_done_handle(pAd);
 	} else {
-		pAd->irq_num_pcie1[msi_message]++;
+		if (pAd->BATable.ba_timeout_check)
+			ba_timeout_flush(pAd);
+	}
+	pAd->reschedule_rx0 = reschedule_rx0;
+	pAd->reschedule_rx1 = reschedule_rx1;
+	RTMP_INT_LOCK(&pAd->LockInterrupt, flags);
+	/* double check to avoid rotting packet  */
+	if (reschedule_rx0 || reschedule_rx1) {
+		tm_ops->schedule_task(pAd, TR_DONE_TASK);
+		RTMP_INT_UNLOCK(&pAd->LockInterrupt, flags);
+		return;
+	}
 
-		if (msi_message == MSI_IRQ2) {
-			pci_hif_chip->msi_isr_message2_pcie1(pci_hif_chip);
-		} else if (msi_message == MSI_IRQ0 || msi_message == MSI_IRQ1 || msi_message == MSI_IRQ3) {
-			pci_hif_chip->isr(pci_hif_chip);
+	mt_int_enable(pAd, MT_INT_RX | MT_INT_RX_DLY);
+	RTMP_INT_UNLOCK(&pAd->LockInterrupt, flags);
+}
+
+VOID mtd_isr(RTMP_ADAPTER *pAd)
+{
+	UINT32 IntSource = 0x00000000L;
+	UINT32 u4McuCommandMask = 0, u4McuCommandCSR;
+#ifdef ERR_RECOVERY
+	UINT32 u4ErrorDetectMask = 0;
+#endif
+	POS_COOKIE pObj;
+	PCI_HIF_T *pci_hif = hc_get_hif_ctrl(pAd->hdev_ctrl);
+	struct tm_ops *tm_ops = pAd->tm_hif_ops;
+#ifdef CONFIG_TP_DBG
+	struct tp_debug *tp_dbg = &pAd->tr_ctl.tp_dbg;
+#endif
+	unsigned long flags = 0;
+
+	pObj = (POS_COOKIE)pAd->OS_Cookie;
+	pAd->bPCIclkOff = FALSE;
+	HIF_IO_READ32(pAd, MT_INT_SOURCE_CSR, &IntSource);
+
+	if (!RTMP_TEST_FLAG(pAd, fRTMP_ADAPTER_START_UP)) {
+		mt_int_status_clear(pAd, IntSource);
+		return;
+	}
+
+	if (RTMP_TEST_FLAG(pAd, fRTMP_ADAPTER_HALT_IN_PROGRESS)) {
+		UINT32 reg;
+
+		/* Fix Rx Ring FULL lead DMA Busy, when DUT is in reset stage */
+		reg = IntSource & (MT_INT_CMD | MT_INT_RX | MT_INT_RX_DLY |
+					WF_MAC_INT_3 | MT_INT_RX_COHE);
+
+		if (!reg) {
+			mt_int_status_clear(pAd, IntSource);
+			return;
 		}
 	}
-}
 
-#endif
-
-/*
-*
-*/
-VOID pci_handle_irq(void *hif_chip)
-{
-	struct pci_hif_chip *pci_hif_chip = (struct pci_hif_chip *)hif_chip;
-
-	pci_hif_chip->isr(pci_hif_chip);
-}
-
-#ifdef MULTI_INTR_SUPPORT
-/*
-*
-*/
-VOID pci_handle_multi_irq(void *hif_chip)
-{
-	struct pci_hif_chip *pci_hif_chip = (struct pci_hif_chip *)hif_chip;
-
-	pci_hif_chip->multi_isr(pci_hif_chip);
-}
-
-/*
-*
-*/
-VOID pci_handle_multi_irq_2nd(void *hif_chip)
-{
-	struct pci_hif_chip *pci_hif_chip = (struct pci_hif_chip *)hif_chip;
-
-	pci_hif_chip->multi_isr_2nd(pci_hif_chip);
-}
-
-/*
-*
-*/
-VOID pci_handle_multi_irq_3rd(void *hif_chip)
-{
-	struct pci_hif_chip *pci_hif_chip = (struct pci_hif_chip *)hif_chip;
-
-	pci_hif_chip->multi_isr_3rd(pci_hif_chip);
-}
-
-/*
-*
-*/
-VOID pci_handle_multi_irq_4th(void *hif_chip)
-{
-	struct pci_hif_chip *pci_hif_chip = (struct pci_hif_chip *)hif_chip;
-
-	pci_hif_chip->multi_isr_4th(pci_hif_chip);
-}
-#endif
-
-/*
-*
-*/
-static VOID pci_hif_init(void *hdev_ctrl)
-{
-	struct _PCI_HIF_T *hif = hc_get_hif_ctrl(hdev_ctrl);
-
-	NdisAllocateSpinLock(NULL, &hif->io_remap_lock);
-	hif->bPCIclkOff = FALSE;
-}
-
-/*
-*
-*/
-static VOID pci_hif_exit(void *hdev_ctrl)
-{
-	struct _PCI_HIF_T *hif = hc_get_hif_ctrl(hdev_ctrl);
-
-	if (hif) {
-		NdisFreeSpinLock(&hif->io_remap_lock);
+	/* Do nothing if NIC doesn't exist */
+	if (IntSource == 0xffffffff) {
+		RTMP_SET_FLAG(pAd, (fRTMP_ADAPTER_NIC_NOT_EXIST | fRTMP_ADAPTER_HALT_IN_PROGRESS));
+		mt_int_status_clear(pAd, IntSource);
+		return;
 	}
-}
-
-/*
-*
-*/
-static VOID pci_mcu_unlink_ackq(struct cmd_msg *msg)
-{
-	RTMP_ADAPTER *ad = (RTMP_ADAPTER *)msg->priv;
-	struct MCU_CTRL *ctl = &ad->MCUCtrl;
-	DL_LIST *list = &ctl->ackq;
-
-	AndesUnlinkCmdMsg(msg, list);
-}
-
-/*
-*
-*/
-static UINT8 pci_get_tx_res_num(VOID *hif_ctrl)
-{
-	return ((struct _PCI_HIF_T *)hif_ctrl)->tx_res_num;
-}
-
-/*
-*
-*/
-static UINT8 pci_get_rx_res_num(VOID *hif_ctrl)
-{
-	return ((struct _PCI_HIF_T *)hif_ctrl)->rx_res_num;
-}
-
-/*register func.*/
-/*
-*
-*/
-static VOID pci_ops_register(void *hdev_ctrl)
-{
-	struct hif_ops *ops = hc_get_hif_ops(hdev_ctrl);
-
-	/*register hif ops*/
-	ops->get_resource_type = pci_get_resouce_type;
-	ops->free_txd = pci_free_txd;
-	ops->free_rx_buf = pci_free_rx_buf;
-	ops->get_tx_buf = pci_get_tx_buf;
-	ops->init_txrx_mem = pci_init_txrx_ring_mem;
-	ops->reset_txrx_mem = pci_reset_txrx_ring_mem;
-	ops->dma_reset = pci_dma_reset;
-	ops->dma_enable = pci_dma_enable;
-	ops->dma_disable = pci_dma_disable;
-	ops->poll_txrx_empty = pci_poll_txrx_empty;
-	ops->get_tx_resource_free_num = pci_get_tx_resource_free_num;
-	ops->get_resource_idx = pci_get_resource_idx;
-	ops->init_task_group = pci_init_task_group;
-	ops->reset_task_group = pci_reset_task_group;
-	ops->register_irq = pci_register_irq;
-	ops->free_irq = pci_free_irq_local;
-	/*mcu related*/
-	ops->kick_out_cmd_msg = pci_kick_out_cmd_msg;
-	ops->kick_out_fwdl_msg = pci_kick_out_fwdl_msg;
-	ops->kickout_data_tx = pci_kick_out_data_tx;
-	ops->kickout_nullframe_tx = MiniportMMRequest;
-	ops->rx_event_process = pci_rx_event_process;
-	ops->mcu_init = pci_mcu_init;
-	ops->mcu_exit = pci_mcu_exit;
-	ops->mcu_fw_init = pci_mcu_fw_init;
-	ops->mcu_fw_exit = pci_mcu_fw_exit;
-	ops->mcu_unlink_ackq = pci_mcu_unlink_ackq;
-	/*core init free*/
-	ops->sys_init = pci_sys_init;
-#ifdef CONFIG_STA_SUPPORT
-	ops->ps_poll_enq = EnqueuePsPoll;
-	ops->sta_sleep_auto_wakeup = RT28xxPciStaAsicSleepAutoWakeup;
-	ops->sta_wakeup = RT28xxPciStaAsicWakeup;
-#endif /*CONFIG_STA_SUPPORT*/
-	ops->cmd_thread = RTPCICmdThread;
-	ops->get_tx_res_num = pci_get_tx_res_num;
-	ops->get_rx_res_num = pci_get_rx_res_num;
-}
-
-/*export function for other module*/
-/*
-*
-*/
-VOID pci_core_ops_register(void *hdev_ctrl)
-{
-	pci_hif_init(hdev_ctrl);
-	pci_io_ops_register(hdev_ctrl);
-	pci_ops_register(hdev_ctrl);
-}
-
-/*
-*
-*/
-VOID pci_core_ops_unregister(void *hdev_ctrl)
-{
-	pci_hif_exit(hdev_ctrl);
-}
-
-/*
-*
-*/
-inline UINT32 pci_get_tx_resource_free_num_nolock(RTMP_ADAPTER *pAd, UINT8 resource_idx)
-{
-	UINT32 free_num;
-	struct _PCI_HIF_T *hif = hc_get_hif_ctrl(pAd->hdev_ctrl);
-	struct hif_pci_tx_ring *tx_ring = pci_get_tx_ring_by_ridx(hif, resource_idx);
-	UINT16 tx_ring_size = tx_ring->ring_size;
-
-	free_num = tx_ring->TxSwFreeIdx > tx_ring->TxCpuIdx ?
-			   tx_ring->TxSwFreeIdx - tx_ring->TxCpuIdx - 1 :
-			   tx_ring->TxSwFreeIdx + tx_ring_size - tx_ring->TxCpuIdx - 1;
-
-	return free_num;
-}
-
-/*
-*
-*/
-inline BOOLEAN pci_is_tx_resource_empty(RTMP_ADAPTER *pAd, UINT8 resource_idx)
-{
-	struct _PCI_HIF_T *hif = hc_get_hif_ctrl(pAd->hdev_ctrl);
-	struct hif_pci_tx_ring *tx_ring = pci_get_tx_ring_by_ridx(hif, resource_idx);
-
-	return ((tx_ring->TxDmaIdx == tx_ring->TxCpuIdx)	? 1 : 0);
-}
-
-/*
-*
-*/
-inline UINT32 pci_get_rx_resource_pending_num(RTMP_ADAPTER *pAd, UINT8 resource_idx)
-{
-	UINT32 num;
-	ULONG flags;
-	struct _PCI_HIF_T *hif = hc_get_hif_ctrl(pAd->hdev_ctrl);
-	struct hif_pci_rx_ring *rx_ring = pci_get_rx_ring_by_ridx(hif, resource_idx);
-	NDIS_SPIN_LOCK *lock = &rx_ring->ring_lock;
-
-	RTMP_IRQ_LOCK(lock, flags);
-	num = ((rx_ring->RxDmaIdx > rx_ring->RxSwReadIdx) ?
-	(rx_ring->RxDmaIdx - rx_ring->RxSwReadIdx) :
-	(rx_ring->RxDmaIdx + rx_ring->ring_size - rx_ring->RxSwReadIdx));
-
-	RTMP_IRQ_UNLOCK(lock, flags);
-	return num;
-}
-
-/*
-*
-*/
-inline VOID pci_inc_resource_full_cnt(RTMP_ADAPTER *pAd, UINT8 resource_idx)
-{
-	struct _PCI_HIF_T *hif = hc_get_hif_ctrl(pAd->hdev_ctrl);
-	struct hif_pci_tx_ring *tx_ring = pci_get_tx_ring_by_ridx(hif, resource_idx);
-
-	tx_ring->tx_ring_full_cnt++;
-}
-
-
-inline VOID pci_dec_resource_full_cnt(RTMP_ADAPTER *pAd, UINT8 resource_idx)
-{
-	struct _PCI_HIF_T *hif = hc_get_hif_ctrl(pAd->hdev_ctrl);
-	struct hif_pci_tx_ring *tx_ring = pci_get_tx_ring_by_ridx(hif, resource_idx);
-
-	tx_ring->tx_ring_full_cnt--;
-}
-/*
-*
-*/
-inline BOOLEAN pci_get_resource_state(RTMP_ADAPTER *pAd, UINT8 resource_idx)
-{
-	struct _PCI_HIF_T *hif = hc_get_hif_ctrl(pAd->hdev_ctrl);
-	struct hif_pci_tx_ring *tx_ring = pci_get_tx_ring_by_ridx(hif, resource_idx);
-
-	return test_bit(0, &tx_ring->tx_ring_state);
-}
-
-/*
-*
-*/
-inline INT pci_set_resource_state(RTMP_ADAPTER *pAd, UINT8 resource_idx, BOOLEAN state)
-{
-	struct _PCI_HIF_T *hif = hc_get_hif_ctrl(pAd->hdev_ctrl);
-	struct hif_pci_tx_ring *tx_ring = pci_get_tx_ring_by_ridx(hif, resource_idx);
-
-	if (state == TX_RING_LOW)
-		set_bit(0, &tx_ring->tx_ring_state);
-	else
-		clear_bit(0, &tx_ring->tx_ring_state);
-
-	return NDIS_STATUS_SUCCESS;
-}
-
-UINT32 pci_dynamic_dly_int_adjust(VOID *hdev_ctrl, UINT32 tx_tp_mbps, UINT32 rx_tp_mbps)
-{
-	struct _PCI_HIF_T *hif = hc_get_hif_ctrl(hdev_ctrl);
-	UINT8 num_of_rx_ring = hif->rx_res_num;
-	struct dly_ctl_cfg *cfg, *sel_cfg;
-	struct hif_pci_rx_ring *rx_ring = NULL;
-	UINT32 i, num;
-#ifdef WFDMA_WED_COMPATIBLE
-	struct _RTMP_ADAPTER *ad = hc_get_hdev_privdata(hdev_ctrl);
+#ifdef CONFIG_RECOVERY_ON_INTERRUPT_MISS
+	pAd->tr_ctl.total_int_count++;
 #endif
 
-	if ((tx_tp_mbps + rx_tp_mbps) == 0)
-		return NDIS_STATUS_SUCCESS;
+	if (IntSource & MT_TxCoherent)
+		MTWF_LOG(DBG_CAT_HIF, CATHIF_PCI, DBG_LVL_ERROR, (">>>TxCoherent<<<\n"));
 
-	/* WPDMA/WFDMA TX */
+	if (IntSource & MT_RxCoherent)
+		MTWF_LOG(DBG_CAT_HIF, CATHIF_PCI, DBG_LVL_ERROR, (">>>RxCoherent<<<\n"));
 
-	/* WPDMA/WFDMA RX */
-	for (num = 0; num < num_of_rx_ring; num++) {
-		rx_ring = pci_get_rx_ring_by_ridx(hif, num);
+	RTMP_INT_LOCK(&pAd->LockInterrupt, flags);
 
-		if (rx_ring->delay_int_en) {
-			sel_cfg = NULL;
-			if (((tx_tp_mbps * 100) / (tx_tp_mbps + rx_tp_mbps))
-								> TX_MODE_RATIO_THRESHOLD) {
-				for (i = 0; i < rx_ring->dl_dly_ctl_tbl_size; i++) {
-					cfg = rx_ring->dl_dly_ctl_tbl + i;
-#ifdef WFDMA_WED_COMPATIBLE
-					if (ad->CommonCfg.whnat_en && MTK_REV_LT(ad, MT7916, MT7916E2))
-						cfg->dly_time = 1;
+	if (IntSource & MT_INT_TX_DONE) {
+		if ((pci_hif->intDisableMask & (IntSource & MT_INT_TX_DONE)) == 0)
+			tm_ops->schedule_task(pAd, TX_DONE_TASK);
+
+		pci_hif->IntPending |= (IntSource & MT_INT_TX_DONE);
+
+#ifdef CONFIG_TP_DBG
+		tp_dbg->IsrTxCnt++;
 #endif
-					if (tx_tp_mbps > cfg->avg_tp) {
-						sel_cfg = cfg;
-					} else {
-						break;
-					}
-				}
-				if (sel_cfg)
-					chip_cfg_dly_int(hdev_ctrl, rx_ring->hw_desc_base,
-										sel_cfg->dly_number, sel_cfg->dly_time);
-			} else if (((rx_tp_mbps * 100) / (tx_tp_mbps + rx_tp_mbps))
-								> RX_MODE_RATIO_THRESHOLD) {
-				for (i = 0; i < rx_ring->ul_dly_ctl_tbl_size; i++) {
-					cfg = rx_ring->ul_dly_ctl_tbl + i;
-#ifdef WFDMA_WED_COMPATIBLE
-					if (ad->CommonCfg.whnat_en && MTK_REV_LT(ad, MT7916, MT7916E2))
-						cfg->dly_time = 1;
+	}
+
+	if (IntSource & MT_INT_RX_DATA) {
+		if (!(IntSource & MT_INT_RX_DLY))
+			IntSource &= ~MT_INT_RX_DATA;
+		else
+			 pci_hif->IntPending |= MT_INT_RX_DATA;
+#ifdef CONFIG_RECOVERY_ON_INTERRUPT_MISS
+		pAd->tr_ctl.rx_data_int_count++;
 #endif
-					if (rx_tp_mbps > cfg->avg_tp) {
-						sel_cfg = cfg;
-					} else {
-						break;
-					}
-				}
-				if (sel_cfg)
-					chip_cfg_dly_int(hdev_ctrl, rx_ring->hw_desc_base,
-										sel_cfg->dly_number, sel_cfg->dly_time);
+	}
+
+	if (IntSource & MT_INT_RX_CMD) {
+		if (!(IntSource & MT_INT_RX_DLY))
+			IntSource &= ~MT_INT_RX_CMD;
+		else
+			pci_hif->IntPending |= MT_INT_RX_CMD;
+#ifdef CONFIG_RECOVERY_ON_INTERRUPT_MISS
+		pAd->tr_ctl.rx_cmd_int_count++;
+#endif
+
+	}
+
+	if (IntSource & MT_INT_RX_DLY) {
+		if ((pci_hif->intDisableMask & MT_INT_RX_DLY) == 0)
+			tm_ops->schedule_task(pAd, TR_DONE_TASK);
+
+		pci_hif->IntPending |= MT_INT_RX_DLY;
+
+#ifdef CONFIG_TP_DBG
+		tp_dbg->IsrRxDlyCnt++;
+#endif
+	}
+
+#ifdef MULTI_LAYER_INTERRUPT
+	/*
+		CONNAC uses multi-layer interrupt architecture:
+		bit 24 ~ bit 31 are used as sub-layer interrupt indicator.
+		Use chip ID to identify interrupt architecture for single driver support.
+	*/
+	if (IS_P18(pAd)) {
+		if (IntSource & MT_INT_SUBSYS_INT_STS) {
+			if ((pci_hif->intDisableMask & (IntSource & MT_INT_SUBSYS_INT_STS)) == 0)
+				tm_ops->schedule_task(pAd, SUBSYS_INT_TASK);
+		}
+	} else
+#endif
+	{
+
+#if defined(MT7615) || defined(MT7622) || defined(P18)
+		if (IS_MT7615(pAd) || IS_MT7622(pAd) || IS_P18(pAd)) {
+			u4McuCommandMask = MT_McuCommand;
+			u4McuCommandCSR = MT_MCU_CMD_CSR;
+		}
+#endif
+
+		if (IntSource & u4McuCommandMask) {
+			UINT32 value;
+
+			RTMP_IO_READ32(pAd, u4McuCommandCSR, &value);
+#ifdef ERR_RECOVERY
+#if defined(MT7615) || defined(MT7622) || defined(P18)
+			if (IS_MT7615(pAd) || IS_MT7622(pAd) || IS_P18(pAd))
+				u4ErrorDetectMask = ERROR_DETECT_MASK;
+#endif
+
+			if (value & u4ErrorDetectMask) {
+				/* updated ErrRecovery Status. */
+				pAd->ErrRecoveryCtl.status = value;
+				/* Trigger error recovery process with fw reload. */
+				tm_ops->schedule_task(pAd, ERROR_RECOVERY_TASK);
+				MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_OFF,
+					("%s,::E  R  , status=0x%08X\n", __func__, value));
+				RTMPHandleInterruptSerDump(pAd);
 			}
+
+#endif /* ERR_RECOVERY */
+
+#ifdef CONFIG_FWOWN_SUPPORT
+			if ((value & MT_MCU_CMD_CLEAR_FW_OWN) == MT_MCU_CMD_CLEAR_FW_OWN) {
+				/* Clear MCU CMD status*/
+				RTMP_IO_WRITE32(pAd, u4McuCommandCSR, (value & ~MT_MCU_CMD_CLEAR_FW_OWN));
+				/* Interrupt handler */
+				MTWF_LOG(DBG_CAT_HIF, CATHIF_PCI, DBG_LVL_OFF,
+					("%s::DriverOwn = TRUE\n", __func__));
+				pAd->bDrvOwn = TRUE;
+				tm_ops->schedule_task(pAd, FW_OWN_TASK);
+			}
+
+#endif /* CONFIG_FWOWN_SUPPORT */
+		}
+
+#ifdef CONFIG_FWOWN_SUPPORT
+		if (IntSource & MT_FW_CLR_OWN_INT) {
+			/* Interrupt handler */
+			MTWF_LOG(DBG_CAT_HIF, CATHIF_PCI, DBG_LVL_OFF, ("%s::DriverOwn = TRUE\n", __func__));
+			pAd->bDrvOwn = TRUE;
+			tm_ops->schedule_task(pAd, FW_OWN_TASK);
+		}
+#endif /* CONFIG_FWOWN_SUPPORT */
+	}
+
+	mt_int_status_clear(pAd, IntSource);
+	mt_int_disable(pAd, IntSource);
+	RTMP_INT_UNLOCK(&pAd->LockInterrupt, flags);
+}
+
+VOID mtd_non_rx_delay_isr(RTMP_ADAPTER *pAd)
+{
+	UINT32 IntSource = 0x00000000L;
+	UINT32 u4McuCommandMask = 0, u4McuCommandCSR;
+#ifdef ERR_RECOVERY
+	UINT32 u4ErrorDetectMask = 0;
+#endif
+	POS_COOKIE pObj;
+	PCI_HIF_T *pci_hif = &pAd->PciHif;
+	struct tm_ops *tm_ops = pAd->tm_hif_ops;
+#ifdef CONFIG_TP_DBG
+	struct tp_debug *tp_dbg = &pAd->tr_ctl.tp_dbg;
+#endif
+	unsigned long flags = 0;
+
+	pObj = (POS_COOKIE)pAd->OS_Cookie;
+	pAd->bPCIclkOff = FALSE;
+	/*hook function for platform extend isr handler*/
+	WLAN_HOOK_CALL(WLAN_HOOK_ISR, pAd, NULL);
+	HIF_IO_READ32(pAd, MT_INT_SOURCE_CSR, &IntSource);
+	mt_int_status_clear(pAd, IntSource);
+
+	if (!RTMP_TEST_FLAG(pAd, fRTMP_ADAPTER_START_UP)) {
+		return;
+	}
+
+	if (RTMP_TEST_FLAG(pAd, fRTMP_ADAPTER_HALT_IN_PROGRESS)) {
+		UINT32 reg;
+
+		/* Fix Rx Ring FULL lead DMA Busy, when DUT is in reset stage */
+		reg = IntSource & (MT_INT_CMD | MT_INT_RX | WF_MAC_INT_3 | MT_INT_RX_COHE);
+
+		if (!reg) {
+			return;
 		}
 	}
 
-	return NDIS_STATUS_RESOURCES;
+	/* Do nothing if NIC doesn't exist */
+	if (IntSource == 0xffffffff) {
+		RTMP_SET_FLAG(pAd, (fRTMP_ADAPTER_NIC_NOT_EXIST | fRTMP_ADAPTER_HALT_IN_PROGRESS));
+		return;
+	}
+
+#ifdef CONFIG_RECOVERY_ON_INTERRUPT_MISS
+	pAd->tr_ctl.total_int_count++;
+#endif
+
+	if (IntSource & MT_TxCoherent)
+		MTWF_LOG(DBG_CAT_HIF, CATHIF_PCI, DBG_LVL_ERROR, (">>>TxCoherent<<<\n"));
+
+	if (IntSource & MT_RxCoherent)
+		MTWF_LOG(DBG_CAT_HIF, CATHIF_PCI, DBG_LVL_ERROR, (">>>RxCoherent<<<\n"));
+
+	RTMP_INT_LOCK(&pAd->LockInterrupt, flags);
+
+	if (IntSource & MT_INT_TX_DONE) {
+		if ((pci_hif->intDisableMask & (IntSource & MT_INT_TX_DONE)) == 0)
+			tm_ops->schedule_task(pAd, TX_DONE_TASK);
+
+		pci_hif->IntPending |= (IntSource & MT_INT_TX_DONE);
+
+#ifdef CONFIG_TP_DBG
+		tp_dbg->IsrTxCnt++;
+#endif
+
+	}
+
+	if (IntSource & MT_INT_RX_DATA) {
+		if ((pci_hif->intDisableMask & MT_INT_RX_DATA) == 0)
+			tm_ops->schedule_task(pAd, RX_DONE_TASK);
+
+		pci_hif->IntPending |= MT_INT_RX_DATA;
+
+#ifdef CONFIG_TP_DBG
+		tp_dbg->IsrRxCnt++;
+#endif
+#ifdef CONFIG_RECOVERY_ON_INTERRUPT_MISS
+		pAd->tr_ctl.rx_data_int_count++;
+#endif
+	}
+
+	if (IntSource & MT_INT_RX_CMD) {
+		if ((pci_hif->intDisableMask & MT_INT_RX_CMD) == 0)
+			tm_ops->schedule_task(pAd, RX1_DONE_TASK);
+
+		pci_hif->IntPending |= MT_INT_RX_CMD;
+
+
+#ifdef CONFIG_TP_DBG
+		tp_dbg->IsrRx1Cnt++;
+#endif
+#ifdef CONFIG_RECOVERY_ON_INTERRUPT_MISS
+		pAd->tr_ctl.rx_cmd_int_count++;
+#endif
+	}
+
+
+#if defined(MT7615) || defined(MT7622) || defined(P18)
+	if (IS_MT7615(pAd) || IS_MT7622(pAd) || IS_P18(pAd)) {
+		u4McuCommandMask = MT_McuCommand;
+		u4McuCommandCSR = MT_MCU_CMD_CSR;
+	}
+#endif
+
+
+	if (IntSource & u4McuCommandMask) {
+		UINT32 value;
+
+		RTMP_IO_READ32(pAd, u4McuCommandCSR, &value);
+#ifdef ERR_RECOVERY
+#if defined(MT7615) || defined(MT7622) || defined(P18)
+		if (IS_MT7615(pAd) || IS_MT7622(pAd) || IS_P18(pAd))
+			u4ErrorDetectMask = ERROR_DETECT_MASK;
+#endif
+
+		if (value & u4ErrorDetectMask) {
+			/* updated ErrRecovery Status. */
+			pAd->ErrRecoveryCtl.status = value;
+			/* Trigger error recovery process with fw reload. */
+			tm_ops->schedule_task(pAd, ERROR_RECOVERY_TASK);
+			MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_OFF,
+				("%s,::E  R  , status=0x%08X\n", __func__, value));
+			RTMPHandleInterruptSerDump(pAd);
+		}
+
+#endif /* ERR_RECOVERY */
+
+#ifdef CONFIG_FWOWN_SUPPORT
+		if ((value & MT_MCU_CMD_CLEAR_FW_OWN) == MT_MCU_CMD_CLEAR_FW_OWN) {
+			/* Clear MCU CMD status*/
+			RTMP_IO_WRITE32(pAd, u4McuCommandCSR, (value & ~MT_MCU_CMD_CLEAR_FW_OWN));
+			/* Interrupt handler */
+			MTWF_LOG(DBG_CAT_HIF, CATHIF_PCI, DBG_LVL_OFF,
+				("%s::DriverOwn = TRUE\n", __func__));
+			pAd->bDrvOwn = TRUE;
+			tm_ops->schedule_task(pAd, FW_OWN_TASK);
+		}
+
+#endif /* CONFIG_FWOWN_SUPPORT */
+
+#ifdef CONFIG_FWOWN_SUPPORT
+	if (IntSource & MT_FW_CLR_OWN_INT) {
+		/* Interrupt handler */
+		MTWF_LOG(DBG_CAT_HIF, CATHIF_PCI, DBG_LVL_OFF, ("%s::DriverOwn = TRUE\n", __func__));
+		pAd->bDrvOwn = TRUE;
+		tm_ops->schedule_task(pAd, FW_OWN_TASK);
+	}
+#endif /* CONFIG_FWOWN_SUPPORT */
+	}
+
+	mt_int_disable(pAd, IntSource);
+	RTMP_INT_UNLOCK(&pAd->LockInterrupt, flags);
 }
-#ifdef RX_RPS_SUPPORT
-VOID change_rx_tasklet_method(RTMP_ADAPTER *pAd, BOOLEAN enable)
+
+inline VOID isr_handle(VOID *pAdSrc)
+{
+	RTMP_ADAPTER *pAd = (RTMP_ADAPTER *)pAdSrc;
+	RTMP_ARCH_OP *ops = &pAd->archOps;
+
+	ops->hw_isr(pAd);
+}
+
+#ifdef ERR_RECOVERY
+VOID RTMPHandleInterruptSerDump(RTMP_ADAPTER *pAd)
+{
+	UINT32 reg_tmp_val;
+
+	MAC_IO_READ32(pAd, MCU_COM_REG1, &reg_tmp_val);
+	MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_OFF,
+			("%s,::E  R	, MCU_COM_REG1=0x%08X\n", __func__, reg_tmp_val));
+
+	if (reg_tmp_val == MCU_COM_REG1_SER_PSE) {
+		MAC_IO_READ32(pAd, 0xe064, &reg_tmp_val);
+		MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_OFF,
+				("%s,::E  R	, 0x8206c064=0x%08X\n", __func__, reg_tmp_val));
+		MAC_IO_READ32(pAd, 0xe068, &reg_tmp_val);
+		MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_OFF,
+				("%s,::E  R	, 0x8206c068=0x%08X\n", __func__, reg_tmp_val));
+		MAC_IO_READ32(pAd, 0xe06C, &reg_tmp_val);
+		MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_OFF,
+				("%s,::E  R	, 0x8206c06C=0x%08X\n", __func__, reg_tmp_val));
+		MAC_IO_READ32(pAd, 0x8244, &reg_tmp_val);
+		MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_OFF,
+				("%s,::E  R	, 0x82060244=0x%08X\n", __func__, reg_tmp_val));
+		MAC_IO_READ32(pAd, 0x8248, &reg_tmp_val);
+		MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_OFF,
+				("%s,::E  R	, 0x82060248=0x%08X\n", __func__, reg_tmp_val));
+		MAC_IO_READ32(pAd, 0x8258, &reg_tmp_val);
+		MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_OFF,
+				("%s,::E  R	, 0x82060258=0x%08X\n", __func__, reg_tmp_val));
+		MAC_IO_READ32(pAd, 0x825C, &reg_tmp_val);
+		MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_OFF,
+				("%s,::E  R	, 0x8206025C=0x%08X\n", __func__, reg_tmp_val));
+	} else if (reg_tmp_val == MCU_COM_REG1_SER_LMAC_TX) {
+		MAC_IO_READ32(pAd, 0xe064, &reg_tmp_val);
+		MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_OFF,
+				("%s,::E  R	, 0x8206c064=0x%08X\n", __func__, reg_tmp_val));
+		MAC_IO_READ32(pAd, 0xe068, &reg_tmp_val);
+		MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_OFF,
+				("%s,::E  R	, 0x8206c068=0x%08X\n", __func__, reg_tmp_val));
+		MAC_IO_READ32(pAd, 0xe06C, &reg_tmp_val);
+		MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_OFF,
+				("%s,::E  R	, 0x8206c06C=0x%08X\n", __func__, reg_tmp_val));
+		MAC_IO_READ32(pAd, 0xe070, &reg_tmp_val);
+		MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_OFF,
+				("%s,::E  R	, 0x8206c070=0x%08X\n", __func__, reg_tmp_val));
+	} else if (reg_tmp_val == MCU_COM_REG1_SER_SEC_RF_RX) {
+		MAC_IO_READ32(pAd, 0x21620, &reg_tmp_val);
+		MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_OFF,
+				("%s,::E  R	, 0x820F6020=0x%08X\n", __func__, reg_tmp_val));
+		MAC_IO_READ32(pAd, 0x21624, &reg_tmp_val);
+		MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_OFF,
+				("%s,::E  R	, 0x820F6024=0x%08X\n", __func__, reg_tmp_val));
+		MAC_IO_READ32(pAd, 0x21628, &reg_tmp_val);
+		MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_OFF,
+				("%s,::E  R	, 0x820F6028=0x%08X\n", __func__, reg_tmp_val));
+		MAC_IO_READ32(pAd, 0x2162C, &reg_tmp_val);
+		MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_OFF,
+				("%s,::E  R	, 0x820F602C=0x%08X\n", __func__, reg_tmp_val));
+		MAC_IO_READ32(pAd, 0x21630, &reg_tmp_val);
+		MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_OFF,
+				("%s,::E  R	, 0x820F6030=0x%08X\n", __func__, reg_tmp_val));
+		MAC_IO_READ32(pAd, 0x21634, &reg_tmp_val);
+		MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_OFF,
+				("%s,::E  R	, 0x820F6034=0x%08X\n", __func__, reg_tmp_val));
+		MAC_IO_READ32(pAd, 0x21638, &reg_tmp_val);
+		MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_OFF,
+				("%s,::E  R	, 0x820F6038=0x%08X\n", __func__, reg_tmp_val));
+		MAC_IO_READ32(pAd, 0x2163C, &reg_tmp_val);
+		MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_OFF,
+				("%s,::E  R	, 0x820F603C=0x%08X\n", __func__, reg_tmp_val));
+		MAC_IO_READ32(pAd, 0x20824, &reg_tmp_val);
+		MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_OFF,
+				("%s,::E  R	, 0x820F1024=0x%08X\n", __func__, reg_tmp_val));
+		MAC_IO_READ32(pAd, 0x20924, &reg_tmp_val);
+		MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_OFF,
+				("%s,::E  R	, 0x820F1124=0x%08X\n", __func__, reg_tmp_val));
+		MAC_IO_READ32(pAd, 0x20a24, &reg_tmp_val);
+		MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_OFF,
+				("%s,::E  R	, 0x820F1224=0x%08X\n", __func__, reg_tmp_val));
+		MAC_IO_READ32(pAd, 0x20b24, &reg_tmp_val);
+		MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_OFF,
+				("%s,::E  R	, 0x820F1324=0x%08X\n", __func__, reg_tmp_val));
+		MAC_IO_READ32(pAd, 0x20820, &reg_tmp_val);
+		MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_OFF,
+				("%s,::E  R	, 0x820F1020=0x%08X\n", __func__, reg_tmp_val));
+		MAC_IO_READ32(pAd, 0x20920, &reg_tmp_val);
+		MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_OFF,
+				("%s,::E  R	, 0x820F1120=0x%08X\n", __func__, reg_tmp_val));
+		MAC_IO_READ32(pAd, 0x20a20, &reg_tmp_val);
+		MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_OFF,
+				("%s,::E  R	, 0x820F1220=0x%08X\n", __func__, reg_tmp_val));
+		MAC_IO_READ32(pAd, 0x20b20, &reg_tmp_val);
+		MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_OFF,
+				("%s,::E  R	, 0x820F1320=0x%08X\n", __func__, reg_tmp_val));
+		MAC_IO_READ32(pAd, 0x20840, &reg_tmp_val);
+		MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_OFF,
+				("%s,::E  R	, 0x820F1040=0x%08X\n", __func__, reg_tmp_val));
+		MAC_IO_READ32(pAd, 0x20844, &reg_tmp_val);
+		MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_OFF,
+				("%s,::E  R	, 0x820F1044=0x%08X\n", __func__, reg_tmp_val));
+		MAC_IO_READ32(pAd, 0x20848, &reg_tmp_val);
+		MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_OFF,
+				("%s,::E  R	, 0x820F1048=0x%08X\n", __func__, reg_tmp_val));
+		MAC_IO_READ32(pAd, 0x2084C, &reg_tmp_val);
+		MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_OFF,
+				("%s,::E  R	, 0x820F104C=0x%08X\n", __func__, reg_tmp_val));
+		MAC_IO_READ32(pAd, 0x20940, &reg_tmp_val);
+		MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_OFF,
+				("%s,::E  R	, 0x820F1140=0x%08X\n", __func__, reg_tmp_val));
+		MAC_IO_READ32(pAd, 0x20944, &reg_tmp_val);
+		MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_OFF,
+				("%s,::E  R	, 0x820F1144=0x%08X\n", __func__, reg_tmp_val));
+		MAC_IO_READ32(pAd, 0x20948, &reg_tmp_val);
+		MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_OFF,
+				("%s,::E  R	, 0x820F1148=0x%08X\n", __func__, reg_tmp_val));
+		MAC_IO_READ32(pAd, 0x2094C, &reg_tmp_val);
+		MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_OFF,
+				("%s,::E  R	, 0x820F114C=0x%08X\n", __func__, reg_tmp_val));
+	}
+
+	MAC_IO_READ32(pAd, (0xc1e4), &reg_tmp_val);
+	MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_OFF,
+			("%s,::E  R	, 0x820681e4=0x%08X\n", __func__, reg_tmp_val));
+	MAC_IO_READ32(pAd, (0xc1e8), &reg_tmp_val);
+	MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_OFF,
+			("%s,::E  R	, 0x820681e8=0x%08X\n", __func__, reg_tmp_val));
+	MAC_IO_READ32(pAd, (0xc2e8), &reg_tmp_val);
+	MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_OFF,
+			("%s,::E  R	, 0x820682e8=0x%08X\n", __func__, reg_tmp_val));
+	MAC_IO_READ32(pAd, (0xc2ec), &reg_tmp_val);
+	MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_OFF,
+			("%s,::E  R	, 0x820682ec=0x%08X\n", __func__, reg_tmp_val));
+	MAC_IO_READ32(pAd, (0x20afc), &reg_tmp_val);
+	MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_OFF,
+			("%s,::E  R	, 0x820f20fc=0x%08X\n", __func__, reg_tmp_val));
+
+	/* Add the EDCCA Time for Debug */
+	Show_MibBucket_Proc(pAd, "");
+}
+
+VOID mt_mac_recovery_func(RTMP_ADAPTER *pAd)
+{
+	unsigned long Flags;
+	UINT32 status;
+	UINT32 INT_MCU_CMD = MT_McuCommand;
+
+
+	RTMP_SPIN_LOCK_IRQSAVE(&pAd->LockInterrupt, &Flags);
+	status = pAd->ErrRecoveryCtl.status;
+	pAd->ErrRecoveryCtl.status = 0;
+	RTMP_SPIN_UNLOCK_IRQRESTORE(&pAd->LockInterrupt, &Flags);
+	RTMP_MAC_RECOVERY(pAd, status);
+	mt_int_enable(pAd, INT_MCU_CMD);
+}
+#endif
+
+#ifdef CONFIG_FWOWN_SUPPORT
+VOID mt_mac_fw_own_func(RTMP_ADAPTER *pAd)
+{
+	UINT32 INT_FW_CLEAR_OWN = MT_FW_CLEAR_OWN_BIT;
+
+	mt_int_enable(pAd, INT_FW_CLEAR_OWN);
+}
+#endif
+
+#ifdef MULTI_LAYER_INTERRUPT
+VOID mt_subsys_int_func(RTMP_ADAPTER *pAd)
+{
+	UINT32 int_source;
+
+	/* read status bit from subsys2host interrupt status register */
+	RTMP_IO_READ32(pAd, MT_SUBSYS2HOST_INT_STA, &int_source);
+
+	if (int_source & CONN_HIF_ON_HOST_INT) {
+		UINT32 conn_hif_on_host_int_sta;
+		RTMP_IO_READ32(pAd, MT_CONN_HIF_ON_IRQ_STAT, &conn_hif_on_host_int_sta);
+		if (conn_hif_on_host_int_sta & HOST_OWN_INT) {
+			MTWF_LOG(DBG_CAT_HIF, CATHIF_PCI, DBG_LVL_OFF, ("%s::DriverOwn = TRUE\n", __func__));
+			pAd->bDrvOwn = TRUE;
+			RTMP_IO_WRITE32(pAd, MT_CONN_HIF_ON_IRQ_STAT, HOST_OWN_INT);
+		}
+	}
+
+	mt_int_enable(pAd, MT_INT_SUBSYS_INT_STS);
+}
+#endif
+
+UINT16 GET_TXRING_FREENO(RTMP_ADAPTER *pAd, UCHAR QueIdx)
 {
 	struct _RTMP_CHIP_CAP *cap = hc_get_chip_cap(pAd->hdev_ctrl);
-	struct _PCI_HIF_T *pci_hif = hc_get_hif_ctrl(pAd->hdev_ctrl);
+	UINT16 tx_ring_size = GET_TX_RING_SIZE(cap);
+	UINT16 freeno;
+	struct _PCI_HIF_T *hif = hc_get_hif_ctrl(pAd->hdev_ctrl);
 
-	pAd->rx_dequeue_sw_rps_enable = enable;
-	cap->rx_qm_en = enable;
-
-	if (pAd->rx_dequeue_sw_rps_enable)
-		pci_hif->dma_done_handle[HIF_RX_DATA] = pci_rx_dma_done_rxq_handle;
+	if (hif->TxRing[QueIdx].TxSwFreeIdx > hif->TxRing[QueIdx].TxCpuIdx)
+		freeno = hif->TxRing[QueIdx].TxSwFreeIdx - hif->TxRing[QueIdx].TxCpuIdx - 1;
 	else
-		pci_hif->dma_done_handle[HIF_RX_DATA] = pci_rx_dma_done_handle;
+		freeno = hif->TxRing[QueIdx].TxSwFreeIdx + tx_ring_size - hif->TxRing[QueIdx].TxCpuIdx - 1;
 
-	if ((pAd->mcli_ctl[DBDC_BAND0].debug_on & MCLI_DEBUG_RPS_CFG_MODE)
-#ifdef DBDC_MODE
-		|| (pAd->mcli_ctl[DBDC_BAND1].debug_on & MCLI_DEBUG_RPS_CFG_MODE)
-#endif
-		)
-		MTWF_DBG(pAd, DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_INFO, "change rx_qm enable:%u\n", cap->rx_qm_en);
-
-
+	return freeno;
 }
-
-VOID change_rx_qm_cpumap(RTMP_ADAPTER *pAd, UINT32 mask)
-{
-	struct _RTMP_CHIP_CAP *chip_cap = hc_get_chip_cap(pAd->hdev_ctrl);
-	int i;
-
-	chip_cap->RxSwRpsNum = 0;
-	chip_cap->RxSwRpsCpu = mask;
-
-	for (i = 0; i < NR_CPUS; i++)
-		chip_cap->RxSwRpsCpuMap[i] = NR_CPUS;
-
-	for (i = 0; i < NR_CPUS; i++) {
-		if ((1 << i) & chip_cap->RxSwRpsCpu) {
-			chip_cap->RxSwRpsCpuMap[chip_cap->RxSwRpsNum] = i;
-			chip_cap->RxSwRpsNum++;
-		}
-	}
-
-	if ((pAd->mcli_ctl[DBDC_BAND0].debug_on & MCLI_DEBUG_RPS_CFG_MODE)
-#ifdef DBDC_MODE
-	|| (pAd->mcli_ctl[DBDC_BAND1].debug_on & MCLI_DEBUG_RPS_CFG_MODE)
-#endif
-		) {
-		if (NR_CPUS == 4)
-			MTWF_DBG(pAd, DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_INFO, "cpumap[%d %d %d %d],num:%d\n",
-				chip_cap->RxSwRpsCpuMap[3],
-				chip_cap->RxSwRpsCpuMap[2],
-				chip_cap->RxSwRpsCpuMap[1],
-				chip_cap->RxSwRpsCpuMap[0],
-				chip_cap->RxSwRpsNum);
-	}
-}
-
-#endif
-/*
-*
-*/
-NDIS_STATUS pci_hif_chip_init(VOID **hif, struct pci_hif_chip_cfg *cfg)
-{
-	struct pci_hif_chip *chip_hif;
-
-	if (hif_ctrl_init((VOID **)&chip_hif, RTMP_DEV_INF_PCIE) != NDIS_STATUS_SUCCESS)
-		goto err;
-
-	chip_hif->CSRBaseAddress = (PUCHAR) cfg->csr_addr;
-	hif_chip_init(chip_hif, cfg->device_id);
-
-	chip_hif->pdev = cfg->device;
-#ifdef CONFIG_WIFI_MSI_SUPPORT
-	chip_hif->is_msi = cfg->msi_en;
-	chip_hif->first_irq = cfg->irq;
-#endif
-	chip_hif->irq = cfg->irq;
-#ifdef MULTI_INTR_SUPPORT
-	chip_hif->multi_irq_2nd = cfg->multi_intr_2nd;
-	chip_hif->multi_irq_3rd = cfg->multi_intr_3rd;
-	chip_hif->multi_irq_4th = cfg->multi_intr_4th;
-#endif
-#if defined(MT7986) || defined(MT7916) || defined(MT7981)
-	memcpy(&chip_hif->cfg, cfg, sizeof(*cfg));
-#endif /* MT7986 || MT7916 || MT7981  */
-
-	if (pci_data_init(chip_hif) != NDIS_STATUS_SUCCESS) {
-		MTWF_DBG(NULL, DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-				 "Hif data struct init fail \n");
-		goto err_data;
-	}
-
-	if (pci_alloc_tx_rx_ring_mem(chip_hif) != NDIS_STATUS_SUCCESS) {
-		MTWF_DBG(NULL, DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_ERROR, "Failed to allocate memory - TxRxRing\n");
-		goto err_txrx;
-	}
-
-	*hif = chip_hif;
-	return NDIS_STATUS_SUCCESS;
-err_txrx:
-	pci_data_exit(chip_hif);
-err_data:
-	hif_ctrl_exit(chip_hif);
-err:
-	return NDIS_STATUS_RESOURCES;
-}
-
-/*
-*
-*/
-VOID pci_hif_chip_exit(struct pci_hif_chip *chip_hif)
-{
-	pci_free_txrx_ring_mem(chip_hif);
-	pci_data_exit(chip_hif);
-	hif_ctrl_exit(chip_hif);
-}
-

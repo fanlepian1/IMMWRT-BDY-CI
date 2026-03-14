@@ -6,11 +6,6 @@ MOD_NAME = rtnet$(MODULE)ap
 endif
 #endif // CONFIG_AP_SUPPORT //
 
-#ifdef CONFIG_STA_SUPPORT
-ifeq ($(RT28xx_MODE), STA)
-MOD_NAME = rtnet$(MODULE)sta
-endif
-#endif // CONFIG_STA_SUPPORT //
 
 #ifdef CONFIG_APSTA_SUPPORT
 ifeq ($(RT28xx_MODE), APSTA)
@@ -44,24 +39,6 @@ endif
 
 #endif // CONFIG_AP_SUPPORT //
 
-#ifdef CONFIG_STA_SUPPORT
-RT28XX_STA_OBJ := \
-	../../os/linux/sta_ioctl.o\
-	../../os/linux/rt_main_dev.o
-
-ifeq ($(HAS_MESH_SUPPORT),y)
-RT28XX_STA_OBJ += \
-	../../common/mesh_inf.o
-endif
-
-ifeq ($(HAS_P2P_SUPPORT), y)
-RT28XX_STA_OBJ += \
-	../../common/p2p_inf.o\
-	../../os/linux/ap_ioctl.o
-endif
-
-
-#endif // CONFIG_STA_SUPPORT //
 
 #ifdef CONFIG_APSTA_SUPPORT
 RT28XX_APSTA_OBJ := \

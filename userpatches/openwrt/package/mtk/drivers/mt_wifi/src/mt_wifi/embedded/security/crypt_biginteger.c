@@ -1,16 +1,15 @@
-/*
- * Copyright (c) [2020], MediaTek Inc. All rights reserved.
- *
- * This software/firmware and related documentation ("MediaTek Software") are
- * protected under relevant copyright laws.
- * The information contained herein is confidential and proprietary to
- * MediaTek Inc. and/or its licensors.
- * Except as otherwise provided in the applicable licensing terms with
- * MediaTek Inc. and/or its licensors, any reproduction, modification, use or
- * disclosure of MediaTek Software, and information contained herein, in whole
- * or in part, shall be strictly prohibited.
-*/
 /****************************************************************************
+ * Ralink Tech Inc.
+ * Taiwan, R.O.C.
+ *
+ * (c) Copyright 2002, Ralink Technology, Inc.
+ *
+ * All rights reserved. Ralink's source code is an unpublished work and the
+ * use of a copyright notice does not imply otherwise. This source code
+ * contains confidential trade secret material of Ralink Tech. Any attemp
+ * or participation in deciphering, decoding, reverse engineering or in any
+ * way altering the source code is stricitly prohibited, unless the prior
+ * written consent of Ralink Technology, Inc. is obtained.
  ***************************************************************************/
 #include "security/crypt_biginteger.h"
 #include "rt_config.h"
@@ -161,8 +160,8 @@ BIG_INTEGER *get_temporal_usage_big_interger(
 	}
 
 	if (pool_is_small == FALSE)
-		MTWF_DBG(NULL, DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_WARN,
-				 "\x1b[35m%s :pool is too small\x1b[m\n");
+		MTWF_LOG(DBG_CAT_PROTO, DBG_SUBCAT_ALL, DBG_LVL_OFF,
+				 ("\x1b[35m%s :pool is too small\x1b[m\n", __func__));
 
 	pool_is_small = TRUE;
 	NdisReleaseSpinLock(&bi_pool_lock);
@@ -183,14 +182,16 @@ UINT32 sae_dump_pool_info_check(
 
 	if (is_check
 		&& expect_cnt != cnt)
-		MTWF_DBG(NULL, DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_ERROR, "\x1b[31mError: invalid pool cnt = %d, Expected Cnt = %d, caller = %pS\x1b[m\n",
-				  cnt, expect_cnt, OS_TRACE);
+		MTWF_LOG(DBG_CAT_PROTO, DBG_SUBCAT_ALL, DBG_LVL_OFF,
+				 ("\x1b[31mError: invalid pool cnt = %d, Expected Cnt = %d, caller = %pS\x1b[m\n",
+				  cnt, expect_cnt, OS_TRACE));
 
 	if (is_print && cnt != 0)
-		MTWF_PRINT("\x1b[31m");
+		MTWF_LOG(DBG_CAT_PROTO, DBG_SUBCAT_ALL, DBG_LVL_OFF, ("\x1b[31m"));
 
 	if (is_print)
-		MTWF_PRINT("invalid pool cnt = %d, pool idx = %d, pool_is_small = %d\x1b[m\n", cnt, pool_cur_index, pool_is_small);
+		MTWF_LOG(DBG_CAT_PROTO, DBG_SUBCAT_ALL, DBG_LVL_OFF,
+				 ("invalid pool cnt = %d, pool idx = %d, pool_is_small = %d\x1b[m\n", cnt, pool_cur_index, pool_is_small));
 
 	return cnt;
 }
@@ -205,7 +206,7 @@ VOID release_temporal_usage_big_interger(
 		*pBI = NULL;
 		NdisReleaseSpinLock(&bi_pool_lock);
 	} else {
-		/*MTWF_DBG(NULL, DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_WARN, " :pool is too small\n");*/
+		/*MTWF_LOG(DBG_CAT_PROTO, DBG_SUBCAT_ALL, DBG_LVL_OFF, ("%s :pool is too small\n", __func__));*/
 		BigInteger_Free(pBI);
 	}
 }
@@ -227,13 +228,6 @@ static inline ULONG show_float(
 	e = d * a / b;
 	return e - c * d;
 }
-
-VOID BigInteger_record_time(
-	UCHAR is_record_time)
-{
-	is_time_rec = is_record_time;
-}
-
 
 VOID BigInteger_record_time_begin(
 	BI_OP_TIME_INTERVAL * time_rec)
@@ -321,7 +315,7 @@ INT BigInteger_rand_range(IN BIG_INTEGER * range, INOUT BIG_INTEGER * r)
 	UINT8 *rand = NULL;
 	UINT32 i;
 	UINT32 iter = 0;
-	UINT32 range_len = 0;
+	UINT32 range_len;
 	BIG_INTEGER *rand_bi = NULL;
 
 	if (!range)
@@ -338,7 +332,7 @@ INT BigInteger_rand_range(IN BIG_INTEGER * range, INOUT BIG_INTEGER * r)
 		for (i = 0; i < range_len; i++)
 			rand[i] = randombyte();
 
-		hex_dump_with_lvl("rand:", (char *)rand, range_len, DBG_LVL_DEBUG);
+		hex_dump_with_lvl("rand:", (char *)rand, range_len, DBG_LVL_INFO);
 		BigInteger_Bin2BI(rand, range_len, &rand_bi);
 		if (BigInteger_is_zero(rand_bi)
 			|| BigInteger_is_one(rand_bi)
@@ -572,8 +566,6 @@ VOID BigInteger_BI2Bin(
 		if ((--ShiftIndex) == 0) {
 			ShiftIndex = 4;
 			BIArrayIndex--;
-			if (BIArrayIndex < 0)
-				break;
 			Number = pBI->pIntegerArray[BIArrayIndex];
 		} /* End of if */
 	} /* End of while */
@@ -609,9 +601,6 @@ VOID BigInteger_Bin2BI(
 	INT  ValueIndex, BIArrayIndex, ShiftIndex;
 	UINT32  Number;
 	BigInteger_AllocSize(pBI, Length);
-
-	if ((*pBI) == NULL)
-		return;
 
 	if ((*pBI)->pIntegerArray != NULL) {
 		Number = 0;
@@ -700,11 +689,6 @@ VOID BigInteger_Copy(
 	OUT PBIG_INTEGER *pBI_Result)
 {
 	BigInteger_AllocSize(pBI_Result, pBI_Copied->IntegerLength);
-	if ((*pBI_Result) == NULL) {
-		 MTWF_DBG(NULL, DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-                    "error!! (*pBI_Result) is NULL.\n");
-		return;
-	}
 	NdisCopyMemory((*pBI_Result)->pIntegerArray, pBI_Copied->pIntegerArray, (sizeof(UINT32) * (*pBI_Result)->ArrayLength));
 	(*pBI_Result)->ArrayLength = pBI_Copied->ArrayLength;
 	(*pBI_Result)->IntegerLength = pBI_Copied->IntegerLength;
@@ -817,13 +801,11 @@ VOID BigInteger_Add(
 	} else {
 		if  ((pFirstOperand->Signed == 1) & (pSecondOperand->Signed == -1)) {
 			BigInteger_Copy(pSecondOperand, &pTempBI);
-			if (pTempBI != NULL)
-				pTempBI->Signed = 1;
+			pTempBI->Signed = 1;
 			BigInteger_Sub(pFirstOperand, pTempBI, pBI_Result);
 		} else if ((pFirstOperand->Signed == -1) & (pSecondOperand->Signed == 1)) {
 			BigInteger_Copy(pFirstOperand, &pTempBI);
-			if (pTempBI != NULL)
-				pTempBI->Signed = 1;
+			pTempBI->Signed = 1;
 			BigInteger_Sub(pSecondOperand, pTempBI, pBI_Result);
 		} /* End of if */
 	} /* End of if */
@@ -882,7 +864,7 @@ VOID BigInteger_Sub(
 
 	CompareResult = BigInteger_UnsignedCompare(pFirstOperand, pSecondOperand);
 
-	if ((CompareResult == 0) && ((pFirstOperand->Signed * pSecondOperand->Signed) > 0)) {
+	if ((CompareResult == 0) & ((pFirstOperand->Signed * pSecondOperand->Signed) > 0)) {
 		BigInteger_AllocSize(pBI_Result, 1);
 		return;
 	} /* End of if */
@@ -925,6 +907,7 @@ VOID BigInteger_Sub(
 			} else {
 				if (pResultArray[BIArrayIndex] >= Carry) {
 					pResultArray[BIArrayIndex] -= Carry;
+					Carry = 0;
 					break;
 				} else {
 					pResultArray[BIArrayIndex] = 0xffffffffUL;
@@ -1296,11 +1279,6 @@ VOID BigInteger_Div(
 	SecondHighByte = (BigInteger_GetByteValue(pSecondOperand, pSecondOperand->IntegerLength) & 0xFF);
 	ComputeSize = (INT) pFirstOperand->IntegerLength - pSecondOperand->IntegerLength + 1;
 
-	if (SecondHighByte == 0) {
-		DEBUGPRINT("BigInteger_Div: SecondHighByte is zero.\n");
-		return;
-	}
-
 	for (Index = (INT) ComputeSize; Index >= 0; Index--) {
 		if (BigInteger_UnsignedCompare(*pBI_Remainder, pSecondOperand) == -1)
 			break;
@@ -1324,7 +1302,10 @@ VOID BigInteger_Div(
 			if (MulLoopStart < (UINT32) SecondHighByte)
 				continue;
 
-			MulLoopEnd = (MulLoopStart / (UINT32) SecondHighByte) + 1;
+			if (SecondHighByte)
+				MulLoopEnd = (MulLoopStart / (UINT32) SecondHighByte) + 1;
+			else
+				MulLoopEnd = 1;
 			MulLoopStart = MulLoopStart / (UINT32) (SecondHighByte + 1);
 
 			for (MulIndex = (INT) MulLoopStart; MulIndex <= MulLoopEnd; MulIndex++) { /* 0xFFFF / 0x01 = 0xFFFF */
@@ -1528,7 +1509,6 @@ static VOID BigInteger_Div2Exponent(
 	if (pBI == NULL) {
 		DEBUGPRINT("BigInteger_Div2Exponent: pBI is NUll\n");
 		(*pBI_Result) = NULL;
-		(*pBI_Remainder) = NULL;
 		return;
 	} /* End of if */
 
@@ -1951,11 +1931,6 @@ VOID BigInteger_Montgomery_MulMod_with_mont(
 	PBIG_INTEGER pBI_MulMod_2 = NULL;
 	PBIG_INTEGER pBI_MulMod_3 = NULL;
 
-	if (mont == NULL) {
-		MTWF_DBG(NULL, DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-				"mont == NULL\n");
-		return;
-	}
 	if (*pBI_Result == NULL)
 		BigInteger_Init(pBI_Result);
 
@@ -2176,11 +2151,6 @@ VOID BigInteger_Mod(
 	SecondHighByte = (BigInteger_GetByteValue(pSecondOperand, pSecondOperand->IntegerLength) & 0xFF);
 	ComputeSize = (INT) pFirstOperand->IntegerLength - pSecondOperand->IntegerLength + 1;
 
-	if (SecondHighByte == 0) {
-		DEBUGPRINT("BigInteger_Mod: SecondHighByte is zero.\n");
-		return;
-	}
-
 	for (Index = (INT) ComputeSize; Index >= 0; Index--) {
 		if (BigInteger_UnsignedCompare(*pBI_Remainder, pSecondOperand) == -1)
 			break;
@@ -2204,7 +2174,13 @@ VOID BigInteger_Mod(
 			if (MulLoopStart < (UINT32) SecondHighByte)
 				continue;
 
-			MulLoopEnd = (MulLoopStart / (UINT32) SecondHighByte) + 1;
+			if (SecondHighByte != 0)
+				MulLoopEnd = (MulLoopStart / (UINT32) SecondHighByte) + 1;
+			else {
+				MulLoopEnd = MulLoopStart;
+				MTWF_LOG(DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
+					("MulLoopStart division by zero!!\n"));
+			}
 			MulLoopStart = MulLoopStart / (UINT32) (SecondHighByte + 1);
 
 			for (MulIndex = (INT) MulLoopStart; MulIndex <= MulLoopEnd; MulIndex++) { /* 0xFFFF / 0x01 = 0xFFFF */
@@ -2285,9 +2261,6 @@ VOID BigInteger_Mod_Mul(
 UCHAR BigInteger_is_zero(
 	IN PBIG_INTEGER pBI)
 {
-	if (pBI == NULL)
-		return FALSE;
-
 	BigInteger_ClearHighBits(pBI);
 
 	if (pBI->IntegerLength == 1
@@ -2301,9 +2274,6 @@ UCHAR BigInteger_is_zero(
 UCHAR BigInteger_is_one(
 	IN PBIG_INTEGER pBI)
 {
-	if (pBI == NULL)
-		return FALSE;
-
 	BigInteger_ClearHighBits(pBI);
 
 	if (pBI->IntegerLength == 1
@@ -2454,7 +2424,7 @@ VOID BigInteger_Mod_Div(
 
 
 
-/* Tonelli Shanks algorithm*/
+/* Tonelli¡VShanks algorithm*/
 /* reference: https://en.wikipedia.org/wiki/Tonelli%E2%80%93Shanks_algorithm */
 /* pBI_P must be prime */
 VOID BigInteger_Mod_Sqrt(
@@ -2475,12 +2445,12 @@ VOID BigInteger_Mod_Sqrt(
 	BIG_INTEGER *pone = NULL;
 	BIG_INTEGER *tmp = NULL;
 	BIG_INTEGER *b = NULL;
-	MTWF_DBG(NULL, DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_INFO,
-			 "==> %s()\n", __func__);
+	MTWF_LOG(DBG_CAT_PROTO, DBG_SUBCAT_ALL, DBG_LVL_TRACE,
+			 ("==> %s()\n", __func__));
 	BigInteger_record_time_begin(&bi_op_ti_rec.sqrt_mod_op);
 
 	if (BigInteger_is_quadratic_residue(pFirstOperand, pBI_P, mont) == FALSE) {
-		/* MTWF_DBG(NULL, DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_ERROR, "is_not_quadratic_residue\n"); */
+		/* MTWF_LOG(DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_ERROR, ("%s: is_not_quadratic_residue\n", __FUNCTION__)); */
 		release_temporal_usage_big_interger(pBI_Result);
 		return;
 	}
@@ -2496,7 +2466,7 @@ VOID BigInteger_Mod_Sqrt(
 	GET_BI_INS_FROM_POOL(b);
 	/* fix me */
 	GET_BI_INS_FROM_POOL(pone);
-	/* MTWF_DBG(NULL, DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_INFO, "\x1b[31mis_quadratic_residue\x1b[m\n"); */
+	/* MTWF_LOG(DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_ERROR, ("\x1b[31m%s: is_quadratic_residue\x1b[m\n", __FUNCTION__)); */
 	/*DEBUGPRINT("pFirstOperand\n");
 	BigInteger_Print(pFirstOperand);*/
 	BigInteger_Copy(pBI_P, &p);
@@ -2613,8 +2583,8 @@ VOID BigInteger_Euclidean_Div(
 	PBIG_INTEGER div_Remainder = NULL;
 	PBIG_INTEGER tmp2 = NULL;
 	PBIG_INTEGER tmp = NULL;
-	MTWF_DBG(NULL, DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_INFO,
-			 "==> %s()\n", __func__);
+	MTWF_LOG(DBG_CAT_PROTO, DBG_SUBCAT_ALL, DBG_LVL_TRACE,
+			 ("==> %s()\n", __func__));
 	POOL_COUNTER_CHECK_BEGIN(expected_cnt[13]);
 	GET_BI_INS_FROM_POOL(div_result);
 	GET_BI_INS_FROM_POOL(div_Remainder);
@@ -2697,8 +2667,8 @@ VOID BigInteger_Mod_Mul_Inverse(
 	PBIG_INTEGER prev_v = NULL;
 	PBIG_INTEGER curr_u = NULL;
 	PBIG_INTEGER curr_v = NULL;
-	MTWF_DBG(NULL, DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_INFO,
-			 "==> %s()\n", __func__);
+	MTWF_LOG(DBG_CAT_PROTO, DBG_SUBCAT_ALL, DBG_LVL_TRACE,
+			 ("==> %s()\n", __func__));
 	BigInteger_record_time_begin(&bi_op_ti_rec.mod_mul_inv_op);
 	POOL_COUNTER_CHECK_BEGIN(expected_cnt[14]);
 	GET_BI_INS_FROM_POOL(pFirstOperand);
@@ -2732,8 +2702,8 @@ VOID BigInteger_Mod_Mul_Inverse(
 	BigInteger_Euclidean_Div(pFirstOperand, pSecondOperand, prev_u, prev_v, curr_u, curr_v);
 
 	if (BigInteger_is_one(pSecondOperand) ==  FALSE) {
-		MTWF_DBG(NULL, DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-				 "\x1b[31mpSecondOperand is not one!!!!!!\x1b[m\n");
+		MTWF_LOG(DBG_CAT_PROTO, DBG_SUBCAT_ALL, DBG_LVL_OFF,
+				 ("\x1b[31mpSecondOperand is not one!!!!!!\x1b[m\n"));
 		release_temporal_usage_big_interger(pBI_Result);
 		goto Free;
 	}
@@ -2802,11 +2772,6 @@ UCHAR BigInteger_Sqrt(
 
 	/*DEBUGPRINT("input:");
 	BigInteger_Print(ptest);*/
-	if (ptest == NULL) {
-		res = FALSE;
-		goto Free;
-	}
-
 	x_len = (ptest->IntegerLength + 1) / 2;
 	os_alloc_mem(NULL, &x_buf, x_len);
 
@@ -2828,8 +2793,7 @@ UCHAR BigInteger_Sqrt(
 
 	x_buf[0] = x_first_byte;
 	BigInteger_Bin2BI(x_buf, x_len, &x);
-	if (x != NULL)
-		BigInteger_is_one(x);
+	BigInteger_is_one(x);
 
 	/* S is input, use Xi+1 = 1/2 * (Xi + S/Xi), if Xn+1 == Xn, sqrt(S) ~= Xn */
 	do {
@@ -2923,20 +2887,8 @@ VOID BigInteger_Shift_Right1(
 	else
 		BigInteger_Copy(pBI, &ptest);
 
-	if (ptest == NULL) {
-		MTWF_DBG(NULL, DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-				"ptest is null!\n");
-		return;
-	}
-
 	len = ptest->IntegerLength;
 	BigInteger_AllocSize(&res, len);
-
-	if (res == NULL) {
-		MTWF_DBG(NULL, DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-				"res allocate failed!\n");
-		return;
-	}
 	NdisCopyMemory(res->pIntegerArray, ptest->pIntegerArray, len);
 	res->Signed = ptest->Signed;
 
@@ -3010,24 +2962,12 @@ VOID BigInteger_Shift_Left(
 	else
 		BigInteger_Copy(pBI, &ptest);
 
-	if (ptest == NULL) {
-		MTWF_DBG(NULL, DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-				"ptest is null!\n");
-		return;
-	}
-
 	len = ptest->IntegerLength + shift_dword * 4;
 
 	if (shift_bit)
 		len += shift_byte;
 
 	BigInteger_AllocSize(&res, len);
-
-	if (res == NULL) {
-		MTWF_DBG(NULL, DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-				"res allocate failed!\n");
-		return;
-	}
 	res->Signed = ptest->Signed;
 
 	if (shift_bit) {
@@ -3127,8 +3067,8 @@ VOID BigInteger_Montgomery_ExpMod32(
 	BIG_INTEGER *res = NULL;
 	UINT i = 0;
 	UINT j = 0;
-	MTWF_DBG(NULL, DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_INFO,
-			 "==> %s()\n", __func__);
+	MTWF_LOG(DBG_CAT_PROTO, DBG_SUBCAT_ALL, DBG_LVL_TRACE,
+			 ("==> %s()\n", __func__));
 	BigInteger_record_time_begin(&bi_op_ti_rec.simple_exp_mod_op);
 	BigInteger_Copy(pBI_G, &g);
 	BigInteger_Copy(pBI_E, &e);
@@ -3234,7 +3174,7 @@ VOID BigInteger_DtoH(
 VOID BigInteger_dump_time(
 	VOID)
 {
-	if (DebugLevel < DBG_LVL_INFO)
+	if (DebugLevel < DBG_LVL_TRACE)
 		return;
 
 	DEBUGPRINT("BigInteger time record: (allocated cnt = %lu)\n", alloc_cnt);
@@ -3243,6 +3183,17 @@ VOID BigInteger_dump_time(
 	DEBUGPRINT("mul allocated cnt = %lu\n", alloc_cnt_mul);
 	DEBUGPRINT("div allocated cnt = %lu\n", alloc_cnt_div);
 	DEBUGPRINT("mod allocated cnt = %lu\n", alloc_cnt_mod);
+
+	if (bi_op_ti_rec.add_op.exe_times) {
+		DEBUGPRINT("add_op time record:\n");
+		DEBUGPRINT("\tavg_time=%lu.%03lu nsec", (bi_op_ti_rec.add_op.time_interval / bi_op_ti_rec.add_op.exe_times),
+				   show_float(bi_op_ti_rec.add_op.time_interval, bi_op_ti_rec.add_op.exe_times, 3));
+		DEBUGPRINT(", %lu nsec", bi_op_ti_rec.add_op.time_interval);
+		DEBUGPRINT("\n\texe_times=%u\n", bi_op_ti_rec.add_op.exe_times);
+		bi_op_ti_rec.add_op.time_interval = 0;
+		bi_op_ti_rec.add_op.exe_times = 0;
+		bi_op_ti_rec.add_op.avg_time_interval = 0;
+	}
 
 	if (bi_op_ti_rec.sub_op.exe_times) {
 		DEBUGPRINT("sub_op time record:\n");
@@ -3288,24 +3239,14 @@ VOID BigInteger_dump_time(
 		DEBUGPRINT("\tavg_time=%lu.%03lu nsec", (bi_op_ti_rec.mod_op.time_interval / bi_op_ti_rec.mod_op.exe_times),
 			show_float(bi_op_ti_rec.mod_op.time_interval, bi_op_ti_rec.mod_op.exe_times, 3));
 		DEBUGPRINT(", %lu nsec", bi_op_ti_rec.mod_op.time_interval);
-		DEBUGPRINT(", add:mod = 1:%lu.%02lu", (bi_op_ti_rec.mod_op.time_interval / bi_op_ti_rec.add_op.time_interval),
-			show_float(bi_op_ti_rec.mod_op.time_interval, bi_op_ti_rec.add_op.time_interval, 2));
+		if (bi_op_ti_rec.add_op.time_interval)
+			DEBUGPRINT(", add:mod = 1:%lu.%02lu", (bi_op_ti_rec.mod_op.time_interval / bi_op_ti_rec.add_op.time_interval),
+				show_float(bi_op_ti_rec.mod_op.time_interval, bi_op_ti_rec.add_op.time_interval, 2));
 		DEBUGPRINT("\n\texe_times=%u\n", bi_op_ti_rec.mod_op.exe_times);
 		bi_op_ti_rec.mod_op.avg_time_interval = 0;
 		bi_op_ti_rec.mod_op.time_interval = 0;
 		bi_op_ti_rec.mod_op.exe_times = 0;
 	}
-
-        if (bi_op_ti_rec.add_op.exe_times) {
-                DEBUGPRINT("add_op time record:\n");
-                DEBUGPRINT("\tavg_time=%lu.%03lu nsec", (bi_op_ti_rec.add_op.time_interval / bi_op_ti_rec.add_op.exe_times),
-                                   show_float(bi_op_ti_rec.add_op.time_interval, bi_op_ti_rec.add_op.exe_times, 3));
-                DEBUGPRINT(", %lu nsec", bi_op_ti_rec.add_op.time_interval);
-                DEBUGPRINT("\n\texe_times=%u\n", bi_op_ti_rec.add_op.exe_times);
-                bi_op_ti_rec.add_op.time_interval = 0;
-                bi_op_ti_rec.add_op.exe_times = 0;
-                bi_op_ti_rec.add_op.avg_time_interval = 0;
-        }
 
 	if (bi_op_ti_rec.square_op.exe_times) {
 		DEBUGPRINT("square_op time record:\n");

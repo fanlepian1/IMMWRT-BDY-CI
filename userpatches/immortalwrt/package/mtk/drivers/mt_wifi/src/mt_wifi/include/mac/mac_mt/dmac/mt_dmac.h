@@ -1,17 +1,18 @@
 /*
- * Copyright (c) [2020], MediaTek Inc. All rights reserved.
- *
- * This software/firmware and related documentation ("MediaTek Software") are
- * protected under relevant copyright laws.
- * The information contained herein is confidential and proprietary to
- * MediaTek Inc. and/or its licensors.
- * Except as otherwise provided in the applicable licensing terms with
- * MediaTek Inc. and/or its licensors, any reproduction, modification, use or
- * disclosure of MediaTek Software, and information contained herein, in whole
- * or in part, shall be strictly prohibited.
-*/
-/*
  ***************************************************************************
+ * Ralink Tech Inc.
+ * 4F, No. 2 Technology	5th Rd.
+ * Science-based Industrial Park
+ * Hsin-chu, Taiwan, R.O.C.
+ *
+ * (c) Copyright 2002-2004, Ralink Technology, Inc.
+ *
+ * All rights reserved.	Ralink's source	code is	an unpublished work and the
+ * use of a copyright notice does not imply otherwise. This source code
+ * contains confidential trade secret material of Ralink Tech. Any attemp
+ * or participation in deciphering, decoding, reverse engineering or in any
+ * way altering	the source code	is stricitly prohibited, unless	the prior
+ * written consent of Ralink Technology, Inc. is obtained.
  ***************************************************************************
 
 	Module Name:
@@ -29,6 +30,7 @@
 #define __MT_DMAC_H__
 
 #include "mac/mac_mt/top.h"
+#include "mac/mac_mt/dmac/gpio.h"
 #include "mac/mac_mt/dmac/wf_agg.h"
 #include "mac/mac_mt/dmac/wf_aon.h"
 #include "mac/mac_mt/dmac/wf_arb.h"
@@ -59,11 +61,13 @@
 #endif /* MANUAL_MU */
 #endif /* CFG_SUPPORT_MU_MIMO */
 
+#ifdef MT7622
+#include "mac/mac_mt/dmac/dma_sch.h"
+#endif /* MT7622 */
 
 
 
 
-#include "txpwr/txpwr.h"
 /*
 	TX / RX descriptor format
 
@@ -80,7 +84,7 @@ typedef struct GNU_PACKED _TMAC_TXD_0 {
 	/* DWORD 0 */
 	UINT32 p_idx : 1;
 	UINT32 q_idx : 5;
-	UINT32 UNxV : 1;
+	UINT32 rsv_25 : 1;
 	UINT32 UdpTcpChkSumOffload : 1;
 	UINT32 IpChkSumOffload : 1;
 	UINT32 EthTypeOffset : 7;
@@ -93,7 +97,7 @@ typedef struct GNU_PACKED _TMAC_TXD_0 {
 	UINT32 EthTypeOffset : 7;
 	UINT32 IpChkSumOffload : 1;
 	UINT32 UdpTcpChkSumOffload : 1;
-	UINT32 UNxV : 1;
+	UINT32 rsv_25 : 1;
 	UINT32 q_idx : 5;
 	UINT32 p_idx : 1;
 } TMAC_TXD_0;
@@ -452,6 +456,73 @@ typedef struct GNU_PACKED _TMAC_TXD_6 {
 
 #define TMI_TX_RATE_BIT_MODE		6
 #define TMI_TX_RATE_MASK_MODE	0x7
+#define TMI_TX_RATE_MODE_CCK		0
+#define TMI_TX_RATE_MODE_OFDM	1
+#define TMI_TX_RATE_MODE_HTMIX	2
+#define TMI_TX_RATE_MODE_HTGF		3
+#define TMI_TX_RATE_MODE_VHT		4
+
+#define SHORT_PREAMBLE 0
+#define LONG_PREAMBLE 1
+
+#define TMI_TX_RATE_BIT_MCS		0
+#define TMI_TX_RATE_MASK_MCS		0x3f
+#define TMI_TX_RATE_CCK_1M_LP		0
+#define TMI_TX_RATE_CCK_2M_LP		1
+#define TMI_TX_RATE_CCK_5M_LP		2
+#define TMI_TX_RATE_CCK_11M_LP	3
+
+#define TMI_TX_RATE_CCK_2M_SP		5
+#define TMI_TX_RATE_CCK_5M_SP		6
+#define TMI_TX_RATE_CCK_11M_SP	7
+
+#define TMI_TX_RATE_OFDM_6M		11
+#define TMI_TX_RATE_OFDM_9M		15
+#define TMI_TX_RATE_OFDM_12M		10
+#define TMI_TX_RATE_OFDM_18M		14
+#define TMI_TX_RATE_OFDM_24M		9
+#define TMI_TX_RATE_OFDM_36M		13
+#define TMI_TX_RATE_OFDM_48M		8
+#define TMI_TX_RATE_OFDM_54M		12
+
+#define TMI_TX_RATE_HT_MCS0		0
+#define TMI_TX_RATE_HT_MCS1		1
+#define TMI_TX_RATE_HT_MCS2		2
+#define TMI_TX_RATE_HT_MCS3		3
+#define TMI_TX_RATE_HT_MCS4		4
+#define TMI_TX_RATE_HT_MCS5		5
+#define TMI_TX_RATE_HT_MCS6		6
+#define TMI_TX_RATE_HT_MCS7		7
+#define TMI_TX_RATE_HT_MCS8		8
+#define TMI_TX_RATE_HT_MCS9		9
+#define TMI_TX_RATE_HT_MCS10		10
+#define TMI_TX_RATE_HT_MCS11		11
+#define TMI_TX_RATE_HT_MCS12		12
+#define TMI_TX_RATE_HT_MCS13		13
+#define TMI_TX_RATE_HT_MCS14		14
+#define TMI_TX_RATE_HT_MCS15		15
+#define TMI_TX_RATE_HT_MCS16		16
+#define TMI_TX_RATE_HT_MCS17		17
+#define TMI_TX_RATE_HT_MCS18		18
+#define TMI_TX_RATE_HT_MCS19		19
+#define TMI_TX_RATE_HT_MCS20		20
+#define TMI_TX_RATE_HT_MCS21		21
+#define TMI_TX_RATE_HT_MCS22		22
+#define TMI_TX_RATE_HT_MCS23		23
+
+#define TMI_TX_RATE_HT_MCS32		32
+
+#define TMI_TX_RATE_VHT_MCS0		0
+#define TMI_TX_RATE_VHT_MCS1		1
+#define TMI_TX_RATE_VHT_MCS2		2
+#define TMI_TX_RATE_VHT_MCS3		3
+#define TMI_TX_RATE_VHT_MCS4		4
+#define TMI_TX_RATE_VHT_MCS5		5
+#define TMI_TX_RATE_VHT_MCS6		6
+#define TMI_TX_RATE_VHT_MCS7		7
+#define TMI_TX_RATE_VHT_MCS8		8
+#define TMI_TX_RATE_VHT_MCS9		9
+
 
 /******************************************************************************
 	TMAC_TXD_7
@@ -464,10 +535,6 @@ typedef struct GNU_PACKED _TMAC_TXD_6 {
 #define CON_SPE_IDX(p) (((p) & 0x1f) << 11)
 #define CON_PSE_FID_MASK ((0x3fff) << 16)
 #define CON_PSE_FID(p) (((p) & 0x3fff) << 16)
-#define CON_PP_REF_SUBTYPE_MASK ((0xf) << 16)
-#define CON_PP_REF_SUBTYPE(p) (((p) & 0xf) << 16)
-#define CON_PP_REF_TYPE_MASK ((0x3) << 20)
-#define CON_PP_REF_TYPE(p) (((p) & 0x3) << 20)
 #define CON_HW_AMSDU_CAP_MASK ((0x1) << 30)
 #define CON_HW_AMSDU_CAP(p) (((p) & 0x1) << 30)
 #define CON_HIF_ERR_MASK ((0x1) << 31)
@@ -517,6 +584,33 @@ typedef struct GNU_PACKED _TMAC_TXD_S {
 	TMAC_TXD_1 TxD1;
 	UINT32 TxD7;
 } TMAC_TXD_S, *PTMAC_TXD_S;
+
+#define NUM_OF_MSDU_ID_IN_TXD   4
+#define TXD_MAX_BUF_NUM         4
+#define TXD_MSDU_ID_VLD             BIT(15)     /* MSDU valid */
+
+#define TXD_LEN_ML_V2               BIT(15)     /* MSDU last */
+#define TXD_LEN_MASK_V2             BITS(0, 11)
+#define TXD_LEN_AL                  BIT(15)     /* A-MSDU last */
+#define TXD_LEN_ML                  BIT(14)     /* MSDU last */
+
+typedef struct _TXD_PTR_LEN_T {
+	UINT32 u4Ptr0;
+	UINT16 u2Len0; /* Bit15: AL, Bit14: ML */
+	UINT16 u2Len1; /* Bit15: AL, Bit14: ML */
+	UINT32 u4Ptr1;
+} TXD_PTR_LEN_T, *P_TXD_PTR_LEN_T;
+
+typedef struct _MAC_TX_PKT_T {
+	/* DW0 and DW1 */
+	UINT16 au2MsduId[NUM_OF_MSDU_ID_IN_TXD];   /* Bit15 indicate valid */
+
+	/* DW2 ~ DW22 */
+	TXD_PTR_LEN_T arPtrLen[TXD_MAX_BUF_NUM / 2];
+
+	/* DW31 */
+	/* UINT32 u4ReservedTail; */
+} MAC_TX_PKT_T, *P_MAC_TX_PKT_T;
 
 #ifdef RT_BIG_ENDIAN
 typedef struct GNU_PACKED _TXP_MSDU_INFO {
@@ -630,10 +724,27 @@ typedef  struct _CUT_TH_TXINFO_L {
 	UINT16         au2BufLen[MAX_BUF_NUM_PER_PKT];
 } CUT_TH_TXINFO_L;
 
+
+
 #define RMAC_RXD_0_PKT_TYPE_MASK		0xe0000000
+#define RMAC_RX_PKT_TYPE_RX_TXS			0x00
+#define RMAC_RX_PKT_TYPE_RX_TXRXV		0x01
+#define RMAC_RX_PKT_TYPE_RX_NORMAL		0x02
+#define RMAC_RX_PKT_TYPE_RX_DUP_RFB		0x03
+#define RMAC_RX_PKT_TYPE_RX_TMR			0x04
+#define RMAC_RX_PKT_TYPE_RETRIEVE		0x05
+#ifdef CUT_THROUGH
+#define RMAC_RX_PKT_TYPE_TXRX_NOTIFY    0x06
+#endif /* CUT_THROUGH */
+#define RMAC_RX_PKT_TYPE_RX_EVENT		0x07
 #define RMAC_RX_PKT_TYPE(_x)			(((_x) & RMAC_RXD_0_PKT_TYPE_MASK) >> 29)
 #define RMAC_RXD_0_PKT_RX_BYTE_COUNT_MASK 0x0000ffff
 #define RMAC_RX_PKT_RX_BYTE_COUNT(_x)	(((_x) & RMAC_RXD_0_PKT_RX_BYTE_COUNT_MASK))
+
+#ifdef RT_BIG_ENDIAN
+
+#endif
+
 
 #ifdef RT_BIG_ENDIAN
 typedef struct GNU_PACKED _RMAC_RXD_0_TXS {
@@ -894,6 +1005,13 @@ typedef struct GNU_PACKED _RXD_BASE_STRUCT {
 #define RXS_GROUP3 (1 << 2)
 #define RXS_GROUP4 (1 << 3)
 
+#define RMAC_INFO_BASE_SIZE	16
+#define RMAC_INFO_GRP_1_SIZE    16
+#define RMAC_INFO_GRP_2_SIZE    8
+#define RMAC_INFO_GRP_3_SIZE    24
+#define RMAC_INFO_GRP_4_SIZE    16
+
+
 #ifdef RT_BIG_ENDIAN
 typedef struct GNU_PACKED _RMAC_RXD_4 {
 
@@ -909,6 +1027,8 @@ typedef struct GNU_PACKED _RMAC_RXD_4 {
 	UINT32   TA0:16;
 } RMAC_RXD_4, *PRMAC_RXD_4;
 #endif
+
+
 
 typedef struct GNU_PACKED _RMAC_RXD_5 {
 	UINT32   TA1;
@@ -1076,6 +1196,8 @@ typedef struct GNU_PACKED _RXD_GRP3_STRUCT {
 	struct _RMAC_RXD_19 rxd_19;
 
 } RXD_GRP3_STRUCT;
+
+
 
 #ifdef RT_BIG_ENDIAN
 typedef struct GNU_PACKED _RX_CSO_STRUCT {
@@ -1375,20 +1497,11 @@ typedef struct GNU_PACKED _TXS_FRM_STRUC {
 
 
 
-#define RXV_REFINE_OK 0
-
 #ifdef RT_BIG_ENDIAN
 typedef struct GNU_PACKED _RX_VECTOR1_1ST_CYCLE {
 	UINT32 ACID_DET_UPPER:1;
 	UINT32 ACID_DET_LOWER:1;
-#if defined(MT7663) || defined(AXE) || defined(MT7626) || defined(MT7915) || \
-	defined(MT7986) || defined(MT7916) || defined(MT7981)
-	UINT32 Beamormed:1;
-	UINT32 SuVhtMcs_MuCoding:4;
-	UINT32 LdpcExtraOFDMSymbol:1;
-#else
 	UINT32 VHTA2_B8_B3:6;
-#endif
 	UINT32 NumRx:2;
 	UINT32 HtNoSound:1;
 	UINT32 HtSmooth:1;
@@ -1416,14 +1529,7 @@ typedef struct GNU_PACKED _RX_VECTOR1_1ST_CYCLE {
 	UINT32 HtSmooth:1;
 	UINT32 HtNoSound:1;
 	UINT32 NumRx:2;
-#if defined(MT7663) || defined(AXE) || defined(MT7626) || defined(MT7915) || \
-	defined(MT7986) || defined(MT7916) || defined(MT7981)
-	UINT32 LdpcExtraOFDMSymbol:1;
-	UINT32 SuVhtMcs_MuCoding:4;
-	UINT32 Beamormed:1;
-#else
 	UINT32 VHTA2_B8_B3:6;
-#endif
 	UINT32 ACID_DET_LOWER:1;
 	UINT32 ACID_DET_UPPER:1;
 } RX_VECTOR1_1ST_CYCLE;
@@ -1453,29 +1559,17 @@ typedef struct GNU_PACKED _RX_VECTOR1_2ND_CYCLE {
 typedef struct GNU_PACKED _RX_VECTOR1_3TH_CYCLE {
 	UINT32 WBRssiRx:8;
 	UINT32 IBRssiRx:8;
-#if defined(MT7663) || defined(AXE) || defined(MT7626) || defined(MT7915) || \
-	defined(MT7986) || defined(MT7916) || defined(MT7981)
-	UINT32 FgacCalLnaRx:3;
-	UINT32 POPEverTrig:1;
-#else
 	UINT32 FgacCalLnaRx:2;
 	UINT32 POPEverTrig:1;
 	UINT32 BFAgcApply:1;
-#endif
 	UINT32 VHTA1_B21_B10:12;
 } RX_VECTOR1_3TH_CYCLE;
 #else
 typedef struct GNU_PACKED _RX_VECTOR1_3TH_CYCLE {
 	UINT32 VHTA1_B21_B10:12;
-#if defined(MT7663) || defined(AXE) || defined(MT7626) || defined(MT7915) || \
-	defined(MT7986) || defined(MT7916) || defined(MT7981)
-	UINT32 POPEverTrig:1;
-	UINT32 FgacCalLnaRx:3;
-#else
 	UINT32 BFAgcApply:1;
 	UINT32 POPEverTrig:1;
 	UINT32 FgacCalLnaRx:2;
-#endif
 	UINT32 IBRssiRx:8;
 	UINT32 WBRssiRx:8;
 } RX_VECTOR1_3TH_CYCLE;
@@ -1502,15 +1596,9 @@ typedef struct GNU_PACKED _RX_VECTOR1_4TH_CYCLE {
 #ifdef RT_BIG_ENDIAN
 typedef struct GNU_PACKED _RX_VECTOR1_5TH_CYCLE {
 	UINT32 MISC1:25;
-#if defined(MT7663) || defined(AXE) || defined(MT7626) || defined(MT7915) || \
-	defined(MT7986) || defined(MT7916) || defined(MT7981)
-	UINT32 FagcLpfGainx:3;
-	UINT32 FagcLnaGainx:3;
-#else
 	UINT32 NoiseBalanceEnable:1;
 	UINT32 FagcLpfGainx:4;
 	UINT32 FagcLnaGainx:2;
-#endif
 } RX_VECTOR1_5TH_CYCLE;
 #else
 typedef struct GNU_PACKED _RX_VECTOR1_5TH_CYCLE_MISC_OFDM {
@@ -1527,15 +1615,9 @@ typedef struct GNU_PACKED _RX_VECTOR1_5TH_CYCLE_MISC_CCK {
 } RX_VECTOR1_5TH_CYCLE_MISC_CCK;
 
 typedef struct GNU_PACKED _RX_VECTOR1_5TH_CYCLE {
-#if defined(MT7663) || defined(AXE) || defined(MT7626) || defined(MT7915) || \
-	defined(MT7986) || defined(MT7916) || defined(MT7981)
-	UINT32 FagcLnaGainx:3;
-	UINT32 FagcLpfGainx:3;
-#else
 	UINT32 FagcLnaGainx:2;
 	UINT32 FagcLpfGainx:4;
 	UINT32 NoiseBalanceEnable:1;
-#endif
 	UINT32 MISC1:25;
 } RX_VECTOR1_5TH_CYCLE;
 #endif
@@ -1562,12 +1644,7 @@ typedef struct GNU_PACKED _RX_VECTOR1_6TH_CYCLE {
 typedef struct GNU_PACKED _RX_VECTOR2_1ST_CYCLE {
 	UINT32 FCSErr:1;
 	UINT32 RxCERmsd:3;
-#if defined(MT7663) || defined(AXE) || defined(MT7626) || defined(MT7915) || \
-	defined(MT7986) || defined(MT7916) || defined(MT7981)
-	UINT32 LqDataBit:6;
-#else
 	UINT32 VHT_A2:2;
-#endif
 	UINT32 ScrambleSeed:3;
 	UINT32 BtEnv:1;
 	UINT32 RxLQ:14;
@@ -1585,12 +1662,7 @@ typedef struct GNU_PACKED _RX_VECTOR2_1ST_CYCLE {
 	UINT32 RxLQ:14;
 	UINT32 BtEnv:1;
 	UINT32 ScrambleSeed:3;
-#if defined(MT7663) || defined(AXE) || defined(MT7626) || defined(MT7915) || \
-	defined(MT7986) || defined(MT7916) || defined(MT7981)
-	UINT32 LqDataBit:6;
-#else
 	UINT32 VHT_A2:2;
-#endif
 	UINT32 RxCERmsd:3;
 	UINT32 FCSErr:1;
 } RX_VECTOR2_1ST_CYCLE;
@@ -1950,6 +2022,9 @@ typedef struct wtbl_entry {
 #define MT_PSE_BASE_ADDR		0xa0000000
 #define MT_PSE_PAGE_SIZE		128
 
+#define MT_PCI_REMAP_ADDR_1	0x40000
+#define MT_PCI_REMAP_ADDR_2	0x80000
+
 #ifdef MAC_REPEATER_SUPPORT
 #define MAX_EXT_MAC_ADDR_SIZE	32
 /* TODO: Carter, single driver case? */
@@ -1957,7 +2032,7 @@ typedef struct wtbl_entry {
 
 
 /* TODO: shiang-MT7615, move to top.h! */
-#define MCU_CFG_BASE		0x80000000
+#define MCU_CFG_BASE		0x2000
 #define MCU_COM_REG1	    (MCU_CFG_BASE + 0x204)
 #ifdef ERR_RECOVERY
 #define MCU_COM_REG1_SER_PSE		BIT(0)
@@ -1967,6 +2042,17 @@ typedef struct wtbl_entry {
 #define MCU_COM_REG1_SER_LMAC_TX	BIT(4)
 #define MCU_COM_REG1_SER_SEC_RF_RX	BIT(5)
 #endif  /* ERR_RECOVERY */
+
+#define MCU_PCIE_REMAP_1	(MCU_CFG_BASE + 0x500)
+#define REMAP_1_OFFSET_MASK (0x3ffff)
+#define GET_REMAP_1_OFFSET(p) (((p) & REMAP_1_OFFSET_MASK))
+#define REMAP_1_BASE_MASK	(0x3fff << 18)
+#define GET_REMAP_1_BASE(p) (((p) & REMAP_1_BASE_MASK) >> 18)
+#define MCU_PCIE_REMAP_2	(MCU_CFG_BASE + 0x504)
+#define REMAP_2_OFFSET_MASK (0x7ffff)
+#define GET_REMAP_2_OFFSET(p) (((p) & REMAP_2_OFFSET_MASK))
+#define REMAP_2_BASE_MASK (0x1fff << 19)
+#define GET_REMAP_2_BASE(p) (((p) & REMAP_2_BASE_MASK) >> 19)
 
 /* leo: defined in top.h #define TOP_CFG_BASE        0x0000 */
 
@@ -2001,7 +2087,6 @@ enum {
 enum {
 	TXS_FORMAT0,
 	TXS_FORMAT1,
-	TXS_FORMAT2,
 };
 
 #define SHAREDKEYTABLE			0
@@ -2011,6 +2096,9 @@ enum {
 #define TSO_SIZE		0
 
 #define EXP_ACK_TIME	0x1380
+
+/* [0:7]=RX_MAX_PTIME (unit=20us), [8:14]=RX_MAX_PINT, [15]=RX_DLY_INT_EN */
+#define RX_DLY_INT_CFG  (0x811c)
 
 #ifdef RT_BIG_ENDIAN
 typedef	union GNU_PACKED _TX_STA_CNT0_STRUC {
@@ -2055,21 +2143,50 @@ typedef struct __DMAC_TX_CNT_INFO {
 	union WTBL_DW17 wtbl_wd17;
 } DMAC_TX_CNT_INFO;
 
+
 #define E2PROM_CSR          0x0004
 #define GPIO_CTRL_CFG	0x0228
 #define WSC_HDR_BTN_GPIO_0			((UINT32)0x00000001) /* bit 0 for RT2860/RT2870 */
 #define WSC_HDR_BTN_GPIO_3			((UINT32)0x00000008) /* bit 3 for RT2860/RT2870 */
 
+#ifdef DBDC_MODE
+#define DBDC_BAND_NUM		2
+#else
+#define DBDC_BAND_NUM		1
+#endif /* DBDC_MODE */
+
+#define DBDC_BAND0		0
+#define DBDC_BAND1		1
+
 struct _RTMP_ADAPTER;
 
-VOID mtd_update_mib_bucket(struct _RTMP_ADAPTER *pAd);
-VOID dump_wtbl_entry(struct _RTMP_ADAPTER *pAd, struct wtbl_entry *ent);
-VOID mtd_dump_wtbl_info(struct _RTMP_ADAPTER *pAd, UINT16 wtbl_idx);
-VOID mtd_dump_wtbl_base_info(struct _RTMP_ADAPTER *pAd);
-UINT32 mtd_get_hwq_from_ac(UINT8 wmm_idx, UINT8 wmm_ac);
+VOID dump_mt_mac_cr(struct _RTMP_ADAPTER *pAd);
+INT dump_dmac_amsdu_info(struct _RTMP_ADAPTER *pAd, RTMP_STRING *arg);
+VOID Update_Mib_Bucket_One_Sec(struct _RTMP_ADAPTER *pAd);
+VOID Update_Mib_Bucket_500Ms(struct _RTMP_ADAPTER *pAd);
 
-UINT16 mtd_tx_rate_to_tmi_rate(UINT8 mode, UINT8 mcs, UINT8 nss, BOOLEAN stbc, UINT8 preamble);
-UCHAR mtd_get_nsts_by_mcs(UCHAR phy_mode, UCHAR mcs, BOOLEAN stbc, UCHAR vht_nss);
+#ifdef CUSTOMER_RSG_FEATURE
+VOID Read_Mib_TxRx_Counters(struct _RTMP_ADAPTER *pAd);
+#endif
+
+INT mt_wtbl_init_ByFw(struct _RTMP_ADAPTER *pAd);
+INT mt_wtbl_init_ByDriver(struct _RTMP_ADAPTER *pAd);
+INT mt_mac_init(struct _RTMP_ADAPTER *pAd);
+INT mt_hw_tb_init(struct _RTMP_ADAPTER *pAd, BOOLEAN bHardReset);
+
+INT mt_wtbl_get_entry234(struct _RTMP_ADAPTER *pAd, UCHAR idx, struct wtbl_entry *ent);
+VOID dump_wtbl_entry(struct _RTMP_ADAPTER *pAd, struct wtbl_entry *ent);
+VOID dump_wtbl_info(struct _RTMP_ADAPTER *pAd, UINT wtbl_idx);
+VOID dump_wtbl_base_info(struct _RTMP_ADAPTER *pAd);
+
+INT mt_mac_set_ctrlch(struct _RTMP_ADAPTER *pAd, UINT8 extch);
+#ifdef GREENAP_SUPPORT
+INT rtmp_mac_set_mmps(struct _RTMP_ADAPTER *pAd, INT ReduceCorePower);
+#endif /* GREENAP_SUPPORT */
+
+UINT16 tx_rate_to_tmi_rate(UINT8 mode, UINT8 mcs, UINT8 nss, BOOLEAN stbc, UINT8 preamble);
+UCHAR get_nsts_by_mcs(UCHAR phy_mode, UCHAR mcs, BOOLEAN stbc, UCHAR vht_nss);
+VOID mt_chip_info_show(struct _RTMP_ADAPTER *pAd);
 
 #define HIF_PORT 1
 #define MCU_PORT 2
@@ -2081,11 +2198,9 @@ INT mt_nic_asic_init(struct _RTMP_ADAPTER *pAd);
 
 struct _CR4_TXP_MSDU_INFO;
 struct _TX_BLK;
-struct _RX_BLK;
 struct _MAC_TX_INFO;
 union _HTTRANSMIT_SETTING;
-struct cmd_msg;
-
+struct _TMAC_INFO;
 INT32 dump_txp_info(struct _RTMP_ADAPTER *pAd, struct _CR4_TXP_MSDU_INFO *txp_info);
 INT32 mtd_write_txp_info_by_cr4(struct _RTMP_ADAPTER *pAd, UCHAR *buf, struct _TX_BLK *pTxBlk);
 INT32 mtd_write_txp_info_by_host(struct _RTMP_ADAPTER *pAd, UCHAR *buf, struct _TX_BLK *pTxBlk);
@@ -2093,43 +2208,14 @@ INT32 mtd_write_txp_info_by_host_v2(struct _RTMP_ADAPTER *pAd, UCHAR *buf, struc
 VOID mtd_write_tmac_info(struct _RTMP_ADAPTER *pAd, UCHAR *buf, struct _TX_BLK *pTxBlk);
 VOID mtd_write_tmac_info_by_cr4(struct _RTMP_ADAPTER *pAd, UCHAR *buf, struct _TX_BLK *pTxBlk);
 VOID mtd_write_tmac_info_by_host(struct _RTMP_ADAPTER *pAd, UCHAR *buf, struct _TX_BLK *pTxBlk);
-#ifdef MT7626_REDUCE_TX_OVERHEAD
-VOID mtd_write_tmac_info_by_host_cached(struct _RTMP_ADAPTER *pAd, UCHAR *buf, struct _TX_BLK *pTxBlk);
-#endif
-VOID mtd_write_tmac_info_fixed_rate(struct _RTMP_ADAPTER *pAd, UCHAR *tmac_info, struct _MAC_TX_INFO *info,
-					union _HTTRANSMIT_SETTING *pTransmit);
-VOID mtd_dump_tmac_info(struct _RTMP_ADAPTER *pAd, UCHAR *tmac_info);
-VOID mtd_dump_rmac_info(struct _RTMP_ADAPTER *pAd, UCHAR *rmac_info);
-UINT32 mtd_get_packet_type(struct _RTMP_ADAPTER *pAd, VOID *rx_packet);
-INT32 mtd_trans_rxd_into_rxblk(struct _RTMP_ADAPTER *pAd, struct _RX_BLK *pRxBlk, PNDIS_PACKET pRxPacket);
-UINT32 mtd_txdone_handle(struct _RTMP_ADAPTER *pAd, VOID *ptr, UINT8 resource_idx);
-INT32 mtd_txs_handler(struct _RTMP_ADAPTER *pAd, VOID *rx_packet);
-VOID mtd_rx_event_handler(struct _RTMP_ADAPTER *pAd, UCHAR *data);
-VOID mtd_fill_cmd_header(struct _RTMP_ADAPTER *pAd, struct cmd_msg *msg, VOID *pkt);
-UINT32 mtd_rxv_handler(struct _RTMP_ADAPTER *pAd, struct _RX_BLK *rx_blk, VOID *rx_packet);
-BOOLEAN in_altx_filter_list(HEADER_802_11 *pHeader);
-#ifdef ERR_RECOVERY
-VOID mtd_dump_ser_stat(struct _RTMP_ADAPTER *pAd, BOOLEAN fgDumpAll);
-#endif
-#ifdef TX_POWER_CONTROL_SUPPORT
-VOID mtd_txpower_boost(struct _RTMP_ADAPTER *pAd, UCHAR ucBandIdx);
-VOID mtd_txpower_boost_ctrl(struct _RTMP_ADAPTER *pAd, UCHAR ucBandIdx, CHAR cPwrUpCat, PUCHAR pcPwrUpValue);
-BOOLEAN mtd_txpower_boost_info(struct _RTMP_ADAPTER *pAd, POWER_BOOST_TABLE_CATEGORY_V0 ePowerBoostRateType);
-BOOLEAN mtd_txpower_boost_power_cat_type(struct _RTMP_ADAPTER *pAd, UINT8 u1PhyMode, UINT8 u1Bw, PUINT8 pu1PowerBoostRateType);
-BOOLEAN mtd_txpower_boost_rate_type(struct _RTMP_ADAPTER *pAd, UINT8 ucBandIdx, UINT8 u1PowerBoostRateType);
-#endif
+INT mtd_check_hw_resource(struct _RTMP_ADAPTER *pAd, struct wifi_dev *wdev, UCHAR resource_idx);
+INT mtd_hw_tx(struct _RTMP_ADAPTER *pAd, struct _TX_BLK *tx_blk);
+INT mtd_mlme_hw_tx(struct _RTMP_ADAPTER *pAd, UCHAR *tmac_info, struct _MAC_TX_INFO *info, union _HTTRANSMIT_SETTING *transmit, struct _TX_BLK *tx_blk);
+INT32 mtd_ate_hw_tx(struct _RTMP_ADAPTER *pAd, struct _TMAC_INFO *info, struct _TX_BLK *tx_blk);
+BOOLEAN in_altx_filter_list(UCHAR sub_type);
 
+extern UCHAR dmac_wmm_swq_2_hw_ac_que[4][4];
 extern const UCHAR altx_filter_list[];
-
-VOID mtd_dump_rxinfo(struct _RTMP_ADAPTER *pAd, UCHAR *pRxInfo);
-INT mtd_dump_dmac_amsdu_info(struct _RTMP_ADAPTER *pAd);
-VOID mtd_dump_txs(struct _RTMP_ADAPTER *pAd, UINT8 Format, CHAR *Data);
-VOID mtd_dump_rmac_info_for_ICVERR(struct _RTMP_ADAPTER *pAd, UCHAR *rmac_info);
-VOID mtd_show_mac_info(struct _RTMP_ADAPTER *pAd);
-INT mtd_init_wtbl(struct _RTMP_ADAPTER *pAd, BOOLEAN bHardReset);
-INT mtd_get_wtbl_entry234(struct _RTMP_ADAPTER *pAd, UINT16 widx, struct wtbl_entry *ent);
-VOID mtd_write_tmac_info_mgmt(struct _RTMP_ADAPTER *pAd, struct wifi_dev *wdev, UCHAR sub_type, UCHAR *tmac_buf, union _HTTRANSMIT_SETTING *BeaconTransmit, ULONG frmLen);
-VOID mtd_update_raw_counters(struct _RTMP_ADAPTER *pAd);
 
 #endif /* __MT_DMAC_H__ */
 

@@ -1,17 +1,13 @@
 /*
- * Copyright (c) [2020], MediaTek Inc. All rights reserved.
- *
- * This software/firmware and related documentation ("MediaTek Software") are
- * protected under relevant copyright laws.
- * The information contained herein is confidential and proprietary to
- * MediaTek Inc. and/or its licensors.
- * Except as otherwise provided in the applicable licensing terms with
- * MediaTek Inc. and/or its licensors, any reproduction, modification, use or
- * disclosure of MediaTek Software, and information contained herein, in whole
- * or in part, shall be strictly prohibited.
-*/
-/*
  ***************************************************************************
+ * MediaTek Inc.
+ *
+ * All rights reserved. source code is an unpublished work and the
+ * use of a copyright notice does not imply otherwise. This source code
+ * contains confidential trade secret material of MediaTek. Any attemp
+ * or participation in deciphering, decoding, reverse engineering or in any
+ * way altering the source code is stricitly prohibited, unless the prior
+ * written consent of MediaTek, Inc. is obtained.
  ***************************************************************************
 
 	Module Name:
@@ -21,8 +17,7 @@
 #ifndef __TOP_H__
 #define __TOP_H__
 
-#define TOP_CFG_BASE		0x80020000
-#define TOP_MISC_ON_BASE	0x81020000
+#define TOP_CFG_BASE 0x0000
 
 #define TOP_HVR (TOP_CFG_BASE + 0x1000)
 #define HW_VER_MASK (0xffff)
@@ -62,7 +57,6 @@
 
 #define TOP_OFF_RSV (TOP_CFG_BASE + 0x1128)
 #define CONN_ON_MISC  (TOP_MISC_ON_BASE + 0x1140)
-#define CONN_ON_HOST_CSR_MISC (TOP_MISC_ON_BASE + 0x114c)
 #define TOP_MISC  (TOP_CFG_BASE + 0x1130)
 #define TOP_MISC2 (TOP_CFG_BASE + 0x1134)
 

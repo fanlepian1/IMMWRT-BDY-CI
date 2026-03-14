@@ -1,17 +1,13 @@
 /*
- * Copyright (c) [2020], MediaTek Inc. All rights reserved.
- *
- * This software/firmware and related documentation ("MediaTek Software") are
- * protected under relevant copyright laws.
- * The information contained herein is confidential and proprietary to
- * MediaTek Inc. and/or its licensors.
- * Except as otherwise provided in the applicable licensing terms with
- * MediaTek Inc. and/or its licensors, any reproduction, modification, use or
- * disclosure of MediaTek Software, and information contained herein, in whole
- * or in part, shall be strictly prohibited.
-*/
-/*
  ***************************************************************************
+ * MediaTek Inc.
+ *
+ * All rights reserved. source code is an unpublished work and the
+ * use of a copyright notice does not imply otherwise. This source code
+ * contains confidential trade secret material of MediaTek. Any attemp
+ * or participation in deciphering, decoding, reverse engineering or in any
+ * way altering the source code is stricitly prohibited, unless the prior
+ * written consent of MediaTek, Inc. is obtained.
  ***************************************************************************
 
 	Module Name: wifi_offload
@@ -144,7 +140,7 @@ static void wdma_rx_ring_exit(struct wdma_entry *wdma, struct wdma_rx_ring_ctrl 
 		rx_ring_exit(wdma, i, ring_ctrl);
 
 	if (ring_ctrl->ring)
-		kfree(ring_ctrl->ring);/* Do not wrap this kfree with os_free_mem, because it's in a different module */
+		kfree(ring_ctrl->ring);
 
 	if (ring_ctrl->desc)
 		kfree(ring_ctrl->desc);
@@ -165,7 +161,7 @@ static int wdma_rx_ring_init(struct wdma_entry *wdma, struct wdma_rx_ring_ctrl *
 	ring_ctrl->ring_num = whnat->wifi.tx_ring_num;
 	ring_ctrl->ring_len = WDMA_TX_BM_RING_SIZE;
 	len = sizeof(struct whnat_dma_buf)*ring_ctrl->ring_num;
-	ring_ctrl->desc = kmalloc(len, GFP_KERNEL);/* Do not wrap this kmalloc with os_alloc_mem, because it's in a different module */
+	ring_ctrl->desc = kmalloc(len, GFP_KERNEL);
 	memset(ring_ctrl->desc, 0, len);
 
 	if (!ring_ctrl->desc)

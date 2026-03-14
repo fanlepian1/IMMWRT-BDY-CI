@@ -1,53 +1,36 @@
 /*
- * Copyright (c) [2020], MediaTek Inc. All rights reserved.
+ ***************************************************************************
+ * MediaTek Inc.
+ * 4F, No. 2 Technology 5th Rd.
+ * Science-based Industrial Park
+ * Hsin-chu, Taiwan, R.O.C.
  *
- * This software/firmware and related documentation ("MediaTek Software") are
- * protected under relevant copyright laws.
- * The information contained herein is confidential and proprietary to
- * MediaTek Inc. and/or its licensors.
- * Except as otherwise provided in the applicable licensing terms with
- * MediaTek Inc. and/or its licensors, any reproduction, modification, use or
- * disclosure of MediaTek Software, and information contained herein, in whole
- * or in part, shall be strictly prohibited.
-*/
-/*
- ***************************************************************************
+ * (c) Copyright 1997-2012, MediaTek, Inc.
+ *
+ * All rights reserved. MediaTek source code is an unpublished work and the
+ * use of a copyright notice does not imply otherwise. This source code
+ * contains confidential trade secret material of MediaTek. Any attemp
+ * or participation in deciphering, decoding, reverse engineering or in any
+ * way altering the source code is stricitly prohibited, unless the prior
+ * written consent of MediaTek Technology, Inc. is obtained.
  ***************************************************************************
 
 */
 
-/*******************************************************************************
- *    INCLUDED FILES
- ******************************************************************************/
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
 
-/*******************************************************************************
- *    DEFINITIONS
- ******************************************************************************/
 #define PATH_OF_SKU_TABLE_IN   "/txpwr/sku_tables/"
 #define PATH_OF_SKU_TABEL_OUT  "/include/txpwr/"
 
-/*******************************************************************************
- *    TYPES
- ******************************************************************************/
+#define MAX_SKUTABLE_NUM            20
 
-
-/*******************************************************************************
- *    PUBLIC DATA
- ******************************************************************************/
-
-#define MAX_SKUTABLE_NUM             20
-
-/*******************************************************************************
- *    PRIVATE FUNCTIONS
- ******************************************************************************/
 int dat2h(char *infname, char *outfname, char *varname, char *deffname, const char *mode)
 {
 	int ret = 0;
 	FILE *infile, *outfile, *definfile;
-	int c;
+	unsigned char c;
 	/* int i=0; */
 	unsigned int fgDefTable = 0;
 	/* Open input file */
@@ -93,7 +76,7 @@ int dat2h(char *infname, char *outfname, char *varname, char *deffname, const ch
 	fprintf(outfile, "UCHAR %s[] = \"", varname);
 
 	while (1) {
-		char cc[2];
+		char cc[1];
 
 		if (fgDefTable == 0)
 			c = getc(infile);
@@ -103,7 +86,7 @@ int dat2h(char *infname, char *outfname, char *varname, char *deffname, const ch
 		/* backward compatibility for old Excel SKU table */
 		if (c == '#') {
 			c = '!';
-			snprintf(cc, sizeof(cc), "%c", c);
+			sprintf(cc, "%c", c);
 			fputs(cc, outfile);
 		}
 
@@ -119,19 +102,19 @@ int dat2h(char *infname, char *outfname, char *varname, char *deffname, const ch
 			continue;
 		else if (c == '\n') {
 			c = '\t';
-			snprintf(cc, sizeof(cc), "%c", c);
+			sprintf(cc, "%c", c);
 			fputs(cc, outfile);
 			c = '\"';
-			snprintf(cc, sizeof(cc), "%c", c);
+			sprintf(cc, "%c", c);
 			fputs(cc, outfile);
 			c = '\n';
-			snprintf(cc, sizeof(cc), "%c", c);
+			sprintf(cc, "%c", c);
 			fputs(cc, outfile);
 			c = '\"';
-			snprintf(cc, sizeof(cc), "%c", c);
+			sprintf(cc, "%c", c);
 			fputs(cc, outfile);
 		} else {
-			snprintf(cc, sizeof(cc), "%c", c);
+			sprintf(cc, "%c", c);
 			fputs(cc, outfile);
 		}
 	}
@@ -146,7 +129,6 @@ int dat2h(char *infname, char *outfname, char *varname, char *deffname, const ch
 
 	/* close output file */
 	fclose(outfile);
-	return 0;
 }
 
 int main(int argc, char *argv[])
@@ -159,42 +141,39 @@ int main(int argc, char *argv[])
 	int  SKUTableIdx;
 	char cc[20];
 
-	/* get directory path from environemnt variable */
 	rt28xxdir = (char *)getenv("RT28xx_DIR");
-	if (rt28xxdir == NULL)
-		return -1;
 
 	/* Trasform SKU table data file to header file */
 	for (SKUTableIdx = 1; SKUTableIdx <= MAX_SKUTABLE_NUM; SKUTableIdx++) {
 		/* configure input file address and file name */
 		memset(infname, 0, 512);
-		snprintf(infname, 512, "%s", rt28xxdir);
-		snprintf(infname + strlen(infname), 512 - strlen(infname), "%s", PATH_OF_SKU_TABLE_IN);
-		snprintf(infname + strlen(infname), 512 - strlen(infname), "%s", "7615_SingleSKU_");
+		strcat(infname, rt28xxdir);
+		strcat(infname, PATH_OF_SKU_TABLE_IN);
+		strcat(infname, "7615_SingleSKU_");
 		sprintf(cc, "%d", SKUTableIdx);
-		snprintf(infname + strlen(infname), 512 - strlen(infname), "%s", cc);
-		snprintf(infname + strlen(infname), 512 - strlen(infname), "%s", ".dat");
+		strcat(infname, cc);
+		strcat(infname, ".dat");
 		printf("Input: [%d] %s\n", SKUTableIdx, infname);
 		/* configure output file address and file name */
 		memset(outfname, 0, 512);
-		snprintf(outfname, 512, "%s", rt28xxdir);
-		snprintf(outfname + strlen(outfname), 512 - strlen(outfname), "%s", PATH_OF_SKU_TABEL_OUT);
-		snprintf(outfname + strlen(outfname), 512 - strlen(outfname), "%s", "SKUTable_");
+		strcat(outfname, rt28xxdir);
+		strcat(outfname, PATH_OF_SKU_TABEL_OUT);
+		strcat(outfname, "SKUTable_");
 		sprintf(cc, "%d", SKUTableIdx);
-		snprintf(outfname + strlen(outfname), 512 - strlen(outfname), "%s", cc);
-		snprintf(outfname + strlen(outfname), 512 - strlen(outfname), "%s", ".h");
+		strcat(outfname, cc);
+		strcat(outfname, ".h");
 		printf("Output: [%d] %s\n", SKUTableIdx, outfname);
 		/* configure default input file address and file name */
 		memset(deffname, 0, 512);
-		snprintf(deffname, 512, "%s", rt28xxdir);
-		snprintf(deffname + strlen(deffname), 512 - strlen(deffname), "%s", PATH_OF_SKU_TABLE_IN);
-		snprintf(deffname + strlen(deffname), 512 - strlen(deffname), "%s", "7615_SingleSKU_default.dat");
+		strcat(deffname, rt28xxdir);
+		strcat(deffname, PATH_OF_SKU_TABLE_IN);
+		strcat(deffname, "7615_SingleSKU_default.dat");
 		printf("Def Input: [%d] %s\n", SKUTableIdx, deffname);
 		/* Configure variable name for SKU contents in header file */
 		memset(varname, 0, 128);
-		snprintf(varname, 128, "%s", "SKUvalue_");
+		strcat(varname, "SKUvalue_");
 		sprintf(cc, "%d", SKUTableIdx);
-		snprintf(varname + strlen(varname), 128 - strlen(varname), "%s", cc);
+		strcat(varname, cc);
 		/* Transform data file to header file */
 		dat2h(infname, outfname, varname, deffname, "w");
 	}
@@ -203,34 +182,35 @@ int main(int argc, char *argv[])
 	for (SKUTableIdx = 1; SKUTableIdx <= MAX_SKUTABLE_NUM; SKUTableIdx++) {
 		/* configure input file address and file name */
 		memset(infname, 0, 512);
-		snprintf(infname, 512, "%s", rt28xxdir);
-		snprintf(infname + strlen(infname), 512 - strlen(infname), "%s", PATH_OF_SKU_TABLE_IN);
-		snprintf(infname + strlen(infname), 512 - strlen(infname), "%s", "7615_SingleSKU_BF_");
+		strcat(infname, rt28xxdir);
+		strcat(infname, PATH_OF_SKU_TABLE_IN);
+		strcat(infname, "7615_SingleSKU_BF_");
 		sprintf(cc, "%d", SKUTableIdx);
-		snprintf(infname + strlen(infname), 512 - strlen(infname), "%s", cc);
-		snprintf(infname + strlen(infname), 512 - strlen(infname), "%s", ".dat");
+		strcat(infname, cc);
+		strcat(infname, ".dat");
 		printf("Input: [%d] %s\n", SKUTableIdx, infname);
 		/* configure output file address and file name */
 		memset(outfname, 0, 512);
-		snprintf(outfname, 512, "%s", rt28xxdir);
-		snprintf(outfname + strlen(outfname), 512 - strlen(outfname), "%s", PATH_OF_SKU_TABEL_OUT);
-		snprintf(outfname + strlen(outfname), 512 - strlen(outfname), "%s", "BFBackoffTable_");
+		strcat(outfname, rt28xxdir);
+		strcat(outfname, PATH_OF_SKU_TABEL_OUT);
+		strcat(outfname, "BFBackoffTable_");
 		sprintf(cc, "%d", SKUTableIdx);
-		snprintf(outfname + strlen(outfname), 512 - strlen(outfname), "%s", cc);
-		snprintf(outfname + strlen(outfname), 512 - strlen(outfname), "%s", ".h");
+		strcat(outfname, cc);
+		strcat(outfname, ".h");
 		printf("Output: [%d] %s\n", SKUTableIdx, outfname);
 		/* configure default input file address and file name */
 		memset(deffname, 0, 512);
-		snprintf(deffname, 512, "%s", rt28xxdir);
-		snprintf(deffname + strlen(deffname), 512 - strlen(deffname), "%s", PATH_OF_SKU_TABLE_IN);
-		snprintf(deffname + strlen(deffname), 512 - strlen(deffname), "%s", "7615_SingleSKU_BF_default.dat");
+		strcat(deffname, rt28xxdir);
+		strcat(deffname, PATH_OF_SKU_TABLE_IN);
+		strcat(deffname, "7615_SingleSKU_BF_default.dat");
 		printf("Def Input: [%d] %s\n", SKUTableIdx, deffname);
 		/* Configure variable name for SKU contents in header file */
 		memset(varname, 0, 128);
-		snprintf(varname, 128, "%s", "BFBackoffvalue_");
+		strcat(varname, "BFBackoffvalue_");
 		sprintf(cc, "%d", SKUTableIdx);
-		snprintf(varname + strlen(varname), 128 - strlen(varname), "%s", cc);
+		strcat(varname, cc);
 		/* Transform data file to header file */
 		dat2h(infname, outfname, varname, deffname, "w");
 	}
 }
+

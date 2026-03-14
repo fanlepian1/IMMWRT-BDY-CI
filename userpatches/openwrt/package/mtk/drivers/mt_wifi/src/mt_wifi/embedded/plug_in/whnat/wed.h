@@ -1,17 +1,13 @@
 /*
- * Copyright (c) [2020], MediaTek Inc. All rights reserved.
- *
- * This software/firmware and related documentation ("MediaTek Software") are
- * protected under relevant copyright laws.
- * The information contained herein is confidential and proprietary to
- * MediaTek Inc. and/or its licensors.
- * Except as otherwise provided in the applicable licensing terms with
- * MediaTek Inc. and/or its licensors, any reproduction, modification, use or
- * disclosure of MediaTek Software, and information contained herein, in whole
- * or in part, shall be strictly prohibited.
-*/
-/*
  ***************************************************************************
+ * MediaTek Inc.
+ *
+ * All rights reserved. source code is an unpublished work and the
+ * use of a copyright notice does not imply otherwise. This source code
+ * contains confidential trade secret material of MediaTek. Any attemp
+ * or participation in deciphering, decoding, reverse engineering or in any
+ * way altering the source code is stricitly prohibited, unless the prior
+ * written consent of MediaTek, Inc. is obtained.
  ***************************************************************************
 
 	Module Name: wifi_offload
@@ -31,16 +27,26 @@
 #define WED_TOKEN_RSV			0
 /*buffer mgmet initial token cnt*/
 /*max cr4 support token id, mt7622 can support up to 8192*/
+#define WED_TOKEN_ID_MAX		4096
 
 #ifdef WED_DYNAMIC_BM_SUPPORT
 #define WED_TOKEN_EXPEND_SIZE	128
 #define WED_TOKEN_LOW			2
 #define WED_TOKEN_HIGH			(2*WED_TOKEN_LOW-1)
 #endif /*WED_DYNAMIC_BM_SUPPORT*/
+/*buffer manager token id range, start -> end*/
+#define WED_TOKEN_START			WIFI_TX_TOKEN_CNT
+#define WED_TOKEN_END			(WED_TOKEN_ID_MAX-1)
+
+/*buffer mgmet can allocate max token number*/
+#define WED_TOKEN_CNT_MAX		(WED_TOKEN_ID_MAX-WED_TOKEN_START)
+#ifdef WED_DYNAMIC_BM_SUPPORT
+#define WED_TOKEN_CNT			1152
+#else
+#define WED_TOKEN_CNT			WED_TOKEN_CNT_MAX
+#endif
 
 #define WED_PKT_NUM_GET(_wed) (_wed->res_ctrl.tx_ctrl.res.pkt_num)
-#define WED_TOKEN_NUM_GET(_wed) (_wed->res_ctrl.tx_ctrl.res.token_num)
-#define WED_TOKEN_CNT_GET(_wed) (_wed->res_ctrl.tx_ctrl.res.wed_token_cnt)
 #define WED_DLY_INT_VALUE 0xC014C014
 #define WED_WDMA_RECYCLE_TIME 0xffff
 
@@ -99,9 +105,6 @@ struct wed_token_info {
 
 struct wed_buf_res {
 	unsigned int token_num;
-	unsigned int token_start;
-	unsigned int token_end;
-	unsigned int wed_token_cnt;
 	unsigned int dmad_len;
 	unsigned int fd_len;
 	unsigned int pkt_len;

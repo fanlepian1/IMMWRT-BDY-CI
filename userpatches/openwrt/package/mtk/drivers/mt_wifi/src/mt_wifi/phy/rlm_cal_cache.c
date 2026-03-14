@@ -1,17 +1,13 @@
 /*
- * Copyright (c) [2020], MediaTek Inc. All rights reserved.
- *
- * This software/firmware and related documentation ("MediaTek Software") are
- * protected under relevant copyright laws.
- * The information contained herein is confidential and proprietary to
- * MediaTek Inc. and/or its licensors.
- * Except as otherwise provided in the applicable licensing terms with
- * MediaTek Inc. and/or its licensors, any reproduction, modification, use or
- * disclosure of MediaTek Software, and information contained herein, in whole
- * or in part, shall be strictly prohibited.
-*/
-/*
  ***************************************************************************
+ * MediaTek Inc.
+ *
+ * All rights reserved. source code is an unpublished work and the
+ * use of a copyright notice does not imply otherwise. This source code
+ * contains confidential trade secret material of MediaTek. Any attemp
+ * or participation in deciphering, decoding, reverse engineering or in any
+ * way altering the source code is stricitly prohibited, unless the prior
+ * written consent of MediaTek, Inc. is obtained.
  ***************************************************************************
 
 	Module Name:
@@ -34,8 +30,8 @@ INT rlmCalCacheDone(VOID *rlmCalCache)
 INT rlmCalCacheInit(VOID *pAd, VOID **ppRlmCalCache)
 {
 	if (os_alloc_mem(pAd, (UCHAR **)ppRlmCalCache, sizeof(RLM_CAL_CACHE)) != NDIS_STATUS_SUCCESS) {
-		MTWF_DBG(pAd, DBG_CAT_HW, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-		    "fail to alloca rlmCalCache size=%zu\n", sizeof(RLM_CAL_CACHE));
+		MTWF_LOG(DBG_CAT_HW, DBG_SUBCAT_ALL, DBG_LVL_OFF,
+		    ("fail to alloca rlmCalCache size=%zu\n", sizeof(RLM_CAL_CACHE)));
 		return FALSE;
 	}
 	os_zero_mem(*ppRlmCalCache, sizeof(RLM_CAL_CACHE));
@@ -58,8 +54,8 @@ INT RlmCalCacheTxLpfInfo(VOID *rlmCalCtrl, UINT8 *Data, UINT32 Length)
 	P_TXLPF_CAL_INFO_T ptxLpfCalInfo;
 	UINT32 i;
 	if (Length != sizeof(TXLPF_CAL_INFO_T)) {
-		MTWF_DBG(NULL, DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_DEBUG,
-			"P_TXLPF_CAL_INFO_T: length mismatch=%d\n", Length);
+		MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_INFO,
+			("P_TXLPF_CAL_INFO_T: length mismatch=%d\n", Length));
 
 		return FALSE;
 	}
@@ -83,8 +79,8 @@ INT RlmCalCacheTxIqInfo(VOID *rlmCalCtrl, UINT8 *Data, UINT32 Length)
 	P_TXIQ_CAL_INFO_T ptxIqCalInfo;
 	UINT32 i;
 	if (Length != sizeof(TXIQ_CAL_INFO_T)) {
-		MTWF_DBG(NULL, DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_DEBUG,
-			"P_TXIQ_CAL_INFO_T: length mismatch=%d\n", Length);
+		MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_INFO,
+			("P_TXIQ_CAL_INFO_T: length mismatch=%d\n", Length));
 
 		return FALSE;
 	}
@@ -108,8 +104,8 @@ INT RlmCalCacheTxDcInfo(VOID *rlmCalCtrl, UINT8 *Data, UINT32 Length)
 	P_TXDC_CAL_INFO_T ptxDcCalInfo;
 	UINT32 i;
 	if (Length != sizeof(TXDC_CAL_INFO_T)) {
-		MTWF_DBG(NULL, DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_DEBUG,
-			"P_TXDC_CAL_INFO_T: length mismatch=%d\n", Length);
+		MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_INFO,
+			("P_TXDC_CAL_INFO_T: length mismatch=%d\n", Length));
 
 		return FALSE;
 	}
@@ -137,8 +133,8 @@ INT RlmCalCacheRxFiInfo(VOID *rlmCalCtrl, UINT8 *Data, UINT32 Length)
 		return FALSE;
 
 	if (Length != sizeof(RXFI_CAL_INFO_T)) {
-		MTWF_DBG(NULL, DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_DEBUG,
-			"P_RXFI_CAL_INFO_T: length mismatch=%d\n", Length);
+		MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_INFO,
+			("P_RXFI_CAL_INFO_T: length mismatch=%d\n", Length));
 
 		return FALSE;
 	}
@@ -173,8 +169,8 @@ INT RlmCalCacheRxFdInfo(VOID *rlmCalCtrl, UINT8 *Data, UINT32 Length)
 		return FALSE;
 
 	if (Length != sizeof(RXFD_CAL_INFO_T)) {
-		MTWF_DBG(NULL, DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_DEBUG,
-			"P_RXFD_CAL_INFO_T: length mismatch=%d\n", Length);
+		MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_INFO,
+			("P_RXFD_CAL_INFO_T: length mismatch=%d\n", Length));
 
 		return FALSE;
 	}
@@ -211,21 +207,26 @@ VOID rlmCalCacheStatus(VOID *rlmCalCache)
 {
 	UINT idx;
 
-	MTWF_PRINT("TxLPF Cal Done::(%c)\n",
-				 RLM_CAL_CACHE_IS_TXLPF_CAL_DONE(rlmCalCache) ? 'T':'F');
+	MTWF_LOG(DBG_CAT_CFG, DBG_SUBCAT_ALL, DBG_LVL_OFF,
+				("TxLPF Cal Done::(%c)\n",
+				 RLM_CAL_CACHE_IS_TXLPF_CAL_DONE(rlmCalCache) ? 'T':'F'));
 
-	MTWF_PRINT("TxIQ Cal Done::(%c)\n",
-				 RLM_CAL_CACHE_IS_TXIQ_CAL_DONE(rlmCalCache) ? 'T':'F');
+	MTWF_LOG(DBG_CAT_CFG, DBG_SUBCAT_ALL, DBG_LVL_OFF,
+				("TxIQ Cal Done::(%c)\n",
+				 RLM_CAL_CACHE_IS_TXIQ_CAL_DONE(rlmCalCache) ? 'T':'F'));
 
-	MTWF_PRINT("TxDC Cal Done::(%c)\n",
-				 RLM_CAL_CACHE_IS_TXDC_CAL_DONE(rlmCalCache) ? 'T':'F');
+	MTWF_LOG(DBG_CAT_CFG, DBG_SUBCAT_ALL, DBG_LVL_OFF,
+				("TxDC Cal Done::(%c)\n",
+				 RLM_CAL_CACHE_IS_TXDC_CAL_DONE(rlmCalCache) ? 'T':'F'));
 
-	MTWF_PRINT("RxFI Cal Done::(%c)\n",
-				 RLM_CAL_CACHE_IS_RXFI_CAL_DONE(rlmCalCache) ? 'T':'F');
+	MTWF_LOG(DBG_CAT_CFG, DBG_SUBCAT_ALL, DBG_LVL_OFF,
+				("RxFI Cal Done::(%c)\n",
+				 RLM_CAL_CACHE_IS_RXFI_CAL_DONE(rlmCalCache) ? 'T':'F'));
 
 	for (idx = 0; idx < 9; idx++) {
-		MTWF_PRINT("RxFD(%d) Cal Done::(%c)\n", idx,
-			RLM_CAL_CACHE_IS_RXFD_CAL_DONE(rlmCalCache, idx) ? 'T':'F');
+		MTWF_LOG(DBG_CAT_CFG, DBG_SUBCAT_ALL, DBG_LVL_OFF,
+			("RxFD(%d) Cal Done::(%c)\n", idx,
+			RLM_CAL_CACHE_IS_RXFD_CAL_DONE(rlmCalCache, idx) ? 'T':'F'));
 	}
 
 	/* return; */
@@ -253,8 +254,8 @@ VOID rlmCalCacheDump(VOID *rlmCalCache)
 
 	for (idx = 0; idx < 9; idx++) {
 		if (RLM_CAL_CACHE_IS_RXFD_CAL_DONE(rlmCalCache, idx)) {
-			MTWF_DBG(NULL, DBG_CAT_CFG, DBG_SUBCAT_ALL, DBG_LVL_INFO,
-				"RxFD(%d)\n", idx);
+			MTWF_LOG(DBG_CAT_CFG, DBG_SUBCAT_ALL, DBG_LVL_TRACE,
+				("RxFD(%d)\n", idx));
 			hex_dump("RxFd", (UCHAR *)(RLM_CAL_CACHE_RXFD_CAL_INFO(rlmCalCache, idx).au4Data),
 				sizeof(RLM_CAL_CACHE_RXFD_CAL_INFO(rlmCalCache, idx).au4Data));
 		}
@@ -309,249 +310,6 @@ INT TxDpdCalInfoAlloc_7622(RTMP_ADAPTER *pAd, VOID **pptr, UINT32 chan)
 	return sizeof(TXDPD_CAL_INFO_T);
 }
 #endif /* PRE_CAL_MT7622_SUPPORT */
-
-#ifdef PRE_CAL_MT7626_SUPPORT
-INT GroupPreCalInfoAlloc_7626(RTMP_ADAPTER *pAd, VOID **pptr, UINT16 idx, UINT32 length)
-{
-	UINT32 i = 0;
-	P_PRE_CAL_INFO_MT7626_T pGroupPreCalInfo;
-
-	if (os_alloc_mem(pAd, (UCHAR **)&pGroupPreCalInfo, sizeof(PRE_CAL_INFO_MT7626_T)) != NDIS_STATUS_SUCCESS)
-		return 0;
-
-	*pptr = pGroupPreCalInfo;
-	os_zero_mem(pGroupPreCalInfo, sizeof(PRE_CAL_INFO_MT7626_T));
-
-	pGroupPreCalInfo->ucIndex  = idx;
-	pGroupPreCalInfo->u4Length = length;
-
-	/* Due to PreCalImage is UCHAR, then we should multiple 4 to become UINT32 */
-	os_move_mem(pGroupPreCalInfo->au4Data, pAd->PreCalImage + (idx * PRE_CAL_SET_MAX_LENGTH), length);
-	return sizeof(PRE_CAL_INFO_MT7626_T);
-}
-
-INT DpdFlatnessCalInfoAlloc_7626(RTMP_ADAPTER *pAd, VOID **pptr, UINT16 idx, UINT32 length)
-{
-	UINT32 i = 0;
-	P_PRE_CAL_INFO_MT7626_T pDpdFlatnessCalInfo;
-
-	if (os_alloc_mem(pAd, (UCHAR **)&pDpdFlatnessCalInfo, sizeof(PRE_CAL_INFO_MT7626_T)) != NDIS_STATUS_SUCCESS)
-		return 0;
-
-	*pptr = pDpdFlatnessCalInfo;
-	os_zero_mem(pDpdFlatnessCalInfo, sizeof(PRE_CAL_INFO_MT7626_T));
-
-	pDpdFlatnessCalInfo->ucIndex  = idx;
-	pDpdFlatnessCalInfo->u4Length = length;
-
-	/* Due to PreCalImage is UCHAR, then we should multiple 4 to become UINT32 */
-    if (length == DPD_FLATNESS_2G_CAL_SIZE) {
-		pDpdFlatnessCalInfo->ucBand = GBAND;
-		os_move_mem(pDpdFlatnessCalInfo->au4Data,
-			pAd->TxDPDImage + ((DPD_FLATNESS_5G_CHAN_NUM * DPD_FLATNESS_5G_CAL_SIZE) + ((idx-DPD_FLATNESS_5G_CHAN_NUM) * length)),
-			length);
-	} else {
-		pDpdFlatnessCalInfo->ucBand = ABAND;
-		os_move_mem(pDpdFlatnessCalInfo->au4Data, pAd->TxDPDImage + (idx * length), length);
-	}
-	return sizeof(PRE_CAL_INFO_MT7626_T);
-}
-#endif /* PRE_CAL_MT7626_SUPPORT */
-
-#ifdef PRE_CAL_MT7915_SUPPORT
-INT GroupPreCalInfoAlloc_7915(RTMP_ADAPTER *pAd, VOID **pptr, UINT16 idx, UINT32 length)
-{
-	P_PRE_CAL_INFO_MT7915_T pGroupPreCalInfo;
-	UINT32 event_len = sizeof(PRE_CAL_INFO_MT7915_T) + length;
-
-	if (os_alloc_mem(pAd, (UCHAR **)&pGroupPreCalInfo, event_len) != NDIS_STATUS_SUCCESS)
-		return 0;
-
-	*pptr = pGroupPreCalInfo;
-	os_zero_mem(pGroupPreCalInfo, event_len);
-
-	pGroupPreCalInfo->ucIndex  = idx;
-	pGroupPreCalInfo->u4Length = length;
-#ifdef RT_BIG_ENDIAN
-	pGroupPreCalInfo->u4Length = cpu2le32(pGroupPreCalInfo->u4Length);
-#endif
-	os_move_mem(pGroupPreCalInfo->au4Data, pAd->PreCalImage + (idx * PRE_CAL_SET_MAX_LENGTH), length);
-	return event_len;
-}
-
-INT DpdFlatnessCalInfoAlloc_7915(
-	RTMP_ADAPTER *pAd,
-	VOID         **pptr,
-	UINT16       idx,
-	UINT32       length,
-	BOOLEAN      bSecBw80
-	)
-{
-	P_PRE_CAL_INFO_MT7915_T pDpdFlatnessCalInfo;
-	UINT32 event_len = sizeof(PRE_CAL_INFO_MT7915_T) + length;
-
-	if (os_alloc_mem(pAd, (UCHAR **)&pDpdFlatnessCalInfo, event_len) != NDIS_STATUS_SUCCESS)
-		return 0;
-
-	*pptr = pDpdFlatnessCalInfo;
-	os_zero_mem(pDpdFlatnessCalInfo, event_len);
-
-	pDpdFlatnessCalInfo->ucIndex  = idx;
-	pDpdFlatnessCalInfo->u4Length = length;
-#ifdef RT_BIG_ENDIAN
-	pDpdFlatnessCalInfo->u4Length = cpu2le32(pDpdFlatnessCalInfo->u4Length);
-#endif
-	pDpdFlatnessCalInfo->ucSecBw80 = bSecBw80;
-	os_move_mem(pDpdFlatnessCalInfo->au4Data, pAd->TxDPDImage + (idx * PRE_CAL_SET_MAX_LENGTH), length);
-
-
-	return event_len;
-}
-#endif /* PRE_CAL_MT7915_SUPPORT */
-
-#ifdef PRE_CAL_MT7986_SUPPORT
-INT GroupPreCalInfoAlloc_7986(RTMP_ADAPTER *pAd, VOID **pptr, UINT16 idx, UINT32 length)
-{
-	P_PRE_CAL_INFO_MT7986_T pGroupPreCalInfo;
-	UINT32 event_len = sizeof(PRE_CAL_INFO_MT7986_T) + length;
-
-	if (os_alloc_mem(pAd, (UCHAR **)&pGroupPreCalInfo, event_len) != NDIS_STATUS_SUCCESS)
-		return 0;
-
-	*pptr = pGroupPreCalInfo;
-	os_zero_mem(pGroupPreCalInfo, event_len);
-
-	pGroupPreCalInfo->ucIndex  = idx;
-	pGroupPreCalInfo->u4Length = length;
-
-	os_move_mem(pGroupPreCalInfo->au4Data, pAd->PreCalImage + (idx * PRE_CAL_SET_MAX_LENGTH), length);
-	return event_len;
-}
-
-INT DpdFlatnessCalInfoAlloc_7986(
-	RTMP_ADAPTER *pAd,
-	VOID         **pptr,
-	UINT16       idx,
-	UINT32       length,
-	UINT32       eeprom_offset
-	)
-{
-	P_PRE_CAL_INFO_MT7986_T pDpdFlatnessCalInfo;
-	UINT32 event_len = sizeof(PRE_CAL_INFO_MT7986_T) + length;
-
-	if (os_alloc_mem(pAd, (UCHAR **)&pDpdFlatnessCalInfo, event_len) != NDIS_STATUS_SUCCESS)
-		return 0;
-
-	*pptr = pDpdFlatnessCalInfo;
-	os_zero_mem(pDpdFlatnessCalInfo, event_len);
-
-	pDpdFlatnessCalInfo->ucIndex  = idx;
-	pDpdFlatnessCalInfo->u4Length = length;
-#ifdef RT_BIG_ENDIAN
-	pDpdFlatnessCalInfo->u4Length = cpu2le32(pDpdFlatnessCalInfo->u4Length);
-#endif
-	////pDpdFlatnessCalInfo->ucSecBw80 = bSecBw80;
-	os_move_mem(pDpdFlatnessCalInfo->au4Data, pAd->TxDPDImage + eeprom_offset + (idx * PRE_CAL_SET_MAX_LENGTH), length);
-
-	return event_len;
-}
-#endif /* PRE_CAL_MT7986_SUPPORT */
-
-#ifdef PRE_CAL_MT7916_SUPPORT
-INT GroupPreCalInfoAlloc_7916(RTMP_ADAPTER *pAd, VOID **pptr, UINT16 idx, UINT32 length)
-{
-	P_PRE_CAL_INFO_MT7916_T pGroupPreCalInfo;
-	UINT32 event_len = sizeof(PRE_CAL_INFO_MT7916_T) + length;
-
-	if (os_alloc_mem(pAd, (UCHAR **)&pGroupPreCalInfo, event_len) != NDIS_STATUS_SUCCESS)
-		return 0;
-
-	*pptr = pGroupPreCalInfo;
-	os_zero_mem(pGroupPreCalInfo, event_len);
-
-	pGroupPreCalInfo->ucIndex  = idx;
-	pGroupPreCalInfo->u4Length = length;
-
-	os_move_mem(pGroupPreCalInfo->au4Data, pAd->PreCalImage + (idx * PRE_CAL_SET_MAX_LENGTH), length);
-	return event_len;
-}
-
-INT DpdFlatnessCalInfoAlloc_7916(
-	RTMP_ADAPTER *pAd,
-	VOID         **pptr,
-	UINT16       idx,
-	UINT32       length,
-	UINT32       eeprom_ofst
-	)
-{
-	P_PRE_CAL_INFO_MT7916_T pDpdFlatnessCalInfo;
-	UINT32 event_len = sizeof(PRE_CAL_INFO_MT7916_T) + length;
-
-	if (os_alloc_mem(pAd, (UCHAR **)&pDpdFlatnessCalInfo, event_len) != NDIS_STATUS_SUCCESS)
-		return 0;
-
-	*pptr = pDpdFlatnessCalInfo;
-	os_zero_mem(pDpdFlatnessCalInfo, event_len);
-
-	pDpdFlatnessCalInfo->ucIndex  = idx;
-	pDpdFlatnessCalInfo->u4Length = length;
-#ifdef RT_BIG_ENDIAN
-	pDpdFlatnessCalInfo->u4Length = cpu2le32(pDpdFlatnessCalInfo->u4Length);
-#endif
-	////pDpdFlatnessCalInfo->ucSecBw80 = bSecBw80;
-	os_move_mem(pDpdFlatnessCalInfo->au4Data, pAd->TxDPDImage + eeprom_ofst + (idx * PRE_CAL_SET_MAX_LENGTH), length);
-
-	return event_len;
-}
-#endif /* PRE_CAL_MT7916_SUPPORT */
-
-#ifdef PRE_CAL_MT7981_SUPPORT
-INT GroupPreCalInfoAlloc_7981(RTMP_ADAPTER *pAd, VOID **pptr, UINT16 idx, UINT32 length)
-{
-	P_PRE_CAL_INFO_MT7981_T pGroupPreCalInfo;
-	UINT32 event_len = sizeof(PRE_CAL_INFO_MT7981_T) + length;
-
-	if (os_alloc_mem(pAd, (UCHAR **)&pGroupPreCalInfo, event_len) != NDIS_STATUS_SUCCESS)
-		return 0;
-
-	*pptr = pGroupPreCalInfo;
-	os_zero_mem(pGroupPreCalInfo, event_len);
-
-	pGroupPreCalInfo->ucIndex  = idx;
-	pGroupPreCalInfo->u4Length = length;
-
-	os_move_mem(pGroupPreCalInfo->au4Data, pAd->PreCalImage + (idx * PRE_CAL_SET_MAX_LENGTH), length);
-	return event_len;
-}
-
-INT DpdFlatnessCalInfoAlloc_7981(
-	RTMP_ADAPTER *pAd,
-	VOID         **pptr,
-	UINT16       idx,
-	UINT32       length,
-	UINT32       eeprom_offset
-	)
-{
-	P_PRE_CAL_INFO_MT7981_T pDpdFlatnessCalInfo;
-	UINT32 event_len = sizeof(PRE_CAL_INFO_MT7981_T) + length;
-
-	if (os_alloc_mem(pAd, (UCHAR **)&pDpdFlatnessCalInfo, event_len) != NDIS_STATUS_SUCCESS)
-		return 0;
-
-	*pptr = pDpdFlatnessCalInfo;
-	os_zero_mem(pDpdFlatnessCalInfo, event_len);
-
-	pDpdFlatnessCalInfo->ucIndex  = idx;
-	pDpdFlatnessCalInfo->u4Length = length;
-#ifdef RT_BIG_ENDIAN
-	pDpdFlatnessCalInfo->u4Length = cpu2le32(pDpdFlatnessCalInfo->u4Length);
-#endif
-	////pDpdFlatnessCalInfo->ucSecBw80 = bSecBw80;
-	os_move_mem(pDpdFlatnessCalInfo->au4Data, pAd->TxDPDImage + eeprom_offset + (idx * PRE_CAL_SET_MAX_LENGTH), length);
-
-	return event_len;
-}
-#endif /* PRE_CAL_MT7981_SUPPORT */
 
 INT TxLpfCalInfoAlloc(VOID *pAd, VOID *rlmCalCache, VOID **pptr)
 {

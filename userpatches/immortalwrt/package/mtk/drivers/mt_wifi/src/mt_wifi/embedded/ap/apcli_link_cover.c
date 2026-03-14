@@ -1,17 +1,18 @@
 /*
- * Copyright (c) [2020], MediaTek Inc. All rights reserved.
- *
- * This software/firmware and related documentation ("MediaTek Software") are
- * protected under relevant copyright laws.
- * The information contained herein is confidential and proprietary to
- * MediaTek Inc. and/or its licensors.
- * Except as otherwise provided in the applicable licensing terms with
- * MediaTek Inc. and/or its licensors, any reproduction, modification, use or
- * disclosure of MediaTek Software, and information contained herein, in whole
- * or in part, shall be strictly prohibited.
-*/
-/*
  ***************************************************************************
+ * Ralink Tech Inc.
+ * 4F, No. 2 Technology 5th Rd.
+ * Science-based Industrial Park
+ * Hsin-chu, Taiwan, R.O.C.
+ *
+ * (c) Copyright 2002-2006, Ralink Technology, Inc.
+ *
+ * All rights reserved.	Ralink's source	code is	an unpublished work	and	the
+ * use of a	copyright notice does not imply	otherwise. This	source code
+ * contains	confidential trade secret material of Ralink Tech. Any attemp
+ * or participation	in deciphering,	decoding, reverse engineering or in	any
+ * way altering	the	source code	is stricitly prohibited, unless	the	prior
+ * written consent of Ralink Technology, Inc. is obtained.
  ***************************************************************************
 
 	Module Name:
@@ -44,24 +45,24 @@ INT ApcliLinkMonitorThread(
 	RtmpOSTaskCustomize(pTask);
 
 	if (p2G_pAd == NULL) {
-		MTWF_DBG(pAd, DBG_CAT_CLIENT, CATCLIENT_APCLI, DBG_LVL_INFO,
-				"##### no 2G pAd!!!\n");
+		MTWF_LOG(DBG_CAT_CLIENT, CATCLIENT_APCLI, DBG_LVL_TRACE,
+				("##### no 2G pAd!!!\n"));
 		/* RtmpOSTaskNotifyToExit(pTask); */
 		/* return 0; */
 	} else if (p5G_pAd == NULL) {
-		MTWF_DBG(pAd, DBG_CAT_CLIENT, CATCLIENT_APCLI, DBG_LVL_INFO,
-				"##### no 5G pAd!!!\n");
+		MTWF_LOG(DBG_CAT_CLIENT, CATCLIENT_APCLI, DBG_LVL_TRACE,
+				("##### no 5G pAd!!!\n"));
 		/* RtmpOSTaskNotifyToExit(pTask); */
 		/* return 0; */
 	}
 
 	if (p5G_pAd == pAd) {
-		MTWF_DBG(pAd, DBG_CAT_CLIENT, CATCLIENT_APCLI, DBG_LVL_INFO,
-				"we are 5G interface, wait 2G link update\n");
+		MTWF_LOG(DBG_CAT_CLIENT, CATCLIENT_APCLI, DBG_LVL_TRACE,
+				("we are 5G interface, wait 2G link update\n"));
 		pAd_other_band = p2G_pAd;
 	} else {
-		MTWF_DBG(pAd, DBG_CAT_CLIENT, CATCLIENT_APCLI, DBG_LVL_INFO,
-				"we are 2G interface, wait 5G link update\n");
+		MTWF_LOG(DBG_CAT_CLIENT, CATCLIENT_APCLI, DBG_LVL_TRACE,
+				("we are 2G interface, wait 5G link update\n"));
 		pAd_other_band = p5G_pAd;
 	}
 
@@ -91,8 +92,8 @@ INT ApcliLinkMonitorThread(
 	 * This is important in preemption kernels, which transfer the flow
 	 * of execution immediately upon a complete().
 	 */
-	MTWF_DBG(pAd, DBG_CAT_CLIENT, CATCLIENT_APCLI, DBG_LVL_INFO,
-			"<---ApcliLinkMonitorThread\n");
+	MTWF_LOG(DBG_CAT_CLIENT, CATCLIENT_APCLI, DBG_LVL_TRACE,
+			("<---ApcliLinkMonitorThread\n"));
 	/* if (pTask) */
 	/* RtmpOSTaskNotifyToExit(pTask); */
 	return 0;
@@ -109,8 +110,8 @@ NDIS_STATUS RtmpApcliLinkTaskInit(IN PRTMP_ADAPTER pAd)
 	status = RtmpOSTaskAttach(pTask, ApcliLinkMonitorThread, (ULONG)pTask);
 
 	if (status == NDIS_STATUS_FAILURE) {
-		MTWF_DBG(pAd, DBG_CAT_CLIENT, CATCLIENT_APCLI, DBG_LVL_INFO,
-				"%s: Unable to start ApcliLinkMonitorThread!\n", get_dev_name_prefix(pAd, INT_APCLI));
+		MTWF_LOG(DBG_CAT_CLIENT, CATCLIENT_APCLI, DBG_LVL_TRACE,
+				("%s: Unable to start ApcliLinkMonitorThread!\n", get_dev_name_prefix(pAd, INT_APCLI)));
 		return NDIS_STATUS_FAILURE;
 	}
 
@@ -127,7 +128,7 @@ VOID RtmpApcliLinkTaskExit(
 		ret = RtmpOSTaskKill(&pAd->apcliLinkTask);
 
 		if (ret == NDIS_STATUS_FAILURE)
-			MTWF_DBG(pAd, DBG_CAT_CLIENT, CATCLIENT_APCLI, DBG_LVL_ERROR, "Kill command task fail!\n");
+			MTWF_LOG(DBG_CAT_CLIENT, CATCLIENT_APCLI, DBG_LVL_ERROR, ("Kill command task fail!\n"));
 	}
 }
 #endif /* APCLI_LINK_COVER_SUPPORT */

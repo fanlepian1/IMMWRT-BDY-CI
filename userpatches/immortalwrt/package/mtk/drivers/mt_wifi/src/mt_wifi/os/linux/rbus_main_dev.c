@@ -33,12 +33,18 @@
 
 static struct net_device *rt2880_dev;
 static struct platform_device *wbsys_pdev;
-static struct pci_hif_chip *rt2880_chip_hif;
+
 #if defined(CONFIG_RA_CLASSIFIER) && (!defined(CONFIG_RA_CLASSIFIER_MODULE))
 extern int (*ra_classifier_init_func)(void);
 extern void (*ra_classifier_release_func)(void);
 extern struct proc_dir_entry *proc_ptr, *proc_ralink_wl_video;
 #endif
+
+#ifdef MEM_ALLOC_INFO_SUPPORT
+extern MEM_INFO_LIST MemInfoList;
+extern MEM_INFO_LIST PktInfoList;
+#endif /*MEM_ALLOC_INFO_SUPPORT*/
+
 
 int __init wbsys_module_init(void)
 {
@@ -50,15 +56,11 @@ int __init wbsys_module_init(void)
 	unsigned int dev_irq;
 	RTMP_OS_NETDEV_OP_HOOK netDevHook;
 	UINT32 Value;
-	struct _PCI_HIF_T *pci_hif;
-	struct pci_hif_chip *hif_chip;
-	struct pci_hif_chip_cfg cfg;
 
-#ifndef MULTI_INF_SUPPORT
-	os_module_init();
-#endif
-
-	MTWF_DBG(pAd, DBG_CAT_HIF, CATHIF_PCI, DBG_LVL_INFO, "===> rt2880_probe\n");
+	MTWF_LOG(DBG_CAT_HIF, CATHIF_PCI, DBG_LVL_TRACE, ("===> rt2880_probe\n"));
+#ifdef MEM_ALLOC_INFO_SUPPORT
+	MemInfoListInital();
+#endif /* MEM_ALLOC_INFO_SUPPORT */
 	/*RtmpRaBusInit============================================ */
 	/* map physical address to virtual address for accessing register */
 	csr_addr = (unsigned long)ioremap(RTMP_MAC_CSR_ADDR, RTMP_MAC_CSR_LEN);
@@ -68,7 +70,7 @@ int __init wbsys_module_init(void)
 	os_alloc_mem(NULL, (UCHAR **)&handle, sizeof(struct os_cookie));
 
 	if (!handle) {
-		MTWF_DBG(NULL, DBG_CAT_HIF, CATHIF_PCI, DBG_LVL_ERROR, "Allocate memory for os_cookie failed!\n");
+		MTWF_LOG(DBG_CAT_HIF, CATHIF_PCI, DBG_LVL_ERROR, ("Allocate memory for os_cookie failed!\n"));
 		goto err_out;
 	}
 
@@ -77,17 +79,17 @@ int __init wbsys_module_init(void)
 	/* get DRIVER operations */
 	RTMP_DRV_OPS_FUNCTION(pRtmpDrvOps, NULL, NULL, NULL);
 #endif /* OS_ABL_FUNC_SUPPORT */
-	rv = RTMPAllocAdapterBlock(handle, (VOID **)&pAd, RTMP_DEV_INF_RBUS);
+	rv = RTMPAllocAdapterBlock(handle, (VOID **)&pAd);
 
 	if (rv != NDIS_STATUS_SUCCESS) {
-		MTWF_DBG(NULL, DBG_CAT_HIF, CATHIF_PCI, DBG_LVL_ERROR, " RTMPAllocAdapterBlock !=  NDIS_STATUS_SUCCESS\n");
+		MTWF_LOG(DBG_CAT_HIF, CATHIF_PCI, DBG_LVL_ERROR, (" RTMPAllocAdapterBlock !=  NDIS_STATUS_SUCCESS\n"));
 		os_free_mem(handle);
 		goto err_out;
 	}
-	pci_hif = hc_get_hif_ctrl(pAd->hdev_ctrl);
+
 	/* Here are the RTMP_ADAPTER structure with rbus-bus specific parameters. */
-	pci_hif->CSRBaseAddress = (PUCHAR)csr_addr;
-	RTMP_IO_READ32(pAd->hdev_ctrl, TOP_HCR, &Value);
+	pAd->PciHif.CSRBaseAddress = (PUCHAR)csr_addr;
+	RTMP_IO_READ32(pAd, TOP_HCR, &Value);
 	pAd->ChipID = Value;
 	/*assign pdev to handle before RtmpRaDevCtrlInit*/
 	RtmpRaDevCtrlInit(pAd, RTMP_DEV_INF_RBUS);
@@ -97,43 +99,27 @@ int __init wbsys_module_init(void)
 	if (net_dev == NULL)
 		goto err_out_free_radev;
 
-	pci_hif->pdev = &net_dev->dev;
-	rt2880_chip_hif->pdev = &net_dev->dev;
 	/* Here are the net_device structure with pci-bus specific parameters. */
 	net_dev->irq = dev_irq;			/* Interrupt IRQ number */
 	net_dev->base_addr = csr_addr;		/* Save CSR virtual address and irq to device structure */
 	/*is not a regular method*/
 	((POS_COOKIE)handle)->pci_dev = (VOID *)wbsys_pdev;
 	((POS_COOKIE)handle)->pDev = &net_dev->dev;
-#ifdef CONFIG_STA_SUPPORT
-	pAd->StaCfg[0].OriDevType = net_dev->type;
-#endif /* CONFIG_STA_SUPPORT */
-
-	/*alloc pci_hif_chip*/
-	cfg.csr_addr = csr_addr;
-	cfg.msi_en = FALSE;
-	cfg.device = &net_dev->dev;
-	cfg.device_id = pAd->ChipID;
-	cfg.irq = pdev->irq;
-	pci_hif_chip_init((VOID **)&hif_chip, &cfg);
-	pci_hif->main_hif_chip = hif_chip;
-	pci_hif->net_dev = net_dev;
-
 	RTMP_DRIVER_CHIP_PREPARE(pAd);
 	/*All done, it's time to register the net device to kernel. */
 	/* Register this device */
 	rv = RtmpOSNetDevAttach(pAd->OpMode, net_dev, &netDevHook);
 
 	if (rv) {
-		MTWF_DBG(pAd, DBG_CAT_HIF, CATHIF_PCI, DBG_LVL_ERROR, "failed to call RtmpOSNetDevAttach(), rv=%d!\n", rv);
+		MTWF_LOG(DBG_CAT_HIF, CATHIF_PCI, DBG_LVL_ERROR, ("failed to call RtmpOSNetDevAttach(), rv=%d!\n", rv));
 		goto err_out_free_netdev;
 	}
 
 	/* due to we didn't have any hook point when do module remove, we use this static as our hook point. */
 	rt2880_dev = net_dev;
 	wl_proc_init();
-	MTWF_DBG(pAd, DBG_CAT_HIF, CATHIF_PCI, DBG_LVL_INFO, "%s: at CSR addr 0x%lx, IRQ %ld.\n", net_dev->name, (ULONG)csr_addr, (long int)net_dev->irq);
-	MTWF_DBG(pAd, DBG_CAT_HIF, CATHIF_PCI, DBG_LVL_INFO, "<=== rt2880_probe\n");
+	MTWF_LOG(DBG_CAT_HIF, CATHIF_PCI, DBG_LVL_TRACE, ("%s: at CSR addr 0x%lx, IRQ %ld.\n", net_dev->name, (ULONG)csr_addr, (long int)net_dev->irq));
+	MTWF_LOG(DBG_CAT_HIF, CATHIF_PCI, DBG_LVL_TRACE, ("<=== rt2880_probe\n"));
 #if defined(CONFIG_RA_CLASSIFIER) && (!defined(CONFIG_RA_CLASSIFIER_MODULE))
 	proc_ptr = proc_ralink_wl_video;
 
@@ -144,6 +130,23 @@ int __init wbsys_module_init(void)
 	return 0;
 err_out_free_netdev:
 	RtmpOSNetDevFree(net_dev);
+#ifdef MEM_ALLOC_INFO_SUPPORT
+	{
+		UINT32 memalctotal, pktalctotal;
+
+		memalctotal = ShowMemAllocInfo();
+		pktalctotal = ShowPktAllocInfo();
+
+		if ((memalctotal != 0) || (pktalctotal != 0)) {
+			MTWF_LOG(DBG_CAT_INIT, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
+					 ("Error: Memory leak!!\n"));
+			ASSERT(0);
+		}
+
+		MIListExit(&MemInfoList);
+		MIListExit(&PktInfoList);
+	}
+#endif /* MEM_ALLOC_INFO_SUPPORT */
 err_out_free_radev:
 	/* free RTMP_ADAPTER strcuture and os_cookie*/
 	RTMPFreeAdapter(pAd);
@@ -170,8 +173,6 @@ VOID __exit wbsys_module_exit(void)
 
 	/* Free the root net_device. */
 	RtmpOSNetDevFree(net_dev);
-	/*chip_hif free*/
-	multi_hif_entry_free(rt2880_chip_hif);
 #if defined(CONFIG_RA_CLASSIFIER) && (!defined(CONFIG_RA_CLASSIFIER_MODULE))
 	proc_ptr = proc_ralink_wl_video;
 
@@ -180,9 +181,23 @@ VOID __exit wbsys_module_exit(void)
 
 #endif
 	wl_proc_exit();
- #ifndef MULTI_INF_SUPPORT
-	os_module_exit();
-#endif
+#ifdef MEM_ALLOC_INFO_SUPPORT
+	{
+		UINT32 memalctotal, pktalctotal;
+
+		memalctotal = ShowMemAllocInfo();
+		pktalctotal = ShowPktAllocInfo();
+
+		if ((memalctotal != 0) || (pktalctotal != 0)) {
+			MTWF_LOG(DBG_CAT_INIT, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
+					 ("Error: Memory leak!!\n"));
+			ASSERT(0);
+		}
+
+		MIListExit(&MemInfoList);
+		MIListExit(&PktInfoList);
+	}
+#endif /* MEM_ALLOC_INFO_SUPPORT */
 }
 
 /** @} */

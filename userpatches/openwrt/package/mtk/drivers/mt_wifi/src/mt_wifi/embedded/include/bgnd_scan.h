@@ -1,16 +1,16 @@
-/*
- * Copyright (c) [2020], MediaTek Inc. All rights reserved.
- *
- * This software/firmware and related documentation ("MediaTek Software") are
- * protected under relevant copyright laws.
- * The information contained herein is confidential and proprietary to
- * MediaTek Inc. and/or its licensors.
- * Except as otherwise provided in the applicable licensing terms with
- * MediaTek Inc. and/or its licensors, any reproduction, modification, use or
- * disclosure of MediaTek Software, and information contained herein, in whole
- * or in part, shall be strictly prohibited.
-*/
 /****************************************************************************
+ * Ralink Tech Inc.
+ * 4F, No. 2 Technology 5th Rd.
+ * Science-based Industrial Park
+ * Hsin-chu, Taiwan, R.O.C.
+ * (c) Copyright 2002, Ralink Technology, Inc.
+ *
+ * All rights reserved. Ralink's source code is an unpublished work and the
+ * use of a copyright notice does not imply otherwise. This source code
+ * contains confidential trade secret material of Ralink Tech. Any attemp
+ * or participation in deciphering, decoding, reverse engineering or in any
+ * way altering the source code is stricitly prohibited, unless the prior
+ * written consent of Ralink Technology, Inc. is obtained.
  ****************************************************************************
 
     Abstract:
@@ -29,54 +29,31 @@
 VOID BackgroundScanCancelAction(RTMP_ADAPTER *pAd, MLME_QUEUE_ELEM *Elem);
 VOID BackgroundScanStartAction(RTMP_ADAPTER *pAd, MLME_QUEUE_ELEM *Elem);
 VOID BackgroundScanTimeoutAction(RTMP_ADAPTER *pAd, MLME_QUEUE_ELEM *Elem);
-VOID dedicated_rx_hist_scan_timeout_action(RTMP_ADAPTER *pAd, MLME_QUEUE_ELEM *Elem);
 VOID BackgroundSwitchChannelAction(RTMP_ADAPTER *pAd, MLME_QUEUE_ELEM *Elem);
 VOID BackgroundChannelSwitchAnnouncementAction(RTMP_ADAPTER *pAd, MLME_QUEUE_ELEM *Elem);
 VOID BackgroundScanPartialAction(RTMP_ADAPTER *pAd, MLME_QUEUE_ELEM *Elem);
 VOID BackgroundScanWaitAction(RTMP_ADAPTER *pAd, MLME_QUEUE_ELEM *Elem);
 VOID BackgroundScanNextChannel(IN PRTMP_ADAPTER pAd, IN UINT8 ScanType);
-VOID BackgroundScanInit(IN PRTMP_ADAPTER pAd, IN struct wifi_dev *wdev);
+VOID BackgroundScanInit(IN PRTMP_ADAPTER pAd);
 VOID BackgroundScanDeInit(IN PRTMP_ADAPTER pAd);
-VOID BackgroundScanStart(IN PRTMP_ADAPTER pAd, IN struct wifi_dev *wdev, IN UINT8 BgndscanType);
+VOID BackgroundScanStart(IN PRTMP_ADAPTER pAd, IN UINT8 BgndscanType);
+
 void BackgroundScanTimeout(
 	IN PVOID SystemSpecific1,
 	IN PVOID FunctionContext,
 	IN PVOID SystemSpecific2,
 	IN PVOID SystemSpecific3);
-
+void DfsZeroWaitTimeout(
+	IN PVOID SystemSpecific1,
+	IN PVOID FunctionContext,
+	IN PVOID SystemSpecific2,
+	IN PVOID SystemSpecific3);
 VOID BackgroundScanTest(IN PRTMP_ADAPTER pAd,	IN MT_BGND_SCAN_CFG BgndScanCfg);
-
 VOID ChannelQualityDetection(IN PRTMP_ADAPTER pAd);
-VOID mt_bgnd_scan(IN PRTMP_ADAPTER pAd, IN UCHAR reason, IN UCHAR bgnd_scan_type);
-VOID mt_off_ch_scan(IN PRTMP_ADAPTER pAd, IN UCHAR reason, IN UCHAR bgnd_scan_type);
-VOID bgnd_scan_cr_init(IN PRTMP_ADAPTER pAd);
-#if (DFS_ZEROWAIT_DEFAULT_FLOW == 1)
-VOID dfs_zero_wait_ch_init_timeout(
-	IN PVOID SystemSpecific1,
-	IN PVOID FunctionContext,
-	IN PVOID SystemSpecific2,
-	IN PVOID SystemSpecific3);
-#endif
-#if (RDD_2_SUPPORTED == 1)
-VOID mt_off_ch_scan_dedicated(IN PRTMP_ADAPTER pAd, IN UCHAR reason, IN UCHAR bgnd_scan_type);
-VOID bgnd_scan_ipi_cr_init(IN PRTMP_ADAPTER pAd);
-#endif
 
-/* Dedicated RX */
-NDIS_STATUS set_dfs_dedicated_rx_proc(IN PRTMP_ADAPTER pAd, IN RTMP_STRING * arg);
-NDIS_STATUS set_dedicated_rx_hist_proc(IN PRTMP_ADAPTER pAd, IN RTMP_STRING * arg);
-
-#ifdef IPI_SCAN_SUPPORT
-NDIS_STATUS set_ipi_scan_ctrl_proc(IN PRTMP_ADAPTER pAd, IN RTMP_STRING *arg);
-NDIS_STATUS set_ipi_scan_hist_proc(IN PRTMP_ADAPTER pAd, IN RTMP_STRING *arg);
-#endif
-
-VOID dedicated_rx_hist_scan_timeout(
-	IN PVOID SystemSpecific1,
-	IN PVOID FunctionContext,
-	IN PVOID SystemSpecific2,
-	IN PVOID SystemSpecific3);
-
+VOID DfsZeroWaitStartAction(RTMP_ADAPTER *pAd, MLME_QUEUE_ELEM *Elem);
+VOID DfsZeroWaitStopAction(RTMP_ADAPTER *pAd, MLME_QUEUE_ELEM *Elem);
+VOID DfsZeroWaitStart(IN PRTMP_ADAPTER pAd, IN BOOLEAN DfsZeroWaitEnable, struct wifi_dev *wdev);
 #ifdef MT_DFS_SUPPORT
 VOID DedicatedZeroWaitStartAction(
 		IN RTMP_ADAPTER *pAd,
@@ -85,7 +62,7 @@ VOID DedicatedZeroWaitRunningAction(
 		IN RTMP_ADAPTER *pAd,
 		IN MLME_QUEUE_ELEM *Elem);
 VOID DedicatedZeroWaitStop(
-		IN RTMP_ADAPTER *pAd, BOOLEAN apply_cur_ch);
+		IN RTMP_ADAPTER *pAd, BOOLEAN bApplyCurrentCh);
 #endif
 VOID BfSwitch(IN PRTMP_ADAPTER pAd, IN UCHAR enabled);
 VOID MuSwitch(IN PRTMP_ADAPTER pAd, IN UCHAR enabled);

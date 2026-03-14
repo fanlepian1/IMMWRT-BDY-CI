@@ -23,9 +23,6 @@
 
 /*#define MONITOR_FLAG_11N_SNIFFER_SUPPORT */
 
-#ifdef CONFIG_STA_SUPPORT
-/*#define AGS_SUPPORT */
-#endif	/* CONFIG_STA_SUPPORT */
 
 #ifdef VENDOR_FEATURE3_SUPPORT
 #ifndef BB_SOC
@@ -79,13 +76,9 @@
 #else
 #define MAX_NUM_OF_CHS			54
 #endif /* DOT11_VHT_AC*/
-#ifndef WAPP_SUPPORT
 /* 14 channels @2.4G +  12@UNII + 4 @MMAC + 11 @HiperLAN2 + 7 @Japan + 1 as NULL termination */
 #define MAX_NUM_OF_CHANNELS             MAX_NUM_OF_CHS
 #define MAX_NUM_OF_SUB_CHANNELS		(MAX_NUM_OF_CHANNELS/2)  /*Assume half size for sub channels*/
-#endif
-
-#define RCPI_TO_RSSI(RCPI) ((RCPI == 255) ? (-127) : (RCPI - 220)/2)
 
 
 #include "rtmp_type.h"
@@ -102,12 +95,8 @@
 #ifdef MEM_ALLOC_INFO_SUPPORT
 #include "meminfo_list.h"
 #endif /* MEM_ALLOC_INFO_SUPPORT */
-#ifdef CONFIG_WIFI_SYSDVT
-#include "dvt_export.h"
-#endif
-#ifdef CONFIG_WIFI_DBG_TXCMD
-#include "dbg_txcmd_export.h"
-#endif
+
+
 /* ======================== Definition ====================================== */
 #ifndef TRUE
 #define TRUE						1
@@ -155,13 +144,9 @@
 #define OPMODE_AP                   1
 #define OPMODE_ADHOC                2   /*Carter add, align the number definition as MT hw arb module. */
 #define OPMODE_APSTA                3       /* as AP and STA at the same time */
-#define OPMODE_ATE	                4       /* as Testmode */
 
 #define MAIN_MBSSID                 0
 #define FIRST_MBSSID                1
-
-#define HAVE_STA_INF				(1 << 0)
-#define HAVE_AP_INF					(1 << 1)
 
 /* Endian byte swapping codes */
 #define SWAP16(x) \
@@ -221,16 +206,13 @@
 
 
 #define MAX_CUSTOM_LEN 128
-#ifdef WH_EVENT_NOTIFIER
-#define CUSTOM_IE_TOTAL_LEN 128
-#endif /* WH_EVENT_NOTIFIER */
 
-#define MONITOR_MAX_DEV_NUM	0
-#ifdef SNIFFER_SUPPORT
-#undef MONITOR_MAX_DEV_NUM
+#ifdef DBDC_MODE
+#define MONITOR_MAX_DEV_NUM	2
+#else
 #define MONITOR_MAX_DEV_NUM	1
 #endif
-
+#define RX_BUFFER_SIZE_MIN	14
 /* */
 /* IEEE 802.11 Structures and definitions */
 /* */
@@ -242,9 +224,6 @@
 #define DEFAULT_FRAG_THLD	(MAX_FRAG_THRESHOLD)
 #define MAX_RTS_PKT_THRESHOLD   0xFF   /* max. pkt count */
 #define MAX_RTS_THRESHOLD               0xfffff  /* max. byte count */
-#ifdef ACK_CTS_TIMEOUT_SUPPORT
-#define MAX_ACK_THRESHOLD               0xFFFF  /* max ack timeout */
-#endif/*ACK_CTS_TIMEOUT_SUPPORT*/
 #define DEFAULT_RTS_PKT_THLD	0x2 /*2*/
 #define DEFAULT_RTS_LEN_THLD	0x92B /*2347*/
 
@@ -256,9 +235,8 @@ typedef enum _NDIS_802_11_NETWORK_INFRASTRUCTURE {
 	Ndis802_11InfrastructureMax	/* Not a real value, defined as upper bound */
 } NDIS_802_11_NETWORK_INFRASTRUCTURE, *PNDIS_802_11_NETWORK_INFRASTRUCTURE;
 
-#ifndef MULTI_INF_SUPPORT
-extern VOID *adapt;
-#endif
+
+
 
 /* ======================== Memory ========================================== */
 #ifdef VENDOR_FEATURE2_SUPPORT
@@ -274,70 +252,37 @@ extern ULONG OS_NumOfPktAlloc, OS_NumOfPktFree;
 
 #ifdef MEM_ALLOC_INFO_SUPPORT
 extern MEM_INFO_LIST PktInfoList;
-#define MEM_DBG_PKT_RECORD(__pPacket,__idx) \
-	{\
-		MIListReCord(&PktInfoList,  __pPacket,__idx, __builtin_return_address(0));\
-	}
 
 #define MEM_DBG_PKT_ALLOC_INC(__pPacket) \
 	{\
-		MIListAddHead(&PktInfoList, 0, __pPacket, __func__, __LINE__, __builtin_return_address(0));\
+		MIListAddHead(&PktInfoList, 0, __pPacket, __builtin_return_address(0));\
 		NUMOfPKTALLOC();\
 	}
-
-#define MEM_DBG_PKT_ALLOC_INC_SIZE(__pPacket, __size) \
-	{\
-		MIListAddHead(&PktInfoList, __size, __pPacket, __func__, __LINE__, __builtin_return_address(0));\
-		NUMOfPKTALLOC();\
-	}
-
 #define MEM_DBG_PKT_FREE_INC(__pPacket)	\
 	{\
-		if (MIListRemove(&PktInfoList, __pPacket, __builtin_return_address(0)) == NULL) {\
-			MTWF_DBG(NULL, DBG_CAT_INIT, DBG_SUBCAT_ALL, DBG_LVL_ERROR,\
-				"the packet %p has not been allocated\n", __pPacket);\
+		if (MIListRemove(&PktInfoList, __pPacket) == NULL) {\
+			MTWF_LOG(DBG_CAT_INIT, DBG_SUBCAT_ALL, DBG_LVL_ERROR,\
+					 ("the packet has not been allocated\n"));\
+			MTWF_LOG(DBG_CAT_INIT, DBG_SUBCAT_ALL, DBG_LVL_ERROR,\
+					 ("mem addr = %p, caller is %pS\n", __pPacket, __builtin_return_address(0)));\
 			dump_stack();\
 		} \
 		NUMOfPKTFREE();\
 	}
 #else
-#define MEM_DBG_PKT_RECORD(__pPacket,__idx)
-#define MEM_DBG_PKT_ALLOC_INC_SIZE(__pPacket,__size)
 #define MEM_DBG_PKT_ALLOC_INC(__pPacket)
 #define MEM_DBG_PKT_FREE_INC(__pPacket)
 #endif /* MEM_ALLOC_INFO_SUPPORT */
 
-#define MODE_CCK 0
-#define MODE_OFDM 1
-#define MODE_HTMIX 2
-#define MODE_HTGREENFIELD 3
-#define MODE_VHT 4
-#define MODE_HE 5
-#define MODE_HE_SU	8
-#define MODE_HE_24G 7
-#define MODE_HE_5G 6
-#define MODE_HE_EXT_SU	9
-#define MODE_HE_TRIG	10
-#define MODE_HE_MU	11
-#define MODE_UNKNOWN 255
-
-#define MODE_HE_SU_REMAPPING  5
-#define MODE_HE_EXTSU_REMAPPING  6
-
-
-
-
-enum HE_LTF_TYPE {
-	HE_LTF_X1,
-	HE_LTF_X2,
-	HE_LTF_X4,
-};
-
-enum HE_GI_TYPE {
-	GI_8,
-	GI_16,
-	GI_32,
-};
+/* All PHY rate summary in TXD */
+/* Preamble MODE in TxD */
+#define MODE_CCK	0
+#define MODE_OFDM   1
+#ifdef DOT11_N_SUPPORT
+#define MODE_HTMIX	2
+#define MODE_HTGREENFIELD	3
+#endif /* DOT11_N_SUPPORT */
+#define MODE_VHT	4
 
 #ifdef NO_CONSISTENT_MEM_SUPPORT
 /* current support RXD_SIZE = 16B and cache line = 16 or 32B */
@@ -350,23 +295,17 @@ enum HE_GI_TYPE {
 
 /* ======================== Interface ======================================= */
 
-#define GET_OPMODE_FROM_PAD(__pAd) (((RTMP_ADAPTER *)__pAd)->OpMode)
 
 #if defined(CONFIG_AP_SUPPORT) && defined(CONFIG_STA_SUPPORT)
 #define IF_DEV_CONFIG_OPMODE_ON_AP(_pAd)	if (_pAd->OpMode == OPMODE_AP)
 #define IF_DEV_CONFIG_OPMODE_ON_STA(_pAd)	if (_pAd->OpMode == OPMODE_STA)
 #define RT_CONFIG_IF_OPMODE_ON_AP(__OpMode)	if (__OpMode == OPMODE_AP)
 #define RT_CONFIG_IF_OPMODE_ON_STA(__OpMode)	if (__OpMode == OPMODE_STA)
-#elif defined(CONFIG_AP_SUPPORT)
-#define IF_DEV_CONFIG_OPMODE_ON_AP(_pAd)	if (TRUE)
-#define IF_DEV_CONFIG_OPMODE_ON_STA(_pAd)	if (FALSE)
-#define RT_CONFIG_IF_OPMODE_ON_AP(__OpMode)	if (TRUE)
-#define RT_CONFIG_IF_OPMODE_ON_STA(__OpMode)	if (FALSE)
 #else
-#define IF_DEV_CONFIG_OPMODE_ON_AP(_pAd)	if (FALSE)
-#define IF_DEV_CONFIG_OPMODE_ON_STA(_pAd)	if (TRUE)
-#define RT_CONFIG_IF_OPMODE_ON_AP(__OpMode)	if (FALSE)
-#define RT_CONFIG_IF_OPMODE_ON_STA(__OpMode)	if (TRUE)
+#define IF_DEV_CONFIG_OPMODE_ON_AP(_pAd)
+#define IF_DEV_CONFIG_OPMODE_ON_STA(_pAd)
+#define RT_CONFIG_IF_OPMODE_ON_AP(__OpMode)
+#define RT_CONFIG_IF_OPMODE_ON_STA(__OpMode)
 #endif
 
 
@@ -414,7 +353,6 @@ typedef struct __RTMP_IOCTL_INPUT_STRUCT {
 typedef struct _LIST_RESOURCE_OBJ_ENTRY {
 	struct _LIST_RESOURCE_OBJ_ENTRY *pNext;
 	VOID *pRscObj;
-	VOID *timer_name;
 } LIST_RESOURCE_OBJ_ENTRY, *PLIST_RESOURCE_OBJ_ENTRY;
 
 
@@ -423,7 +361,10 @@ typedef struct _LIST_RESOURCE_OBJ_ENTRY {
 /* ======================== IC =========================================== */
 #define RFIC_24GHZ		0x01
 #define RFIC_5GHZ		0x02
-#define RFIC_6GHZ		0x04
+#define RFIC_DUAL_BAND		(RFIC_24GHZ | RFIC_5GHZ)
+
+
+
 
 /* ======================== CFG80211 ======================================== */
 #define RT_CFG80211_DEBUG /* debug use */
@@ -438,10 +379,11 @@ typedef struct _LIST_RESOURCE_OBJ_ENTRY {
 #define CFG80211_NUM_OF_CHAN_2GHZ			14
 
 /* 36 ~ 64, 100 ~ 136, 140 ~ 161 */
-#define CFG80211_NUM_OF_CHAN_5GHZ			34
+#define CFG80211_NUM_OF_CHAN_5GHZ			\
+	(sizeof(Cfg80211_Chan)-CFG80211_NUM_OF_CHAN_2GHZ)
 
-/* 1 ~ 233 */
-#define CFG80211_NUM_OF_CHAN_6GHZ			59
+
+
 
 /* ======================== Packet ========================================== */
 #define LENGTH_802_11               24
@@ -458,7 +400,6 @@ typedef struct _LIST_RESOURCE_OBJ_ENTRY {
 #define MAX_SEQ_NUMBER              0x0fff
 #define LENGTH_802_3_NO_TYPE		12
 #define LENGTH_802_1Q				4 /* VLAN related */
-#define LENGTH_802_11_QOS_FIELD     2
 
 
 /*
@@ -478,9 +419,7 @@ typedef struct  _PACKET_INFO    {
 #define IS_MULTICAST_MAC_ADDR(Addr)			((((Addr[0]) & 0x01) == 0x01) && ((Addr[0]) != 0xff))
 #define IS_BROADCAST_MAC_ADDR(Addr)			((((Addr[0]) & 0xff) == 0xff))
 
-#ifdef WIDI_SUPPORT
-#define ETH_P_WIDI_NOTIF	0x888F
-#endif /* WIDI_SUPPROT */
+
 
 #define RLT_MAC_BASE 0x01
 #define MT_MAC_BASE 0x2
@@ -493,12 +432,11 @@ typedef struct  _PACKET_INFO    {
 
 #define MAX_NUM_OF_INF		3
 
-#define NON_REPT_ENTRY 0xFF
-
-
 #ifdef MULTI_INF_SUPPORT
 /* Index 0 for 2.4G, 1 for 5Ghz Card */
 extern VOID *adapt_list[MAX_NUM_OF_INF];
 #endif /* MULTI_INF_SUPPORT */
-
+#ifdef CREATE_ALL_INTERFACE_AT_INIT
+#define MAX_MBSS_NUM 8	
+#endif
 #endif /* __RT_COMM_H__ */

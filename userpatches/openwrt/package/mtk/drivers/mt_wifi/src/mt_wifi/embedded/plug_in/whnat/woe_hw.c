@@ -1,17 +1,13 @@
 /*
- * Copyright (c) [2020], MediaTek Inc. All rights reserved.
- *
- * This software/firmware and related documentation ("MediaTek Software") are
- * protected under relevant copyright laws.
- * The information contained herein is confidential and proprietary to
- * MediaTek Inc. and/or its licensors.
- * Except as otherwise provided in the applicable licensing terms with
- * MediaTek Inc. and/or its licensors, any reproduction, modification, use or
- * disclosure of MediaTek Software, and information contained herein, in whole
- * or in part, shall be strictly prohibited.
-*/
-/*
  ***************************************************************************
+ * MediaTek Inc.
+ *
+ * All rights reserved. source code is an unpublished work and the
+ * use of a copyright notice does not imply otherwise. This source code
+ * contains confidential trade secret material of MediaTek. Any attemp
+ * or participation in deciphering, decoding, reverse engineering or in any
+ * way altering the source code is stricitly prohibited, unless the prior
+ * written consent of MediaTek, Inc. is obtained.
  ***************************************************************************
 
 	Module Name: wifi_offload
@@ -230,8 +226,8 @@ static void whnat_hal_bfm_init(struct whnat_entry *whnat)
 	value = res->des_buf.alloc_pa;
 	WHNAT_IO_WRITE32(wed, WED_TX_BM_BASE, value);
 	/*TX token cfg */
-	value = ((res->token_start) << WED_TX_BM_TKID_FLD_START_ID);
-	value |= ((res->token_end) << WED_TX_BM_TKID_FLD_END_ID);
+	value = ((WED_TOKEN_START) << WED_TX_BM_TKID_FLD_START_ID);
+	value |= ((WED_TOKEN_END) << WED_TX_BM_TKID_FLD_END_ID);
 	WHNAT_IO_WRITE32(wed, WED_TX_BM_TKID, value);
 	/*TX packet len*/
 	value = (res->pkt_len & WED_TX_BM_BLEN_FLD_BYTE_LEN_MASK);
@@ -837,45 +833,27 @@ static void restore_rx_traffic(struct wed_entry *wed)
 /*
 *
 */
-static void wed_ctr_intr_set(struct wed_entry *wed, enum wed_int_agent int_agent,
-								unsigned char enable)
+static void wed_ctr_intr_set(struct wed_entry *wed, unsigned char enable)
 {
 	unsigned int value = 0;
 
 	WHNAT_IO_READ32(wed, WED_CTRL, &value);
 
-	switch (int_agent) {
-	case WPDMA_INT_AGENT:
-		if (enable)
-			value |= (1 << WED_CTRL_FLD_WPDMA_INT_AGT_EN);
-		else
-			value &= ~(1 << WED_CTRL_FLD_WPDMA_INT_AGT_EN);
-		break;
+	/*whnat extra interrupt*/
+	if (enable) {
+		/*whnat interrupt agent*/
+		value |= (1 << WED_CTRL_FLD_WPDMA_INT_AGT_EN);
 #ifdef WED_HW_TX_SUPPORT
-	case WDMA_INT_AGENT:
-		if (enable)
-			value |= (1 << WED_CTRL_FLD_WDMA_INT_AGT_EN);
-		else
-			value &= ~(1 << WED_CTRL_FLD_WDMA_INT_AGT_EN);
-		break;
+		value |= (1 << WED_CTRL_FLD_WDMA_INT_AGT_EN);
 #endif /*WED_HW_TX_SUPPORT*/
-	case ALL_INT_AGENT:
-		if (enable) {
-			value |= (1 << WED_CTRL_FLD_WPDMA_INT_AGT_EN);
+	} else {
+		value &= ~(1 << WED_CTRL_FLD_WPDMA_INT_AGT_EN);
 #ifdef WED_HW_TX_SUPPORT
-			value |= (1 << WED_CTRL_FLD_WDMA_INT_AGT_EN);
+		value &= ~(1 << WED_CTRL_FLD_WDMA_INT_AGT_EN);
 #endif /*WED_HW_TX_SUPPORT*/
-		} else {
-			value &= ~(1 << WED_CTRL_FLD_WPDMA_INT_AGT_EN);
-#ifdef WED_HW_TX_SUPPORT
-			value &= ~(1 << WED_CTRL_FLD_WDMA_INT_AGT_EN);
-#endif /*WED_HW_TX_SUPPORT*/
-		}
-		break;
 	}
 
 	WHNAT_IO_WRITE32(wed, WED_CTRL, value);
-
 #ifdef WED_DELAY_INT_SUPPORT
 	WHNAT_IO_WRITE32(wed, WED_DLY_INT_CFG, WED_DLY_INT_VALUE);
 #endif /*WED_DELAY_INT_SUPPORT*/
@@ -986,15 +964,16 @@ void whnat_hal_cr_mirror_set(struct whnat_entry *whnat, unsigned char enable)
 	WHNAT_IO_WRITE32(hif, cr, value);
 }
 
-void whnat_hal_int_ctrl(struct whnat_entry *entry, enum wed_int_agent int_agent,
-							unsigned char enable)
+/*
+* interrupt control
+*/
+void whnat_hal_int_ctrl(struct whnat_entry *entry, unsigned char enable)
 {
 	struct wed_entry *wed = &entry->wed;
 	struct wifi_entry *wifi = &entry->wifi;
 	unsigned int value = 0;
 	/*wed control cr set*/
-	wed_ctr_intr_set(wed, int_agent, enable);
-
+	wed_ctr_intr_set(wed, enable);
 	/*pcie interrupt status trigger register*/
 	WHNAT_IO_WRITE32(wed, WED_PCIE_INTS_TRIG, PCIE_INT_STA_OFFSET);
 	/*WPDMA interrupt triger*/
@@ -1046,13 +1025,10 @@ void whnat_hal_int_ctrl(struct whnat_entry *entry, enum wed_int_agent int_agent,
 	}
 #endif /*WED_HW_TX_SUPPORT*/
 
-	if (enable && wifi->int_mask) {
-		whnat_hal_pdma_mask_set(wed, *wifi->int_mask);
+	if (enable)
 		WHNAT_IO_WRITE32(wifi, WIFI_INT_MSK, *wifi->int_mask);
-	} else {
-		whnat_hal_pdma_mask_set(wed, 0);
+	else
 		WHNAT_IO_WRITE32(wifi, WIFI_INT_MSK, 0);
-	}
 }
 
 /*
@@ -1165,11 +1141,11 @@ void whnat_hal_wed_init(struct whnat_entry *entry)
 *
 */
 int whnat_hal_io_read(
-	void *hw,
+	void *cookie,
 	unsigned int addr,
 	unsigned int *value)
 {
-	struct whnat_entry *entry = whnat_entry_search_by_hw_ctrl(hw);
+	struct whnat_entry *entry = whnat_entry_search(cookie);
 	struct wed_entry *wed;
 	unsigned int whnat_cr = 0;
 
@@ -1194,11 +1170,11 @@ int whnat_hal_io_read(
 *
 */
 int whnat_hal_io_write(
-	void *hw,
+	void *cookie,
 	unsigned int addr,
 	unsigned int value)
 {
-	struct whnat_entry *entry = whnat_entry_search_by_hw_ctrl(hw);
+	struct whnat_entry *entry = whnat_entry_search(cookie);
 	struct wed_entry *wed;
 	unsigned int whnat_cr = 0;
 
@@ -1452,9 +1428,11 @@ void whnat_hal_pcie_map(struct whnat_entry *whnat)
 /*
 *
 */
-void whnat_hal_pdma_mask_set(struct wed_entry *wed, unsigned int int_mask)
+void whnat_hal_pdma_mask_set(struct whnat_entry *whnat)
 {
-	WHNAT_IO_WRITE32(wed, WED_WPDMA_INT_MSK, int_mask);
+	struct wed_entry *wed = &whnat->wed;
+
+	WHNAT_IO_WRITE32(wed, WED_WPDMA_INT_MSK, WIFI_IMR_VAL);
 }
 
 #ifdef ERR_RECOVERY

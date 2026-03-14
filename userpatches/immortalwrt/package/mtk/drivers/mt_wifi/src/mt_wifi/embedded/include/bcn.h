@@ -1,17 +1,18 @@
 /*
- * Copyright (c) [2020], MediaTek Inc. All rights reserved.
- *
- * This software/firmware and related documentation ("MediaTek Software") are
- * protected under relevant copyright laws.
- * The information contained herein is confidential and proprietary to
- * MediaTek Inc. and/or its licensors.
- * Except as otherwise provided in the applicable licensing terms with
- * MediaTek Inc. and/or its licensors, any reproduction, modification, use or
- * disclosure of MediaTek Software, and information contained herein, in whole
- * or in part, shall be strictly prohibited.
-*/
-/*
  ***************************************************************************
+ * Ralink Tech Inc.
+ * 4F, No. 2 Technology 5th Rd.
+ * Science-based Industrial Park
+ * Hsin-chu, Taiwan, R.O.C.
+ *
+ * (c) Copyright 2002, Ralink Technology, Inc.
+ *
+ * All rights reserved. Ralink's source code is an unpublished work and the
+ * use of a copyright notice does not imply otherwise. This source code
+ * contains confidential trade secret material of Ralink Tech. Any attemp
+ * or participation in deciphering, decoding, reverse engineering or in any
+ * way altering the source code is stricitly prohibited, unless the prior
+ * written consent of Ralink Technology, Inc. is obtained.
  ***************************************************************************
 
     Module Name:
@@ -29,32 +30,33 @@
 #ifndef __BCN_H__
 #define __BCN_H__
 
-#ifdef BCN_V2_SUPPORT /* add bcn v2 support , 1.5k beacon support */
-#define MAX_BEACONV2_LENGTH       (sizeof(HEADER_802_11) + \
-									 TIMESTAMP_FIELD_LEN + \
-									 BEACON_INTERVAL_FIELD_LEN + \
-									 CAP_INFO_FIELD_LEN + \
-									 MAX_IE_V2_LENGTH)
-#endif
+
 #define MAX_BEACON_LENGTH       (sizeof(HEADER_802_11) + \
 								 TIMESTAMP_FIELD_LEN + \
 								 BEACON_INTERVAL_FIELD_LEN + \
 								 CAP_INFO_FIELD_LEN + \
 								 MAX_IE_LENGTH)
 
-typedef enum _BCN_UPDATE_REASON {
+enum BCN_UPDATE_REASON {
 	BCN_UPDATE_INIT		= 0,	/* beacon resource initial. */
 	BCN_UPDATE_IF_STATE_CHG	= 1,	/* there is interface up or down, check related TXD handle. */
 	BCN_UPDATE_IE_CHG		= 2,	/* simple IE change, just update the corresponding interface content. */
-	BCN_UPDATE_ALL_AP_RENEW	= 3,	/* prepared All beacon for All active interface. */
+	BCN_UPDATE_AP_RENEW	= 3,	/* prepared All beacon for All active interface. */
 	BCN_UPDATE_PRETBTT		= 4,	/* update function routine, source could from INT isr or timer or event notify. */
 	BCN_UPDATE_ENABLE_TX	= 5,	/* Enable Beacon TX. */
 	BCN_UPDATE_DISABLE_TX	= 6,	/* Disable Beacon TX. */
 	BCN_UPDATE_TIM		= 7,	/* TIM preparing */
-	BCN_UPDATE_CSA		= 8,	/* CSA (Channel Switch Announcement) */
-	BCN_UPDATE_BTWT_IE		= 9,	/* bTWT element */
-	BCN_UPDATE_RESERVE		= 10,
-} BCN_UPDATE_REASON;
+};
+
+typedef enum _ENUM_UPDATE_PKT_TYPE_T {
+	PKT_BCN = 0,
+	PKT_TIM = 1,
+	/* add bcn v2 support , 1.5k beacon support */
+#ifdef BCN_V2_SUPPORT
+	PKT_V2_BCN = 2,
+	PKT_V2_TIM = 3,
+#endif
+} ENUM_UPDATE_PKT_TYPE_T;
 
 typedef enum _BCN_GEN_METHOD {
 	BCN_GEN_BY_HW_SHARED_MEM = 0,   /* RT chip */
@@ -63,7 +65,14 @@ typedef enum _BCN_GEN_METHOD {
 	BCN_GEN_BY_HOST_TOUCH_PSE_CTNT  /* TODO:MT_chip don't free bcn in BcnQ, recycle update by Host */
 } BCN_GEN_METHOD;
 
-INT bcn_buf_deinit(RTMP_ADAPTER *pAd, struct wifi_dev *wdev);
+VOID write_tmac_info_beacon(
+	RTMP_ADAPTER * pAd,
+	struct wifi_dev *wdev,
+	UCHAR *tmac_buf,
+	HTTRANSMIT_SETTING *BeaconTransmit,
+	ULONG frmLen);
+
+INT bcn_buf_deinit(RTMP_ADAPTER *pAd, BCN_BUF_STRUC *bcn_info);
 
 INT bcn_buf_init(RTMP_ADAPTER *pAd, struct wifi_dev *wdev);
 
@@ -90,78 +99,17 @@ BOOLEAN BeaconTransmitRequired(
 VOID UpdateBeaconHandler(
 	RTMP_ADAPTER *pAd,
 	struct wifi_dev *wdev,
-	BCN_UPDATE_REASON reason);
+	UCHAR BCN_UPDATE_REASON);
 
 BOOLEAN UpdateBeaconProc(
 	RTMP_ADAPTER *pAd,
 	struct wifi_dev *wdev,
 	BOOLEAN UpdateRoutine,
 	UCHAR UpdatePktType,
-	BOOLEAN bMakeBeacon,
-	UCHAR UpdateReason);
+	BOOLEAN bMakeBeacon);
 
 VOID updateBeaconRoutineCase(
 	RTMP_ADAPTER *pAd,
 	BOOLEAN UpdateAfterTim);
-
-#if defined(CONFIG_HOTSPOT) || defined(FTM_SUPPORT)
-VOID MakeHotSpotIE(
-	struct wifi_dev *wdev,
-	ULONG *pFrameLen,
-	UCHAR *pBeaconFrame);
-#endif /* defined(CONFIG_HOTSPOT) || defined(FTM_SUPPORT) */
-
-#ifdef CONFIG_AP_SUPPORT
-#ifdef DOT11V_MBSSID_SUPPORT
-#define IS_BSSID_11V_ENABLED(_pAd, _band) \
-	((_pAd)->ApCfg.dot11v_mbssid_bitmap[_band] != 0)
-
-#define IS_BSSID_11V_TRANSMITTED(_pAd, _pMbss, _band) \
-	(IS_BSSID_11V_ENABLED(_pAd, _band) && \
-	(((BSS_STRUCT *)_pMbss)->mbss_idx == (_pAd)->ApCfg.dot11v_trans_bss_idx[_band]))
-
-#define IS_BSSID_11V_NON_TRANS(_pAd, _pMbss, _band) \
-	(IS_BSSID_11V_ENABLED(_pAd, _band) && \
-	(!IS_BSSID_11V_TRANSMITTED(_pAd, _pMbss, _band)) && \
-	((_pAd)->ApCfg.dot11v_mbssid_bitmap[_band] & (1 << ((BSS_STRUCT *)_pMbss)->mbss_grp_idx)))
-
-#define IS_BSSID_11V_CO_HOSTED(_pAd, _pMbss, _band) \
-	(IS_BSSID_11V_ENABLED(_pAd, _band) && \
-	(!IS_BSSID_11V_TRANSMITTED(_pAd, _pMbss, _band)) && \
-	(!IS_BSSID_11V_NON_TRANS(_pAd, _pMbss, _band)))
-
-/*
- * transmitted-BSSID is responsible for (Multiple BSSID) IEs creating to Nontransmitted-BSSID
- * check if any Nontransmitted-BSSID IE needed
- */
-#define IS_MBSSID_IE_NEEDED(_pAd, _pMbss, _band) \
-	(IS_BSSID_11V_TRANSMITTED(_pAd, _pMbss, _band) && \
-	((_pAd)->ApCfg.dot11v_mbssid_bitmap[_band] & (~(1 << ((BSS_STRUCT *)_pMbss)->mbss_grp_idx))))
-
-#define SUB_IE_NON_TRANS_PROFILE			0
-#define SUB_IE_NON_TRANS_VENDOR_SPECIFIC	221
-
-typedef struct _MULTIPLE_BSSID_SUB_IE_T {
-	UCHAR sub_eid;
-	UCHAR len;
-	UCHAR non_trans_profiles[];
-} MULTIPLE_BSSID_SUB_IE_T, *P_MULTIPLE_BSSID_SUB_IE_T;
-
-typedef struct _MULTIPLE_BSSID_IE_T {
-	UCHAR eid;
-	UCHAR len;
-	UCHAR dot11v_max_bssid_indicator;
-	UCHAR sub_ies[];
-} MULTIPLE_BSSID_IE_T, *P_MULTIPLE_BSSID_IE_T;
-
-VOID make_multiple_bssid_ie(
-	struct _RTMP_ADAPTER *pAd,
-	struct wifi_dev *wdev,
-	ULONG *pFrameLen,
-	UCHAR *pOutBuffer,
-	UINT32 Bitmap,
-	BOOLEAN isProbeRsp);
-#endif
-#endif /* CONFIG_AP_SUPPORT */
 
 #endif  /* __BCN_H__ */

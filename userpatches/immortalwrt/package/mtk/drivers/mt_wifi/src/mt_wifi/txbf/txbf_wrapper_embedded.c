@@ -1,17 +1,13 @@
 /*
- * Copyright (c) [2020], MediaTek Inc. All rights reserved.
- *
- * This software/firmware and related documentation ("MediaTek Software") are
- * protected under relevant copyright laws.
- * The information contained herein is confidential and proprietary to
- * MediaTek Inc. and/or its licensors.
- * Except as otherwise provided in the applicable licensing terms with
- * MediaTek Inc. and/or its licensors, any reproduction, modification, use or
- * disclosure of MediaTek Software, and information contained herein, in whole
- * or in part, shall be strictly prohibited.
-*/
-/*
  ***************************************************************************
+ * MediaTek Inc.
+ *
+ * All rights reserved. source code is an unpublished work and the
+ * use of a copyright notice does not imply otherwise. This source code
+ * contains confidential trade secret material of MediaTek. Any attemp
+ * or participation in deciphering, decoding, reverse engineering or in any
+ * way altering the source code is stricitly prohibited, unless the prior
+ * written consent of MediaTek, Inc. is obtained.
  ***************************************************************************
 
 	Module Name:
@@ -71,10 +67,24 @@ VOID mt_WrapTxBFInit(
 {
 	TXBF_MAC_TABLE_ENTRY TxBfMacEntry;
 	TXBF_STATUS_INFO  TxBfInfo;
+	HT_BF_CAP *pTxBFCap = &ie_list->HTCapability.TxBFCap;
 
+	TxBfInfo.ucTxPathNum = pAd->Antenna.field.TxPath;
 	TxBfInfo.ucETxBfTxEn = (UCHAR) pAd->CommonCfg.ETxBfEnCond;
-	mt_TxBFInit(pAd, &TxBfInfo, &TxBfMacEntry, supportsETxBF);
+	TxBfInfo.cmmCfgETxBfNoncompress = pAd->CommonCfg.ETxBfNoncompress;
+	TxBfInfo.ucITxBfTxEn = pAd->CommonCfg.RegTransmitSetting.field.ITxBfEn;
+	mt_TxBFInit(pAd, &TxBfInfo, &TxBfMacEntry, pTxBFCap, supportsETxBF);
+	pEntry->bfState        = TxBfMacEntry.bfState;
+	pEntry->sndgMcs        = TxBfMacEntry.sndgMcs;
+	pEntry->sndg0Snr0      = TxBfMacEntry.sndg0Snr0;
+	pEntry->sndg0Snr1      = TxBfMacEntry.sndg0Snr1;
+	pEntry->sndg0Snr2      = TxBfMacEntry.sndg0Snr2;
+	pEntry->sndg0Mcs       = TxBfMacEntry.sndg0Mcs;
+	pEntry->noSndgCnt      = TxBfMacEntry.noSndgCnt;
 	pEntry->eTxBfEnCond    = TxBfMacEntry.eTxBfEnCond;
+	pEntry->noSndgCntThrd  = TxBfMacEntry.noSndgCntThrd;
+	pEntry->ndpSndgStreams = TxBfMacEntry.ndpSndgStreams;
+	pEntry->iTxBfEn        = TxBfMacEntry.iTxBfEn;
 }
 
 /* Wrap function for clientSupportsETxBF */
@@ -124,17 +134,6 @@ void mt_WrapSetETxBFCap(
 	TxBfInfo.cmmCfgETxBfEnCond = wlan_config_get_etxbf(wdev);
 	TxBfInfo.cmmCfgETxBfNoncompress = pAd->CommonCfg.ETxBfNoncompress;
 	TxBfInfo.ucRxPathNum = pAd->Antenna.field.RxPath;
-#ifdef DBDC_MODE
-	if (pAd->CommonCfg.dbdc_mode) {
-		UINT8 band_idx = HcGetBandByWdev(wdev);
-
-		if (band_idx == DBDC_BAND0)
-			TxBfInfo.ucRxPathNum = pAd->dbdc_band0_rx_path;
-		else
-			TxBfInfo.ucRxPathNum = pAd->dbdc_band1_rx_path;
-	}
-#endif
-
 	if (ops->setETxBFCap)
 		ops->setETxBFCap(pAd, &TxBfInfo);
 }
@@ -149,9 +148,6 @@ void mt_WrapSetVHTETxBFCap(
 	TXBF_STATUS_INFO   TxBfInfo;
 	UINT8   ucTxPath = pAd->Antenna.field.TxPath;
 	struct _RTMP_CHIP_OP *ops = hc_get_chip_ops(pAd->hdev_ctrl);
-#ifdef CONFIG_STA_SUPPORT
-	PSTA_ADMIN_CONFIG pStaCfg;
-#endif
 
 #ifdef DBDC_MODE
 	if (pAd->CommonCfg.dbdc_mode) {
@@ -164,100 +160,13 @@ void mt_WrapSetVHTETxBFCap(
 	}
 #endif
 
-#ifdef ANTENNA_CONTROL_SUPPORT
-	{
-		UINT8 BandIdx = HcGetBandByWdev(wdev);
-		if (pAd->bAntennaSetAPEnable[BandIdx])
-			ucTxPath = pAd->TxStream[BandIdx];
-	}
-#endif /* ANTENNA_CONTROL_SUPPORT */
-
 	TxBfInfo.pVhtTxBFCap = pTxBFCap;
 	TxBfInfo.ucTxPathNum = ucTxPath;
 	TxBfInfo.cmmCfgETxBfEnCond = wlan_config_get_etxbf(wdev);
-
-#ifdef CONFIG_STA_SUPPORT
-	/* Netgear R7000 BF IOT
-	  * For apcli, adjust bfee_sts_cap (BFee Nr) with Root AP's num_snd_dimension if Root AP is SU BFer
-	  * Set minimum nego-ed bfee_sts_cap
-	  * Root AP's BF cap is stored in pStaCfg from Probe req
-	*/
-	if (wdev->wdev_type == WDEV_TYPE_STA) {
-		TxBfInfo.pVhtTxBFCap->bfee_sts_cap = 0;
-		pStaCfg = GetStaCfgByWdev(pAd, wdev);
-		if (pStaCfg) {
-			if (pStaCfg->MlmeAux.vht_cap.vht_cap.bfer_cap_su) {
-				TxBfInfo.pVhtTxBFCap->bfee_sts_cap = pStaCfg->MlmeAux.vht_cap.vht_cap.num_snd_dimension;
-
-				MTWF_DBG(pAd, DBG_CAT_CLIENT, DBG_SUBCAT_ALL, DBG_LVL_INFO, "%s: %s num_snd_dimension=%d, bfee_sts_cap=%d, bfer=%d, bfee=%d\n",
-					__func__, wdev->if_dev->name, pStaCfg->MlmeAux.vht_cap.vht_cap.num_snd_dimension, pStaCfg->MlmeAux.vht_cap.vht_cap.bfee_sts_cap,
-					pStaCfg->MlmeAux.vht_cap.vht_cap.bfer_cap_su, pStaCfg->MlmeAux.vht_cap.vht_cap.bfee_cap_su);
-			}
-		}
-	}
-#endif /* CONFIG_STA_SUPPORT */
-
 	if (ops->setVHTETxBFCap)
 		ops->setVHTETxBFCap(pAd, &TxBfInfo);
 }
 #endif /* VHT_TXBF_SUPPORT */
-
-#ifdef DOT11_HE_AX
-#ifdef HE_TXBF_SUPPORT
-void mt_wrap_get_he_bf_cap(
-	struct wifi_dev *wdev,
-	struct he_bf_info *he_bf_struct)
-{
-	TXBF_STATUS_INFO txbf_status;
-	struct mcs_nss_caps *mcs_nss = wlan_config_get_mcs_nss_caps(wdev);
-	UINT8 u1BandIdx = HcGetBandByWdev(wdev);
-	UINT8 he_bw = wlan_config_get_he_bw(wdev);
-	UINT8 u1TxPath = mcs_nss->max_path[u1BandIdx][MAX_PATH_TX];/* Tx Path Num from eeprom: 1 for 1T, 2 for 2T, etc. */
-	VOID *hdev_ctrl = hc_get_hdev_ctrl(wdev);
-	struct _RTMP_CHIP_OP *ops = hc_get_chip_ops(hdev_ctrl);
-	RTMP_CHIP_CAP *pChipCap = hc_get_chip_cap(hdev_ctrl);
-
-	if (!IS_PHY_CAPS(pChipCap->phy_caps, fPHY_CAP_DUALPHY)) {
-		/* for non-dual PHY, Tx Path num for BW160 is different from BW80 */
-		if (he_bw > HE_BW_80) {
-			if (u1TxPath > (mcs_nss->bw160_max_nss))/* bw160_max_nss: 1 for 1T, 2 for 2T, etc. */
-				u1TxPath = mcs_nss->bw160_max_nss;
-		}
-	}
-
-	MTWF_DBG(NULL, DBG_CAT_BF, DBG_SUBCAT_ALL, DBG_LVL_DEBUG,
-		"%s: mcs_nss->bw160_max_nss=%u, u1TxPath=%u\n", __func__, mcs_nss->bw160_max_nss, u1TxPath);
-
-	txbf_status.he_bf_info = he_bf_struct;
-	txbf_status.ucTxPathNum = u1TxPath;
-	txbf_status.cmmCfgETxBfEnCond = wlan_config_get_etxbf(wdev);
-	if (ops->get_he_etxbf_cap)
-		ops->get_he_etxbf_cap(wdev, &txbf_status);
-}
-#endif /*DOT11_HE_AX*/
-#endif /* HE_TXBF_SUPPORT */
-
-void mt_WrapIBfCalGetEBfMemAlloc(
-						IN  RTMP_ADAPTER * pAd,
-						IN  PCHAR pPfmuMemRow,
-						IN  PCHAR pPfmuMemCol)
-{
-	struct _RTMP_CHIP_OP *ops = hc_get_chip_ops(pAd->hdev_ctrl);
-
-	if (ops->iBfCaleBfPfmuMemAlloc)
-		ops->iBfCaleBfPfmuMemAlloc(pAd, pPfmuMemRow, pPfmuMemCol);
-}
-
-void mt_WrapIBfCalGetIBfMemAlloc(
-						IN  RTMP_ADAPTER * pAd,
-						IN  PCHAR pPfmuMemRow,
-						IN  PCHAR pPfmuMemCol)
-{
-	struct _RTMP_CHIP_OP *ops = hc_get_chip_ops(pAd->hdev_ctrl);
-
-	if (ops->iBfCaliBfPfmuMemAlloc)
-		ops->iBfCaliBfPfmuMemAlloc(pAd, pPfmuMemRow, pPfmuMemCol);
-}
 
 #endif /* MT_MAC */
 #endif /* TXBF_SUPPORT */

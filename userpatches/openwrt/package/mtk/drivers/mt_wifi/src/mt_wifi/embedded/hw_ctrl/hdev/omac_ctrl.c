@@ -1,17 +1,18 @@
 /*
- * Copyright (c) [2020], MediaTek Inc. All rights reserved.
- *
- * This software/firmware and related documentation ("MediaTek Software") are
- * protected under relevant copyright laws.
- * The information contained herein is confidential and proprietary to
- * MediaTek Inc. and/or its licensors.
- * Except as otherwise provided in the applicable licensing terms with
- * MediaTek Inc. and/or its licensors, any reproduction, modification, use or
- * disclosure of MediaTek Software, and information contained herein, in whole
- * or in part, shall be strictly prohibited.
-*/
-/*
  ***************************************************************************
+ * MediaTek Inc.
+ * 4F, No. 2 Technology 5th Rd.
+ * Science-based Industrial Park
+ * Hsin-chu, Taiwan, R.O.C.
+ *
+ * (c) Copyright 1997-2012, MediaTek, Inc.
+ *
+ * All rights reserved. MediaTek source code is an unpublished work and the
+ * use of a copyright notice does not imply otherwise. This source code
+ * contains confidential trade secret material of MediaTek. Any attemp
+ * or participation in deciphering, decoding, reverse engineering or in any
+ * way altering the source code is stricitly prohibited, unless the prior
+ * written consent of MediaTek Technology, Inc. is obtained.
  ***************************************************************************
 
 */
@@ -21,95 +22,68 @@
 
 /*Omac controller*/
 
-static INT32 GetFirstAvailableOmacIdx(struct hdev_ctrl *ctrl, BOOLEAN NeedBss, UINT32 OmacType, struct _OMAC_BSS_CTRL *omac_ctrl)
+static INT32 GetFirstAvailableOmacIdx(struct hdev_ctrl *ctrl, BOOLEAN NeedBss, UINT32 OmacType)
 {
 	UINT32 Index;
+	HD_RESOURCE_CFG *pHwResource = &ctrl->HwResourceCfg;
 	struct _RTMP_CHIP_CAP *cap = &ctrl->chip_cap;
 
 	if (NeedBss) {
 		for (Index = 0; Index < cap->BssNums; Index++) {
-#if defined(CONFIG_AP_SUPPORT)
-			if ((OmacType == WDEV_TYPE_STA) && (!Index))
-				continue;
-#endif
-			if ((omac_ctrl->OmacBitMap & (1 << Index)) == 0) {
-				omac_ctrl->OmacBitMap |= (1 << Index);
+			if ((pHwResource->OmacBssCtl.OmacBitMap & (1 << Index)) == 0) {
+				if ((OmacType == WDEV_TYPE_APCLI) && !Index)
+					continue;
+				pHwResource->OmacBssCtl.OmacBitMap |= (1 << Index);
 				return Index;
 			}
 		}
 	} else {
 		for (Index = cap->BssNums; Index < cap->OmacNums; Index++) {
-			if ((omac_ctrl->OmacBitMap & (1 << Index)) == 0) {
-				omac_ctrl->OmacBitMap |= (1 << Index);
+			if ((pHwResource->OmacBssCtl.OmacBitMap & (1 << Index)) == 0) {
+				pHwResource->OmacBssCtl.OmacBitMap |= (1 << Index);
 				return Index;
 			}
 		}
 	}
 
-	MTWF_DBG(NULL, DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_ERROR, "OmacIndex is not available\n");
+	MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_ERROR, ("%s: OmacIndex is not available\n",
+			 __func__));
 	return -1;
 }
 
-static INT32 GetFirstAvailableRepeaterOmacIdx(struct hdev_ctrl *ctrl, struct _OMAC_BSS_CTRL *omac_ctrl)
+static INT32 GetFirstAvailableRepeaterOmacIdx(struct hdev_ctrl *ctrl)
 {
+	HD_RESOURCE_CFG *pHwResource = &ctrl->HwResourceCfg;
 	struct _RTMP_CHIP_CAP *cap = &ctrl->chip_cap;
 	UCHAR i;
 
 	for (i = 0; i < cap->MaxRepeaterNum; i++) {
-		if ((omac_ctrl->RepeaterBitMap & (1 << i)) == 0) {
-			omac_ctrl->RepeaterBitMap |= (1 << i);
-			MTWF_DBG(NULL, DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_INFO,
-					 "%s: found used OmacIndex:0x%x\n",
-					  __func__, cap->RepeaterStartIdx + i);
+		if ((pHwResource->OmacBssCtl.RepeaterBitMap & (1 << i)) == 0) {
+			pHwResource->OmacBssCtl.RepeaterBitMap |= (1 << i);
+			MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_TRACE,
+					 ("%s: found used OmacIndex:0x%x\n",
+					  __func__, cap->RepeaterStartIdx + i));
 			return cap->RepeaterStartIdx + i;
 		}
 	}
 
-	MTWF_DBG(NULL, DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_ERROR, "OmacIndex is not available\n");
+	MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_ERROR, ("%s: OmacIndex is not available\n",
+			 __func__));
 	return -1;
 }
 
-INT32 GetFirstAvailableApOmacIdx(struct hdev_ctrl *ctrl, struct _OMAC_BSS_CTRL *omac_ctrl)
+VOID ReleaseOmacIdx(struct hdev_ctrl *ctrl, UINT32 OmacType, UINT32 Idx)
 {
-	INT32 Index;
+	HD_RESOURCE_CFG *pHwResource = &ctrl->HwResourceCfg;
 	struct _RTMP_CHIP_CAP *cap = &ctrl->chip_cap;
-
-	/*choose Hw Bss0 first*/
-	if ((omac_ctrl->OmacBitMap & (1 << 0)) == 0) {
-		omac_ctrl->OmacBitMap |= (1 << 0);
-		return 0;
-	}
-	/*first ext ownmac is the same as HW bss0*/
-	for (Index = 1; Index < cap->BcnMaxNum; Index++) {
-		if ((omac_ctrl->HwMbssBitMap & (1 << Index)) == 0) {
-			omac_ctrl->HwMbssBitMap |= (1 << Index);
-			return cap->ExtMbssOmacStartIdx + Index;
-		}
-	}
-
-	MTWF_DBG(NULL, DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_ERROR, "Ext OmacIndex is not available\n");
-	return -1;
-}
-
-VOID ReleaseOmacIdx(struct hdev_ctrl *ctrl, UINT32 OmacType, struct radio_dev *rdev, UINT32 Idx)
-{
-	struct _OMAC_BSS_CTRL *omac_ctrl = rdev->omac_ctrl;
-	struct _RTMP_CHIP_CAP *cap = &ctrl->chip_cap;
-
-	if(!omac_ctrl){
-		MTWF_DBG(NULL, DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_ERROR, "omac_ctrl NULL!\n");
-		return;
-	}
 
 	switch (OmacType) {
 	case WDEV_TYPE_AP:
-	case WDEV_TYPE_ATE_AP:
-	case WDEV_TYPE_SERVICE_TXC:
 		if (Idx == 0) {
-			omac_ctrl->OmacBitMap &= ~(1 << 0);
+			pHwResource->OmacBssCtl.OmacBitMap &= ~(1 << 0);
 			return;
 		} else {
-			omac_ctrl->HwMbssBitMap &= ~(1 << (Idx - cap->ExtMbssOmacStartIdx));
+			pHwResource->OmacBssCtl.HwMbssBitMap &= ~(1 << (Idx));
 			return;
 		}
 
@@ -119,10 +93,9 @@ VOID ReleaseOmacIdx(struct hdev_ctrl *ctrl, UINT32 OmacType, struct radio_dev *r
 	case WDEV_TYPE_ADHOC:
 	case WDEV_TYPE_GO:
 	case WDEV_TYPE_GC:
+	case WDEV_TYPE_APCLI:
 	case WDEV_TYPE_P2P_DEVICE:
-	case WDEV_TYPE_ATE_STA:
-	case WDEV_TYPE_SERVICE_TXD:
-		omac_ctrl->OmacBitMap &= ~(1 << Idx);
+		pHwResource->OmacBssCtl.OmacBitMap &= ~(1 << Idx);
 		return;
 		break;
 
@@ -144,36 +117,41 @@ VOID ReleaseOmacIdx(struct hdev_ctrl *ctrl, UINT32 OmacType, struct radio_dev *r
 		break;
 
 	case WDEV_TYPE_REPEATER:
-		omac_ctrl->RepeaterBitMap &= ~(1 << (Idx - cap->RepeaterStartIdx));
+		pHwResource->OmacBssCtl.RepeaterBitMap &= ~(1 << (Idx - cap->RepeaterStartIdx));
 		return;
 		break;
 
 	default:
-		MTWF_DBG(NULL, DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_ERROR, "OmacType(%d)\n", OmacType);
+		MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_ERROR, ("%s: OmacType(%d)\n", __func__, OmacType));
 		break;
 	}
 
 	return;
 }
 
-INT32 GetOmacIdx(struct hdev_ctrl *ctrl, UINT32 OmacType, struct radio_dev *rdev, INT8 Idx)
+INT32 GetOmacIdx(struct hdev_ctrl *ctrl, UINT32 OmacType, INT8 Idx)
 {
-	struct _OMAC_BSS_CTRL *omac_ctrl = rdev->omac_ctrl;
+	HD_RESOURCE_CFG *pHwResource = &ctrl->HwResourceCfg;
+	struct _RTMP_CHIP_CAP *cap = &ctrl->chip_cap;
 
 	switch (OmacType) {
 	case WDEV_TYPE_AP:
-	case WDEV_TYPE_ATE_AP:
-	case WDEV_TYPE_SERVICE_TXC:
-		return GetFirstAvailableApOmacIdx(ctrl, omac_ctrl);
+		if (Idx == 0) {
+			pHwResource->OmacBssCtl.OmacBitMap |= (1 << 0);
+			return 0;
+		} else {
+			pHwResource->OmacBssCtl.HwMbssBitMap |= (1 << (Idx - 0));
+			return cap->ExtMbssOmacStartIdx + Idx;
+		}
+
 		break;
 
 	case WDEV_TYPE_STA:
 	case WDEV_TYPE_ADHOC:
 	case WDEV_TYPE_GO:
 	case WDEV_TYPE_GC:
-	case WDEV_TYPE_ATE_STA:
-	case WDEV_TYPE_SERVICE_TXD:
-		return GetFirstAvailableOmacIdx(ctrl, TRUE, OmacType, omac_ctrl);
+	case WDEV_TYPE_APCLI:
+		return GetFirstAvailableOmacIdx(ctrl, TRUE, OmacType);
 		break;
 
 	/*
@@ -193,15 +171,15 @@ INT32 GetOmacIdx(struct hdev_ctrl *ctrl, UINT32 OmacType, struct radio_dev *rdev
 		break;
 
 	case WDEV_TYPE_REPEATER:
-		return GetFirstAvailableRepeaterOmacIdx(ctrl, omac_ctrl);
+		return GetFirstAvailableRepeaterOmacIdx(ctrl);
 		break;
 
 	case WDEV_TYPE_P2P_DEVICE:
-		return GetFirstAvailableOmacIdx(ctrl, FALSE, OmacType, omac_ctrl);
+		return GetFirstAvailableOmacIdx(ctrl, FALSE, OmacType);
 		break;
 
 	default:
-		MTWF_DBG(NULL, DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_ERROR, "OmacType(%d)\n", OmacType);
+		MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_ERROR, ("%s: OmacType(%d)\n", __func__, OmacType));
 		break;
 	}
 
@@ -222,8 +200,8 @@ INT32 OcAddRepeaterEntry(struct hdev_obj *obj, UCHAR ReptIdx)
 	ret = os_alloc_mem(NULL, (UCHAR **)&pReptEntry, sizeof(HD_REPT_ENRTY));
 
 	if (ret != NDIS_STATUS_SUCCESS) {
-		MTWF_DBG(NULL, DBG_CAT_CLIENT, CATCLIENT_APCLI, DBG_LVL_ERROR,
-				 " Alloc memory for HD_REPT_ENRTY failed.\n");
+		MTWF_LOG(DBG_CAT_CLIENT, CATCLIENT_APCLI, DBG_LVL_ERROR,
+				 (" Alloc memory for HD_REPT_ENRTY failed.\n"));
 		return ret;
 	}
 
@@ -231,7 +209,7 @@ INT32 OcAddRepeaterEntry(struct hdev_obj *obj, UCHAR ReptIdx)
 	obj->RefCnt++;
 	OS_SPIN_UNLOCK(&obj->RefCntLock);
 	pReptEntry->CliIdx = ReptIdx;
-	pReptEntry->ReptOmacIdx = GetOmacIdx(ctrl, WDEV_TYPE_REPEATER, rdev, ReptIdx);
+	pReptEntry->ReptOmacIdx = GetOmacIdx(ctrl, WDEV_TYPE_REPEATER, ReptIdx);
 	DlListAddTail(&obj->RepeaterList, &pReptEntry->list);
 	return NDIS_STATUS_SUCCESS;
 }
@@ -253,12 +231,12 @@ VOID OcDelRepeaterEntry(struct hdev_obj *obj, UCHAR ReptIdx)
 			if (obj->RefCnt > 0)
 				obj->RefCnt--;
 			else {
-				MTWF_DBG(NULL, DBG_CAT_CLIENT, CATCLIENT_APCLI, DBG_LVL_WARN,
-						 "bug here? RefCnt zero already.\n");
+				MTWF_LOG(DBG_CAT_CLIENT, CATCLIENT_APCLI, DBG_LVL_ERROR,
+						 ("%s, bug here? RefCnt zero already.\n", __func__));
 			}
 
 			OS_SPIN_UNLOCK(&obj->RefCntLock);
-			ReleaseOmacIdx(ctrl, WDEV_TYPE_REPEATER, rdev, pReptEntry->ReptOmacIdx);
+			ReleaseOmacIdx(ctrl, WDEV_TYPE_REPEATER, pReptEntry->ReptOmacIdx);
 			DlListDel(&pReptEntry->list);
 			os_free_mem(pReptEntry);
 		}

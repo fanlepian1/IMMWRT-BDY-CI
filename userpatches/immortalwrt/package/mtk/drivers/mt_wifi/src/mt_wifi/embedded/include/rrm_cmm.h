@@ -1,17 +1,18 @@
 /*
- * Copyright (c) [2020], MediaTek Inc. All rights reserved.
- *
- * This software/firmware and related documentation ("MediaTek Software") are
- * protected under relevant copyright laws.
- * The information contained herein is confidential and proprietary to
- * MediaTek Inc. and/or its licensors.
- * Except as otherwise provided in the applicable licensing terms with
- * MediaTek Inc. and/or its licensors, any reproduction, modification, use or
- * disclosure of MediaTek Software, and information contained herein, in whole
- * or in part, shall be strictly prohibited.
-*/
-/*
  ***************************************************************************
+ * Ralink Tech Inc.
+ * 4F, No. 2 Technology 5th Rd.
+ * Science-based Industrial Park
+ * Hsin-chu, Taiwan, R.O.C.
+ *
+ * (c) Copyright 2002-2006, Ralink Technology, Inc.
+ *
+ * All rights reserved.	Ralink's source	code is	an unpublished work	and	the
+ * use of a	copyright notice does not imply	otherwise. This	source code
+ * contains	confidential trade secret material of Ralink Tech. Any attemp
+ * or participation	in deciphering,	decoding, reverse engineering or in	any
+ * way altering	the	source code	is stricitly prohibited, unless	the	prior
+ * written consent of Ralink Technology, Inc. is obtained.
  ***************************************************************************/
 
 /****************************************************************************
@@ -23,20 +24,20 @@
 #ifndef __RRM_CMM_H
 #define __RRM_CMM_H
 
+#if defined (HOSTAPD_11K_SUPPORT) || defined (DOT11K_RRM_SUPPORT)
 
-#ifdef DOT11K_RRM_SUPPORT
 #include "rtmp_type.h"
 #include "dot11k_rrm.h"
 
-#define MAX_NUM_OF_REQ_IE  13
 
-#ifdef QUIET_SUPPORT
 #define RRM_DEFAULT_QUIET_PERIOD	200
 #define RRM_DEFAULT_QUIET_DURATION	30
 #define RRM_DEFAULT_QUIET_OFFSET	20
 
 #define RRM_QUIET_IDLE		0
 #define RRM_QUIET_SILENT	1
+
+#define MAX_NUM_OF_REQ_IE  13
 
 typedef struct _RRM_QUIET_CB {
 	BOOLEAN QuietState;
@@ -51,15 +52,13 @@ typedef struct _RRM_QUIET_CB {
 	UINT8 QuietDuration;
 	UINT8 QuietOffset;
 } RRM_QUIET_CB, *PRRM_QUIET_CB;
-#endif
 
 typedef struct _RRM_CONFIG {
 	BOOLEAN bDot11kRRMEnableSet;
 	BOOLEAN bDot11kRRMEnable;
 	BOOLEAN bDot11kRRMNeighborRepTSFEnable;
-#ifdef QUIET_SUPPORT
 	RRM_QUIET_CB QuietCB;
-#endif
+
 	/* FOR AP Measurement Report */
 	UINT8	PeerMeasurementToken;
 	/* UINT8	PeerMeasurementType; */
@@ -67,18 +66,22 @@ typedef struct _RRM_CONFIG {
 	BOOLEAN bPeerReqCIVIC;
 	RRM_EN_CAP_IE rrm_capabilities;
 	RRM_EN_CAP_IE max_rrm_capabilities;
+#ifdef HOSTAPD_11K_SUPPORT
+    bool hstapd_nei_rep;
+    bool hstapd_lci;
+#endif
 } RRM_CONFIG, *PRRM_CONFIG;
 
 typedef union _RRM_BCN_REQ_CAP {
 	struct {
 #ifdef RT_BIG_ENDIAN
-		UINT8:6;
+		UINT8 Reserved:6;
 		UINT8 ChannelRep:1;
 		UINT8 ReportCondition:1;
 #else
 		UINT8 ReportCondition:1;
 		UINT8 ChannelRep:1;
-		UINT8:6;
+		UINT8 Reserved:6;
 #endif
 	} field;
 	UINT8 word;
@@ -100,7 +103,6 @@ typedef struct _RRM_MLME_BCN_REQ_INFO {
 	UINT8 report_detail;
 	UINT8 request_ie_num;
 	UINT8 request_ie[MAX_NUM_OF_REQ_IE];
-	bool LastBcnRptInd;
 } RRM_MLME_BCN_REQ_INFO, *PRRM_MLME_BCN_REQ_INFO;
 
 typedef struct _RRM_MLME_TRANSMIT_REQ_INFO {
@@ -119,6 +121,8 @@ typedef struct _RRM_MLME_TRANSMIT_REQ_INFO {
 	UINT8 bDurationMandatory;
 } RRM_MLME_TRANSMIT_REQ_INFO, *PRRM_MLME_TRANSMIT_REQ_INFO;
 
+
+#ifdef CONFIG_11KV_API_SUPPORT
 #define BCN_MACHINE_BASE 0
 
 /* BCN states */
@@ -129,20 +133,17 @@ enum BCN_STATE {
 	MAX_BCN_STATE,
 };
 
+
 /* BCN events */
 enum BCN_EVENT {
 	BCN_REQ,
 	BCN_REQ_RAW,
 	BCN_REP_TIMEOUT,
-	BCN_REP,
 	MAX_BCN_MSG,
 };
 
 #define BCN_FUNC_SIZE (MAX_BCN_STATE * MAX_BCN_MSG)
 #define BCN_REP_TIMEOUT_VALUE (60*1000)
-#ifdef CONFIG_MAP_SUPPORT
-#define BCN_REP_TIMEOUT_VALUE_MAP (3*1000)
-#endif
 
 
 #define NR_MACHINE_BASE 0
@@ -153,6 +154,7 @@ enum NR_STATE {
 	NR_UNKNOWN,
 	MAX_NR_STATE,
 };
+
 
 /* NR events */
 enum NR_EVENT {
@@ -168,13 +170,12 @@ enum NR_EVENT {
 typedef struct GNU_PACKED _BCN_EVENT_DATA {
 	UINT8 ControlIndex;
 	UINT8 MeasureReqToken;
-	UINT8 measuretype;
 	UINT8 stamac[MAC_ADDR_LEN];
 	UINT16 DataLen;
 	UCHAR Data[0];
 } BCN_EVENT_DATA, *PBCN_EVENT_DATA;
 
-/*this struct is used for mlme*/
+/* this struct is used for mlme */
 typedef struct GNU_PACKED _NR_EVENT_DATA {
 	UINT8 ControlIndex;
 	UINT8 MeasureReqToken;
@@ -198,6 +199,7 @@ typedef struct GNU_PACKED _RRM_FRAME {
 DECLARE_TIMER_FUNCTION(WaitPeerBCNRepTimeout);
 DECLARE_TIMER_FUNCTION(WaitNRRspTimeout);
 
+#endif /* CONFIG_11KV_API_SUPPORT */
 #endif /* DOT11K_RRM_SUPPORT */
 
 #endif /* __RRM_CMM_H */

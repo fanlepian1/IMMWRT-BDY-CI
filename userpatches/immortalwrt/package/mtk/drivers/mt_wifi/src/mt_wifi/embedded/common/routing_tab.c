@@ -1,17 +1,18 @@
 /*
- * Copyright (c) [2020], MediaTek Inc. All rights reserved.
- *
- * This software/firmware and related documentation ("MediaTek Software") are
- * protected under relevant copyright laws.
- * The information contained herein is confidential and proprietary to
- * MediaTek Inc. and/or its licensors.
- * Except as otherwise provided in the applicable licensing terms with
- * MediaTek Inc. and/or its licensors, any reproduction, modification, use or
- * disclosure of MediaTek Software, and information contained herein, in whole
- * or in part, shall be strictly prohibited.
-*/
-/*
  ***************************************************************************
+ * Ralink Tech Inc.
+ * 5F., No.36, Taiyuan St., Jhubei City,
+ * Hsinchu County 302,
+ * Taiwan, R.O.C.
+ *
+ * (c) Copyright 2002-2009, Ralink Technology, Inc.
+ *
+ * All rights reserved. Ralink's source code is an unpublished work and the
+ * use of a copyright notice does not imply otherwise. This source code
+ * contains confidential trade secret material of Ralink Tech. Any attemp
+ * or participation in deciphering, decoding, reverse engineering or in any
+ * way altering the source code is stricitly prohibited, unless the prior
+ * written consent of Ralink Technology, Inc. is obtained.
  ***************************************************************************
 
 
@@ -39,7 +40,7 @@ VOID RoutingTabInit(
 	UINT32 i;
 	BSS_STRUCT *pMbss = NULL;
 
-	if (!VALID_MBSS(pAd, ifIndex))
+	if (ifIndex >= HW_BEACON_MAX_NUM)
 		return;
 
 	pMbss = &pAd->ApCfg.MBSSID[ifIndex];
@@ -65,9 +66,9 @@ VOID RoutingTabInit(
 		pMbss->RoutingTabFlag |= Flag;
 		pMbss->bRoutingTabInit = TRUE;
 	} else
-		MTWF_DBG(pAd, DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-			"Fail to alloc memory for MBSSID[%d].pRoutingEntryPool\n"
-			, ifIndex);
+		MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
+			("%s: Fail to alloc memory for MBSSID[%d].pRoutingEntryPool\n"
+			, __func__, ifIndex));
 }
 
 VOID RoutingTabDestory(
@@ -77,7 +78,7 @@ VOID RoutingTabDestory(
 {
 	BSS_STRUCT *pMbss = NULL;
 
-	if (!VALID_MBSS(pAd, ifIndex))
+	if (ifIndex >= HW_BEACON_MAX_NUM)
 		return;
 
 	pMbss = &pAd->ApCfg.MBSSID[ifIndex];
@@ -91,8 +92,8 @@ VOID RoutingTabDestory(
 	if (pMbss->RoutingTabFlag == 0) {
 		NdisFreeSpinLock(&pMbss->RoutingTabLock);
 
-		if (pMbss->pRoutingEntryPool)
-			os_free_mem(pMbss->pRoutingEntryPool);
+	if (pMbss->pRoutingEntryPool)
+		os_free_mem(pMbss->pRoutingEntryPool);
 		pMbss->pRoutingEntryPool = NULL;
 		initList(&pMbss->RoutingEntryFreeList);
 		pMbss->bRoutingTabInit = FALSE;
@@ -108,7 +109,7 @@ VOID RoutingTabClear(
 	BSS_STRUCT *pMbss = NULL;
 	PROUTING_ENTRY pRoutingEntry = NULL, pRoutingEntryNext = NULL;
 
-	if (!VALID_MBSS(pAd, ifIndex))
+	if (ifIndex >= HW_BEACON_MAX_NUM)
 		return;
 
 	pMbss = &pAd->ApCfg.MBSSID[ifIndex];
@@ -140,7 +141,7 @@ PROUTING_ENTRY RoutingTabGetFree(
 	BSS_STRUCT *pMbss = NULL;
 	PROUTING_ENTRY pRoutingEntry = NULL;
 
-	if (!VALID_MBSS(pAd, ifIndex))
+	if (ifIndex >= HW_BEACON_MAX_NUM)
 		return NULL;
 
 	pMbss = &pAd->ApCfg.MBSSID[ifIndex];
@@ -157,14 +158,14 @@ PROUTING_ENTRY RoutingTabGetFree(
 VOID RoutingTabSetAllFree(
 	IN PRTMP_ADAPTER pAd,
 	IN UCHAR ifIndex,
-	IN UINT16 Wcid,
+	IN UCHAR Wcid,
 	IN UINT32 Flag)
 {
 	INT32 i;
 	BSS_STRUCT *pMbss = NULL;
 	PROUTING_ENTRY pRoutingEntry = NULL, pRoutingEntryNext = NULL;
 
-	if (!VALID_MBSS(pAd, ifIndex))
+	if (ifIndex >= HW_BEACON_MAX_NUM)
 		return;
 
 	pMbss = &pAd->ApCfg.MBSSID[ifIndex];
@@ -206,7 +207,7 @@ VOID  RoutingTabSetOneFree(
 	BSS_STRUCT *pMbss = NULL;
 	PROUTING_ENTRY pRoutingEntry = NULL;
 
-	if (!VALID_MBSS(pAd, ifIndex))
+	if (ifIndex >= HW_BEACON_MAX_NUM)
 		return;
 
 	pMbss = &pAd->ApCfg.MBSSID[ifIndex];
@@ -216,7 +217,7 @@ VOID  RoutingTabSetOneFree(
 	HashId = GetHashID(pMac);
 
 	if (HashId < 0) {
-		MTWF_DBG(pAd, DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_ERROR, "Hash Id isn't correct!\n");
+		MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_ERROR, ("%s: Hash Id isn't correct!\n", __func__));
 		return;
 	}
 
@@ -248,7 +249,7 @@ VOID RoutingEntryRefresh(
 	ULONG Now;
 	BSS_STRUCT *pMbss = NULL;
 
-	if (!VALID_MBSS(pAd, ifIndex))
+	if (ifIndex >= HW_BEACON_MAX_NUM)
 		return;
 
 	pMbss = &pAd->ApCfg.MBSSID[ifIndex];
@@ -263,14 +264,14 @@ VOID RoutingEntryRefresh(
 VOID RoutingEntrySet(
 	IN PRTMP_ADAPTER pAd,
 	IN UCHAR ifIndex,
-	IN UINT16 Wcid,
+	IN UCHAR Wcid,
 	IN PUCHAR pMac,
 	IN PROUTING_ENTRY pRoutingEntry)
 {
 	INT32 HashId;
 	BSS_STRUCT *pMbss = NULL;
 
-	if (!VALID_MBSS(pAd, ifIndex))
+	if (ifIndex >= HW_BEACON_MAX_NUM)
 		return;
 
 	pMbss = &pAd->ApCfg.MBSSID[ifIndex];
@@ -280,7 +281,7 @@ VOID RoutingEntrySet(
 	HashId = GetHashID(pMac);
 
 	if (HashId < 0) {
-		MTWF_DBG(pAd, DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_ERROR, "Hash Id isn't correct!\n");
+		MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_ERROR, ("%s: Hash Id isn't correct!\n", __func__));
 		return;
 	}
 
@@ -313,7 +314,7 @@ PROUTING_ENTRY GetRoutingTabHead(
 {
 	BSS_STRUCT *pMbss = NULL;
 
-	if (!VALID_MBSS(pAd, ifIndex))
+	if (ifIndex >= HW_BEACON_MAX_NUM)
 		return NULL;
 
 	pMbss = &pAd->ApCfg.MBSSID[ifIndex];
@@ -330,7 +331,7 @@ PROUTING_ENTRY GetRoutingTabHead(
 BOOLEAN GetRoutingEntryAll(
 	IN PRTMP_ADAPTER pAd,
 	IN UCHAR ifIndex,
-	IN UINT16 Wcid,
+	IN UCHAR Wcid,
 	IN UINT32 Flag,
 	IN INT32 BufMaxCount,
 	OUT struct _ROUTING_ENTRY **pEntryListBuf,
@@ -341,7 +342,7 @@ BOOLEAN GetRoutingEntryAll(
 	PROUTING_ENTRY pRoutingEntry = NULL;
 	BOOLEAN bFull = FALSE;
 
-	if (!VALID_MBSS(pAd, ifIndex))
+	if (ifIndex >= HW_BEACON_MAX_NUM)
 		return FALSE;
 
 	pMbss = &pAd->ApCfg.MBSSID[ifIndex];
@@ -383,7 +384,7 @@ INT RoutingTabGetEntryCount(
 	int count = 0;
 	BSS_STRUCT *pMbss = NULL;
 
-	if (!VALID_MBSS(pAd, ifIndex))
+	if (ifIndex >= HW_BEACON_MAX_NUM)
 		return 0;
 
 	pMbss = &pAd->ApCfg.MBSSID[ifIndex];
@@ -399,7 +400,7 @@ PROUTING_ENTRY RoutingTabLookup(
 	IN UCHAR ifIndex,
 	IN PUCHAR pMac,
 	IN BOOLEAN bUpdateAliveTime,
-	OUT UINT16 *pWcid)
+	OUT UCHAR *pWcid)
 {
 	INT32 HashId;
 	PROUTING_ENTRY pRoutingEntry = NULL;
@@ -410,7 +411,7 @@ PROUTING_ENTRY RoutingTabLookup(
 	HashId = GetHashID(pMac);
 
 	if (HashId < 0) {
-		MTWF_DBG(pAd, DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_ERROR, "Hash Id isn't correct!\n");
+		MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_ERROR, ("%s: Hash Id isn't correct!\n", __func__));
 		return NULL;
 	}
 
@@ -418,7 +419,7 @@ PROUTING_ENTRY RoutingTabLookup(
 
 	while (pRoutingEntry) {
 		if (pRoutingEntry->Valid && MAC_ADDR_EQUAL(pMac, pRoutingEntry->Mac)) {
-			if (IS_WCID_VALID(pAd, pRoutingEntry->Wcid)) {
+			if (VALID_WCID(pRoutingEntry->Wcid)) {
 				if (bUpdateAliveTime) {
 					RoutingEntryRefresh(pAd, ifIndex, pRoutingEntry);
 					pRoutingEntry->Retry = 0;
@@ -481,7 +482,7 @@ INT RoutingEntrySendAliveCheck(
 	PNDIS_PACKET pPacket = NULL;
 
 	if (!pRoutingEntry || !pSrcMAC ||
-		!IS_WCID_VALID(pAd, pRoutingEntry->Wcid) ||
+		!VALID_WCID(pRoutingEntry->Wcid) ||
 		(SrcIP == 0) || (pRoutingEntry->IPAddr == 0))
 		return FALSE;
 
@@ -496,8 +497,8 @@ INT RoutingEntrySendAliveCheck(
 	skb = arp_create(ARPOP_REQUEST, ETH_P_ARP, pRoutingEntry->IPAddr, wdev->if_dev,
 				SrcIP, BROADCAST_ADDR, pSrcMAC, ZERO_MAC_ADDR);
 	if (!skb) {
-		MTWF_DBG(pAd, DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-				"Fail to alloc memory for arp request!\n");
+		MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
+				("%s: Fail to alloc memory for arp request!\n", __func__));
 		return FALSE;
 	}
 
@@ -522,14 +523,11 @@ VOID RoutingTabMaintain(
 	PROUTING_ENTRY pRoutingEntry = NULL, pRoutingEntryNext = NULL;
 	BOOLEAN bNeedSend = FALSE, bBridgeFound = FALSE, bNeedDelete = FALSE, bCreateARP = FALSE;
 	UCHAR BridgeMAC[MAC_ADDR_LEN] = {0};
-	int entry_count = 0;
 
-	if (!VALID_MBSS(pAd, ifIndex))
+	if (ifIndex >= HW_BEACON_MAX_NUM)
 		return;
 
-	entry_count = RoutingTabGetEntryCount(pAd, ifIndex);
-
-	if (entry_count == 0)
+	if (RoutingTabGetEntryCount(pAd, ifIndex) == 0)
 		return;
 
 #ifdef MAC_REPEATER_SUPPORT
@@ -543,7 +541,7 @@ VOID RoutingTabMaintain(
 		struct net_device *pBridgeNetDev = NULL;
 		struct net *net = &init_net;
 		for_each_netdev(net, pBridgeNetDev) {
-			if (pBridgeNetDev->priv_flags & IFF_EBRIDGE) {
+			if (pBridgeNetDev->priv_flags == IFF_EBRIDGE) {
 				const struct in_device *pBridgeInDev = pBridgeNetDev->ip_ptr;
 				if (pBridgeInDev) {
 					const struct in_ifaddr *ifa = pBridgeInDev->ifa_list;
@@ -562,10 +560,6 @@ VOID RoutingTabMaintain(
 	if (!bBridgeFound)
 		return;
 
-	/* routing table is full, forcefully refresh all entry*/
-	if (entry_count == ROUTING_POOL_SIZE)
-		pAd->a4_need_refresh = TRUE;
-
 	pMbss = &pAd->ApCfg.MBSSID[ifIndex];
 	NdisGetSystemUpTime(&Now);
 	RTMP_SEM_LOCK(&pMbss->RoutingTabLock);
@@ -579,9 +573,6 @@ VOID RoutingTabMaintain(
 #ifdef A4_CONN
 			if (pAd->a4_need_refresh)
 				pRoutingEntry->NeedRefresh = TRUE;
-			else if ((pRoutingEntry->IPAddr == 0) &&
-				RTMP_TIME_AFTER(Now, (pRoutingEntry->KeepAliveTime + ROUTING_ENTRY_AGEOUT*5)))
-				pRoutingEntry->NeedRefresh = TRUE;
 #endif
 			/* Stage 1 Check*/
 			if ((pRoutingEntry->Valid &&
@@ -591,7 +582,7 @@ VOID RoutingTabMaintain(
 				|| pRoutingEntry->NeedRefresh
 #endif
 				) {
-				if ((pRoutingEntry->IPAddr != 0) && bBridgeFound) {
+				if (bBridgeFound) {
 					/* Stage 2 Check*/
 					if (pRoutingEntry->Retry == 0 || RTMP_TIME_AFTER(Now, pRoutingEntry->RetryTime)
 #ifdef A4_CONN
@@ -611,7 +602,8 @@ VOID RoutingTabMaintain(
 						if (RoutingEntrySendAliveCheck(pAd, ifIndex, pRoutingEntry, BridgeMAC, BridgeIP))
 							bNeedSend = TRUE;
 					}
-				}
+				}  else
+					bNeedDelete = TRUE;
 
 				if (bNeedDelete) {
 					delEntryList(&pMbss->RoutingTab[i], (RT_LIST_ENTRY *)pRoutingEntry);
@@ -628,7 +620,7 @@ VOID RoutingTabMaintain(
 
 	/* Dequeue outgoing frames from TxSwQueue[] and process it */
 	if (bNeedSend)
-		qm_ops->schedule_tx_que(pAd, 0);
+		qm_ops->schedule_tx_que(pAd);
 }
 
 #endif /* ROUTING_TAB_SUPPORT */

@@ -1,16 +1,16 @@
-/*
- * Copyright (c) [2020], MediaTek Inc. All rights reserved.
- *
- * This software/firmware and related documentation ("MediaTek Software") are
- * protected under relevant copyright laws.
- * The information contained herein is confidential and proprietary to
- * MediaTek Inc. and/or its licensors.
- * Except as otherwise provided in the applicable licensing terms with
- * MediaTek Inc. and/or its licensors, any reproduction, modification, use or
- * disclosure of MediaTek Software, and information contained herein, in whole
- * or in part, shall be strictly prohibited.
-*/
 /****************************************************************************
+ * Ralink Tech Inc.
+ * 4F, No. 2 Technology 5th Rd.
+ * Science-based Industrial Park
+ * Hsin-chu, Taiwan, R.O.C.
+ * (c) Copyright 2002, Ralink Technology, Inc.
+ *
+ * All rights reserved. Ralink's source code is an unpublished work and the
+ * use of a copyright notice does not imply otherwise. This source code
+ * contains confidential trade secret material of Ralink Tech. Any attemp
+ * or participation in deciphering, decoding, reverse engineering or in any
+ * way altering the source code is stricitly prohibited, unless the prior
+ * written consent of Ralink Technology, Inc. is obtained.
  ****************************************************************************
 
     Abstract:
@@ -22,13 +22,6 @@
 
 #ifndef __AUTOCHSELECT_H__
 #define __AUTOCHSELECT_H__
-
-enum _WIFI_CH_BAND {
-	WIFI_CH_BAND_2G = 0,
-	WIFI_CH_BAND_5G,
-	WIFI_CH_BAND_6G,
-	WIFI_CH_BAND_NUM,
-};
 
 ULONG AutoChBssSearchWithSSID(
 	IN PRTMP_ADAPTER pAd,
@@ -46,9 +39,6 @@ VOID UpdateChannelInfo(
 	IN PRTMP_ADAPTER pAd,
 	IN int ch,
 	IN ChannelSel_Alg Alg,
-	IN struct wifi_dev *pwdev);
-VOID UpdatePreACSInfo(
-	IN PRTMP_ADAPTER pAd,
 	IN struct wifi_dev *pwdev);
 
 #ifdef DFS_VENDOR10_CUSTOM_FEATURE
@@ -70,36 +60,24 @@ VOID UpdatePreACSInfo(
 #define SET_V10_W56_AP_DOWN(_pAd, valid) \
 	(_pAd->CommonCfg.DfsParameter.bV10W56APDownEnbl = valid)
 
-#define IS_V10_W56_AP_UP_CH_UPDATE(_pAd) \
-	 (_pAd->CommonCfg.DfsParameter.bV10APUpChUpdate == TRUE)
-
-#define SET_V10_W56_AP_UP_CH_UPDATE(_pAd, valid) \
-	(_pAd->CommonCfg.DfsParameter.bV10APUpChUpdate = valid)
-
 #define SET_V10_AP_BCN_UPDATE_ENBL(_pAd, enable) \
 	(_pAd->CommonCfg.DfsParameter.bV10APBcnUpdateEnbl = enable)
 
 #define IS_V10_AP_BCN_UPDATE_ENBL(_pAd) \
 	 (_pAd->CommonCfg.DfsParameter.bV10APBcnUpdateEnbl == TRUE)
 
-#define SET_V10_AP_ZWDFS_ACS_ENBL(_pAd, enable) \
-	(_pAd->CommonCfg.DfsParameter.bV10ZWDFSACSEnbl = enable)
-
-#define IS_V10_AP_ZWDFS_ACS_ENBL(_pAd) \
-	 (_pAd->CommonCfg.DfsParameter.bV10ZWDFSACSEnbl == TRUE)
-
 
 VOID AutoChannelSkipListAppend(
-	IN PRTMP_ADAPTER pAd,
-	IN UCHAR Ch);
+	IN PRTMP_ADAPTER	pAd,
+	IN UCHAR			Ch);
 
 VOID AutoChannelSkipChannels(
-	IN PRTMP_ADAPTER pAd,
-	IN UCHAR size,
-	IN UINT16 grpStart);
+	IN PRTMP_ADAPTER	pAd,
+	IN UCHAR			size,
+	IN UINT16			grpStart);
 
 VOID AutoChannelSkipListClear(
-	IN PRTMP_ADAPTER pAd);
+	IN PRTMP_ADAPTER	pAd);
 
 BOOLEAN DfsV10ACSMarkChnlConsumed(
 	IN PRTMP_ADAPTER pAd,
@@ -162,10 +140,9 @@ VOID AutoChSelBuildChannelListFor2G(
 	IN RTMP_ADAPTER *pAd,
 	IN struct wifi_dev *pwdev);
 
-VOID AutoChSelBuildChannelListFor56G(
+VOID AutoChSelBuildChannelListFor5G(
 	IN RTMP_ADAPTER *pAd,
-	IN struct wifi_dev *pwdev,
-	IN UCHAR ucChBand);
+	IN struct wifi_dev *pwdev);
 
 VOID AutoChSelUpdateChannel(
 	IN PRTMP_ADAPTER pAd,
@@ -211,33 +188,21 @@ VOID AutoChSelInit(
 
 #ifdef DFS_VENDOR10_CUSTOM_FEATURE
 UINT8 SelectBestV10Chnl_From_List(
-	IN RTMP_ADAPTER *pAd,
-	IN UCHAR band_idx);
+	IN RTMP_ADAPTER *pAd);
 #endif
 
-#ifdef OFFCHANNEL_SCAN_FEATURE
+#if defined(OFFCHANNEL_SCAN_FEATURE) || defined (ONDEMAND_DFS)
 VOID ChannelInfoResetNew(
 	IN PRTMP_ADAPTER pAd);
 #endif
-VOID AutoChSelRelease(
-	IN PRTMP_ADAPTER pAd);
-
-VOID auto_ch_select_set_cfg(
+#if defined(OFFCHANNEL_SCAN_FEATURE) && defined (ONDEMAND_DFS)
+UINT8 SelectBestChannel_From_List(
 	IN RTMP_ADAPTER *pAd,
-	IN RTMP_STRING *buffer);
-
-#ifdef CONFIG_6G_SUPPORT
-VOID auto_ch_select_PSC_cfg(
-	IN RTMP_ADAPTER *pAd,
-	IN RTMP_STRING *buffer);
+	IN BOOLEAN IsABand,
+	IN BOOLEAN SkipDFS);
 #endif
 
-VOID auto_ch_select_reset_sm(
-	IN RTMP_ADAPTER *pAd,
-	IN struct wifi_dev *pwdev);
-
-NDIS_STATUS set_idle_pwr_test(
-	IN PRTMP_ADAPTER pAd,
-	IN RTMP_STRING * arg);
+VOID AutoChSelRelease(
+	IN PRTMP_ADAPTER pAd);
 #endif /* __AUTOCHSELECT_H__ */
 

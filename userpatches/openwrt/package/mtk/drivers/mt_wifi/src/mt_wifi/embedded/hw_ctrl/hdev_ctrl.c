@@ -1,17 +1,13 @@
 /*
- * Copyright (c) [2020], MediaTek Inc. All rights reserved.
- *
- * This software/firmware and related documentation ("MediaTek Software") are
- * protected under relevant copyright laws.
- * The information contained herein is confidential and proprietary to
- * MediaTek Inc. and/or its licensors.
- * Except as otherwise provided in the applicable licensing terms with
- * MediaTek Inc. and/or its licensors, any reproduction, modification, use or
- * disclosure of MediaTek Software, and information contained herein, in whole
- * or in part, shall be strictly prohibited.
-*/
-/*
  ***************************************************************************
+ * MediaTek Inc.
+ *
+ * All rights reserved. source code is an unpublished work and the
+ * use of a copyright notice does not imply otherwise. This source code
+ * contains confidential trade secret material of MediaTek. Any attemp
+ * or participation in deciphering, decoding, reverse engineering or in any
+ * way altering the source code is stricitly prohibited, unless the prior
+ * written consent of MediaTek, Inc. is obtained.
  ***************************************************************************
 
 	Module Name:
@@ -19,7 +15,6 @@
 */
 #include	"rt_config.h"
 #include "hdev/hdev.h"
-#include "mgmt/be_internal.h"
 
 /*
 * local function
@@ -27,82 +22,64 @@
 #ifdef DBDC_MODE
 static VOID hcGetBandTypeName(UCHAR Type, UCHAR *Str, UINT32 max_len)
 {
-	INT ret;
 	switch (Type) {
 	case DBDC_TYPE_WMM:
-		ret = snprintf(Str, max_len, "%s", "WMM");
-		if (os_snprintf_error(max_len, ret)) {
-			MTWF_DBG(NULL, DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-					"Str snprintf error\n");
-			return;
-		}
+		snprintf(Str, max_len, "%s", "WMM");
 		break;
 
 	case DBDC_TYPE_MGMT:
-		ret = snprintf(Str, max_len, "%s", "MGMT");
-		if (os_snprintf_error(max_len, ret)) {
-			MTWF_DBG(NULL, DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-					"Str snprintf error\n");
-			return;
-		}
+		snprintf(Str, max_len, "%s", "MGMT");
 		break;
 
 	case DBDC_TYPE_BSS:
-		ret = snprintf(Str, max_len, "%s", "BSS");
-		if (os_snprintf_error(max_len, ret)) {
-			MTWF_DBG(NULL, DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-					"Str snprintf error\n");
-			return;
-		}
+		snprintf(Str, max_len, "%s", "BSS");
 		break;
 
 	case DBDC_TYPE_MBSS:
-		ret = snprintf(Str, max_len, "%s", "MBSS");
-		if (os_snprintf_error(max_len, ret)) {
-			MTWF_DBG(NULL, DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-					"Str snprintf error\n");
-			return;
-		}
+		snprintf(Str, max_len, "%s", "MBSS");
 		break;
 
 	case DBDC_TYPE_REPEATER:
-		ret = snprintf(Str, max_len, "%s", "REPEATER");
-		if (os_snprintf_error(max_len, ret)) {
-			MTWF_DBG(NULL, DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-					"Str snprintf error\n");
-			return;
-		}
+		snprintf(Str, max_len, "%s", "REPEATER");
 		break;
 
 	case DBDC_TYPE_MU:
-		ret = snprintf(Str, max_len, "%s", "MU");
-		if (os_snprintf_error(max_len, ret)) {
-			MTWF_DBG(NULL, DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-					"Str snprintf error\n");
-			return;
-		}
+		snprintf(Str, max_len, "%s", "MU");
 		break;
 
 	case DBDC_TYPE_BF:
-		ret = snprintf(Str, max_len, "%s", "BF");
-		if (os_snprintf_error(max_len, ret)) {
-			MTWF_DBG(NULL, DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-					"Str snprintf error\n");
-			return;
-		}
+		snprintf(Str, max_len, "%s", "BF");
 		break;
 
 	case DBDC_TYPE_PTA:
-		ret = snprintf(Str, max_len, "%s", "PTA");
-		if (os_snprintf_error(max_len, ret)) {
-			MTWF_DBG(NULL, DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-					"Str snprintf error\n");
-			return;
-		}
+		snprintf(Str, max_len, "%s", "PTA");
 		break;
 	}
 }
 #endif
+
+/*
+ *
+*/
+/*Only this function can use pAd*/
+INT32 hdev_ctrl_init(RTMP_ADAPTER *pAd)
+{
+	struct hdev_ctrl  *ctrl = NULL;
+	UINT32  ret;
+
+	ret  =  os_alloc_mem(NULL, (UCHAR **)&ctrl, sizeof(struct hdev_ctrl));
+
+	if (ctrl == NULL) {
+		MTWF_LOG(DBG_CAT_HW, DBG_SUBCAT_ALL, DBG_LVL_TRACE,
+				 ("%s(): Allocate Hardware device Configure  fail!!\n", __func__));
+		return -1;
+	}
+
+	os_zero_mem(ctrl, sizeof(struct hdev_ctrl));
+	ctrl->priv  = (VOID *)pAd;
+	pAd->hdev_ctrl = (VOID *)ctrl;
+	return 0;
+}
 
 /*
 *
@@ -115,33 +92,14 @@ VOID hdev_resource_init(void *hdev_ctrl)
 	/*initial hardware resource*/
 	HdevHwResourceInit(ctrl);
 	/*initial resource*/
+	/*hook hif*/
+#if defined(RTMP_MAC_PCI)
+	if (IS_PCIE_INF(ad) || IS_RBUS_INF(ad))
+		ctrl->hif = &ad->PciHif;
+#endif /*RTMP_MAC_PCI*/
 	ctrl->cookie = ad->OS_Cookie;
 	ctrl->mcu_ctrl = &ad->MCUCtrl;
-}
-
-/*
- *
-*/
-/*Only this function can use pAd*/
-INT32 hdev_ctrl_init(RTMP_ADAPTER *pAd, INT type)
-{
-	struct hdev_ctrl  *ctrl = NULL;
-	UINT32  ret;
-
-	ret  =  os_alloc_mem(NULL, (UCHAR **)&ctrl, sizeof(struct hdev_ctrl));
-
-	if (ctrl == NULL) {
-		MTWF_DBG(pAd, DBG_CAT_HW, DBG_SUBCAT_ALL, DBG_LVL_INFO,
-				 "(): Allocate Hardware device Configure  fail!!\n");
-		return -1;
-	}
-
-	os_zero_mem(ctrl, sizeof(struct hdev_ctrl));
-	ctrl->priv  = (VOID *)pAd;
-	pAd->hdev_ctrl = (VOID *)ctrl;
-
-	hif_core_ops_register(ctrl, type);
-	return 0;
+	ctrl->arch_ops = &ad->archOps;
 }
 
 /*
@@ -179,13 +137,8 @@ INT32 HcAcquireRadioForWdev(RTMP_ADAPTER *pAd, struct wifi_dev *wdev)
 	struct hdev_ctrl *ctrl = pAd->hdev_ctrl;
 	struct radio_dev *rdev = NULL;
 	struct hdev_obj *obj = wdev->pHObj;
-#ifdef GREENAP_SUPPORT
-	greenap_suspend(pAd, GREENAP_REASON_ACQUIRE_RADIO_FOR_WDEV);
-#endif /* GREENAP_SUPPORT */
-	rdev = RcAcquiredBandForObj(ctrl, obj, wdev->wdev_idx,
-				    wdev->PhyMode, wdev->channel, wdev->wdev_type);
-	if (!rdev)
-		return HC_STATUS_FAIL;
+
+	rdev = RcAcquiredBandForObj(ctrl, obj, wdev->wdev_idx, wdev->PhyMode, wdev->channel, wdev->wdev_type);
 
 	/*correct wdev configure, if configure is not sync with hdev */
 	if (!wmode_band_equal(wdev->PhyMode, RcGetPhyMode(rdev))) {
@@ -193,20 +146,13 @@ INT32 HcAcquireRadioForWdev(RTMP_ADAPTER *pAd, struct wifi_dev *wdev)
 		wdev->channel = RcGetChannel(rdev);
 	}
 
-#ifdef EXT_BUILD_CHANNEL_LIST
-	BuildChannelListEx(pAd, wdev);
-#else
 	BuildChannelList(pAd, wdev);
-#endif
 	/*temporal set, will be repaced by HcGetOmacIdx*/
 	wdev->OmacIdx = obj->OmacIdx;
 	/* Initialize the pDot11H of wdev */
 	UpdateDot11hForWdev(wdev->sys_handle, wdev, TRUE);
 	/*re-init operation*/
 	wlan_operate_init(wdev);
-#ifdef GREENAP_SUPPORT
-	greenap_resume(pAd, GREENAP_REASON_ACQUIRE_RADIO_FOR_WDEV);
-#endif /* GREENAP_SUPPORT */
 	return ret;
 }
 
@@ -222,8 +168,8 @@ INT32 HcReleaseRadioForWdev(RTMP_ADAPTER *pAd, struct wifi_dev *wdev)
 	OS_SPIN_LOCK(&obj->RefCntLock);
 
 	if (obj->RefCnt > 0) {
-		MTWF_DBG(pAd, DBG_CAT_HW, DBG_SUBCAT_ALL, DBG_LVL_WARN,
-				 "there are other link reference the Obj\n");
+		MTWF_LOG(DBG_CAT_HW, DBG_SUBCAT_ALL, DBG_LVL_OFF,
+				 ("%s(): there are other link reference the Obj\n", __func__));
 		OS_SPIN_UNLOCK(&obj->RefCntLock);
 		return ret;
 	}
@@ -239,17 +185,19 @@ INT32 HcReleaseRadioForWdev(RTMP_ADAPTER *pAd, struct wifi_dev *wdev)
 UCHAR HcGetBandByWdev(struct wifi_dev *wdev)
 {
 	UCHAR BandIdx = 0;
-	struct hdev_obj *obj = wdev->pHObj;
+	struct hdev_obj *obj;
 	struct _RTMP_ADAPTER *ad = (struct _RTMP_ADAPTER *)wdev->sys_handle;
 
-	if (hdev_obj_state_ready(obj)) {
-		if (obj->rdev)
-			BandIdx = RcGetBandIdx(obj->rdev);
-		else
-			BandIdx = 0;
-	}
+	ASSERT(wdev);
+	/* exit from here if wdev is null */
+	if (!wdev)
+		return 0;
+
+	obj = wdev->pHObj;
+	if (hdev_obj_state_ready(obj))
+		BandIdx = RcGetBandIdx(obj->rdev);
 	else {
-		if ((ad) && (ad->CommonCfg.dbdc_mode)) {
+		if ((ad->CommonCfg.dbdc_mode) && (!BOARD_IS_5G_ONLY(ad))) {
 			if (WMODE_CAP_5G(wdev->PhyMode))
 				BandIdx = DBDC_BAND1;
 			else
@@ -271,24 +219,9 @@ VOID HcSetRadioCurStatByWdev(struct wifi_dev *wdev, PHY_STATUS CurStat)
 	if (hdev_obj_state_ready(obj))
 		RcSetRadioCurStat(obj->rdev, CurStat);
 	else
-		MTWF_DBG(NULL, DBG_CAT_HW, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-			"obj is not ready!!\n");
+		MTWF_LOG(DBG_CAT_HW, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
+			("%s(): obj is not ready!!\n", __func__));
 }
-
-#ifdef DOT11_HE_AX
-struct pe_control *hc_get_pe_ctrl(struct wifi_dev *wdev)
-{
-	struct hdev_obj *obj = wdev->pHObj;
-	struct pe_control *pe_ctrl = NULL;
-
-	if (hdev_obj_state_ready(obj))
-		pe_ctrl = rc_get_pe_ctrl(obj->rdev);
-	else
-		MTWF_DBG(NULL, DBG_CAT_HW, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-				"obj is not ready!!\n");
-	return pe_ctrl;
-}
-#endif
 
 /*
 *
@@ -301,8 +234,8 @@ VOID HcSetRadioCurStatByChannel(RTMP_ADAPTER *pAd, UCHAR Channel, PHY_STATUS Cur
 	rdev = RcGetHdevByChannel(ctrl, Channel);
 
 	if (!rdev) {
-		MTWF_DBG(NULL, DBG_CAT_HW, DBG_SUBCAT_ALL, DBG_LVL_DEBUG, "%s(): no hdev parking on channel:%d !!!\n",
-				 __func__, Channel);
+		MTWF_LOG(DBG_CAT_HW, DBG_SUBCAT_ALL, DBG_LVL_INFO, ("%s(): no hdev parking on channel:%d !!!\n",
+				 __func__, Channel));
 		return;
 	}
 
@@ -349,16 +282,9 @@ BOOLEAN IsHcRadioCurStatOffByWdev(struct wifi_dev *wdev)
 	struct hdev_obj *obj = wdev->pHObj;
 
 	if (!hdev_obj_state_ready(obj)) {
-		MTWF_DBG(NULL, DBG_CAT_HW, DBG_SUBCAT_ALL, DBG_LVL_WARN,
-			"%s(): wdev_idx %d obj is not ready, return TRUE !!!\n",
-			__func__, wdev->wdev_idx);
-		return TRUE;
-	}
-
-	if (!obj->rdev) {
-		MTWF_DBG(NULL, DBG_CAT_HW, DBG_SUBCAT_ALL, DBG_LVL_WARN,
-			"%s(): no hdev parking on wdev_idx:%d!!!\n",
-			__func__, wdev->wdev_idx);
+		MTWF_LOG(DBG_CAT_HW, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
+			("%s(): wdev_idx %d obj is not ready, return TRUE !!!\n",
+			__func__, wdev->wdev_idx));
 		return TRUE;
 	}
 
@@ -379,8 +305,8 @@ BOOLEAN IsHcRadioCurStatOffByChannel(RTMP_ADAPTER *pAd, UCHAR Channel)
 	rdev = RcGetHdevByChannel(ctrl, Channel);
 
 	if (!rdev) {
-		MTWF_DBG(NULL, DBG_CAT_HW, DBG_SUBCAT_ALL, DBG_LVL_DEBUG, "%s(): no hdev parking on channel:%d!!!\n",
-				 __func__, Channel);
+		MTWF_LOG(DBG_CAT_HW, DBG_SUBCAT_ALL, DBG_LVL_INFO, ("%s(): no hdev parking on channel:%d!!!\n",
+				 __func__, Channel));
 		return TRUE;
 	}
 
@@ -477,8 +403,8 @@ UCHAR HcGetChannelByBf(RTMP_ADAPTER *pAd)
 	struct radio_dev *rdev = RcGetBandIdxByBf(pAd->hdev_ctrl);
 
 	if (rdev == NULL) {
-		MTWF_DBG(pAd, DBG_CAT_HW, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-				 "no hdev can support beamform!\n");
+		MTWF_LOG(DBG_CAT_HW, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
+				 ("%s(): no hdev can support beamform!\n", __func__));
 		return 0;
 	}
 
@@ -490,69 +416,76 @@ UCHAR HcGetChannelByBf(RTMP_ADAPTER *pAd)
 */
 BOOLEAN HcIsBfCapSupport(struct wifi_dev *wdev)
 {
-	if (wdev && wdev->pHObj && hdev_obj_state_ready(wdev->pHObj))
-		return RcIsBfCapSupport(wdev->pHObj);
-	else
+	if (!hdev_obj_state_ready(wdev->pHObj))
 		return FALSE;
+
+	return RcIsBfCapSupport(wdev->pHObj);
 }
 
 #ifdef MAC_REPEATER_SUPPORT
 /*
 *
 */
-INT32 HcAddRepeaterEntry(struct wifi_dev *wdev)
+INT32 HcAddRepeaterEntry(struct wifi_dev *wdev, UINT32 ReptIdx)
 {
 	INT32 ret = 0;
 	struct hdev_obj *obj = wdev->pHObj;
 
 	if (!hdev_obj_state_ready(obj)) {
-		MTWF_DBG(NULL, DBG_CAT_HW, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-				 "wdev=%d, hobj is not ready!\n",  wdev->wdev_idx);
+		MTWF_LOG(DBG_CAT_HW, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
+				 ("%s(): wdev=%d, hobj is not ready!\n", __func__, wdev->wdev_idx));
 		return HC_STATUS_FAIL;
 	}
 
 	/*Acquire Repeater OMACIdx*/
-	OcAddRepeaterEntry(obj, wdev->func_idx);
-	RcUpdateRepeaterEntry(obj->rdev, wdev->func_idx);
+	OcAddRepeaterEntry(obj, ReptIdx);
+	RcUpdateRepeaterEntry(obj->rdev, ReptIdx);
 	return ret;
 }
 
 /*
 *
 */
-INT32 HcDelRepeaterEntry(struct wifi_dev *wdev)
+INT32 HcDelRepeaterEntry(struct wifi_dev *wdev, UINT32 ReptIdx)
 {
 	INT32 ret = 0;
 	struct hdev_obj *obj = wdev->pHObj;
 
 	if (!hdev_obj_state_ready(obj)) {
-		MTWF_DBG(NULL, DBG_CAT_HW, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-				 "wdev=%d, hobj is not ready!\n",  wdev->wdev_idx);
+		MTWF_LOG(DBG_CAT_HW, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
+				 ("%s(): wdev=%d, hobj is not ready!\n", __func__, wdev->wdev_idx));
 		return HC_STATUS_FAIL;
 	}
 
 	/*Acquire Repeater OMACIdx*/
-	OcDelRepeaterEntry(obj, wdev->func_idx);
+	OcDelRepeaterEntry(obj, ReptIdx);
 	return ret;
 }
 
 /*
 *
 */
-UCHAR HcGetRepeaterOmac(struct wifi_dev *wdev)
+UCHAR HcGetRepeaterOmac(RTMP_ADAPTER *pAd, MAC_TABLE_ENTRY *pEntry)
 {
+	REPEATER_CLIENT_ENTRY *pReptEntry = NULL;
 	HD_REPT_ENRTY *pHReptEntry = NULL;
 	UCHAR ReptOmacIdx = 0xff;
 
-	if (wdev && wdev->wdev_type == WDEV_TYPE_REPEATER) {
-		pHReptEntry = OcGetRepeaterEntry(wdev->pHObj, wdev->func_idx);
+	pReptEntry = RTMPLookupRepeaterCliEntry(
+					 pAd,
+					 FALSE,
+					 pEntry->ReptCliAddr,
+					 TRUE);
+
+	if (pReptEntry) {
+		pHReptEntry = OcGetRepeaterEntry(pReptEntry->wdev->pHObj, pReptEntry->MatchLinkIdx);
 
 		if (pHReptEntry)
 			ReptOmacIdx = pHReptEntry->ReptOmacIdx;
 	}
 
-	MTWF_DBG(NULL, DBG_CAT_HW, DBG_SUBCAT_ALL, DBG_LVL_INFO,
-			 "%s(): Get ReptOmacIdx: %d!\n", __func__, ReptOmacIdx);
+	MTWF_LOG(DBG_CAT_HW, DBG_SUBCAT_ALL, DBG_LVL_TRACE,
+			 ("%s(): Get ReptOmacIdx: %d!\n", __func__, ReptOmacIdx));
 	return ReptOmacIdx;
 }
 #endif /*#MAC_REPEATER_SUPPORT*/
@@ -560,23 +493,12 @@ UCHAR HcGetRepeaterOmac(struct wifi_dev *wdev)
 /*
 *
 */
-INT32 hc_radio_init(struct _RTMP_ADAPTER *pAd, UCHAR rfic, UCHAR dbdc_mode)
+INT32 HcRadioInit(RTMP_ADAPTER *pAd, UCHAR RfIC, UCHAR DbdcMode)
 {
 	INT32 ret = 0;
 	struct hdev_ctrl *ctrl = pAd->hdev_ctrl;
 
-	rc_radio_init(ctrl, rfic, dbdc_mode);
-
-	return ret;
-}
-
-INT32 hc_radio_exit(struct _RTMP_ADAPTER *pAd, UCHAR dbdc_mode)
-{
-	INT32 ret = 0;
-	struct hdev_ctrl *ctrl = pAd->hdev_ctrl;
-
-	rc_radio_exit(ctrl, dbdc_mode);
-
+	RcRadioInit(ctrl, RfIC, DbdcMode);
 	return ret;
 }
 
@@ -586,70 +508,42 @@ INT32 hc_radio_exit(struct _RTMP_ADAPTER *pAd, UCHAR dbdc_mode)
 INT32 HcUpdateCsaCntByChannel(RTMP_ADAPTER *pAd, UCHAR Channel)
 {
 	INT32 ret = 0;
-	UCHAR band_idx = DBDC_BAND0;
 	struct radio_dev *rdev = NULL;
 	struct hdev_ctrl *ctrl = pAd->hdev_ctrl;
 	struct hdev_obj *obj;
 	struct wifi_dev *wdev;
 	struct DOT11_H *pDot11h = NULL;
 
-	MTWF_DBG(pAd, DBG_CAT_CHN, CATCHN_CHN, DBG_LVL_NOTICE, "Channel(%d).\n", Channel);
-
 	rdev = RcGetHdevByChannel(ctrl, Channel);
 	if (!rdev) {
-		MTWF_DBG(pAd, DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-				 "Update Channel %d faild, not support this RF\n",
-				  Channel);
+		MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
+				 ("%s(): Update Channel %d faild, not support this RF\n",
+				  __func__, Channel));
 		return -1;
 	}
-
-	band_idx = rdev->pRadioCtrl->BandIdx;
-
-#ifdef ZERO_LOSS_CSA_SUPPORT
-	if (pAd->Zero_Loss_Enable) {
-		/*MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_OFF,
-					("%s():\n", __FUNCTION__));*/
-		pAd->Dot11_H[band_idx].ChnlSwitchState = SET_CHANNEL_COMMAND;
-	}
-#endif /*ZERO_LOSS_CSA_SUPPORT*/
 
 	DlListForEach(obj, &rdev->DevObjList, struct hdev_obj, list) {
 		wdev = pAd->wdev_list[obj->Idx];
 
-		if (wdev == NULL || !WDEV_WITH_BCN_ABILITY(wdev))
+		if (wdev == NULL)
 			continue;
 
 		pDot11h = wdev->pDot11_H;
 
-		if (pDot11h == NULL) {
-			MTWF_DBG(pAd, DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-				"pDot11h is NULL!\n");
-			continue;
-		}
-
-		if (pDot11h->RDMode != RD_SILENCE_MODE
-			|| ((Channel <= 14) && (pAd->CommonCfg.ChannelSwitchFor2G.CHSWMode == CHANNEL_SWITCHING_MODE))) {
-			pAd->ApCfg.set_ch_async_flag = TRUE;
-			pDot11h->wdev_count++;
-			wdev->csa_count = pDot11h->CSPeriod;
-			UpdateBeaconHandler(pAd, wdev, BCN_UPDATE_CSA);
-		}
+		if (pDot11h == NULL)
+			return -1;
+#ifdef CUSTOMER_DCC_FEATURE
+		if (pAd->CommonCfg.channelSwitch.CHSWMode == CHANNEL_SWITCHING_MODE) {
+			wdev->csa_count = pAd->CommonCfg.channelSwitch.CHSWPeriod;
+			UpdateBeaconHandler(pAd, wdev, BCN_UPDATE_IE_CHG);
+		} else
+#endif
+			if (pDot11h->RDMode != RD_SILENCE_MODE) {
+				pDot11h->wdev_count++;
+				wdev->csa_count = pDot11h->CSPeriod;
+				UpdateBeaconHandler(pAd, wdev, BCN_UPDATE_IE_CHG);
+			}
 	}
-
-	/*Send CSA cmd to FW and Wait CSA Event*/
-	pDot11h = &pAd->Dot11_H[band_idx];
-	if (pDot11h == NULL) {
-		MTWF_DBG(pAd, DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-				"\x1b[41m pAd->Dot11_H[%d] is NULL !!\x1b[m\n", band_idx);
-		return -1;
-	} else if (pDot11h->wdev_count != 0) {
-		RTMPSetTimer(&pDot11h->CSAEventTimer, 4000);
-		MTWF_DBG(pAd, DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_NOTICE,
-			"CSAEventTimer start(wdev_counter=%d)\n", pDot11h->wdev_count);
-	}
-#ifdef ZERO_LOSS_CSA_SUPPORT
-	pAd->chan_switch_time[0] = jiffies_to_msecs(jiffies);
-#endif /*ZERO_LOSS_CSA_SUPPORT*/
 	return ret;
 }
 
@@ -666,16 +560,16 @@ VOID HcShowBandInfo(RTMP_ADAPTER *pAd)
 
 	os_zero_mem(&BctrlInfo, sizeof(BCTRL_INFO_T));
 	AsicGetDbdcCtrl(pAd, &BctrlInfo);
-	MTWF_PRINT("\tDbdcEnable: %d\n", BctrlInfo.DBDCEnable);
+	MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_OFF, ("\tDbdcEnable: %d\n", BctrlInfo.DBDCEnable));
 
 	for (i = 0; i < BctrlInfo.TotalNum; i++) {
 		pEntry = &BctrlInfo.BctrlEntries[i];
 		hcGetBandTypeName(pEntry->Type, TempStr, sizeof(TempStr));
 
 		if (pEntry->Type != DBDC_TYPE_MBSS)
-			MTWF_PRINT("\t(%s,%d): Band %d\n", TempStr, pEntry->Index, pEntry->BandIdx);
+			MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_OFF, ("\t(%s,%d): Band %d\n", TempStr, pEntry->Index, pEntry->BandIdx));
 		else
-			MTWF_PRINT("\t(%s,0-%d): Band %d\n", TempStr, pEntry->Index+1, pEntry->BandIdx);
+			MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_OFF, ("\t(%s,0-%d): Band %d\n", TempStr, pEntry->Index+1, pEntry->BandIdx));
 	}
 }
 #endif
@@ -683,79 +577,54 @@ VOID HcShowBandInfo(RTMP_ADAPTER *pAd)
 VOID HcShowChCtrlInfo(struct _RTMP_ADAPTER *pAd)
 {
 	UCHAR BandIdx, ChIdx;
-	CHANNEL_CTRL *pChCtrl = NULL;
-	POS_COOKIE pObj = (POS_COOKIE) pAd->OS_Cookie;
-	struct wifi_dev *wdev =
-		get_wdev_by_ioctl_idx_and_iftype(pAd, pObj->ioctl_if, pObj->ioctl_if_type);
-	if (wdev == NULL)
-		MTWF_PRINT("Get Wdev Fail!");
-	else {
-		BandIdx = HcGetBandByWdev(wdev);
-		pChCtrl = hc_get_channel_ctrl(pAd->hdev_ctrl, BandIdx);
-		if (pChCtrl->ChListNum == 0) {
-			MTWF_PRINT("\x1b[1;33mBandIdx = %d\x1b[m, ChannelListNum = %d (it is not available)\n ", BandIdx, pChCtrl->ChListNum);
-		} else {
-			MTWF_PRINT("\x1b[1;33mBandIdx = %d\x1b[m, ChannelListNum = %d\nChGrpABandEn = %d\nChannel list information:\n",
-					BandIdx,
-					pChCtrl->ChListNum,
-					pChCtrl->ChGrpABandEn);
-#ifdef CONFIG_6G_SUPPORT
-			if (WMODE_CAP_6G(wdev->PhyMode))
-				MTWF_PRINT("Channel   Pwr0/1   Flags   DFSEnable PSC\n");
-			else
-				MTWF_PRINT("Channel   Pwr0/1   Flags   DFSEnable\n");
-#else
-			MTWF_PRINT("Channel   Pwr0/1   Flags   DFSEnable\n");
-#endif
-			for (ChIdx = 0; ChIdx < pChCtrl->ChListNum; ChIdx++) {
-#ifdef CONFIG_6G_SUPPORT
-				if (WMODE_CAP_6G(wdev->PhyMode))
-					MTWF_PRINT("#%-7d%4d/%d%8x%6d%10d\n",
-						pChCtrl->ChList[ChIdx].Channel,
-						pChCtrl->ChList[ChIdx].Power,
-						pChCtrl->ChList[ChIdx].Power2,
-						pChCtrl->ChList[ChIdx].Flags,
-						pChCtrl->ChList[ChIdx].DfsReq,
-						pChCtrl->ChList[ChIdx].PSC_Ch);
-				else
-					MTWF_PRINT("#%-7d%4d/%d%8x%6d\n",
-						pChCtrl->ChList[ChIdx].Channel,
-						pChCtrl->ChList[ChIdx].Power,
-						pChCtrl->ChList[ChIdx].Power2,
-						pChCtrl->ChList[ChIdx].Flags,
-						pChCtrl->ChList[ChIdx].DfsReq);
+	CHANNEL_CTRL *pChCtrl;
 
-#else
-				MTWF_PRINT("#%-7d%4d/%d%8x%6d\n",
+	MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_OFF, ("=====================START====================\n "));
+	MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_OFF, ("---------------------------------------------\n "));
+
+	for (BandIdx = 0; BandIdx < DBDC_BAND_NUM; BandIdx++) {
+		pChCtrl = hc_get_channel_ctrl(pAd->hdev_ctrl, BandIdx);
+
+		if (pChCtrl->ChListNum == 0) {
+			MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("\t\x1b[1;33mBandIdx = %d\x1b[m, ChannelListNum = %d (it is not available)\n ", BandIdx, pChCtrl->ChListNum));
+			break;
+		} else {
+			MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_OFF, ("\t\x1b[1;33mBandIdx = %d\x1b[m, ChannelListNum = %d\n ", BandIdx, pChCtrl->ChListNum));
+			MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_OFF, ("\tChGrpABandEn = %d\n ", pChCtrl->ChGrpABandEn));
+			MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_OFF, ("\tChannel list information:\n "));
+			MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_OFF, ("\tChannel \tPwr0/1 \t\tFlags\n "));
+			for (ChIdx = 0; ChIdx < pChCtrl->ChListNum; ChIdx++) {
+				MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_OFF, ("\t#%d \t\t%d/%d \t\t%x\n ",
 					pChCtrl->ChList[ChIdx].Channel,
 					pChCtrl->ChList[ChIdx].Power,
 					pChCtrl->ChList[ChIdx].Power2,
-					pChCtrl->ChList[ChIdx].Flags,
-					pChCtrl->ChList[ChIdx].DfsReq);
-#endif
+					pChCtrl->ChList[ChIdx].Flags));
 			}
 		}
+		MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_OFF, ("---------------------------------------------\n "));
 	}
+	MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_OFF, ("=====================END=====================\n "));
 }
-
 #ifdef GREENAP_SUPPORT
 /*
  *
  */
 VOID HcShowGreenAPInfo(RTMP_ADAPTER *pAd)
 {
-	greenap_show(pAd);
+	struct greenap_ctrl *greenap = &pAd->ApCfg.greenap;
+
+	greenap_show(pAd, greenap);
 }
 #endif /* GREENAP_SUPPORT */
 
 /*
 *
 */
-void hc_show_edca_info(void *hdev_ctrl)
+void hc_show_edca_info(struct _RTMP_ADAPTER *ad)
 {
-	struct hdev_ctrl *ctrl = hdev_ctrl;
+	struct hdev_ctrl *ctrl = ad->hdev_ctrl;
 
-	wmm_ctrl_show_entry(&ctrl->HwResourceCfg.wmm_ctrl);
+	WcShowEdca(ctrl);
 }
 
 /*
@@ -782,36 +651,16 @@ void hc_show_hdev_obj(struct wifi_dev *wdev)
 /*
 *
 */
-void hc_set_txcmd_mode(VOID *ctrl, UCHAR txcmd_mode)
-{
-	struct hdev_ctrl *hctrl = (struct hdev_ctrl *) ctrl;
-	struct _RTMP_CHIP_CAP *cap = hc_get_chip_cap(ctrl);
-
-	if (txcmd_mode == HOBJ_TX_MODE_TXCMD && (cap->asic_caps & fASIC_CAP_TXCMD)) {
-		hctrl->HwResourceCfg.txcmd_mode = HOBJ_TX_MODE_TXCMD;
-	}
-}
-
-/*
-*
-*/
-BOOLEAN HcAcquiredEdca(RTMP_ADAPTER *pAd, struct wifi_dev *wdev, EDCA_PARM *pEdca)
+VOID HcAcquiredEdca(RTMP_ADAPTER *pAd, struct wifi_dev *wdev, EDCA_PARM *pEdca)
 {
 	struct hdev_obj *obj = wdev->pHObj;
-	struct wmm_entry *entry;
 
 	if (!hdev_obj_state_ready(obj)) {
-		MTWF_DBG(pAd, DBG_CAT_HW, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-				 "wdev=%d, hobj is not ready!\n",  wdev->wdev_idx);
-		return FALSE;
+		MTWF_LOG(DBG_CAT_HW, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
+				 ("%s(): wdev=%d, hobj is not ready!\n", __func__, wdev->wdev_idx));
+		return;
 	}
-
-	entry = wmm_ctrl_acquire_entry(obj, pEdca);
-
-	if (!entry)
-		return FALSE;
-
-	return TRUE;
+	WcAcquiredEdca(obj, pEdca);
 }
 
 /*
@@ -822,11 +671,11 @@ VOID HcReleaseEdca(RTMP_ADAPTER *pAd, struct wifi_dev *wdev)
 	struct hdev_obj *obj = wdev->pHObj;
 
 	if (!hdev_obj_state_ready(obj)) {
-		MTWF_DBG(pAd, DBG_CAT_HW, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-				 "wdev=%d, hobj is not ready!\n",  wdev->wdev_idx);
+		MTWF_LOG(DBG_CAT_HW, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
+				 ("%s(): wdev=%d, hobj is not ready!\n", __func__, wdev->wdev_idx));
 		return;
 	}
-	wmm_ctrl_release_entry(obj);
+	WcReleaseEdca(obj);
 }
 
 /*
@@ -837,94 +686,12 @@ VOID HcSetEdca(struct wifi_dev *wdev)
 	struct hdev_obj *obj = wdev->pHObj;
 
 	if (!hdev_obj_state_ready(obj)) {
-		MTWF_DBG(NULL, DBG_CAT_HW, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-				 "wdev=%d, hobj is not ready!\n",  wdev->wdev_idx);
+		MTWF_LOG(DBG_CAT_HW, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
+				 ("%s(): wdev=%d, hobj is not ready!\n", __func__, wdev->wdev_idx));
 		return;
 	}
-	wmm_ctrl_set_edca(obj);
+	WcSetEdca(obj);
 }
-
-
-#ifdef SW_CONNECT_SUPPORT
-BOOLEAN HcAcquiredDummyObj(RTMP_ADAPTER *pAd, struct wifi_dev *wdev)
-{
-	UCHAR dbdc_idx;
-	struct hdev_obj *obj = wdev->pHObj;
-	struct hdev_ctrl *ctrl = pAd->hdev_ctrl;
-	HD_RESOURCE_CFG *pHwResource = &ctrl->HwResourceCfg;
-	WTBL_CFG *pWtblCfg =  &pHwResource->WtblCfg;
-
-	if (!hdev_obj_state_ready(obj)) {
-		MTWF_DBG(pAd, DBG_CAT_HW, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-				 "wdev=%d, hobj is not ready!\n",  wdev->wdev_idx);
-		return FALSE;
-	}
-
-	dbdc_idx = RcGetBandIdx(obj->rdev);
-
-	if (dbdc_idx < DBDC_BAND_NUM) {
-		if (wdev->pDummy_obj == NULL) {
-			if (pWtblCfg->dummy_wcid_obj[dbdc_idx].State == WTBL_STATE_SW_OCCUPIED) {
-				if (pWtblCfg) {
-					wdev->pDummy_obj = &pWtblCfg->dummy_wcid_obj[dbdc_idx];
-
-					if (atomic_read(&(pWtblCfg->dummy_wcid_obj[dbdc_idx].ref_cnt)) == 0) {
-						/* set default to OFDM 54M */
-						pWtblCfg->dummy_wcid_obj[dbdc_idx].HTPhyMode.field.MODE = MODE_OFDM;
-						pWtblCfg->dummy_wcid_obj[dbdc_idx].HTPhyMode.field.BW = BW_20;
-						pWtblCfg->dummy_wcid_obj[dbdc_idx].HTPhyMode.field.MCS = MCS_RATE_54;
-						pWtblCfg->dummy_wcid_obj[dbdc_idx].bFixedRateSet = TRUE;
-					}
-
-					atomic_inc(&(pWtblCfg->dummy_wcid_obj[dbdc_idx].ref_cnt));
-				}
-			}
-		} else {
-			MTWF_DBG(pAd, DBG_CAT_HW, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-					 "wdev=%d, wdev->pDummy_obj=%p is double acuired!\n",  wdev->wdev_idx, wdev->pDummy_obj);
-			ASSERT(0);
-		}
-	}
-
-	MTWF_DBG(pAd, DBG_CAT_HW, DBG_SUBCAT_ALL, DBG_LVL_INFO,
-			 "wdev->wdev_idx=%u, dbdc_idx=%u, wdev->pDummy_obj=%p\n", wdev->wdev_idx, dbdc_idx, wdev->pDummy_obj);
-
-	if (!wdev->pDummy_obj)
-		return FALSE;
-
-	return TRUE;
-}
-
-
-VOID HcReleaseDummyObj(RTMP_ADAPTER *pAd, struct wifi_dev *wdev)
-{
-	UCHAR dbdc_idx;
-	struct hdev_obj *obj = wdev->pHObj;
-	struct hdev_ctrl *ctrl = pAd->hdev_ctrl;
-	HD_RESOURCE_CFG *pHwResource = &ctrl->HwResourceCfg;
-	WTBL_CFG *pWtblCfg =  &pHwResource->WtblCfg;
-
-	if (!hdev_obj_state_ready(obj)) {
-		MTWF_DBG(pAd, DBG_CAT_HW, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-				 "wdev=%d, hobj is not ready!\n",  wdev->wdev_idx);
-		return;
-	}
-
-	dbdc_idx = RcGetBandIdx(obj->rdev);
-
-	if (dbdc_idx < DBDC_BAND_NUM) {
-		if (wdev->pDummy_obj) {
-			wdev->pDummy_obj = NULL;
-			if (atomic_read(&(pWtblCfg->dummy_wcid_obj[dbdc_idx].ref_cnt)) > 0)
-				atomic_dec(&(pWtblCfg->dummy_wcid_obj[dbdc_idx].ref_cnt));
-
-			if (atomic_read(&(pWtblCfg->dummy_wcid_obj[dbdc_idx].ref_cnt)) == 0)
-				pWtblCfg->dummy_wcid_obj[dbdc_idx].bFixedRateSet = FALSE;
-		}
-	}
-}
-#endif /* SW_CONNECT_SUPPORT */
-
 
 /*
 *
@@ -934,8 +701,8 @@ UCHAR HcGetOmacIdx(RTMP_ADAPTER *pAd, struct wifi_dev *wdev)
 	struct hdev_obj *obj = wdev->pHObj;
 
 	if (!hdev_obj_state_ready(obj)) {
-		MTWF_DBG(pAd, DBG_CAT_HW, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-			"wdev=%d, hobj is not ready!\n",  wdev->wdev_idx);
+		MTWF_LOG(DBG_CAT_HW, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
+			("%s(): wdev=%d, hobj is not ready!\n", __func__, wdev->wdev_idx));
 		return 0xff;
 	}
 	return obj->OmacIdx;
@@ -978,7 +745,7 @@ UCHAR  HcGetRadioChannel(RTMP_ADAPTER *pAd)
 /*
 *
 */
-USHORT HcGetRadioPhyMode(RTMP_ADAPTER *pAd)
+UCHAR HcGetRadioPhyMode(RTMP_ADAPTER *pAd)
 {
 	struct hdev_ctrl *ctrl = pAd->hdev_ctrl;
 	HD_RESOURCE_CFG *pHwResource = &ctrl->HwResourceCfg;
@@ -986,7 +753,7 @@ USHORT HcGetRadioPhyMode(RTMP_ADAPTER *pAd)
 	return pHwResource->PhyCtrl[0].RadioCtrl.PhyMode;
 }
 
-USHORT HcGetRadioPhyModeByBandIdx(RTMP_ADAPTER *pAd, UCHAR BandIdx)
+UCHAR HcGetRadioPhyModeByBandIdx(RTMP_ADAPTER *pAd, UCHAR BandIdx)
 {
 	struct hdev_ctrl *ctrl = pAd->hdev_ctrl;
 	HD_RESOURCE_CFG *pHwResource = &ctrl->HwResourceCfg;
@@ -1033,10 +800,7 @@ BOOLEAN  HcIsRfRun(RTMP_ADAPTER *pAd, UCHAR RfIC)
 	for (i = 0; i < pHwResource->concurrent_bands; i++) {
 		rdev = &ctrl->rdev[i];
 
-		/* do not change sequence due to 6GHz might include AC/GN then confused */
-		if (WMODE_CAP_6G(rdev->pRadioCtrl->PhyMode) && (RfIC & RFIC_6GHZ))
-			return TRUE;
-		else if (WMODE_CAP_2G(rdev->pRadioCtrl->PhyMode) && (RfIC & RFIC_24GHZ))
+		if (WMODE_CAP_2G(rdev->pRadioCtrl->PhyMode) && (RfIC & RFIC_24GHZ))
 			return TRUE;
 		else if (WMODE_CAP_5G(rdev->pRadioCtrl->PhyMode) && (RfIC & RFIC_5GHZ))
 			return TRUE;
@@ -1062,31 +826,6 @@ QLOAD_CTRL *HcGetQloadCtrlByRf(RTMP_ADAPTER *pAd, UINT32 RfIC)
 	}
 
 	return 0;
-}
-
-/*
-*
-*/
-VOID *hc_get_qload_by_wdev(struct wifi_dev *wdev)
-{
-	struct hdev_obj *obj = wdev->pHObj;
-	struct hdev_ctrl *ctrl;
-	HD_RESOURCE_CFG *hwres;
-	struct radio_dev *rdev;
-	RADIO_CTRL *r_ctrl;
-
-	if (!hdev_obj_state_ready(obj)) {
-		MTWF_DBG(NULL, DBG_CAT_HW, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-				 "wdev=%d, hobj is not ready!\n",  wdev->wdev_idx);
-		return NULL;
-	}
-
-	ctrl = obj->h_ctrl;
-	hwres = &ctrl->HwResourceCfg;
-	rdev = obj->rdev;
-	r_ctrl = rdev->pRadioCtrl;
-
-	return &hwres->PhyCtrl[r_ctrl->BandIdx].QloadCtrl;
 }
 
 /*
@@ -1130,8 +869,8 @@ UCHAR HcGetBw(RTMP_ADAPTER *pAd, struct wifi_dev *wdev)
 	struct hdev_obj *obj = wdev->pHObj;
 
 	if (!hdev_obj_state_ready(obj)) {
-		MTWF_DBG(pAd, DBG_CAT_HW, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-			"wdev=%d, hobj is not ready!\n",  wdev->wdev_idx);
+		MTWF_LOG(DBG_CAT_HW, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
+			("%s(): wdev=%d, hobj is not ready!\n", __func__, wdev->wdev_idx));
 		return 0xff;
 	}
 
@@ -1146,8 +885,8 @@ UINT32 HcGetMgmtQueueIdx(RTMP_ADAPTER *pAd, struct wifi_dev *wdev, enum PACKET_T
 	struct hdev_obj *obj = wdev->pHObj;
 
 	if (!hdev_obj_state_ready(obj)) {
-		MTWF_DBG(pAd, DBG_CAT_HW, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-			"wdev=%d, hobj is not ready!\n",  wdev->wdev_idx);
+		MTWF_LOG(DBG_CAT_HW, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
+			("%s(): wdev=%d, hobj is not ready!\n", __func__, wdev->wdev_idx));
 		return TxQ_IDX_ALTX0;
 	}
 
@@ -1162,12 +901,28 @@ UINT32 HcGetBcnQueueIdx(RTMP_ADAPTER *pAd, struct wifi_dev *wdev)
 	struct hdev_obj *obj = wdev->pHObj;
 
 	if (!hdev_obj_state_ready(obj)) {
-		MTWF_DBG(pAd, DBG_CAT_HW, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-			"wdev=%d, hobj is not ready!\n",  wdev->wdev_idx);
+		MTWF_LOG(DBG_CAT_HW, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
+			("%s(): wdev=%d, hobj is not ready!\n", __func__, wdev->wdev_idx));
 		return TxQ_IDX_BCN0;
 	}
 
 	return RcGetBcnQueueIdx(obj);
+}
+
+/*
+*
+*/
+UINT32 HcGetTxRingIdx(RTMP_ADAPTER *pAd, struct wifi_dev *wdev, enum PACKET_TYPE pkt_type, UCHAR q_idx)
+{
+	struct hdev_obj *obj = wdev->pHObj;
+
+	if (!hdev_obj_state_ready(obj)) {
+		MTWF_LOG(DBG_CAT_HW, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
+			("%s(): wdev=%d, hobj is not ready!\n", __func__, wdev->wdev_idx));
+		return 0;
+	}
+
+	return RcGetTxRingIdx(obj);
 }
 
 /*
@@ -1178,42 +933,50 @@ UINT32 HcGetWmmIdx(RTMP_ADAPTER *pAd, struct wifi_dev *wdev)
 	struct hdev_obj *obj = wdev->pHObj;
 
 	if (!hdev_obj_state_ready(obj)) {
-		MTWF_DBG(pAd, DBG_CAT_HW, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-			"wdev=%d, hobj is not ready!\n",  wdev->wdev_idx);
+		MTWF_LOG(DBG_CAT_HW, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
+			("%s(): wdev=%d, hobj is not ready!\n", __func__, wdev->wdev_idx));
 		return 0;
 	}
 
 	return RcGetWmmIdx(obj);
 }
 
-/*
-*Use ChannelRange to get BandIdx
-*When DBDC disabled, we return BAND0 as default
-*When DBDC enabled, if channel > 14, we return BAND1,else we return BAND0
-*/
-UCHAR HcGetBandByChannelRange(RTMP_ADAPTER *pAd, UCHAR Channel)
+#ifdef CUSTOMER_DCC_FEATURE
+INT32 HcUpdateExtCha(RTMP_ADAPTER *pAd, UCHAR Channel, UCHAR ExtCha)
 {
-	UCHAR BandIdx = BAND0;
-	BOOLEAN Is2GRun = FALSE;
-	BOOLEAN Is5GRun = FALSE;
-	BOOLEAN Is6GRun = FALSE;
+	INT32 ret = 0;
+	struct radio_dev *pHdev = NULL;
+	struct hdev_ctrl *pHdCfg = (struct hdev_ctrl *)pAd->hdev_ctrl;
 
-	if (pAd->CommonCfg.dbdc_mode == FALSE)
-		return BandIdx;
-
-	Is2GRun = HcIsRfSupport(pAd, RFIC_24GHZ);
-	Is5GRun = HcIsRfSupport(pAd, RFIC_5GHZ);
-	Is6GRun = HcIsRfSupport(pAd, RFIC_6GHZ);
-	if (Is2GRun && (Is5GRun || Is6GRun)) {
-		if (Channel > 14)
-			return BAND1;
-
-		return BandIdx;
+	pHdev = RcGetHdevByChannel(pHdCfg, Channel);
+	if (!pHdev) {
+		MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_ERROR, ("%s(): Get Hdev by Channel %d faild, not support this RF\n",
+		__FUNCTION__, Channel));
+		return -1;
 	}
 
-	ASSERT(FALSE);
-	return BandIdx;
+	/*Update ExtCha to radio*/
+	ret  = RcUpdateExtCha(pHdev, ExtCha);
+
+	return ret;
 }
+
+UCHAR HcGetExtCha(RTMP_ADAPTER *pAd, UCHAR Channel)
+{
+	struct radio_dev *rdev = NULL;
+	struct hdev_ctrl *pHdCfg = pAd->hdev_ctrl;
+
+	rdev = RcGetHdevByChannel(pHdCfg, Channel);
+
+	if (!rdev) {
+		MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_ERROR, ("%s(): Get Hdev by Channel %d faild, not support this RF\n",
+		__FUNCTION__, Channel));
+		return 0;
+	}
+	return RcGetExtCha(rdev);
+}
+#endif
+
 /*
 *
 */
@@ -1226,8 +989,8 @@ UCHAR HcGetBandByChannel(RTMP_ADAPTER *pAd, UCHAR Channel)
 	rdev = RcGetHdevByChannel(ctrl, Channel);
 
 	if (!rdev) {
-		MTWF_DBG(pAd, DBG_CAT_CHN, CATCHN_CHN, DBG_LVL_ERROR,
-			"No hdev parking on channel:%d, just return a default band_idx 0!\n", Channel);
+		MTWF_LOG(DBG_CAT_HW, DBG_SUBCAT_ALL, DBG_LVL_INFO,
+			("%s(): no hdev parking on channel:%d!\n", __func__, Channel));
 		return 0;
 	}
 
@@ -1240,22 +1003,18 @@ UCHAR HcGetBandByChannel(RTMP_ADAPTER *pAd, UCHAR Channel)
 */
 EDCA_PARM *HcGetEdca(RTMP_ADAPTER *pAd, struct wifi_dev *wdev)
 {
+	EDCA_PARM *pEdca = NULL;
 	struct hdev_obj *obj = wdev->pHObj;
 	struct hdev_ctrl *ctrl = pAd->hdev_ctrl;
-	struct wmm_entry *entry;
 
 	if (!hdev_obj_state_ready(obj)) {
-		MTWF_DBG(pAd, DBG_CAT_HW, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-			"wdev=%d, hobj is not ready!\n",  wdev->wdev_idx);
+		MTWF_LOG(DBG_CAT_HW, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
+			("%s(): wdev=%d, hobj is not ready!\n", __func__, wdev->wdev_idx));
 		return NULL;
 	}
 
-	entry = wmm_ctrl_get_entry_by_idx(ctrl, obj->WmmIdx);
-
-	if (entry)
-		return &entry->edca;
-	else
-		return NULL;
+	pEdca = WcGetWmmByIdx(ctrl, obj->WmmIdx);
+	return pEdca;
 }
 
 /*
@@ -1263,21 +1022,18 @@ EDCA_PARM *HcGetEdca(RTMP_ADAPTER *pAd, struct wifi_dev *wdev)
 */
 VOID HcCrossChannelCheck(RTMP_ADAPTER *pAd, struct wifi_dev *wdev, UCHAR Channel)
 {
-	USHORT PhyMode = wdev->PhyMode;
+	UCHAR PhyMode = wdev->PhyMode;
 	UCHAR WChannel = wdev->channel;
 
 	/*check channel is belong to differet band*/
-	if (WMODE_CAP_6G(PhyMode) && Channel <= CHANNEL_6G_MAX && WChannel <= CHANNEL_6G_MAX)
+	if (Channel > 14 && WChannel > 14)
 		return;
 
-	if (WMODE_CAP_5G(PhyMode) && Channel > 14 && WChannel > 14)
-		return;
-
-	if (WMODE_CAP_2G(PhyMode) && Channel <= 14 && WChannel <= 14)
+	if (Channel <= 14 && WChannel <= 14)
 		return;
 
 	/*is mixed mode, change default channel and */
-	if (!WMODE_5G_ONLY(PhyMode) || !WMODE_2G_ONLY(PhyMode) || !WMODE_6G_ONLY(PhyMode)) {
+	if (!WMODE_5G_ONLY(PhyMode)	|| !WMODE_2G_ONLY(PhyMode)) {
 		/*update wdev channel to new band*/
 		wdev->channel = Channel;
 		/*need change to other band*/
@@ -1296,198 +1052,99 @@ VOID HcCrossChannelCheck(RTMP_ADAPTER *pAd, struct wifi_dev *wdev, UCHAR Channel
  * preserve the group key wtbl num will be used.
  * then decide the max station number could be used.
  */
-UINT16 HcGetMaxStaNum(RTMP_ADAPTER *pAd)
+UCHAR HcGetMaxStaNum(RTMP_ADAPTER *pAd)
 {
-	return WtcGetMaxStaNum(pAd->hdev_ctrl);
+	UCHAR MaxStaNum = WtcGetMaxStaNum(pAd->hdev_ctrl);
+
+	if (MaxStaNum > MAX_LEN_OF_MAC_TABLE)
+		MaxStaNum = MAX_LEN_OF_MAC_TABLE;
+
+	return MaxStaNum;
 }
 
-UINT16 HcSetMaxStaNum(RTMP_ADAPTER *pAd)
+UCHAR HcSetMaxStaNum(RTMP_ADAPTER *pAd)
 {
 	struct hdev_ctrl *ctrl = pAd->hdev_ctrl;
 	UCHAR BssidNum = 0, MSTANum = 0;
 #ifdef CONFIG_AP_SUPPORT
 	BssidNum = pAd->ApCfg.BssidNum;
 #endif /*CONFIG_AP_SUPPORT*/
-#ifdef CONFIG_STA_SUPPORT
-	MSTANum = pAd->MSTANum;
-#endif
 	return WtcSetMaxStaNum(ctrl, BssidNum, MSTANum);
 }
 
-#ifdef SW_CONNECT_SUPPORT
-BOOLEAN HcSetDummyWcidFixedRate(struct _RTMP_ADAPTER *pAd, UINT16 wcid, HTTRANSMIT_SETTING HTPhyMode)
-{
-	UINT8 i;
-	struct hdev_ctrl *ctrl = pAd->hdev_ctrl;
-	HD_RESOURCE_CFG *pResource = &ctrl->HwResourceCfg;
-	WTBL_CFG *pWtblCfg =  &pResource->WtblCfg;
-
-	if (!IS_SW_STA_ENABLED(pAd))
-		return FALSE;
-
-	for (i = 0; i < DBDC_BAND_NUM ; i++) {
-		if (pWtblCfg->dummy_wcid_obj[i].State == WTBL_STATE_SW_OCCUPIED)
-			if (wcid == pWtblCfg->dummy_wcid_obj[i].HwWcid) {
-				pWtblCfg->dummy_wcid_obj[i].HTPhyMode.word = HTPhyMode.word;
-				pWtblCfg->dummy_wcid_obj[i].bFixedRateSet = TRUE;
-				return TRUE;
-			}
-	}
-
-	return FALSE;
-}
-
-BOOLEAN HcIsDummyWcid(struct _RTMP_ADAPTER *pAd, UINT16 wcid)
-{
-	UINT8 i;
-	struct hdev_ctrl *ctrl = pAd->hdev_ctrl;
-	HD_RESOURCE_CFG *pResource = &ctrl->HwResourceCfg;
-	WTBL_CFG *pWtblCfg =  &pResource->WtblCfg;
-
-	if (!IS_SW_STA_ENABLED(pAd))
-		return FALSE;
-
-	for (i = 0; i < DBDC_BAND_NUM ; i++) {
-		if (pWtblCfg->dummy_wcid_obj[i].State == WTBL_STATE_SW_OCCUPIED)
-			if (wcid == pWtblCfg->dummy_wcid_obj[i].HwWcid)
-				return TRUE;
-	}
-
-	return FALSE;
-}
-
-UINT16 HcGetDummyWcid(struct wifi_dev *wdev)
-{
-	return WtcGetDummyWcid(wdev);
-}
-
-UINT16 HcGetMaxStaNumSw(RTMP_ADAPTER *pAd)
-{
-	return WtcGetMaxStaNumSw(pAd->hdev_ctrl);
-}
-
-
-UINT16 HcGetSwWcid(RTMP_ADAPTER *pAd, UINT16 hw_wcid)
-{
-	ASSERT(pAd);
-	return WtcGetSwWcid(pAd->hdev_ctrl, hw_wcid);
-}
-
-
-#endif /* SW_CONNECT_SUPPORT */
-
 /*
 *
 */
-UINT16 HcAcquireGroupKeyWcid(RTMP_ADAPTER *pAd, struct wifi_dev *wdev)
+UCHAR HcAcquireGroupKeyWcid(RTMP_ADAPTER *pAd, struct wifi_dev *wdev)
 {
 	struct hdev_obj *obj = wdev->pHObj;
 
 	if (!hdev_obj_state_ready(obj)) {
-		MTWF_DBG(pAd, DBG_CAT_HW, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-			"wdev=%d, hobj is not ready!\n",  wdev->wdev_idx);
-		return WCID_INVALID;
+		MTWF_LOG(DBG_CAT_HW, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
+			("%s(): wdev=%d, hobj is not ready!\n", __func__, wdev->wdev_idx));
+		return INVAILD_WCID;
 	}
 
-#ifdef CONFIG_VLAN_GTK_SUPPORT
-	if (wdev->tr_tb_idx == WCID_INVALID) {
-		/* for non-vlan dev */
-		wdev->tr_tb_idx = WtcAcquireGroupKeyWcid(pAd->hdev_ctrl, obj
-#ifdef SW_CONNECT_SUPPORT
-							, &(wdev->hw_bmc_wcid)
-#endif /* SW_CONNECT_SUPPORT */
-		);
-		return wdev->tr_tb_idx;
-	} else {
-		/* for vlan_dev, the return value will be stored to vlan_gtk_info, so just return a bmc_idx */
-		return WtcAcquireGroupKeyWcid(pAd->hdev_ctrl, obj);
-	}
-#else
-	wdev->tr_tb_idx = WtcAcquireGroupKeyWcid(pAd->hdev_ctrl, obj
-#ifdef SW_CONNECT_SUPPORT
-						, &(wdev->hw_bmc_wcid)
-#endif /* SW_CONNECT_SUPPORT */
-	);
-
+	wdev->tr_tb_idx = WtcAcquireGroupKeyWcid(pAd->hdev_ctrl, obj);
 	return wdev->tr_tb_idx;
-#endif
 }
 
 /*
 *
 */
-VOID HcReleaseGroupKeyWcid(RTMP_ADAPTER *pAd, struct wifi_dev *wdev, UINT16 wcid)
+VOID HcReleaseGroupKeyWcid(RTMP_ADAPTER *pAd, struct wifi_dev *wdev, UCHAR idx)
 {
 	struct hdev_obj *obj = wdev->pHObj;
 
 	if (!hdev_obj_state_ready(obj)) {
-		MTWF_DBG(pAd, DBG_CAT_HW, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-			"wdev=%d, hobj is not ready!\n",  wdev->wdev_idx);
+		MTWF_LOG(DBG_CAT_HW, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
+			("%s(): wdev=%d, hobj is not ready!\n", __func__, wdev->wdev_idx));
 		return;
 	}
 
-#ifdef CONFIG_VLAN_GTK_SUPPORT
-	if (wdev->tr_tb_idx == wcid)
-		wdev->tr_tb_idx = WtcReleaseGroupKeyWcid(pAd->hdev_ctrl, obj, wcid);
-	else
-		WtcReleaseGroupKeyWcid(pAd->hdev_ctrl, obj, wcid);
-#else
-	wdev->tr_tb_idx = WtcReleaseGroupKeyWcid(pAd->hdev_ctrl, obj, wcid);
-#endif
+	wdev->tr_tb_idx = WtcReleaseGroupKeyWcid(pAd->hdev_ctrl, obj, idx);
 }
 
 /*
 *
 */
-UCHAR HcGetWcidLinkType(RTMP_ADAPTER *pAd, UINT16 wcid)
+UCHAR HcGetWcidLinkType(RTMP_ADAPTER *pAd, UCHAR Wcid)
 {
-	return WtcGetWcidLinkType(pAd->hdev_ctrl, wcid);
+	return WtcGetWcidLinkType(pAd->hdev_ctrl, Wcid);
 }
 
 
 /*
 *
 */
-#ifdef SW_CONNECT_SUPPORT
-UINT16 HcAcquireUcastWcid(RTMP_ADAPTER *pAd, struct wifi_dev *wdev, BOOLEAN is_A4, BOOLEAN is_apcli, UINT16 *wcid_hw, BOOLEAN *bSw)
-#else /* SW_CONNECT_SUPPORT */
-UINT16 HcAcquireUcastWcid(RTMP_ADAPTER *pAd, struct wifi_dev *wdev, BOOLEAN is_A4, BOOLEAN is_apcli)
-#endif /* !SW_CONNECT_SUPPORT */
-{
-	struct hdev_obj *obj = wdev->pHObj;
-	UINT16 FirstWcid = 1;
-
-	if (!hdev_obj_state_ready(obj)) {
-		MTWF_DBG(pAd, DBG_CAT_HW, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-			"wdev=%d, hobj is not ready!\n",  wdev->wdev_idx);
-		return WCID_INVALID;
-	}
-#ifdef SW_CONNECT_SUPPORT
-	return WtcAcquireUcastWcid(pAd->hdev_ctrl, obj, FirstWcid, is_A4, is_apcli, wdev, wcid_hw, bSw);
-#else /* SW_CONNECT_SUPPORT */
-	return WtcAcquireUcastWcid(pAd->hdev_ctrl, obj, FirstWcid, is_A4, is_apcli);
-#endif /* !SW_CONNECT_SUPPORT */
-}
-
-
-/*
-*
-*/
-UINT16 HcReleaseUcastWcid(RTMP_ADAPTER *pAd, struct wifi_dev *wdev, UINT16 wcid)
+UCHAR HcAcquireUcastWcid(RTMP_ADAPTER *pAd, struct wifi_dev *wdev)
 {
 	struct hdev_obj *obj = wdev->pHObj;
 
 	if (!hdev_obj_state_ready(obj)) {
-		MTWF_DBG(pAd, DBG_CAT_HW, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-			"wdev=%d, hobj is not ready!\n",  wdev->wdev_idx);
-		if (wcid > 0) {
-			MTWF_DBG(pAd, DBG_CAT_HW, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-				     "releasing wcid %d, hobj is not ready!\n", wcid);
-		} else
-			return WCID_INVALID;
+		MTWF_LOG(DBG_CAT_HW, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
+			("%s(): wdev=%d, hobj is not ready!\n", __func__, wdev->wdev_idx));
+		return INVAILD_WCID;
 	}
 
-	return WtcReleaseUcastWcid(pAd->hdev_ctrl, obj, wcid);
+	return WtcAcquireUcastWcid(pAd->hdev_ctrl, obj);
+}
+
+
+/*
+*
+*/
+UCHAR HcReleaseUcastWcid(RTMP_ADAPTER *pAd, struct wifi_dev *wdev, UCHAR idx)
+{
+	struct hdev_obj *obj = wdev->pHObj;
+
+	if (!hdev_obj_state_ready(obj)) {
+		MTWF_LOG(DBG_CAT_HW, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
+			("%s(): wdev=%d, hobj is not ready!\n", __func__, wdev->wdev_idx));
+		return INVAILD_WCID;
+	}
+
+	return WtcReleaseUcastWcid(pAd->hdev_ctrl, obj, idx);
 }
 
 /*
@@ -1527,72 +1184,26 @@ static INT32 HcSuspendMSDUTx(struct radio_dev *rdev)
 		wdev = ad->wdev_list[obj->Idx];
 		RTMPSuspendMsduTransmission(wdev->sys_handle, wdev);
 	}
-#ifdef OFFCHANNEL_ZERO_LOSS
-		ctrl->SuspendMsduTx[RcGetBandIdx(rdev)] = 1;
-		MTWF_DBG(ad, DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_INFO,
-					"():set suspended MSDU Tx\n");
-		/*Disable Mac Level Tx enable = 0 |band<<4 */
-		if (ad->ScanCtrl[RcGetBandIdx(rdev)].Num_Of_Channels == 1) {
-			UCHAR Band = RcGetBandIdx(rdev);
-			UCHAR enable = (Band<<4)|0;
-			MTWF_DBG(ad, DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_INFO,
-					"():set skip Mac Tx \n");
-			MtCmdSetMacTxEnable(ad, enable);
-		}
-#endif /*OFFCHANNEL_ZERO_LOSS*/
-
 	return ret;
 }
 
-INT32 HcUpdateMSDUTxAllow(struct radio_dev *rdev)
+static INT32 HcUpdateMSDUTxAllow(struct radio_dev *rdev)
 {
 	INT32 ret = 0;
 	struct hdev_obj *obj;
 	struct hdev_ctrl *ctrl = rdev->priv;
 	struct _RTMP_ADAPTER *ad = ctrl->priv;
 	struct wifi_dev *wdev;
-#ifdef OFFCHANNEL_ZERO_LOSS
-	BOOLEAN resume = 0;
-#endif
 
 	/*update all of wdev*/
 	DlListForEach(obj, &rdev->DevObjList, struct hdev_obj, list) {
 		wdev = ad->wdev_list[obj->Idx];
 
-		if (
-			(wdev->channel == rdev->pRadioCtrl->Channel)
-#ifdef OFFCHANNEL_ZERO_LOSS
-				&& (ad->ScanCtrl[RcGetBandIdx(rdev)].state != OFFCHANNEL_SCAN_START)
-#endif /*OFFCHANNEL_ZERO_LOSS*/
-		) {
-#ifdef OFFCHANNEL_ZERO_LOSS
-				resume = 1;
-#endif /*OFFCHANNEL_ZERO_LOSS*/
-
+		if (wdev->channel == rdev->pRadioCtrl->Channel)
 			RTMPResumeMsduTransmission(wdev->sys_handle, wdev);
-		} else {
-#ifdef OFFCHANNEL_ZERO_LOSS
-			if (ad->ScanCtrl[RcGetBandIdx(rdev)].Num_Of_Channels == 1) {
-				MTWF_DBG(NULL, DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-					"%s():set skip Tx\n", __func__);
-			}
-			if (ctrl->SuspendMsduTx[RcGetBandIdx(rdev)] == 0)
-#endif /*OFFCHANNEL_ZERO_LOSS*/
+		else
 			RTMPSuspendMsduTransmission(wdev->sys_handle, wdev);
-		}
 	}
-#ifdef OFFCHANNEL_ZERO_LOSS
-	if ((resume == 1) && (ctrl->SuspendMsduTx[RcGetBandIdx(rdev)] == 1)) {
-		ctrl->SuspendMsduTx[RcGetBandIdx(rdev)] = 0;
-		if (ad->ScanCtrl[RcGetBandIdx(rdev)].Num_Of_Channels == 1) {
-			UCHAR Band = RcGetBandIdx(rdev);
-			UCHAR enable = (Band<<4)|1;
-			MTWF_DBG(ad, DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_INFO,
-					"():set Mac Tx Enable \n");
-			MtCmdSetMacTxEnable(ad, enable);
-		}
-	}
-#endif
 	return ret;
 }
 
@@ -1610,37 +1221,24 @@ static VOID hc_radio_update(struct wifi_dev *wdev, struct radio_res *res)
 	BOOLEAN scan = (res->reason == REASON_NORMAL_SCAN) ? TRUE:FALSE;
 
 	if (!hdev_obj_state_ready(obj)) {
-		MTWF_DBG(ad, DBG_CAT_HW, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-			"wdev=%d, hobj is not ready!\n",  wdev->wdev_idx);
+		MTWF_LOG(DBG_CAT_HW, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
+			("%s(): wdev=%d, hobj is not ready!\n", __func__, wdev->wdev_idx));
 		return;
 	}
 	rdev = obj->rdev;
 #ifdef CONFIG_AP_SUPPORT
 #ifdef AP_QLOAD_SUPPORT
 	/* clear all statistics count for QBSS Load */
-	QBSS_LoadStatusClear(wdev);
+	QBSS_LoadStatusClear(wdev->sys_handle, oper->prim_ch);
 #endif /* AP_QLOAD_SUPPORT */
 #endif /* CONFIG_AP_SUPPORT */
-#ifdef ZERO_LOSS_CSA_SUPPORT
-	ad->chan_switch_time[7] = jiffies_to_msecs(jiffies);
-#endif /*ZERO_LOSS_CSA_SUPPORT*/
 	HcSuspendMSDUTx(rdev);
-#ifdef ZERO_LOSS_CSA_SUPPORT
-	ad->chan_switch_time[8] = jiffies_to_msecs(jiffies);
-#endif /*ZERO_LOSS_CSA_SUPPORT*/
 	AsicSwitchChannel(wdev->sys_handle, rdev->Idx, oper, scan);
 	AsicSetBW(wdev->sys_handle, oper->bw, rdev->Idx);
-#ifdef ZERO_LOSS_CSA_SUPPORT
-	ad->chan_switch_time[12] = jiffies_to_msecs(jiffies);
-#endif /*ZERO_LOSS_CSA_SUPPORT*/
-	RcUpdateRadio(rdev, oper->bw, oper->cen_ch_1, oper->cen_ch_2, oper->ext_cha, oper->rx_stream);
+	RcUpdateRadio(rdev, oper->bw, oper->cen_ch_1, oper->cen_ch_2, oper->ext_cha);
 	RcUpdateChannel(rdev, oper->prim_ch, scan);
 	/*after update channel resum tx*/
 	HcUpdateMSDUTxAllow(rdev);
-#ifdef ZERO_LOSS_CSA_SUPPORT
-	ad->chan_switch_time[13] = jiffies_to_msecs(jiffies);
-#endif /*ZERO_LOSS_CSA_SUPPORT*/
-
 #if defined(MT_DFS_SUPPORT) && defined(BACKGROUND_SCAN_SUPPORT)
 	DfsInitDedicatedScanStart(ad);
 #endif
@@ -1653,63 +1251,41 @@ BOOLEAN hc_radio_res_request(struct wifi_dev *wdev, struct radio_res *res)
 {
 	struct hdev_obj *obj = wdev->pHObj;
 	struct radio_dev *rdev;
-#if defined (MT_WOW_SUPPORT) || defined(OFFCHANNEL_ZERO_LOSS)
+#ifdef MT_WOW_SUPPORT
 	struct _RTMP_ADAPTER *ad = (struct _RTMP_ADAPTER *)wdev->sys_handle;
 #endif /*MT_WOW_SUPPORT*/
-#ifdef OFFCHANNEL_ZERO_LOSS
-	SCAN_CTRL *ScanCtrl = NULL;
-	ScanCtrl = get_scan_ctrl_by_wdev(ad, wdev);
-#endif
-#ifdef ANTENNA_CONTROL_SUPPORT
-	struct _RTMP_ADAPTER *pAd = (struct _RTMP_ADAPTER *)wdev->sys_handle;
-	UINT8 BandIdx = HcGetBandByWdev(wdev);
-#endif /* ANTENNA_CONTROL_SUPPORT */
 
 #ifdef BW_VENDOR10_CUSTOM_FEATURE
 	/* Sync SoftAp BW for Down Case */
 	if (wdev->wdev_type == WDEV_TYPE_AP && wlan_operate_get_state(wdev) == WLAN_OPER_STATE_INVALID) {
-		MTWF_DBG(NULL, DBG_CAT_HW, DBG_SUBCAT_ALL, DBG_LVL_INFO,
-			"%s(): AP wdev=%d, Interface Down!\n", __func__, wdev->wdev_idx);
+		MTWF_LOG(DBG_CAT_HW, DBG_SUBCAT_ALL, DBG_LVL_TRACE,
+			("%s(): AP wdev=%d, Interface Down!\n", __func__, wdev->wdev_idx));
 		return FALSE;
 	}
 #endif
 
 	if (!hdev_obj_state_ready(obj)) {
-		MTWF_DBG(NULL, DBG_CAT_HW, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-			"wdev=%d, hobj is not ready!\n",  wdev->wdev_idx);
+		MTWF_LOG(DBG_CAT_HW, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
+			("%s(): wdev=%d, hobj is not ready!\n", __func__, wdev->wdev_idx));
 		return FALSE;
 	}
 
 	rdev = obj->rdev;
 
-	if (
-#ifdef ANTENNA_CONTROL_SUPPORT
-		(!pAd->bAntennaSetAPEnable[BandIdx]) &&
-#endif /* ANTENNA_CONTROL_SUPPORT */
-		rc_radio_equal(rdev, res->oper)) {
-		MTWF_DBG(NULL, DBG_CAT_HW, DBG_SUBCAT_ALL, DBG_LVL_INFO, "%s(): radio is equal, prim_ch=%d, rx stream:%x!\n", __func__, res->oper->prim_ch, res->oper->rx_stream);
-#ifdef OFFCHANNEL_ZERO_LOSS
-		if (ScanCtrl->state == OFFCHANNEL_SCAN_START) {
-			MTWF_DBG(NULL, DBG_CAT_HW, DBG_SUBCAT_ALL, DBG_LVL_INFO, "%s(): Same channel. Suspending TX!\n", __func__);
-			HcSuspendMSDUTx(rdev);
-		}
-		if (ScanCtrl->state == OFFCHANNEL_SCAN_COMPLETE) {
-			MTWF_DBG(NULL, DBG_CAT_HW, DBG_SUBCAT_ALL, DBG_LVL_INFO, "%s(): Same channel.Resuming TX!\n", __func__);
-			HcUpdateMSDUTxAllow(rdev);
-		}
-#endif
+	if (rc_radio_equal(rdev, res->oper)) {
+		MTWF_LOG(DBG_CAT_HW, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("%s(): radio is equal, prim_ch=%d!\n", __func__, res->oper->prim_ch));
 		return TRUE;
 	}
 
 	if (rc_radio_res_acquire(rdev, res) != TRUE) {
-		MTWF_DBG(NULL, DBG_CAT_HW, DBG_SUBCAT_ALL, DBG_LVL_INFO, "%s(): can't acquire radio resource!\n", __func__);
+		MTWF_LOG(DBG_CAT_HW, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("%s(): can't acquire radio resource!\n", __func__));
 		return FALSE;
 	}
 
 #ifdef MT_WOW_SUPPORT
 
 	if (ad->WOW_Cfg.bWoWRunning) {
-		MTWF_DBG(NULL, DBG_CAT_HW, DBG_SUBCAT_ALL, DBG_LVL_INFO, "[%s] WoW is running, skip!\n", __func__);
+		MTWF_LOG(DBG_CAT_HW, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("[%s] WoW is running, skip!\n", __func__));
 		return FALSE;
 	}
 
@@ -1727,24 +1303,17 @@ UCHAR hc_reset_radio(struct _RTMP_ADAPTER *ad)
 	struct hdev_ctrl *ctrl = ad->hdev_ctrl;
 	struct radio_dev *rdev = NULL;
 	struct freq_oper freq;
-	struct radio_control *r_ctrl;
-	UINT8 ch_band = CMD_CH_BAND_24G;
+	struct _RADIO_CTRL *radio_ctrl;
 	UCHAR i;
 
 	for (i = 0 ; i < ctrl->HwResourceCfg.concurrent_bands; i++) {
 		os_zero_mem(&freq, sizeof(freq));
 		rdev = &ctrl->rdev[i];
-		r_ctrl = rdev->pRadioCtrl;
-		/* do not change sequence due to 6GHz might include AC/GN then confused */
-		if (WMODE_CAP_6G(r_ctrl->PhyMode))
-			ch_band = CMD_CH_BAND_6G;
-		else if (WMODE_CAP_5G(r_ctrl->PhyMode))
-			ch_band = CMD_CH_BAND_5G;
-		freq.ch_band = ch_band;
-		freq.bw = r_ctrl->Bw;
-		freq.prim_ch = r_ctrl->Channel;
-		freq.cen_ch_1 = r_ctrl->CentralCh;
-		freq.cen_ch_2 = r_ctrl->Channel2;
+		radio_ctrl = rdev->pRadioCtrl;
+		freq.bw = radio_ctrl->Bw;
+		freq.prim_ch = radio_ctrl->Channel;
+		freq.cen_ch_1 = radio_ctrl->CentralCh;
+		freq.cen_ch_2 = radio_ctrl->Channel2;
 		AsicSwitchChannel(ad, i, &freq, FALSE);
 	}
 	return TRUE;
@@ -1757,61 +1326,9 @@ VOID hc_set_rrm_init(struct wifi_dev *wdev)
 {
 	struct _RTMP_ADAPTER *ad = wdev->sys_handle;
 	UCHAR band_idx = HcGetBandByWdev(wdev);
-	UINT8 ucTxPath = ad->Antenna.field.TxPath;
-	UINT8 ucRxPath = ad->Antenna.field.RxPath;
 
-#ifdef DBDC_MODE
-	if (ad->CommonCfg.dbdc_mode) {
-		UINT8 band_idx = HcGetBandByWdev(wdev);
-
-		if (band_idx == DBDC_BAND0) {
-			ucTxPath = ad->dbdc_band0_tx_path;
-			ucRxPath = ad->dbdc_band0_rx_path;
-		} else {
-			ucTxPath = ad->dbdc_band1_tx_path;
-			ucRxPath = ad->dbdc_band1_rx_path;
-		}
-	}
-#endif
-
-#ifdef ANTENNA_CONTROL_SUPPORT
-	{
-		UINT8 BandIdx = HcGetBandByWdev(wdev);
-		if (ad->bAntennaSetAPEnable[BandIdx]) {
-			ucTxPath = ad->TxStream[BandIdx];
-			ucRxPath = ad->RxStream[BandIdx];
-		}
-	}
-#endif /* ANTENNA_CONTROL_SUPPORT */
-
-
-	AsicSetTxStream(wdev->sys_handle, ucTxPath, OPMODE_AP, TRUE, band_idx);
-	AsicSetRxStream(wdev->sys_handle, ucRxPath, band_idx);
-}
-
-/*
-*
-*/
-INT  hc_oper_query_by_wdev(struct wifi_dev *wdev, struct freq_oper *oper)
-{
-	struct wlan_operate *op = (struct wlan_operate *) wdev->wpf_op;
-	RTMP_ADAPTER *pAd = (RTMP_ADAPTER *)wdev->sys_handle;
-
-	if (!op) {
-		MTWF_DBG(pAd, DBG_CAT_HW, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-			"%s: op NULL\n", __func__);
-		return 0;
-	}
-
-	oper->bw = op->phy_oper.wdev_bw;
-	oper->cen_ch_1 = op->phy_oper.cen_ch_1;
-	oper->cen_ch_2 = op->phy_oper.cen_ch_2;
-	oper->ext_cha = op->ht_oper.ext_cha;
-	oper->prim_ch = op->phy_oper.prim_ch;
-	oper->ht_bw = (oper->bw > BW_20) ? HT_BW_40 : HT_BW_20;
-	oper->vht_bw = rf_bw_2_vht_bw(oper->bw);
-
-	return HC_STATUS_OK;
+	AsicSetTxStream(wdev->sys_handle, ad->Antenna.field.TxPath, OPMODE_AP, TRUE, band_idx);
+	AsicSetRxStream(wdev->sys_handle, ad->Antenna.field.RxPath, band_idx);
 }
 
 /*
@@ -1821,21 +1338,21 @@ INT  hc_radio_query_by_wdev(struct wifi_dev *wdev, struct freq_oper *oper)
 {
 	struct hdev_obj *obj = wdev->pHObj;
 	struct radio_dev *rdev;
-	struct radio_control *r_ctrl;
+	struct _RADIO_CTRL *radio;
 
 	if (!hdev_obj_state_ready(obj)) {
-		MTWF_DBG(NULL, DBG_CAT_HW, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-			"wdev=%d, hobj is not ready!\n",  wdev->wdev_idx);
+		MTWF_LOG(DBG_CAT_HW, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
+			("%s(): wdev=%d, hobj is not ready!\n", __func__, wdev->wdev_idx));
 		return HC_STATUS_FAIL;
 	}
 
 	rdev = obj->rdev;
-	r_ctrl = rdev->pRadioCtrl;
-	oper->bw = r_ctrl->Bw;
-	oper->cen_ch_1 = r_ctrl->CentralCh;
-	oper->cen_ch_2 = r_ctrl->Channel2;
-	oper->ext_cha = r_ctrl->ExtCha;
-	oper->prim_ch = r_ctrl->Channel;
+	radio = rdev->pRadioCtrl;
+	oper->bw = radio->Bw;
+	oper->cen_ch_1 = radio->CentralCh;
+	oper->cen_ch_2 = radio->Channel2;
+	oper->ext_cha = radio->ExtCha;
+	oper->prim_ch = radio->Channel;
 	oper->ht_bw = (oper->bw > BW_20) ? HT_BW_40 : HT_BW_20;
 	oper->vht_bw = rf_bw_2_vht_bw(oper->bw);
 	return HC_STATUS_OK;
@@ -1849,17 +1366,17 @@ INT  hc_radio_query_by_channel(struct _RTMP_ADAPTER *ad, UCHAR channel, struct f
 	INT ret = HC_STATUS_FAIL;
 	struct hdev_ctrl *ctrl = ad->hdev_ctrl;
 	struct _HD_RESOURCE_CFG *res = &ctrl->HwResourceCfg;
-	struct radio_control *r_ctrl = NULL;
+	struct _RADIO_CTRL *radio = NULL;
 	UCHAR i;
 
 	for (i = 0 ; i < res->concurrent_bands; i++) {
-		r_ctrl = &res->PhyCtrl[i].RadioCtrl;
-		if (r_ctrl->Channel == channel) {
-			oper->bw = r_ctrl->Bw;
-			oper->cen_ch_1 = r_ctrl->CentralCh;
-			oper->cen_ch_2 = r_ctrl->Channel2;
-			oper->ext_cha = r_ctrl->ExtCha;
-			oper->prim_ch = r_ctrl->Channel;
+		radio = &res->PhyCtrl[i].RadioCtrl;
+		if (radio->Channel == channel) {
+			oper->bw = radio->Bw;
+			oper->cen_ch_1 = radio->CentralCh;
+			oper->cen_ch_2 = radio->Channel2;
+			oper->ext_cha = radio->ExtCha;
+			oper->prim_ch = radio->Channel;
 			oper->ht_bw = (oper->bw > BW_20) ? HT_BW_40 : HT_BW_20;
 			oper->vht_bw = rf_bw_2_vht_bw(oper->bw);
 			ret = HC_STATUS_OK;
@@ -1877,14 +1394,14 @@ INT  hc_radio_query_by_index(struct _RTMP_ADAPTER *ad, UCHAR index, struct freq_
 	INT ret = HC_STATUS_OK;
 	struct hdev_ctrl *ctrl = ad->hdev_ctrl;
 	struct _HD_RESOURCE_CFG *res = &ctrl->HwResourceCfg;
-	struct radio_control *r_ctrl = NULL;
+	struct _RADIO_CTRL *radio = NULL;
 
-	r_ctrl = &res->PhyCtrl[index].RadioCtrl;
-	oper->bw = r_ctrl->Bw;
-	oper->cen_ch_1 = r_ctrl->CentralCh;
-	oper->cen_ch_2 = r_ctrl->Channel2;
-	oper->ext_cha = r_ctrl->ExtCha;
-	oper->prim_ch = r_ctrl->Channel;
+	radio = &res->PhyCtrl[index].RadioCtrl;
+	oper->bw = radio->Bw;
+	oper->cen_ch_1 = radio->CentralCh;
+	oper->cen_ch_2 = radio->Channel2;
+	oper->ext_cha = radio->ExtCha;
+	oper->prim_ch = radio->Channel;
 	oper->ht_bw = (oper->bw > BW_20) ? HT_BW_40 : HT_BW_20;
 	oper->vht_bw = rf_bw_2_vht_bw(oper->bw);
 	return ret;
@@ -1898,17 +1415,17 @@ INT hc_radio_query_by_rf(struct _RTMP_ADAPTER *ad, UCHAR rfic, struct freq_oper 
 	INT ret = HC_STATUS_FAIL;
 	struct hdev_ctrl *ctrl = ad->hdev_ctrl;
 	struct _HD_RESOURCE_CFG *res = &ctrl->HwResourceCfg;
-	struct radio_control *r_ctrl = NULL;
+	struct _RADIO_CTRL *radio = NULL;
 	UCHAR i;
 
 	for (i = 0 ; i < res->concurrent_bands; i++) {
-		r_ctrl = &res->PhyCtrl[i].RadioCtrl;
-		if (wmode_2_rfic(r_ctrl->PhyMode) & rfic) {
-			oper->bw = r_ctrl->Bw;
-			oper->cen_ch_1 = r_ctrl->CentralCh;
-			oper->cen_ch_2 = r_ctrl->Channel2;
-			oper->ext_cha = r_ctrl->ExtCha;
-			oper->prim_ch = r_ctrl->Channel;
+		radio = &res->PhyCtrl[i].RadioCtrl;
+		if (wmode_2_rfic(radio->PhyMode) & rfic) {
+			oper->bw = radio->Bw;
+			oper->cen_ch_1 = radio->CentralCh;
+			oper->cen_ch_2 = radio->Channel2;
+			oper->ext_cha = radio->ExtCha;
+			oper->prim_ch = radio->Channel;
 			oper->ht_bw = (oper->bw > BW_20) ? HT_BW_40 : HT_BW_20;
 			oper->vht_bw = rf_bw_2_vht_bw(oper->bw);
 			ret = HC_STATUS_OK;
@@ -1919,29 +1436,14 @@ INT hc_radio_query_by_rf(struct _RTMP_ADAPTER *ad, UCHAR rfic, struct freq_oper 
 }
 
 /*
- *
- */
-VOID *hc_get_hdev_ctrl(struct wifi_dev *wdev)
-{
-	struct hdev_obj *h_obj = (struct hdev_obj *)wdev->pHObj;
-	struct hdev_ctrl *h_ctrl = (struct hdev_ctrl *)h_obj->h_ctrl;
-
-	return h_ctrl;
-}
-
-/*
 *
 */
 INT hc_obj_init(struct wifi_dev *wdev, INT idx)
 {
 	struct _RTMP_ADAPTER *ad = wdev->sys_handle;
 	struct hdev_ctrl *ctrl = ad->hdev_ctrl;
-	struct hdev_obj *h_obj = NULL;
 
 	wdev->pHObj = &ctrl->HObjList[idx];
-	h_obj = (struct hdev_obj *)wdev->pHObj;
-	h_obj->h_ctrl = ctrl;
-
 	return HC_STATUS_OK;
 }
 
@@ -1950,9 +1452,6 @@ INT hc_obj_init(struct wifi_dev *wdev, INT idx)
 */
 VOID hc_obj_exit(struct wifi_dev *wdev)
 {
-	struct hdev_obj *h_obj = (struct hdev_obj *)wdev->pHObj;
-
-	h_obj->h_ctrl = NULL;
 	wdev->pHObj = NULL;
 }
 
@@ -1962,7 +1461,6 @@ VOID hc_obj_exit(struct wifi_dev *wdev)
 inline struct _RTMP_CHIP_CAP *hc_get_chip_cap(void *hdev_ctrl)
 {
 	struct hdev_ctrl *ctrl = hdev_ctrl;
-
 	return &ctrl->chip_cap;
 }
 EXPORT_SYMBOL(hc_get_chip_cap);
@@ -2052,121 +1550,6 @@ UCHAR hc_init_ACSChCtrlByBandIdx(RTMP_ADAPTER *pAd, UCHAR BandIdx)
 }
 #endif
 
-#ifdef DOT11_HE_AX
-BOOLEAN hc_bcolor_acquire(struct wifi_dev *wdev, UINT8 *color)
-{
-	struct hdev_ctrl *ctrl = hc_get_hdev_ctrl(wdev);
-	struct hdev_obj *obj = wdev->pHObj;
-	UINT8 ret = 0;
-
-	if (!hdev_obj_state_ready(obj)) {
-		MTWF_DBG(NULL, DBG_CAT_HW, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-				"wdev=%d, hobj is not ready!\n",  wdev->wdev_idx);
-		return FALSE;
-	}
-
-	ret = bcolor_acquire_entry(ctrl, obj);
-	if (ret < BSS_COLOR_VALUE_MIN || ret > BSS_COLOR_VALUE_MAX)
-		return FALSE;
-
-	*color = ret;
-	return TRUE;
-}
-
-void hc_bcolor_release(struct wifi_dev *wdev, UINT8 color)
-{
-	struct hdev_ctrl *ctrl = hc_get_hdev_ctrl(wdev);
-	struct hdev_obj *obj = wdev->pHObj;
-
-	if (!hdev_obj_state_ready(obj)) {
-		MTWF_DBG(NULL, DBG_CAT_HW, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-				"wdev=%d, hobj is not ready!\n",  wdev->wdev_idx);
-		return;
-	}
-
-	if (color < BSS_COLOR_VALUE_MIN || color > BSS_COLOR_VALUE_MAX)
-		return;
-
-	bcolor_release_entry(ctrl, obj, color);
-}
-
-void hc_bcolor_occupy(struct wifi_dev *wdev, UINT8 color)
-{
-	struct hdev_ctrl *ctrl = hc_get_hdev_ctrl(wdev);
-	struct hdev_obj *obj = wdev->pHObj;
-
-	if (!hdev_obj_state_ready(obj)) {
-		MTWF_DBG(NULL, DBG_CAT_HW, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-				"wdev=%d, hobj is not ready!\n",  wdev->wdev_idx);
-		return;
-	}
-
-	if (color < BSS_COLOR_VALUE_MIN || color > BSS_COLOR_VALUE_MAX)
-		return;
-
-	bcolor_occupy_entry(ctrl, obj, color);
-}
-
-BOOLEAN hc_bcolor_is_occupied(struct wifi_dev *wdev, UINT8 color)
-{
-	struct hdev_ctrl *ctrl = hc_get_hdev_ctrl(wdev);
-	struct hdev_obj *obj = wdev->pHObj;
-
-	if (!hdev_obj_state_ready(obj)) {
-		MTWF_DBG(NULL, DBG_CAT_HW, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-				"wdev=%d, hobj is not ready!\n",  wdev->wdev_idx);
-		return FALSE;
-	}
-
-	if (color < BSS_COLOR_VALUE_MIN || color > BSS_COLOR_VALUE_MAX)
-		return FALSE;
-
-	return bcolor_entry_is_occupied(ctrl, obj, color);
-}
-
-void hc_bcolor_ageout(struct wifi_dev *wdev, UINT8 sec)
-{
-	struct hdev_ctrl *ctrl = hc_get_hdev_ctrl(wdev);
-	struct hdev_obj *obj = wdev->pHObj;
-
-	if (!hdev_obj_state_ready(obj)) {
-		MTWF_DBG(NULL, DBG_CAT_HW, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-				"wdev=%d, hobj is not ready!\n",  wdev->wdev_idx);
-		return;
-	}
-
-	return bcolor_entry_ageout(ctrl, obj, sec);
-}
-
-void hc_bcolor_get_bitmap(struct wifi_dev *wdev, UINT8 *bitmap)
-{
-	struct hdev_ctrl *ctrl = hc_get_hdev_ctrl(wdev);
-	struct hdev_obj *obj = wdev->pHObj;
-
-	if (!hdev_obj_state_ready(obj)) {
-		MTWF_DBG(NULL, DBG_CAT_HW, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-				"wdev=%d, hobj is not ready!\n",  wdev->wdev_idx);
-		return;
-	}
-
-	return bcolor_get_bitmap(ctrl, obj, bitmap);
-}
-
-void hc_bcolor_update_by_bitmap(struct wifi_dev *wdev, UINT8 *bitmap)
-{
-	struct hdev_ctrl *ctrl = hc_get_hdev_ctrl(wdev);
-	struct hdev_obj *obj = wdev->pHObj;
-
-	if (!hdev_obj_state_ready(obj)) {
-		MTWF_DBG(NULL, DBG_CAT_HW, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-				"wdev=%d, hobj is not ready!\n",  wdev->wdev_idx);
-		return;
-	}
-
-	return bcolor_update_by_bitmap(ctrl, obj, bitmap);
-}
-#endif
-
 UCHAR hc_check_ChCtrlChListStat(CHANNEL_CTRL *ChCtrl, CH_LIST_STATE ChListStat)
 {
 	return (ChCtrl->ChListStat == ChListStat);
@@ -2176,26 +1559,6 @@ struct _RTMP_CHIP_DBG *hc_get_chip_dbg(void *hdev_ctrl)
 	struct hdev_ctrl *ctrl = hdev_ctrl;
 
 	return &ctrl->chip_dbg;
-}
-
-/*
-*
-*/
-UINT32 hc_get_mac_cap(void *hdev_ctrl)
-{
-	struct hdev_ctrl *ctrl = hdev_ctrl;
-
-	return ctrl->chip_cap.mac_caps;
-}
-
-/*
-*
-*/
-UINT32 hc_get_phy_cap(void *hdev_ctrl)
-{
-	struct hdev_ctrl *ctrl = hdev_ctrl;
-
-	return ctrl->chip_cap.phy_caps;
 }
 
 /*
@@ -2221,26 +1584,6 @@ UINT32 hc_get_asic_cap(void *hdev_ctrl)
 /*
 *
 */
-VOID hc_set_mac_cap(void *hdev_ctrl, UINT32 caps)
-{
-	struct hdev_ctrl *ctrl = hdev_ctrl;
-
-	ctrl->chip_cap.mac_caps |= caps;
-}
-
-/*
-*
-*/
-VOID hc_set_phy_cap(void *hdev_ctrl, UINT32 caps)
-{
-	struct hdev_ctrl *ctrl = hdev_ctrl;
-
-	ctrl->chip_cap.phy_caps |= caps;
-}
-
-/*
-*
-*/
 VOID hc_set_asic_cap(void *hdev_ctrl, UINT32 caps)
 {
 	struct hdev_ctrl *ctrl = hdev_ctrl;
@@ -2258,14 +1601,6 @@ VOID hc_clear_asic_cap(void *hdev_ctrl, UINT32 caps)
 	ctrl->chip_cap.asic_caps &= ~(caps);
 }
 
-UCHAR hc_get_cur_rfic(struct wifi_dev *wdev)
-{
-	struct hdev_obj *obj = wdev->pHObj;
-
-	return obj->rdev->pRadioCtrl->cur_rfic_type;
-}
-
-
 /*
 *
 */
@@ -2279,36 +1614,11 @@ UINT8 hc_get_chip_bcn_max_num(void *hdev_ctrl)
 /*
 *
 */
-UINT16 hc_get_chip_wtbl_max_num(void *hdev_ctrl)
+UINT8 hc_get_chip_bcn_hw_num(void *hdev_ctrl)
 {
 	struct hdev_ctrl *ctrl = hdev_ctrl;
 
-	return ctrl->chip_cap.wtbl_max_entries;
-}
-
-#ifdef SW_CONNECT_SUPPORT
-/*
-*
-*/
-UINT16 hc_get_chip_sw_sta_max_num(void *hdev_ctrl)
-{
-	struct hdev_ctrl *ctrl = hdev_ctrl;
-
-	return ctrl->chip_cap.sw_sta_max_entries;
-}
-#endif /* SW_CONNECT_SUPPORT */
-
-/*
- * Used to indicate no WTBL entry is matched after HW search.
- * Different MAC arch could have particular value for it, and it's
- * defined in repsective header file. SW uses the unified value to
- * carry such information in RXBLK after processing the RXD.
- */
-UINT16 hc_get_chip_wtbl_no_matched_idx(void *hdev_ctrl)
-{
-	struct hdev_ctrl *ctrl = hdev_ctrl;
-
-	return ctrl->chip_cap.wtbl_no_matched;
+	return ctrl->chip_cap.BcnMaxHwNum;
 }
 
 /*
@@ -2321,69 +1631,20 @@ BOOLEAN hc_get_chip_wapi_sup(void *hdev_ctrl)
 	return ctrl->chip_cap.FlgIsHwWapiSup;
 }
 
-UINT32 hc_get_chip_tx_token_nums(void *hdev_ctrl)
+/*
+*
+*/
+inline VOID *hc_get_hif_ctrl(void *hdev_ctrl)
 {
 	struct hdev_ctrl *ctrl = hdev_ctrl;
 
-	return ctrl->chip_cap.tkn_info.token_tx_cnt;
+	return ctrl->hif;
 }
-EXPORT_SYMBOL(hc_get_chip_tx_token_nums);
-
-UINT32 hc_get_chip_sw_tx_token_nums(void *hdev_ctrl)
-{
-	struct hdev_ctrl *ctrl = hdev_ctrl;
-
-	return (ctrl->chip_cap.tkn_info.token_tx_cnt -
-			ctrl->chip_cap.tkn_info.hw_tx_token_cnt);
-}
-EXPORT_SYMBOL(hc_get_chip_sw_tx_token_nums);
-
-UINT32 hc_get_chip_mac_rxd_size(void *hdev_ctrl)
-{
-	struct hdev_ctrl *ctrl = hdev_ctrl;
-
-	return ctrl->chip_cap.rx_hw_hdr_len;
-}
-EXPORT_SYMBOL(hc_get_chip_mac_rxd_size);
 
 /*
 *
 */
-VOID *hc_get_hif_ctrl(void *hdev_ctrl)
-{
-	struct hdev_ctrl *ctrl = hdev_ctrl;
-
-	return &ctrl->hif.cfg;
-}
-EXPORT_SYMBOL(hc_get_hif_ctrl);
-
-#ifdef CUT_THROUGH
-/*
-*
-*/
-VOID *hc_get_ct_cb(void *hdev_ctrl)
-{
-	struct _PCI_HIF_T *pci_hif = hc_get_hif_ctrl(hdev_ctrl);
-
-	return pci_hif->PktTokenCb;
-}
-EXPORT_SYMBOL(hc_get_ct_cb);
-
-/*
-*
-*/
-VOID hc_set_ct_cb(void *hdev_ctrl, void *ct_cb)
-{
-	struct _PCI_HIF_T *pci_hif = hc_get_hif_ctrl(hdev_ctrl);
-
-	pci_hif->PktTokenCb = ct_cb;
-}
-#endif /*CUT_THROUGH*/
-
-/*
-*
-*/
-inline VOID *hc_get_os_cookie(void *hdev_ctrl)
+VOID *hc_get_os_cookie(void *hdev_ctrl)
 {
 	struct hdev_ctrl *ctrl = hdev_ctrl;
 
@@ -2393,7 +1654,7 @@ inline VOID *hc_get_os_cookie(void *hdev_ctrl)
 /*
 *
 */
-inline VOID *hc_get_mcu_ctrl(void *hdev_ctrl)
+VOID *hc_get_mcu_ctrl(void *hdev_ctrl)
 {
 	struct hdev_ctrl *ctrl = hdev_ctrl;
 
@@ -2403,491 +1664,10 @@ inline VOID *hc_get_mcu_ctrl(void *hdev_ctrl)
 /*
 *
 */
-inline struct _RTMP_ARCH_OP *hc_get_arch_ops(void *hdev_ctrl)
+struct _RTMP_ARCH_OP *hc_get_asic_ops(void *hdev_ctrl)
 {
 	struct hdev_ctrl *ctrl = hdev_ctrl;
 
-	return &ctrl->arch_ops;
-}
-
-/*
-*
-*/
-inline struct mt_io_ops *hc_get_io_ops(void *hdev_ctrl)
-{
-	struct hdev_ctrl *ctrl = hdev_ctrl;
-
-	return &ctrl->io_ops;
-}
-
-/*
-*
-*/
-inline void *hc_get_hdev_privdata(void *hdev_ctrl)
-{
-	struct hdev_ctrl *ctrl = hdev_ctrl;
-
-	return ctrl->priv;
-}
-
-VOID *hc_get_hif_ops(void *hdev_ctrl)
-{
-	struct hdev_ctrl *ctrl = hdev_ctrl;
-
-	return &ctrl->hif.ops;
-}
-
-
-/*
-* hif ops
-*/
-
-UINT32 hif_get_resource_type(void *hdev_ctrl, UINT8 resource_idx)
-{
-	struct hif_ops *ops = hc_get_hif_ops(hdev_ctrl);
-	void *ctrl = hc_get_hif_ctrl(hdev_ctrl);
-
-	if (ops->get_resource_type)
-		return ops->get_resource_type(ctrl, resource_idx);
-
-	MTWF_DBG(NULL, DBG_CAT_HIF, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-			"not support !\n");
-	return 0;
-}
-
-BOOLEAN hif_free_txd(struct _RTMP_ADAPTER *ad, UINT8 resource_idx)
-{
-	struct hdev_ctrl *ctrl = ad->hdev_ctrl;
-	struct hif_ops *ops = hc_get_hif_ops(ctrl);
-
-	if (ops->free_txd)
-		return ops->free_txd(ad, resource_idx);
-
-	MTWF_DBG(NULL, DBG_CAT_HIF, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-			"This function not support !, caller=%pS, ad=%p, ctrl=%p\n",  OS_TRACE, ad, ctrl);
-	return FALSE;
-}
-
-VOID hif_free_rx_buf(void *hdev_ctrl, UCHAR resource_idx)
-{
-	struct hif_ops *ops = hc_get_hif_ops(hdev_ctrl);
-
-	if (ops->free_rx_buf)
-		ops->free_rx_buf(hdev_ctrl, resource_idx);
-	else
-		MTWF_DBG(NULL, DBG_CAT_HIF, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-			"not support !\n");
-}
-
-VOID hif_reset_txrx_mem(void *hdev_ctrl)
-{
-	struct hif_ops *ops = hc_get_hif_ops(hdev_ctrl);
-
-	if (ops->reset_txrx_mem)
-		ops->reset_txrx_mem(hdev_ctrl);
-	else
-		MTWF_DBG(NULL, DBG_CAT_HIF, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-			"not support !\n");
-
-}
-
-NDIS_STATUS hif_init_txrx_mem(void *hdev_ctrl)
-{
-	struct hif_ops *ops = hc_get_hif_ops(hdev_ctrl);
-
-	if (ops->init_txrx_mem)
-		return ops->init_txrx_mem(hdev_ctrl);
-
-	MTWF_DBG(NULL, DBG_CAT_HIF, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-		"not support !\n");
-
-	return NDIS_STATUS_FAILURE;
-}
-
-VOID hif_dma_reset(void *hdev_ctrl)
-{
-	struct hif_ops *ops = hc_get_hif_ops(hdev_ctrl);
-
-	if (ops->dma_reset)
-		ops->dma_reset(hdev_ctrl);
-	else
-		MTWF_DBG(NULL, DBG_CAT_HIF, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-			"not support !\n");
-}
-
-VOID hif_dma_enable(void *hdev_ctrl)
-{
-	struct hif_ops *ops = hc_get_hif_ops(hdev_ctrl);
-
-	if (ops->dma_enable)
-		ops->dma_enable(hdev_ctrl);
-	else
-		MTWF_DBG(NULL, DBG_CAT_HIF, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-			"not support !\n");
-}
-
-VOID hif_dma_disable(void *hdev_ctrl)
-{
-	struct hif_ops *ops = hc_get_hif_ops(hdev_ctrl);
-
-	if (ops->dma_disable)
-		ops->dma_disable(hdev_ctrl);
-	else
-		MTWF_DBG(NULL, DBG_CAT_HIF, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-			"not support !\n");
-}
-
-BOOLEAN hif_poll_txrx_empty(void *hdev_ctrl, UINT8 pcie_port_or_all)
-{
-	struct hif_ops *ops = hc_get_hif_ops(hdev_ctrl);
-
-	if (ops->poll_txrx_empty)
-		return ops->poll_txrx_empty(hdev_ctrl, pcie_port_or_all);
-
-	MTWF_DBG(NULL, DBG_CAT_HIF, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-		"not support !\n");
-
-	return FALSE;
-}
-
-NDIS_STATUS hif_init_task_group(void *hdev_ctrl)
-{
-	struct hif_ops *ops = hc_get_hif_ops(hdev_ctrl);
-
-	if (ops->init_task_group)
-		return ops->init_task_group(hdev_ctrl);
-
-	MTWF_DBG(NULL, DBG_CAT_HIF, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-		"not support !\n");
-
-	return NDIS_STATUS_FAILURE;
-}
-
-NDIS_STATUS hif_reset_task_group(void *hdev_ctrl)
-{
-	struct hif_ops *ops = hc_get_hif_ops(hdev_ctrl);
-
-	if (ops->reset_task_group)
-		return ops->reset_task_group(hdev_ctrl);
-
-	MTWF_DBG(NULL, DBG_CAT_HIF, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-		"not support !\n");
-
-	return NDIS_STATUS_FAILURE;
-}
-
-NDIS_STATUS hif_register_irq(void *hdev_ctrl)
-{
-	struct hif_ops *ops = hc_get_hif_ops(hdev_ctrl);
-
-	if (ops->register_irq)
-		return ops->register_irq(hdev_ctrl);
-
-	MTWF_DBG(NULL, DBG_CAT_HIF, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-		"not support !\n");
-
-	return NDIS_STATUS_FAILURE;
-}
-
-NDIS_STATUS hif_free_irq(void *hdev_ctrl)
-{
-	struct hif_ops *ops = hc_get_hif_ops(hdev_ctrl);
-
-	if (ops->free_irq)
-		return ops->free_irq(hdev_ctrl);
-
-	MTWF_DBG(NULL, DBG_CAT_HIF, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-		"not support !\n");
-
-	return NDIS_STATUS_FAILURE;
-}
-
-/*MCU related*/
-VOID hif_mcu_init(void *hdev_ctrl)
-{
-	struct hif_ops *ops = hc_get_hif_ops(hdev_ctrl);
-
-	if (ops->mcu_init)
-		ops->mcu_init(hdev_ctrl);
-	else
-		MTWF_DBG(NULL, DBG_CAT_HIF, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-			"not support !\n");
-}
-
-VOID hif_mcu_exit(void *hdev_ctrl)
-{
-	struct hif_ops *ops = hc_get_hif_ops(hdev_ctrl);
-
-	if (ops->mcu_exit)
-		ops->mcu_exit(hdev_ctrl);
-	else
-		MTWF_DBG(NULL, DBG_CAT_HIF, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-			"not support !\n");
-}
-
-INT32 hif_kick_out_fwdl_msg(struct _RTMP_ADAPTER *ad, struct cmd_msg *msg)
-{
-	void *hdev_ctrl = ad->hdev_ctrl;
-	struct hif_ops *ops = hc_get_hif_ops(hdev_ctrl);
-
-	if (ops->kick_out_fwdl_msg)
-		return ops->kick_out_fwdl_msg(ad, msg);
-
-	MTWF_DBG(NULL, DBG_CAT_HIF, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-		"not support !\n");
-	return 0;
-
-}
-
-INT32 hif_kick_out_cmd_msg(struct _RTMP_ADAPTER *ad, struct cmd_msg *msg)
-{
-	void *hdev_ctrl = ad->hdev_ctrl;
-	struct hif_ops *ops = hc_get_hif_ops(hdev_ctrl);
-
-	if (ops->kick_out_cmd_msg)
-		return ops->kick_out_cmd_msg(ad, msg);
-
-	MTWF_DBG(NULL, DBG_CAT_HIF, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-		"not support !\n");
-
-	return 0;
-}
-
-VOID hif_kickout_data_tx(struct _RTMP_ADAPTER *ad, struct _TX_BLK *tx_blk, UCHAR resource_idx)
-{
-	void *hdev_ctrl = ad->hdev_ctrl;
-	struct hif_ops *ops = hc_get_hif_ops(hdev_ctrl);
-
-	if (ops->kickout_data_tx)
-		ops->kickout_data_tx(ad, tx_blk, resource_idx);
-	else
-		MTWF_DBG(NULL, DBG_CAT_HIF, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-			"not support !\n");
-}
-
-NDIS_STATUS hif_kickout_nullframe_tx(struct _RTMP_ADAPTER *ad, UCHAR que_idx, UCHAR *data, UINT len)
-{
-	void *hdev_ctrl = ad->hdev_ctrl;
-	struct hif_ops *ops = hc_get_hif_ops(hdev_ctrl);
-
-	if (ops->kickout_nullframe_tx)
-		return ops->kickout_nullframe_tx(ad, que_idx, data, len);
-	else
-		MTWF_DBG(NULL, DBG_CAT_HIF, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-			"not support !\n");
-	return NDIS_STATUS_SUCCESS;
-}
-
-VOID hif_rx_event_process(struct _RTMP_ADAPTER *ad, struct cmd_msg *msg)
-{
-	void *hdev_ctrl = ad->hdev_ctrl;
-	struct hif_ops *ops = hc_get_hif_ops(hdev_ctrl);
-
-	if (ops->rx_event_process)
-		ops->rx_event_process(ad, msg);
-	else
-		MTWF_DBG(NULL, DBG_CAT_HIF, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-			"not support !\n");
-}
-
-VOID hif_mcu_fw_init(struct _RTMP_ADAPTER *ad)
-{
-	struct hif_ops *ops = hc_get_hif_ops(ad->hdev_ctrl);
-
-	if (ops->mcu_fw_init)
-		ops->mcu_fw_init(ad->hdev_ctrl);
-	else
-		MTWF_DBG(NULL, DBG_CAT_HIF, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-			"not support !\n");
-}
-
-VOID hif_mcu_fw_exit(struct _RTMP_ADAPTER *ad)
-{
-	struct hif_ops *ops = hc_get_hif_ops(ad->hdev_ctrl);
-
-	if (ops->mcu_fw_exit)
-		ops->mcu_fw_exit(ad->hdev_ctrl);
-	else
-		MTWF_DBG(NULL, DBG_CAT_HIF, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-			"not support !\n");
-}
-
-UCHAR *hif_get_tx_buf(void *hdev_ctrl, struct _TX_BLK *tx_blk, UCHAR resource_idx, UCHAR frame_type)
-{
-	struct hif_ops *ops = hc_get_hif_ops(hdev_ctrl);
-
-	if (ops->get_tx_buf)
-		return ops->get_tx_buf(hdev_ctrl, tx_blk, resource_idx, frame_type);
-
-	MTWF_DBG(NULL, DBG_CAT_HIF, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-		"not support !\n");
-
-	return NULL;
-}
-
-UINT32 hif_get_tx_resource_free_num(void *hdev_ctrl, UINT8 resource_idx)
-{
-	struct hif_ops *ops = hc_get_hif_ops(hdev_ctrl);
-
-	if (ops->get_tx_resource_free_num)
-		return ops->get_tx_resource_free_num(hdev_ctrl, resource_idx);
-
-	MTWF_DBG(NULL, DBG_CAT_HIF, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-		"not support !\n");
-
-	return 0;
-}
-
-NDIS_STATUS hif_sys_init(void *hdev_ctrl)
-{
-	struct hif_ops *ops = hc_get_hif_ops(hdev_ctrl);
-
-	if (ops->sys_init)
-		return ops->sys_init(hdev_ctrl);
-
-	MTWF_DBG(NULL, DBG_CAT_HIF, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-		"not support !\n");
-
-	return NDIS_STATUS_FAILURE;
-}
-
-inline UINT32 hif_get_resource_idx(void *hdev_ctrl, struct wifi_dev *wdev, enum PACKET_TYPE pkt_type, UCHAR q_idx)
-{
-	struct hif_ops *ops = hc_get_hif_ops(hdev_ctrl);
-	UINT8 band_idx = 0;
-
-	/* QM_V2 wdev may be NULL */
-	if (wdev)
-		band_idx = HcGetBandByWdev(wdev);
-
-	if (ops->get_resource_idx)
-		return ops->get_resource_idx(hdev_ctrl, band_idx, pkt_type, q_idx);
-
-	return 0;
-}
-
-/*
-*
-*/
-struct cmd_msg *hif_mcu_alloc_msg(RTMP_ADAPTER *ad, unsigned int length, BOOLEAN bOldCmdFmt)
-{
-	struct hif_ops *ops = hc_get_hif_ops(ad->hdev_ctrl);
-
-	if (ops->mcu_alloc_msg)
-		return ops->mcu_alloc_msg(ad, length);
-	else
-		return AndesAllocCmdMsgGe(ad, length, bOldCmdFmt);
-}
-
-#ifdef CONFIG_STA_SUPPORT
-/*
-*
-*/
-VOID hif_ps_poll_enq(struct _RTMP_ADAPTER *ad, struct _STA_ADMIN_CONFIG *pStaCfg)
-{
-	struct hif_ops *ops = hc_get_hif_ops(ad->hdev_ctrl);
-
-	if (ops->ps_poll_enq)
-		return ops->ps_poll_enq(ad, pStaCfg);
-
-	MTWF_DBG(NULL, DBG_CAT_HIF, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-		"not support !\n");
-}
-
-/*
-*
-*/
-VOID hif_sta_wakeup(struct _RTMP_ADAPTER *ad, BOOLEAN bFromTx, struct _STA_ADMIN_CONFIG *pStaCfg)
-{
-	struct hif_ops *ops = hc_get_hif_ops(ad->hdev_ctrl);
-
-	if (ops->sta_wakeup)
-		return ops->sta_wakeup(ad, bFromTx, pStaCfg);
-
-	MTWF_DBG(NULL, DBG_CAT_HIF, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-		"not support !\n");
-
-}
-
-/*
-*
-*/
-VOID hif_sta_sleep_auto_wakeup(struct _RTMP_ADAPTER *ad, struct _STA_ADMIN_CONFIG *pStaCfg)
-{
-	struct hif_ops *ops = hc_get_hif_ops(ad->hdev_ctrl);
-
-	if (ops->sta_sleep_auto_wakeup)
-		return ops->sta_sleep_auto_wakeup(ad, pStaCfg);
-
-	MTWF_DBG(NULL, DBG_CAT_HIF, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-		"not support !\n");
-}
-#endif /* CONFIG_STA_SUPPORT */
-/*
-*
-*/
-INT hif_cmd_thread(ULONG context)
-{
-	RTMP_ADAPTER *ad;
-	RTMP_OS_TASK *task;
-	int status = 0;
-	struct hif_ops *ops;
-
-	task = (RTMP_OS_TASK *)context;
-	ad = (PRTMP_ADAPTER)task->priv;
-	ops = hc_get_hif_ops(ad->hdev_ctrl);
-
-	if (ops->cmd_thread)
-		return ops->cmd_thread(context);
-
-	MTWF_DBG(NULL, DBG_CAT_HIF, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-		"not support !\n");
-
-	return status;
-}
-
-/*
-*
-*/
-VOID hif_mcu_unlink_ackq(struct cmd_msg *msg)
-{
-	RTMP_ADAPTER *ad = (RTMP_ADAPTER *)msg->priv;
-	struct hif_ops *ops = hc_get_hif_ops(ad->hdev_ctrl);
-
-	if (ops->mcu_unlink_ackq)
-		return ops->mcu_unlink_ackq(msg);
-
-	MTWF_DBG(NULL, DBG_CAT_HIF, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-		"not support !\n");
-}
-
-/*
-*
-*/
-UINT8 hif_get_tx_res_num(VOID *hdev_ctrl)
-{
-	struct hif_ops *ops = hc_get_hif_ops(hdev_ctrl);
-
-	if (ops->get_tx_res_num)
-		return ops->get_tx_res_num(hc_get_hif_ctrl(hdev_ctrl));
-
-		MTWF_DBG(NULL, DBG_CAT_HIF, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-		"not support !\n");
-	return 0;
-}
-
-/*
-*
-*/
-UINT8 hif_get_rx_res_num(VOID *hdev_ctrl)
-{
-	struct hif_ops *ops = hc_get_hif_ops(hdev_ctrl);
-
-	if (ops->get_rx_res_num)
-		return ops->get_rx_res_num(hc_get_hif_ctrl(hdev_ctrl));
-
-		MTWF_DBG(NULL, DBG_CAT_HIF, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-		"not support !\n");
-	return 0;
+	return ctrl->arch_ops;
 }
 

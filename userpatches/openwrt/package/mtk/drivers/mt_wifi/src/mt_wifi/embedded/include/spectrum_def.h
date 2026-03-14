@@ -1,16 +1,16 @@
-/*
- * Copyright (c) [2020], MediaTek Inc. All rights reserved.
- *
- * This software/firmware and related documentation ("MediaTek Software") are
- * protected under relevant copyright laws.
- * The information contained herein is confidential and proprietary to
- * MediaTek Inc. and/or its licensors.
- * Except as otherwise provided in the applicable licensing terms with
- * MediaTek Inc. and/or its licensors, any reproduction, modification, use or
- * disclosure of MediaTek Software, and information contained herein, in whole
- * or in part, shall be strictly prohibited.
-*/
 /****************************************************************************
+ * Ralink Tech Inc.
+ * 4F, No. 2 Technology 5th Rd.
+ * Science-based Industrial Park
+ * Hsin-chu, Taiwan, R.O.C.
+ * (c) Copyright 2002, Ralink Technology, Inc.
+ *
+ * All rights reserved. Ralink's source code is an unpublished work and the
+ * use of a copyright notice does not imply otherwise. This source code
+ * contains confidential trade secret material of Ralink Tech. Any attemp
+ * or participation in deciphering, decoding, reverse engineering or in any
+ * way altering the source code is stricitly prohibited, unless the prior
+ * written consent of Ralink Technology, Inc. is obtained.
  ****************************************************************************
 
     Module Name:
@@ -37,15 +37,7 @@
 /* Size of hash tab must be power of 2. */
 #define MAX_HASH_TPC_REQ_TAB_SIZE		MAX_TPC_REQ_TAB_SIZE
 
-#ifdef TPC_SUPPORT
-#ifdef TPC_MODE_CTRL
-#define LOW_RATE_SENSIT -82/*dBm, refer to spec*/
-#define HIGH_RATE_SENSIT -43/*dBm, refer to spec*/
-DECLARE_TIMER_FUNCTION(WaitPeerTPCRepTimeout);
-#else
 #define MIN_RCV_PWR				100		/* Negative value ((dBm) */
-#endif
-#endif
 
 #define TPC_REQ_AGE_OUT			500		/* ms */
 #define MQ_REQ_AGE_OUT			500		/* ms */
@@ -63,17 +55,16 @@ typedef struct _MEASURE_REQ_ENTRY {
 	ULONG lastTime;
 	BOOLEAN	Valid;
 	UINT8 DialogToken;
-	UINT8 measuretype;
 	UINT8 MeasureDialogToken[3];	/* 0:basic measure, 1: CCA measure, 2: RPI_Histogram measure. */
+#ifdef CONFIG_11KV_API_SUPPORT
 	BOOLEAN skip_time_check;
-	UINT8 BcnCurrentState;
-	UINT8 NrCurrentState;
+	UINT8 CurrentState;
 	void *Priv;
 	RALINK_TIMER_STRUCT WaitNRRspTimer;
 	UINT8 StaMac[MAC_ADDR_LEN];
 	UCHAR ControlIndex;
-	UCHAR RcvBcnRepCnt;
 	RALINK_TIMER_STRUCT WaitBCNRepTimer;
+#endif
 } MEASURE_REQ_ENTRY, *PMEASURE_REQ_ENTRY;
 
 typedef struct _MEASURE_REQ_TAB {
@@ -81,19 +72,12 @@ typedef struct _MEASURE_REQ_TAB {
 	PMEASURE_REQ_ENTRY Hash[MAX_HASH_MEASURE_REQ_TAB_SIZE];
 	MEASURE_REQ_ENTRY Content[MAX_MEASURE_REQ_TAB_SIZE];
 } MEASURE_REQ_TAB, *PMEASURE_REQ_TAB;
-#ifdef TPC_SUPPORT
+
 typedef struct _TPC_REQ_ENTRY {
 	struct _TPC_REQ_ENTRY *pNext;
 	ULONG lastTime;
 	BOOLEAN Valid;
 	UINT8 DialogToken;
-#ifdef TPC_MODE_CTRL
-	void *Priv;
-	UCHAR state;
-	UINT16 wcid;
-	UCHAR mac[MAC_ADDR_LEN];
-	RALINK_TIMER_STRUCT WaitTPCRspTimer;
-#endif
 } TPC_REQ_ENTRY, *PTPC_REQ_ENTRY;
 
 typedef struct _TPC_REQ_TAB {
@@ -101,7 +85,7 @@ typedef struct _TPC_REQ_TAB {
 	PTPC_REQ_ENTRY Hash[MAX_HASH_TPC_REQ_TAB_SIZE];
 	TPC_REQ_ENTRY Content[MAX_TPC_REQ_TAB_SIZE];
 } TPC_REQ_TAB, *PTPC_REQ_TAB;
-#endif
+
 
 /* The regulatory information */
 typedef struct _DOT11_CHANNEL_SET {
@@ -126,8 +110,7 @@ typedef struct _DOT11_REGULATORY_INFO {
 #define RM_RPI_HISTOGRAM		2
 #define RM_CH_LOAD				3
 #define RM_NOISE_HISTOGRAM		4
-#define CS_ANN_MODE_TX_ALLOW 0
-#define CS_ANN_MODE_TX_DENY 1
+
 
 typedef struct GNU_PACKED _TPC_REPORT_INFO {
 	INT8 TxPwr;
@@ -139,6 +122,15 @@ typedef struct GNU_PACKED _CH_SW_ANN_INFO {
 	UINT8 Channel;
 	UINT8 ChSwCnt;
 } CH_SW_ANN_INFO, *PCH_SW_ANN_INFO;
+
+#ifdef CONFIG_RCSA_SUPPORT
+typedef struct GNU_PACKED _EXT_CH_SW_ANN_INFO {
+	UINT8 ChSwMode;
+	UINT8 RegClass;
+	UINT8 Channel;
+	UINT8 ChSwCnt;
+} EXT_CH_SW_ANN_INFO, *PEXT_CH_SW_ANN_INFO;
+#endif
 
 typedef union GNU_PACKED _MEASURE_REQ_MODE {
 #ifdef RT_BIG_ENDIAN
@@ -247,20 +239,12 @@ typedef struct GNU_PACKED _MEASURE_REPORT_INFO {
 	UINT8 Octect[0];
 } MEASURE_REPORT_INFO, *PMEASURE_REPORT_INFO;
 
-#ifdef QUIET_SUPPORT
 typedef struct GNU_PACKED _QUIET_INFO {
 	UINT8 QuietCnt;
 	UINT8 QuietPeriod;
 	UINT16 QuietDuration;
 	UINT16 QuietOffset;
 } QUIET_INFO, *PQUIET_INFO;
-#endif
 
-typedef struct GNU_PACKED _EXT_CH_SW_ANN_INFO {
-	UINT8 ChSwMode;
-	UINT8 RegClass;
-	UINT8 Channel;
-	UINT8 ChSwCnt;
-} EXT_CH_SW_ANN_INFO, *PEXT_CH_SW_ANN_INFO;
 #endif /* __SPECTRUM_DEF_H__ */
 

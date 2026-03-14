@@ -1,17 +1,18 @@
 /*
- * Copyright (c) [2020], MediaTek Inc. All rights reserved.
- *
- * This software/firmware and related documentation ("MediaTek Software") are
- * protected under relevant copyright laws.
- * The information contained herein is confidential and proprietary to
- * MediaTek Inc. and/or its licensors.
- * Except as otherwise provided in the applicable licensing terms with
- * MediaTek Inc. and/or its licensors, any reproduction, modification, use or
- * disclosure of MediaTek Software, and information contained herein, in whole
- * or in part, shall be strictly prohibited.
-*/
-/*
  ***************************************************************************
+ * Ralink Tech Inc.
+ * 4F, No. 2 Technology 5th Rd.
+ * Science-based Industrial Park
+ * Hsin-chu, Taiwan, R.O.C.
+ *
+ * (c) Copyright 2002-2006, Ralink Technology, Inc.
+ *
+ * All rights reserved.	Ralink's source	code is	an unpublished work	and	the
+ * use of a	copyright notice does not imply	otherwise. This	source code
+ * contains	confidential trade secret material of Ralink Tech. Any attemp
+ * or participation	in deciphering,	decoding, reverse engineering or in	any
+ * way altering	the	source code	is stricitly prohibited, unless	the	prior
+ * written consent of Ralink Technology, Inc. is obtained.
  ***************************************************************************/
 
 /****************************************************************************
@@ -37,6 +38,10 @@ UCHAR PMF_MMIE_BUFFER[18] = {0x4C, 0x10,
 							 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
 							 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
 							};
+
+#define SAQ_IDLE	0
+#define SAQ_RETRY	1
+#define SAQ_SENDING	2
 
 
 VOID PMF_PeerAction(
@@ -68,11 +73,9 @@ VOID PMF_MlmeSAQueryReq(
 	ULONG FrameLen = 0;
 	UCHAR SACategoryType, SAActionType;
 	PPMF_CFG pPmfCfg = NULL;
-	UCHAR oci_buf[MAX_OCI_LEN];
-	ULONG oci_len = 0;
 
 	if (!pEntry) {
-		MTWF_DBG(pAd, DBG_CAT_SEC, CATSEC_PMF, DBG_LVL_ERROR, "[PMF] : Entry is NULL\n");
+		MTWF_LOG(DBG_CAT_SEC, CATSEC_PMF, DBG_LVL_ERROR, ("[PMF]%s : Entry is NULL\n", __func__));
 		return;
 	}
 
@@ -80,7 +83,7 @@ VOID PMF_MlmeSAQueryReq(
 
 	if (pPmfCfg) {
 		if ((pPmfCfg->UsePMFConnect == FALSE)) {
-			MTWF_DBG(pAd, DBG_CAT_SEC, CATSEC_PMF, DBG_LVL_ERROR, "[PMF] : Entry is not PMF capable, STA("MACSTR")\n", MAC2STR(pEntry->Addr));
+			MTWF_LOG(DBG_CAT_SEC, CATSEC_PMF, DBG_LVL_ERROR, ("[PMF]%s : Entry is not PMF capable, STA(%02x:%02x:%02x:%02x:%02x:%02x)\n", __func__, PRINT_MAC(pEntry->Addr)));
 			return;
 		}
 
@@ -97,7 +100,7 @@ VOID PMF_MlmeSAQueryReq(
 		IF_DEV_CONFIG_OPMODE_ON_AP(pAd) {
 #ifdef APCLI_SUPPORT
 
-			if ((pEntry) && IS_ENTRY_PEER_AP(pEntry)) {
+			if ((pEntry) && IS_ENTRY_APCLI(pEntry)) {
 				ApCliMgtMacHeaderInit(pAd,
 									  &SAQReqHdr,
 									  SUBTYPE_ACTION, 0,
@@ -113,41 +116,28 @@ VOID PMF_MlmeSAQueryReq(
 			}
 		}
 #endif /* CONFIG_AP_SUPPORT */
-#ifdef CONFIG_STA_SUPPORT
-		IF_DEV_CONFIG_OPMODE_ON_STA(pAd) {
-			MgtMacHeaderInit(pAd, &SAQReqHdr, SUBTYPE_ACTION, 0, pEntry->Addr,
-							 pAd->CurrentAddress,
-							 pEntry->Addr);
-		}
-#endif /* CONFIG_STA_SUPPORT */
 		pPmfCfg->TransactionID++;
 		SACategoryType = CATEGORY_SA;
 		SAActionType = ACTION_SAQ_REQUEST;
-
-		if (pEntry->SecConfig.ocv_support)
-			build_oci_ie(pEntry->pAd, pEntry->wdev, oci_buf, &oci_len);
-
 		MakeOutgoingFrame(pOutBuffer, &FrameLen,
 						  sizeof(HEADER_802_11), &SAQReqHdr,
 						  1, &SACategoryType,
 						  1, &SAActionType,
 						  2, &pPmfCfg->TransactionID,
-						  oci_len, oci_buf,
 						  END_OF_ARGS);
-		if (wpa3_test_ctrl != 12) {
-			if (pPmfCfg->SAQueryStatus == SAQ_IDLE) {
-				RTMPSetTimer(&pPmfCfg->SAQueryTimer, DEFAULT_SAQUERY_TIMEOUT);
-				MTWF_DBG(pAd, DBG_CAT_SEC, CATSEC_PMF, DBG_LVL_ERROR, "[PMF] -- SAQueryTimer\n");
-			}
 
-			pPmfCfg->SAQueryStatus = SAQ_SENDING;
-			RTMPSetTimer(&pPmfCfg->SAQueryConfirmTimer, DEFAULT_SAQUERY_CONFIRM_TIMEOUT);
+		if (pPmfCfg->SAQueryStatus == SAQ_IDLE) {
+			RTMPSetTimer(&pPmfCfg->SAQueryTimer, 1000); /* 1000ms */
+			MTWF_LOG(DBG_CAT_SEC, CATSEC_PMF, DBG_LVL_ERROR, ("[PMF]%s -- SAQueryTimer\n", __func__));
 		}
+
+		pPmfCfg->SAQueryStatus = SAQ_SENDING;
+		RTMPSetTimer(&pPmfCfg->SAQueryConfirmTimer, 200); /* 200ms */
 		/* transmit the frame */
 		MiniportMMRequest(pAd, QID_MGMT, pOutBuffer, FrameLen);
 		os_free_mem(pOutBuffer);
-		MTWF_DBG(pAd, DBG_CAT_SEC, CATSEC_PMF, DBG_LVL_INFO, "[PMF] - Send SA Query Request to STA("MACSTR")\n",
-				  MAC2STR(pEntry->Addr));
+		MTWF_LOG(DBG_CAT_SEC, CATSEC_PMF, DBG_LVL_ERROR, ("[PMF]%s - Send SA Query Request to STA(%02x:%02x:%02x:%02x:%02x:%02x)\n",
+				 __func__, PRINT_MAC(pEntry->Addr)));
 	}
 }
 
@@ -159,7 +149,7 @@ VOID PMF_PeerSAQueryReqAction(
 	UCHAR Action = Elem->Msg[LENGTH_802_11+1];
 
 	if (Action == ACTION_SAQ_REQUEST) {
-		PMAC_TABLE_ENTRY pEntry = NULL;
+		PMAC_TABLE_ENTRY pEntry;
 		PFRAME_802_11 pHeader;
 		USHORT TransactionID;
 		PUCHAR pOutBuffer = NULL;
@@ -167,66 +157,29 @@ VOID PMF_PeerSAQueryReqAction(
 		ULONG FrameLen = 0;
 		UCHAR SACategoryType, SAActionType;
 		PPMF_CFG pPmfCfg = NULL;
-		UCHAR *oci_ptr = &Elem->Msg[LENGTH_802_11 + 4];
-		UCHAR oci_buf[MAX_OCI_LEN];
-		ULONG oci_len = 0;
 
-		MTWF_DBG(pAd, DBG_CAT_SEC, CATSEC_PMF, DBG_LVL_INFO, "[PMF] : Receive SA Query Request\n");
+		MTWF_LOG(DBG_CAT_SEC, CATSEC_PMF, DBG_LVL_ERROR, ("[PMF]%s : Receive SA Query Request\n", __func__));
 		pHeader = (PFRAME_802_11) Elem->Msg;
 #ifdef CONFIG_AP_SUPPORT
-		IF_DEV_CONFIG_OPMODE_ON_AP(pAd)
 		pEntry = MacTableLookup(pAd, pHeader->Hdr.Addr2);
-#endif
-#ifdef CONFIG_STA_SUPPORT
-		IF_DEV_CONFIG_OPMODE_ON_STA(pAd)
-		pEntry = MacTableLookup2(pAd, pHeader->Hdr.Addr2, Elem->wdev);
 #endif
 
 		if (!pEntry) {
-			MTWF_DBG(pAd, DBG_CAT_SEC, CATSEC_PMF, DBG_LVL_ERROR,
-				"[PMF] : Entry is not found, STA("MACSTR")\n",
-				 MAC2STR(pHeader->Hdr.Addr2));
+			MTWF_LOG(DBG_CAT_SEC, CATSEC_PMF, DBG_LVL_ERROR, ("[PMF]%s : Entry is not found, STA(%02x:%02x:%02x:%02x:%02x:%02x)\n", __func__, PRINT_MAC(pHeader->Hdr.Addr2)));
 			return;
 		}
 
 		pPmfCfg = &pEntry->SecConfig.PmfCfg;
 
 		if (pPmfCfg->UsePMFConnect == FALSE) {
-			MTWF_DBG(pAd, DBG_CAT_SEC, CATSEC_PMF, DBG_LVL_ERROR,
-				"[PMF] : Entry is not PMF capable, STA("MACSTR")\n",
-				 MAC2STR(pHeader->Hdr.Addr2));
-			return;
-		}
-
-		if (Elem->MsgLen < LENGTH_802_11 + 4) {
-			MTWF_DBG(pAd, DBG_CAT_SEC, CATSEC_PMF, DBG_LVL_ERROR,
-				"[PMF] : saq req len(%lu) is wrong, STA("MACSTR")\n",
-				 Elem->MsgLen, MAC2STR(pHeader->Hdr.Addr2));
+			MTWF_LOG(DBG_CAT_SEC, CATSEC_PMF, DBG_LVL_ERROR, ("[PMF]%s : Entry is not PMF capable, STA(%02x:%02x:%02x:%02x:%02x:%02x)\n", __func__, PRINT_MAC(pHeader->Hdr.Addr2)));
 			return;
 		}
 
 		/* Fix PMF 5.3.3.4 un-protect SA Query Req. Need to ignore. */
 		if (pHeader->Hdr.FC.Wep == 0) {
-			MTWF_DBG(pAd, DBG_CAT_SEC, CATSEC_PMF, DBG_LVL_ERROR,
-				"[PMF] : un-Protected SA Query Req.!!! Drop it!!, STA("MACSTR")\n",
-				 MAC2STR(pHeader->Hdr.Addr2));
+			MTWF_LOG(DBG_CAT_SEC, CATSEC_PMF, DBG_LVL_ERROR, ("[PMF]%s : un-Protected SA Query Req.!!! Drop it!!, STA(%02x:%02x:%02x:%02x:%02x:%02x)\n", __func__, PRINT_MAC(pHeader->Hdr.Addr2)));
 			return;
-		}
-
-		if (pEntry->SecConfig.ocv_support) {
-			if (parse_oci_ie(pEntry->pAd, pEntry->wdev, oci_ptr, Elem->MsgLen - LENGTH_802_11 - 4) == FALSE) {
-				   MTWF_DBG(pAd, DBG_CAT_SEC, CATSEC_PMF, DBG_LVL_ERROR,
-					"[PMF] : oci check fail, drop it! STA("MACSTR")\n",
-					 MAC2STR(pHeader->Hdr.Addr2));
-				   return;
-			} else if (pEntry->SecConfig.wait_csa_sa_query) {
-				struct tx_rx_ctl *tr_ctl = &pAd->tr_ctl;
-				STA_TR_ENTRY *tr_entry = NULL;
-
-				pEntry->SecConfig.wait_csa_sa_query = FALSE;
-				tr_entry = &tr_ctl->tr_entry[pEntry->tr_tb_idx];
-				tr_entry->PortSecured = WPA_802_1X_PORT_SECURED;
-			}
 		}
 
 		NdisMoveMemory(&TransactionID, &Elem->Msg[LENGTH_802_11+2], sizeof(USHORT));
@@ -240,7 +193,7 @@ VOID PMF_PeerSAQueryReqAction(
 		IF_DEV_CONFIG_OPMODE_ON_AP(pAd) {
 #ifdef APCLI_SUPPORT
 
-			if (pEntry && IS_ENTRY_PEER_AP(pEntry)) {
+			if (pEntry && IS_ENTRY_APCLI(pEntry)) {
 				ApCliMgtMacHeaderInit(pAd, &SAQRspHdr,
 									  SUBTYPE_ACTION, 0,
 									  pHeader->Hdr.Addr2,
@@ -255,30 +208,18 @@ VOID PMF_PeerSAQueryReqAction(
 			}
 		}
 #endif /* CONFIG_AP_SUPPORT */
-#ifdef CONFIG_STA_SUPPORT
-		IF_DEV_CONFIG_OPMODE_ON_STA(pAd) {
-			MgtMacHeaderInit(pAd, &SAQRspHdr, SUBTYPE_ACTION, 0, pHeader->Hdr.Addr2,
-							 pAd->CurrentAddress,
-							 pHeader->Hdr.Addr2);
-		}
-#endif /* CONFIG_STA_SUPPORT */
 		SACategoryType = CATEGORY_SA;
 		SAActionType = ACTION_SAQ_RESPONSE;
-
-		if (pEntry->SecConfig.ocv_support)
-			build_oci_ie(pEntry->pAd, pEntry->wdev, oci_buf, &oci_len);
-
 		MakeOutgoingFrame(pOutBuffer, &FrameLen,
 						  sizeof(HEADER_802_11), &SAQRspHdr,
 						  1, &SACategoryType,
 						  1, &SAActionType,
 						  2, &TransactionID,
-						  oci_len, oci_buf,
 						  END_OF_ARGS);
 		/* transmit the frame */
 		MiniportMMRequest(pAd, QID_MGMT, pOutBuffer, FrameLen);
 		os_free_mem(pOutBuffer);
-		MTWF_DBG(pAd, DBG_CAT_SEC, CATSEC_PMF, DBG_LVL_INFO, "[PMF]: Send SA Query Response to STA("MACSTR")\n", MAC2STR(SAQRspHdr.Addr1));
+		MTWF_LOG(DBG_CAT_SEC, CATSEC_PMF, DBG_LVL_ERROR, ("[PMF]%s - Send SA Query Response to STA(%02x:%02x:%02x:%02x:%02x:%02x)\n", __func__, PRINT_MAC(SAQRspHdr.Addr1)));
 	}
 }
 
@@ -290,53 +231,28 @@ VOID PMF_PeerSAQueryRspAction(
 	UCHAR Action = Elem->Msg[LENGTH_802_11+1];
 
 	if (Action == ACTION_SAQ_RESPONSE) {
-		PMAC_TABLE_ENTRY pEntry = NULL;
+		PMAC_TABLE_ENTRY pEntry;
 		PFRAME_802_11 pHeader;
 		USHORT TransactionID;
 		BOOLEAN Cancelled;
 		PPMF_CFG pPmfCfg = NULL;
-		UCHAR *oci_ptr = &Elem->Msg[LENGTH_802_11 + 4];
 
-		MTWF_DBG(pAd, DBG_CAT_SEC, CATSEC_PMF, DBG_LVL_INFO, "[PMF]: Receive SA Query Response\n");
+		MTWF_LOG(DBG_CAT_SEC, CATSEC_PMF, DBG_LVL_ERROR, ("[PMF]%s : Receive SA Query Response\n", __func__));
 		pHeader = (PFRAME_802_11) Elem->Msg;
 #ifdef CONFIG_AP_SUPPORT
-		IF_DEV_CONFIG_OPMODE_ON_AP(pAd)
 		pEntry = MacTableLookup(pAd, pHeader->Hdr.Addr2);
-#endif
-#ifdef CONFIG_STA_SUPPORT
-		IF_DEV_CONFIG_OPMODE_ON_STA(pAd)
-		pEntry = MacTableLookup2(pAd, pHeader->Hdr.Addr2, Elem->wdev);
 #endif
 
 		if (!pEntry) {
-			MTWF_DBG(pAd, DBG_CAT_SEC, CATSEC_PMF, DBG_LVL_ERROR,
-				"[PMF] : Entry is not found, STA("MACSTR")\n",
-				 MAC2STR(pHeader->Hdr.Addr2));
+			MTWF_LOG(DBG_CAT_SEC, CATSEC_PMF, DBG_LVL_ERROR, ("[PMF]%s : Entry is not found, STA(%02x:%02x:%02x:%02x:%02x:%02x)\n", __func__, PRINT_MAC(pHeader->Hdr.Addr2)));
 			return;
 		}
 
 		pPmfCfg = &pEntry->SecConfig.PmfCfg;
 
 		if (pPmfCfg->UsePMFConnect == FALSE) {
-			MTWF_DBG(pAd, DBG_CAT_SEC, CATSEC_PMF, DBG_LVL_ERROR,
-				"[PMF] : Entry is not PMF capable, STA("MACSTR")\n",
-				 MAC2STR(pHeader->Hdr.Addr2));
+			MTWF_LOG(DBG_CAT_SEC, CATSEC_PMF, DBG_LVL_ERROR, ("[PMF]%s : Entry is not PMF capable, STA(%02x:%02x:%02x:%02x:%02x:%02x)\n", __func__, PRINT_MAC(pHeader->Hdr.Addr2)));
 			return;
-		}
-
-		if (Elem->MsgLen < LENGTH_802_11 + 4) {
-			MTWF_DBG(pAd, DBG_CAT_SEC, CATSEC_PMF, DBG_LVL_ERROR,
-				"[PMF]: saq rsp len(%lu) is wrong, STA("MACSTR")\n",
-				 Elem->MsgLen, MAC2STR(pHeader->Hdr.Addr2));
-			return;
-		}
-
-		if (pEntry->SecConfig.ocv_support &&
-			parse_oci_ie(pEntry->pAd, pEntry->wdev, oci_ptr, Elem->MsgLen - LENGTH_802_11 - 4) == FALSE) {
-			   MTWF_DBG(pAd, DBG_CAT_SEC, CATSEC_PMF, DBG_LVL_ERROR,
-				"[PMF] : oci check fail, drop it! STA("MACSTR")\n",
-				 MAC2STR(pHeader->Hdr.Addr2));
-			   return;
 		}
 
 		NdisMoveMemory(&TransactionID, &Elem->Msg[LENGTH_802_11+2], sizeof(USHORT));
@@ -345,11 +261,9 @@ VOID PMF_PeerSAQueryRspAction(
 			pPmfCfg->SAQueryStatus = SAQ_IDLE;
 			RTMPCancelTimer(&pPmfCfg->SAQueryTimer, &Cancelled);
 			RTMPCancelTimer(&pPmfCfg->SAQueryConfirmTimer, &Cancelled);
-			MTWF_DBG(pAd, DBG_CAT_SEC, CATSEC_PMF, DBG_LVL_INFO, "[PMF] - Compare TransactionID correctly, STA("MACSTR")\n", MAC2STR(pHeader->Hdr.Addr2));
+			MTWF_LOG(DBG_CAT_SEC, CATSEC_PMF, DBG_LVL_ERROR, ("[PMF]%s - Compare TransactionID correctly, STA(%02x:%02x:%02x:%02x:%02x:%02x)\n", __func__, PRINT_MAC(pHeader->Hdr.Addr2)));
 		} else
-			MTWF_DBG(pAd, DBG_CAT_SEC, CATSEC_PMF, DBG_LVL_INFO,
-				"[PMF] - Compare TransactionID wrong, STA("MACSTR"), AP TransactionID =%d, STA TransactionID =%d\n",
-				MAC2STR(pHeader->Hdr.Addr2), pPmfCfg->TransactionID, TransactionID);
+			MTWF_LOG(DBG_CAT_SEC, CATSEC_PMF, DBG_LVL_ERROR, ("[PMF]%s - Compare TransactionID wrong, STA(%02x:%02x:%02x:%02x:%02x:%02x)\n", __func__, PRINT_MAC(pHeader->Hdr.Addr2)));
 	}
 }
 
@@ -361,38 +275,43 @@ VOID PMF_SAQueryTimeOut(
 	IN PVOID SystemSpecific3)
 {
 	MAC_TABLE_ENTRY *pEntry = (MAC_TABLE_ENTRY *)FunctionContext;
+#ifdef APCLI_SUPPORT
+	USHORT ifIndex = 0;
+#endif /* APCLI_SUPPORT */
 
 	if (pEntry) {
 		RTMP_ADAPTER *pAd = (RTMP_ADAPTER *)pEntry->pAd;
 
-		MTWF_DBG(pAd, DBG_CAT_SEC, CATSEC_PMF, DBG_LVL_INFO, "[PMF] - STA("MACSTR")\n", MAC2STR(pEntry->Addr));
-#ifdef CONFIG_STA_SUPPORT
-
-		if (IS_ENTRY_PEER_AP(pEntry)) {
-			PSTA_ADMIN_CONFIG pStaCfg = GetStaCfgByWdev(pAd, pEntry->wdev);
-			BOOLEAN Cancelled;
-
-			RTMPCancelTimer(&pEntry->SecConfig.PmfCfg.SAQueryTimer, &Cancelled);
-			RTMPCancelTimer(&pEntry->SecConfig.PmfCfg.SAQueryConfirmTimer, &Cancelled);
-			cntl_disconnect_request(pEntry->wdev, CNTL_DISASSOC, pStaCfg->Bssid, REASON_DISASSOC_STA_LEAVING);
-		} else
-#endif /* CONFIG_STA_SUPPORT */
-		{
+		MTWF_LOG(DBG_CAT_SEC, CATSEC_PMF, DBG_LVL_ERROR, ("[PMF]%s - STA(%02x:%02x:%02x:%02x:%02x:%02x)\n",
+				 __func__, PRINT_MAC(pEntry->Addr)));
 #ifdef CONFIG_AP_SUPPORT
+		IF_DEV_CONFIG_OPMODE_ON_AP(pAd) {
+#ifdef APCLI_SUPPORT
 
-#ifdef MAC_REPEATER_SUPPORT
-			if (IS_ENTRY_REPEATER(pEntry)
-				&& IS_REPT_LINK_UP(pEntry->pReptCli))
-			{
-				RepeaterDisconnectRootAP(pAd, pEntry->pReptCli, APCLI_DISCONNECT_SUB_REASON_AP_PEER_DISASSOC_REQ);
+			if (IS_ENTRY_APCLI(pEntry)) {
+				BOOLEAN Cancelled;
+				MLME_DISASSOC_REQ_STRUCT DisassocReq;
+				PULONG pCurrState = NULL;
+
+				RTMPCancelTimer(&pEntry->SecConfig.PmfCfg.SAQueryTimer, &Cancelled);
+				RTMPCancelTimer(&pEntry->SecConfig.PmfCfg.SAQueryConfirmTimer, &Cancelled);
+				DisassocParmFill(pAd, &DisassocReq,
+								 pAd->ApCfg.ApCliTab[pEntry->func_tb_idx].MlmeAux.Bssid,
+								 REASON_DISASSOC_STA_LEAVING);
+				pCurrState = &pAd->ApCfg.ApCliTab[pEntry->func_tb_idx].CtrlCurrState;
+				ifIndex = pEntry->func_tb_idx;
+				*pCurrState = APCLI_CTRL_DEASSOC;
+				MlmeEnqueue(pAd, APCLI_ASSOC_STATE_MACHINE,
+							APCLI_MT2_MLME_DISASSOC_REQ,
+							sizeof(MLME_DISASSOC_REQ_STRUCT), &DisassocReq, ifIndex);
+				RTMP_MLME_HANDLER(pAd);
 			} else
-#endif /* MAC_REPEATER_SUPPORT */
+#endif /* APCLI_SUPPORT */
 				mac_entry_delete(pAd, pEntry);
-#endif /* CONFIG_AP_SUPPORT */
 		}
+#endif /* CONFIG_AP_SUPPORT */
 	}
 }
-
 
 
 VOID PMF_SAQueryConfirmTimeOut(
@@ -406,7 +325,7 @@ VOID PMF_SAQueryConfirmTimeOut(
 	if (pEntry) {
 		PRTMP_ADAPTER pAd = (PRTMP_ADAPTER)pEntry->pAd;
 
-		MTWF_DBG(pAd, DBG_CAT_SEC, CATSEC_PMF, DBG_LVL_INFO, "[PMF] - STA("MACSTR")\n", MAC2STR(pEntry->Addr));
+		MTWF_LOG(DBG_CAT_SEC, CATSEC_PMF, DBG_LVL_ERROR, ("[PMF]%s - STA(%02x:%02x:%02x:%02x:%02x:%02x)\n", __func__, PRINT_MAC(pEntry->Addr)));
 		pEntry->SecConfig.PmfCfg.SAQueryStatus = SAQ_RETRY;
 		PMF_MlmeSAQueryReq(pAd, pEntry);
 	}
@@ -441,13 +360,13 @@ BOOLEAN PMF_CalculateBIPMIC(
 {
 	UCHAR *m_buf;
 	UINT32 total_len;
-	UCHAR cmac_output[16] = {0};
+	UCHAR cmac_output[16];
 	UINT mlen = AES_KEY128_LENGTH;
 	/* Allocate memory for MIC calculation */
 	os_alloc_mem(NULL, (PUCHAR *)&m_buf, MAX_MGMT_PKT_LEN);
 
 	if (m_buf == NULL) {
-		MTWF_DBG(pAd, DBG_CAT_SEC, CATSEC_PMF, DBG_LVL_ERROR, "out of resource.\n");
+		MTWF_LOG(DBG_CAT_SEC, CATSEC_PMF, DBG_LVL_ERROR, ("%s : out of resource.\n", __func__));
 		return FALSE;
 	}
 
@@ -495,96 +414,6 @@ VOID PMF_DeriveIGTK(
 		output[i] = RandomByte(pAd);
 }
 
-static VOID insert_igtk_kde(
-	IN PRTMP_ADAPTER pAd,
-	IN INT apidx,
-	IN UCHAR kde_type,
-	IN PUCHAR pFrameBuf,
-	OUT PULONG pFrameLen)
-{
-	PPMF_IGTK_KDE igtk_kde_ptr;
-	UINT8 idx = 0;
-	PPMF_CFG pPmfCfg = NULL;
-#ifdef BCN_PROTECTION_SUPPORT
-	struct bcn_protection_cfg *bcn_prot_cfg = NULL;
-#endif
-	UINT8 igtk_len = 0;
-	UINT32 cipher = 0;
-	UINT8 key_idx = 0;
-	UCHAR *pn = NULL;
-	UCHAR *igtk = NULL;
-
-	if (kde_type != KDE_IGTK
-#ifdef BCN_PROTECTION_SUPPORT
-		&& kde_type != KDE_BIGTK
-#endif
-		)
-		return;
-#ifdef CONFIG_AP_SUPPORT
-	IF_DEV_CONFIG_OPMODE_ON_AP(pAd) {
-		if (apidx < 0 || apidx >= pAd->ApCfg.BssidNum) {
-			MTWF_DBG(pAd, DBG_CAT_SEC, CATSEC_PMF, DBG_LVL_ERROR,
-				"apidx is invalid parameter!\n");
-			return;
-		}
-		pPmfCfg = &pAd->ApCfg.MBSSID[apidx].wdev.SecConfig.PmfCfg;
-#ifdef BCN_PROTECTION_SUPPORT
-		bcn_prot_cfg = &pAd->ApCfg.MBSSID[apidx].wdev.SecConfig.bcn_prot_cfg;
-#endif
-	}
-#endif /* CONFIG_AP_SUPPORT */
-
-	if (!pPmfCfg)
-		return;
-
-	if (kde_type == KDE_IGTK) {
-		cipher = pPmfCfg->igtk_cipher;
-		key_idx = pPmfCfg->IGTK_KeyIdx;
-		idx = (key_idx == 4) ? 0 : 1;
-		pn = &pPmfCfg->IPN[idx][0];
-		igtk = &pPmfCfg->IGTK[idx][0];
-	}
-#ifdef BCN_PROTECTION_SUPPORT
-	else if (kde_type == KDE_BIGTK) {
-		cipher = bcn_prot_cfg->bigtk_cipher;
-		key_idx = bcn_prot_cfg->bigtk_key_idx;
-		idx = get_bigtk_table_idx(bcn_prot_cfg);
-		pn = &bcn_prot_cfg->bipn[idx][0];
-		igtk = &bcn_prot_cfg->bigtk[idx][0];
-	}
-#endif
-
-	/* Decide the IGTK length */
-	if (IS_CIPHER_BIP_CMAC128(cipher)
-		|| IS_CIPHER_BIP_GMAC128(cipher))
-		igtk_len = LEN_BIP128_IGTK;
-	else if (IS_CIPHER_BIP_CMAC256(cipher)
-		|| IS_CIPHER_BIP_GMAC256(cipher))
-		igtk_len = LEN_BIP256_IGTK;
-	else {
-		MTWF_DBG(pAd, DBG_CAT_SEC, CATSEC_PMF, DBG_LVL_ERROR,
-			"unknown cipher %x.\n", cipher);
-		return;
-	}
-
-	/* Construct the common KDE format */
-	WPA_ConstructKdeHdr(kde_type, 8 + igtk_len, pFrameBuf);
-	/* Prepare the IGTK KDE */
-	igtk_kde_ptr = (PPMF_IGTK_KDE)(pFrameBuf + LEN_KDE_HDR);
-	NdisZeroMemory(igtk_kde_ptr, 8 + igtk_len);
-	/* Bits 0-11 define a value in the range 0-4095.
-	   Bits 12 - 15 are reserved and set to 0 on transmission and ignored on reception.
-	   The IGTK Key ID is either 4 or 5. The BIGTK Key ID is either 6 or 7. The remaining Key IDs are reserved. */
-	igtk_kde_ptr->KeyID[0] = key_idx;
-	/* Fill in the IPN field */
-	NdisMoveMemory(igtk_kde_ptr->IPN, pn, LEN_WPA_TSC);
-	/* Fill uin the IGTK field */
-	NdisMoveMemory(igtk_kde_ptr->IGTK, igtk, igtk_len);
-	/* Update the total output length */
-	*pFrameLen = *pFrameLen + LEN_KDE_HDR + 8 + igtk_len;
-	return;
-}
-
 
 /*
 	========================================================================
@@ -607,7 +436,48 @@ VOID PMF_InsertIGTKKDE(
 	IN PUCHAR pFrameBuf,
 	OUT PULONG pFrameLen)
 {
-	insert_igtk_kde(pAd, apidx, KDE_IGTK, pFrameBuf, pFrameLen);
+	PPMF_IGTK_KDE igtk_kde_ptr;
+	UINT8 idx = 0;
+	PPMF_CFG pPmfCfg = NULL;
+	UINT8 igtk_len = 0;
+#ifdef CONFIG_AP_SUPPORT
+	IF_DEV_CONFIG_OPMODE_ON_AP(pAd)
+	pPmfCfg = &pAd->ApCfg.MBSSID[apidx].wdev.SecConfig.PmfCfg;
+#endif /* CONFIG_AP_SUPPORT */
+
+	if (!pPmfCfg)
+		return;
+
+	/* Decide the IGTK length */
+	if (IS_CIPHER_BIP_CMAC128(pPmfCfg->igtk_cipher)
+		|| IS_CIPHER_BIP_GMAC128(pPmfCfg->igtk_cipher))
+		igtk_len = LEN_BIP128_IGTK;
+	else if (IS_CIPHER_BIP_CMAC256(pPmfCfg->igtk_cipher)
+		|| IS_CIPHER_BIP_GMAC256(pPmfCfg->igtk_cipher))
+		igtk_len = LEN_BIP256_IGTK;
+	else {
+		MTWF_LOG(DBG_CAT_SEC, CATSEC_PMF, DBG_LVL_ERROR,
+			("%s : unknown igtk cipher %x.\n", __func__, pPmfCfg->igtk_cipher));
+		return;
+	}
+
+	/* Construct the common KDE format */
+	WPA_ConstructKdeHdr(KDE_IGTK, 8 + igtk_len, pFrameBuf);
+	/* Prepare the IGTK KDE */
+	igtk_kde_ptr = (PPMF_IGTK_KDE)(pFrameBuf + LEN_KDE_HDR);
+	NdisZeroMemory(igtk_kde_ptr, 8 + igtk_len);
+	/* Bits 0-11 define a value in the range 0-4095.
+	   Bits 12 - 15 are reserved and set to 0 on transmission and ignored on reception.
+	   The IGTK Key ID is either 4 or 5. The remaining Key IDs are reserved. */
+	igtk_kde_ptr->KeyID[0] = pPmfCfg->IGTK_KeyIdx;
+	idx = (pPmfCfg->IGTK_KeyIdx == 5) ? 1 : 0;
+	/* Fill in the IPN field */
+	NdisMoveMemory(igtk_kde_ptr->IPN, &pPmfCfg->IPN[idx][0], LEN_WPA_TSC);
+	/* Fill uin the IGTK field */
+	NdisMoveMemory(igtk_kde_ptr->IGTK, &pPmfCfg->IGTK[idx][0], igtk_len);
+	/* Update the total output length */
+	*pFrameLen = *pFrameLen + LEN_KDE_HDR + 8 + igtk_len;
+	return;
 }
 
 
@@ -649,13 +519,13 @@ BOOLEAN PMF_ExtractIGTKKDE(
 		NdisMoveMemory(IGTK, igtk_kde_ptr->IGTK, LEN_BIP256_IGTK);
 		*IGTKLEN = LEN_BIP256_IGTK;
 	} else {
-		MTWF_DBG(NULL, DBG_CAT_SEC, CATSEC_PMF, DBG_LVL_ERROR, "the IGTK length(%d) is invalid\n",
-				  (buf_len - offset));
+		MTWF_LOG(DBG_CAT_SEC, CATSEC_PMF, DBG_LVL_ERROR, ("%s : the IGTK length(%d) is invalid\n",
+				 __func__, (buf_len - offset)));
 		return FALSE;
 	}
 
-	MTWF_DBG(NULL, DBG_CAT_SEC, CATSEC_PMF, DBG_LVL_INFO, "[PMF]%s : IGTK_Key_ID=%d, IGTK length=%d\n",
-			 __func__, *IGTK_KeyIdx, *IGTKLEN);
+	MTWF_LOG(DBG_CAT_SEC, CATSEC_PMF, DBG_LVL_TRACE, ("[PMF]%s : IGTK_Key_ID=%d, IGTK length=%d\n",
+			 __func__, *IGTK_KeyIdx, *IGTKLEN));
 	return TRUE;
 }
 
@@ -689,13 +559,6 @@ BOOLEAN PMF_MakeRsnIeGMgmtCipher(
 		/* default group management cipher suite in an RSNA with
 		      Management Frame Protection enabled. */
 		if (pSecConfig->PmfCfg.MFPC == TRUE) {
-#ifdef CONFIG_HOTSPOT_R3
-			if (pSecConfig->bIsWPA2EntOSEN) {
-				MTWF_DBG(NULL, DBG_CAT_SEC, CATSEC_PMF, DBG_LVL_INFO,
-					"[PMF]: Return as RSN OSEN is enabled \n");
-				return TRUE;
-			}
-#endif
 			if (IS_CIPHER_BIP_CMAC128(pSecConfig->PmfCfg.igtk_cipher))
 				NdisMoveMemory(pBuf, OUI_PMF_BIP_CMAC_128_CIPHER, LEN_OUI_SUITE);
 			else if (IS_CIPHER_BIP_CMAC256(pSecConfig->PmfCfg.igtk_cipher))
@@ -705,12 +568,12 @@ BOOLEAN PMF_MakeRsnIeGMgmtCipher(
 			else if (IS_CIPHER_BIP_GMAC256(pSecConfig->PmfCfg.igtk_cipher))
 				NdisMoveMemory(pBuf, OUI_PMF_BIP_GMAC_256_CIPHER, LEN_OUI_SUITE);
 			else {
-				MTWF_DBG(NULL, DBG_CAT_SEC, CATSEC_PMF, DBG_LVL_ERROR,
-					"[PMF] : insert fail, IGTK cipher is wrong\n");
+				MTWF_LOG(DBG_CAT_SEC, CATSEC_PMF, DBG_LVL_ERROR,
+					("[PMF]%s: insert fail, IGTK cipher is wrong\n", __func__));
 				return FALSE;
 			}
 			(*rsn_len) += sizeof(LEN_OUI_SUITE);
-			MTWF_DBG(NULL, DBG_CAT_SEC, CATSEC_PMF, DBG_LVL_INFO, "[PMF]: Insert BIP to the group management cipher of RSNIE\n");
+			MTWF_LOG(DBG_CAT_SEC, CATSEC_PMF, DBG_LVL_ERROR, ("[PMF]%s: Insert BIP to the group management cipher of RSNIE\n", __func__));
 		}
 	}
 
@@ -747,10 +610,10 @@ UINT PMF_RsnCapableValidation(
 	pBuf = WPA_ExtractSuiteFromRSNIE(pRsnie, rsnie_len, RSN_CAP_INFO, &count);
 
 	if (pBuf == NULL) {
-		MTWF_DBG(NULL, DBG_CAT_SEC, CATSEC_PMF, DBG_LVL_ERROR, "[PMF] : Peer's MPFC isn't used.\n");
+		MTWF_LOG(DBG_CAT_SEC, CATSEC_PMF, DBG_LVL_ERROR, ("[PMF]%s : Peer's MPFC isn't used.\n", __func__));
 
 		if (self_MFPR) {
-			MTWF_DBG(NULL, DBG_CAT_SEC, CATSEC_PMF, DBG_LVL_ERROR, "[PMF] : PMF policy violation.\n");
+			MTWF_LOG(DBG_CAT_SEC, CATSEC_PMF, DBG_LVL_ERROR, ("[PMF]%s : PMF policy violation.\n", __func__));
 			return MLME_ROBUST_MGMT_POLICY_VIOLATION;
 		}
 	} else {
@@ -765,18 +628,18 @@ UINT PMF_RsnCapableValidation(
 
 		if ((self_MFPC == TRUE) && (peer_MFPC == FALSE)) {
 			if ((self_MFPR == TRUE) && (peer_MFPR == FALSE)) {
-				MTWF_DBG(NULL, DBG_CAT_SEC, CATSEC_PMF, DBG_LVL_ERROR, "[PMF] : PMF policy violation for case 4\n");
+				MTWF_LOG(DBG_CAT_SEC, CATSEC_PMF, DBG_LVL_ERROR, ("[PMF]%s : PMF policy violation for case 4\n", __func__));
 				return MLME_ROBUST_MGMT_POLICY_VIOLATION;
 			}
 
 			if (peer_MFPR == TRUE) {
-				MTWF_DBG(NULL, DBG_CAT_SEC, CATSEC_PMF, DBG_LVL_ERROR, "[PMF] : PMF policy violation for case 7\n");
+				MTWF_LOG(DBG_CAT_SEC, CATSEC_PMF, DBG_LVL_ERROR, ("[PMF]%s : PMF policy violation for case 7\n", __func__));
 				return MLME_ROBUST_MGMT_POLICY_VIOLATION;
 			}
 		}
 
 		if ((self_MFPC == TRUE) && (peer_MFPC == TRUE)) {
-			MTWF_DBG(NULL, DBG_CAT_SEC, CATSEC_PMF, DBG_LVL_INFO, "[PMF]: PMF Connection.\n");
+			MTWF_LOG(DBG_CAT_SEC, CATSEC_PMF, DBG_LVL_ERROR, ("[PMF]%s: PMF Connection\n", __func__));
 			pSecConfigEntry->PmfCfg.UsePMFConnect = TRUE;
 		}
 
@@ -786,8 +649,8 @@ UINT PMF_RsnCapableValidation(
 		}
 
 		if (IS_AKM_SAE(pSecConfigEntry->AKMMap) && (peer_MFPC == FALSE)) {
-			MTWF_DBG(NULL, DBG_CAT_SEC, CATSEC_PMF, DBG_LVL_ERROR,
-				"[PMF] : SAE connection fail due to not PMF connection(peer MFPR = %d, MFPC = %d)\n", peer_MFPR, peer_MFPC);
+			MTWF_LOG(DBG_CAT_SEC, CATSEC_PMF, DBG_LVL_ERROR,
+				("[PMF]%s: SAE connection fail due to not PMF connection(peer MFPR = %d, MFPC = %d)\n", __func__, peer_MFPR, peer_MFPC));
 			return MLME_ROBUST_MGMT_POLICY_VIOLATION;
 		}
 	}
@@ -806,7 +669,7 @@ UINT PMF_RsnCapableValidation(
 				|| RTMPEqualMemory(pBuf, OUI_WPA2_PSK_SHA256, 4)
 				|| RTMPEqualMemory(pBuf, OUI_WPA2_SAE_SHA256, 4)) {
 				pSecConfigEntry->key_deri_alg = SEC_KEY_DERI_SHA256;
-				MTWF_DBG(NULL, DBG_CAT_SEC, CATSEC_PMF, DBG_LVL_INFO, "[PMF] : SHA256 Support\n");
+				MTWF_LOG(DBG_CAT_SEC, CATSEC_PMF, DBG_LVL_ERROR, ("[PMF]%s : SHA256 Support\n", __func__));
 			}
 
 			pBuf += 4;
@@ -821,16 +684,16 @@ UINT PMF_RsnCapableValidation(
 			pSecConfigEntry->PmfCfg.igtk_cipher = self_igtk_cipher;
 			return MLME_SUCCESS;
 		} else if (end_field < RSN_FIELD_GROUP_MGMT_CIPHER) {
-			MTWF_DBG(NULL, DBG_CAT_SEC, CATSEC_PMF, DBG_LVL_ERROR,
-				"[PMF] : The peer Group_mgmt_cipher_suite(default) is mismatch\n");
+			MTWF_LOG(DBG_CAT_SEC, CATSEC_PMF, DBG_LVL_ERROR,
+				("[PMF]%s : The peer Group_mgmt_cipher_suite(default) is mismatch\n", __func__));
 			return MLME_INVALID_SECURITY_POLICY;
 		}
 
 		pBuf = WPA_ExtractSuiteFromRSNIE(pRsnie, rsnie_len, G_MGMT_SUITE, &count);
 
 		if (pBuf == NULL) {
-			MTWF_DBG(NULL, DBG_CAT_SEC, CATSEC_PMF, DBG_LVL_ERROR,
-				"[PMF] : The peer RSNIE doesn't include Group_mgmt_cipher_suite\n");
+			MTWF_LOG(DBG_CAT_SEC, CATSEC_PMF, DBG_LVL_ERROR,
+				("[PMF]%s : The peer RSNIE doesn't include Group_mgmt_cipher_suite\n", __func__));
 			return MLME_INVALID_SECURITY_POLICY;
 		}
 
@@ -843,16 +706,16 @@ UINT PMF_RsnCapableValidation(
 		else if (RTMPEqualMemory(pBuf, OUI_PMF_BIP_GMAC_256_CIPHER, LEN_OUI_SUITE))
 			SET_CIPHER_BIP_GMAC256(pSecConfigEntry->PmfCfg.igtk_cipher);
 		else {
-			MTWF_DBG(NULL, DBG_CAT_SEC, CATSEC_PMF, DBG_LVL_ERROR,
-				"[PMF] : unknown peer Group_mgmt_cipher_suite\n");
+			MTWF_LOG(DBG_CAT_SEC, CATSEC_PMF, DBG_LVL_ERROR,
+				("[PMF]%s : unknown peer Group_mgmt_cipher_suite\n", __func__));
 			hex_dump("peer Group_mgmt_cipher_suite", pBuf, LEN_OUI_SUITE);
 			return MLME_INVALID_SECURITY_POLICY;
 		}
 
 		if ((pSecConfigEntry->PmfCfg.igtk_cipher & self_igtk_cipher) == 0) {
-			MTWF_DBG(NULL, DBG_CAT_SEC, CATSEC_PMF, DBG_LVL_ERROR,
-				"[PMF] : peer Group_mgmt_cipher_suite(%s) is mismatch\n",
-				 GetEncryModeStr(pSecConfigEntry->PmfCfg.igtk_cipher));
+			MTWF_LOG(DBG_CAT_SEC, CATSEC_PMF, DBG_LVL_ERROR,
+				("[PMF]%s : peer Group_mgmt_cipher_suite(%s) is mismatch\n",
+				__func__, GetEncryModeStr(pSecConfigEntry->PmfCfg.igtk_cipher)));
 			CLEAR_CIPHER(pSecConfigEntry->PmfCfg.igtk_cipher);
 			return MLME_INVALID_SECURITY_POLICY;
 		}
@@ -902,7 +765,7 @@ INT PMF_RobustFrameClassify(
 	case SUBTYPE_ACTION: {
 		if  ((IsRx == FALSE)
 			 || (IsRx && (pHdr->FC.Wep == 0))) {
-			UCHAR Category = (UCHAR) (pHdr->Octet[(pHdr->FC.Order ? 4 : 0)]);
+			UCHAR Category = *pFrame;
 
 			switch (Category) {
 			/* Refer to IEEE 802.11w Table7-24 */
@@ -916,12 +779,6 @@ INT PMF_RobustFrameClassify(
 			case CATEGORY_PD:
 			case CATEGORY_VSP:
 			case CATEGORY_WNM:
-			case CATEGORY_MESH:
-			case CATEGORY_MULTIHOP:
-			case CATEGORY_DMG:
-			case CATEGORY_FST:
-			case CATEGORY_RAVS:
-			case CATEGORY_PROTECTED_HE:
 				break;
 
 			default:
@@ -959,8 +816,10 @@ INT PMF_RobustFrameClassify(
 		return NORMAL_FRAME;
 	else if ((pEntry->SecConfig.PmfCfg.UsePMFConnect == TRUE) && (pHdr->FC.Wep == 0) && (IsRx == TRUE))
 		return NOT_ROBUST_UNICAST_FRAME;
-	else
+	else if (((IsRx == TRUE) && (pHdr->FC.Wep == 1)) || (IsRx == FALSE))
 		return UNICAST_ROBUST_FRAME;
+
+	return ERROR_FRAME;
 }
 
 #ifdef SOFT_ENCRYPT
@@ -978,8 +837,8 @@ INT PMF_EncryptUniRobustFrameAction(
 	data_len = mgmt_len - (LENGTH_802_11 + LEN_CCMP_HDR + LEN_CCMP_MIC);
 
 	if (data_len <= 0) {
-		MTWF_DBG(pAd, DBG_CAT_SEC, CATSEC_PMF, DBG_LVL_ERROR, "The payload length(%d) is invalid\n",
-				  data_len);
+		MTWF_LOG(DBG_CAT_SEC, CATSEC_PMF, DBG_LVL_ERROR, ("%s : The payload length(%d) is invalid\n",
+				 __func__, data_len));
 		return PMF_UNICAST_ENCRYPT_FAILURE;
 	}
 
@@ -987,13 +846,13 @@ INT PMF_EncryptUniRobustFrameAction(
 	pEntry = MacTableLookup(pAd, pHdr->Addr1);
 
 	if (pEntry == NULL) {
-		MTWF_DBG(pAd, DBG_CAT_SEC, CATSEC_PMF, DBG_LVL_ERROR, "The entry doesn't exist\n");
+		MTWF_LOG(DBG_CAT_SEC, CATSEC_PMF, DBG_LVL_ERROR, ("%s : The entry doesn't exist\n", __func__));
 		return PMF_UNICAST_ENCRYPT_FAILURE;
 	}
 
 	/* check the PMF capable for this entry */
 	if (pEntry->SecConfig.PmfCfg.UsePMFConnect == FALSE) {
-		MTWF_DBG(pAd, DBG_CAT_SEC, CATSEC_PMF, DBG_LVL_ERROR, "the entry no PMF capable !\n");
+		MTWF_LOG(DBG_CAT_SEC, CATSEC_PMF, DBG_LVL_ERROR, ("%s : the entry no PMF capable !\n", __func__));
 		return PMF_UNICAST_ENCRYPT_FAILURE;
 	}
 
@@ -1001,7 +860,7 @@ INT PMF_EncryptUniRobustFrameAction(
 	Status = MlmeAllocateMemory(pAd, &pBuf);
 
 	if (Status != NDIS_STATUS_SUCCESS) {
-		MTWF_DBG(pAd, DBG_CAT_SEC, CATSEC_PMF, DBG_LVL_ERROR, "allocate PMF buffer fail!\n");
+		MTWF_LOG(DBG_CAT_SEC, CATSEC_PMF, DBG_LVL_ERROR, ("%s : allocate PMF buffer fail!\n", __func__));
 		return PMF_UNICAST_ENCRYPT_FAILURE;
 	}
 
@@ -1037,8 +896,8 @@ INT PMF_DecryptUniRobustFrameAction(
 
 	/* Check if the length is valid */
 	if (data_len <= LEN_CCMP_HDR + LEN_CCMP_MIC) {
-		MTWF_DBG(pAd, DBG_CAT_SEC, CATSEC_PMF, DBG_LVL_ERROR, "The payload length(%d) is invalid\n",
-				  data_len);
+		MTWF_LOG(DBG_CAT_SEC, CATSEC_PMF, DBG_LVL_ERROR, ("%s : The payload length(%d) is invalid\n",
+				 __func__, data_len));
 		return PMF_UNICAST_DECRYPT_FAILURE;
 	}
 
@@ -1046,13 +905,13 @@ INT PMF_DecryptUniRobustFrameAction(
 	pEntry = MacTableLookup(pAd, pHeader->Addr2);
 
 	if (pEntry == NULL) {
-		MTWF_DBG(pAd, DBG_CAT_SEC, CATSEC_PMF, DBG_LVL_ERROR, "the entry doesn't exist !\n");
+		MTWF_LOG(DBG_CAT_SEC, CATSEC_PMF, DBG_LVL_ERROR, ("%s : the entry doesn't exist !\n", __func__));
 		return PMF_STATUS_SUCCESS;
 	}
 
 	/* check the PMF capable for this entry */
 	if (pEntry->SecConfig.PmfCfg.UsePMFConnect == FALSE) {
-		MTWF_DBG(pAd, DBG_CAT_SEC, CATSEC_PMF, DBG_LVL_ERROR, "the entry no PMF capable !\n");
+		MTWF_LOG(DBG_CAT_SEC, CATSEC_PMF, DBG_LVL_ERROR, ("%s : the entry no PMF capable !\n", __func__));
 		return PMF_UNICAST_DECRYPT_FAILURE;
 	}
 
@@ -1095,8 +954,8 @@ INT PMF_EncapBIPAction(
 
 	/* Sanity check the total frame body length */
 	if (body_len <= (2 + LEN_PMF_MMIE)) {
-		MTWF_DBG(pAd, DBG_CAT_SEC, CATSEC_PMF, DBG_LVL_ERROR, "[PMF] : the total length(%d) is too short\n",
-				 body_len);
+		MTWF_LOG(DBG_CAT_SEC, CATSEC_PMF, DBG_LVL_ERROR, ("[PMF]%s : the total length(%d) is too short\n",
+				 __func__, body_len));
 		return PMF_ENCAP_BIP_FAILURE;
 	}
 
@@ -1108,12 +967,12 @@ INT PMF_EncapBIPAction(
 
 	/* Sanity check */
 	if (pPmfCfg == NULL) {
-		MTWF_DBG(pAd, DBG_CAT_SEC, CATSEC_PMF, DBG_LVL_ERROR, "[PMF] : No related PMF configuation\n");
+		MTWF_LOG(DBG_CAT_SEC, CATSEC_PMF, DBG_LVL_ERROR, ("[PMF]%s : No related PMF configuation\n", __func__));
 		return PMF_ENCAP_BIP_FAILURE;
 	}
 
 	if (pPmfCfg && pPmfCfg->MFPC == FALSE) {
-		MTWF_DBG(pAd, DBG_CAT_SEC, CATSEC_PMF, DBG_LVL_ERROR, "[PMF] : PMF is disabled\n");
+		MTWF_LOG(DBG_CAT_SEC, CATSEC_PMF, DBG_LVL_ERROR, ("[PMF]%s : PMF is disabled\n", __func__));
 		return PMF_ENCAP_BIP_FAILURE;
 	}
 
@@ -1185,32 +1044,25 @@ INT PMF_ExtractBIPAction(
 	UCHAR rcvd_mic[LEN_PMF_BIP_MIC];
 	UCHAR cal_mic[LEN_PMF_BIP_MIC];
 	UINT32 body_len = mgmt_len - LENGTH_802_11;
-#ifdef CONFIG_STA_SUPPORT
-	PSTA_ADMIN_CONFIG pStaCfg = NULL;
-#endif
 
 	/* Sanity check the total frame body length */
 	if (body_len <= (2 + LEN_PMF_MMIE)) {
-		MTWF_DBG(pAd, DBG_CAT_SEC, CATSEC_PMF, DBG_LVL_ERROR, "the total length(%d) is too short\n",
-				  body_len));
+		MTWF_LOG(DBG_CAT_SEC, CATSEC_PMF, DBG_LVL_ERROR, ("%s : the total length(%d) is too short\n",
+				 __func__, body_len));
 		return PMF_EXTRACT_BIP_FAILURE;
 	}
 
 	/* Look up the entry through Address 2 of 802.11 header */
 	pEntry = MacTableLookup(pAd, pHeader->Addr2);
-#ifdef CONFIG_STA_SUPPORT
-	pStaCfg = GetStaCfgByWdev(pAd, pEntry->wdev);
-	ASSERT(pStaCfg);
-#endif
 
 	if (pEntry == NULL) {
-		MTWF_DBG(pAd, DBG_CAT_SEC, CATSEC_PMF, DBG_LVL_ERROR, "the entry doesn't exist !\n");
+		MTWF_LOG(DBG_CAT_SEC, CATSEC_PMF, DBG_LVL_ERROR, ("%s : the entry doesn't exist !\n", __func__));
 		return PMF_STATUS_SUCCESS;
 	}
 
 	/* check the PMF capable for this entry */
 	if (pEntry->SecConfig.PmfCfg.UsePMFConnect == FALSE) {
-		MTWF_DBG(pAd, DBG_CAT_SEC, CATSEC_PMF, DBG_LVL_ERROR, "the entry no PMF capable !\n");
+		MTWF_LOG(DBG_CAT_SEC, CATSEC_PMF, DBG_LVL_ERROR, ("%s : the entry no PMF capable !\n", __func__));
 		return PMF_EXTRACT_BIP_FAILURE;
 	}
 
@@ -1218,18 +1070,13 @@ INT PMF_ExtractBIPAction(
 	IF_DEV_CONFIG_OPMODE_ON_AP(pAd) {
 		/* MT7615 only need H/W  Decrypt, SOFT_ENCRYPT of BIP is not need */
 #ifdef APCLI_SUPPORT
-		if (IS_ENTRY_PEER_AP(pEntry))
-			pPmfCfg = &pAd->StaCfg[pEntry->func_tb_idx].wdev.SecConfig.PmfCfg;
+		if (IS_ENTRY_APCLI(pEntry))
+			pPmfCfg = &pAd->ApCfg.ApCliTab[pEntry->func_tb_idx].wdev.SecConfig.PmfCfg;
 		else
 #endif /* APCLI_SUPPORT */
 			pPmfCfg = &pAd->ApCfg.MBSSID[pEntry->func_tb_idx].wdev.SecConfig.PmfCfg;
 	}
 #endif /* CONFIG_AP_SUPPORT // */
-#ifdef CONFIG_STA_SUPPORT
-	IF_DEV_CONFIG_OPMODE_ON_STA(pAd) {
-		pPmfCfg = &pStaCfg.wdev.SecConfig.PmfCfg;
-	}
-#endif /* CONFIG_STA_SUPPORT // */
 	/* Pointer to the position of MMIE */
 	pMMIE = (PPMF_MMIE)(pMgmtFrame + (mgmt_len - LEN_PMF_MMIE));
 
@@ -1252,7 +1099,7 @@ INT PMF_ExtractBIPAction(
 						body_len, pKey, cal_mic);
 
 	if (!NdisEqualMemory(rcvd_mic, cal_mic, LEN_PMF_BIP_MIC)) {
-		MTWF_DBG(pAd, DBG_CAT_SEC, CATSEC_PMF, DBG_LVL_ERROR, "MIC Different !\n");
+		MTWF_LOG(DBG_CAT_SEC, CATSEC_PMF, DBG_LVL_ERROR, ("%s : MIC Different !\n", __func__));
 		return PMF_EXTRACT_BIP_FAILURE;
 	}
 
@@ -1268,24 +1115,24 @@ VOID PMF_AddMMIE(
 {
 	PHEADER_802_11 pHdr = (PHEADER_802_11)pMgmtFrame;
 	PPMF_MMIE pMMIE;
-	UINT8 idx = 0;
+	INT idx = 0;
 	UINT32 body_len = mgmt_len - LENGTH_802_11;
 
 	/* Sanity check the total frame body length */
 	if (body_len <= (2 + LEN_PMF_MMIE)) {
-		MTWF_DBG(NULL, DBG_CAT_SEC, CATSEC_PMF, DBG_LVL_ERROR, "[PMF]: the total length(%d) is too short\n",
-				  body_len);
+		MTWF_LOG(DBG_CAT_SEC, CATSEC_PMF, DBG_LVL_ERROR, ("[PMF]%s : the total length(%d) is too short\n",
+				 __func__, body_len));
 		return;
 	}
 
 	/* Sanity check */
 	if (pPmfCfg == NULL) {
-		MTWF_DBG(NULL, DBG_CAT_SEC, CATSEC_PMF, DBG_LVL_ERROR, "[PMF] : No related PMF configuation\n");
+		MTWF_LOG(DBG_CAT_SEC, CATSEC_PMF, DBG_LVL_ERROR, ("[PMF]%s : No related PMF configuation\n", __func__));
 		return;
 	}
 
 	if (pPmfCfg && pPmfCfg->MFPC == FALSE) {
-		MTWF_DBG(NULL, DBG_CAT_SEC, CATSEC_PMF, DBG_LVL_ERROR, "[PMF] : PMF is disabled\n");
+		MTWF_LOG(DBG_CAT_SEC, CATSEC_PMF, DBG_LVL_ERROR, ("[PMF]%s : PMF is disabled\n", __func__));
 		return;
 	}
 
@@ -1313,6 +1160,7 @@ VOID PMF_AddMMIE(
 	return;
 }
 
+
 BOOLEAN PMF_PerformTxFrameAction(
 	IN PRTMP_ADAPTER pAd,
 	IN PHEADER_802_11 pHeader_802_11,
@@ -1323,32 +1171,14 @@ BOOLEAN PMF_PerformTxFrameAction(
 	if (IS_HIF_TYPE(pAd, HIF_MT)) {
 		UINT32 ret = 0;
 		MAC_TABLE_ENTRY *pEntry = NULL;
-		struct tx_rx_ctl *tr_ctl = &pAd->tr_ctl;
-		struct _STA_TR_ENTRY *tr_entry = NULL;
 #ifdef CONFIG_AP_SUPPORT
-		IF_DEV_CONFIG_OPMODE_ON_AP(pAd)
 		pEntry = MacTableLookup(pAd, pHeader_802_11->Addr1);
-#endif
-#ifdef CONFIG_STA_SUPPORT
-		IF_DEV_CONFIG_OPMODE_ON_STA(pAd)
-		pEntry = MacTableLookup2(pAd, pHeader_802_11->Addr1, NULL);
 #endif
 		*prot = 0;
 
-		if (pEntry) {
-			tr_entry = &tr_ctl->tr_entry[pEntry->wcid];
-			if (tr_entry->PortSecured != WPA_802_1X_PORT_SECURED &&
-				!pEntry->SecConfig.wait_csa_sa_query)
-				return TRUE;
-		}
-
-		/*6G PMF Test, AP Testbed, one shut only then recover*/
-#ifdef DOT11W_PMF_SUPPORT
-		if (wpa3_test_ctrl == 10) {
-			wpa3_test_ctrl = 0;
+		if (pEntry && pAd->MacTab.tr_entry[pEntry->wcid].PortSecured != WPA_802_1X_PORT_SECURED)
 			return TRUE;
-		}
-#endif /*DOT11W_PMF_SUPPORT*/
+
 		ret = PMF_RobustFrameClassify(
 				  (PHEADER_802_11)pHeader_802_11,
 				  (PUCHAR)(((PUCHAR)pHeader_802_11)+LENGTH_802_11),
@@ -1368,8 +1198,8 @@ BOOLEAN PMF_PerformTxFrameAction(
 			if (ret == PMF_STATUS_SUCCESS)
 				*prot = 3;
 			else
-				MTWF_DBG(pAd, DBG_CAT_TX, DBG_SUBCAT_ALL, DBG_LVL_ERROR, " PMF GROUP ROBUST Encap fail, ret=%d\n",
-						 ret);
+				MTWF_LOG(DBG_CAT_TX, DBG_SUBCAT_ALL, DBG_LVL_OFF, ("%s, PMF GROUP ROBUST Encap fail, ret=%d\n",
+						 __func__, ret));
 
 #else
 			PMF_CFG *pPmfCfg = NULL;
@@ -1396,7 +1226,7 @@ BOOLEAN PMF_PerformTxFrameAction(
 			else
 				*prot = 3;
 #endif /* SOFT_ENCRYPT */
-			MTWF_DBG(pAd, DBG_CAT_TX, DBG_SUBCAT_ALL, DBG_LVL_INFO, " PMF GROUP ROBUST\n");
+			MTWF_LOG(DBG_CAT_TX, DBG_SUBCAT_ALL, DBG_LVL_OFF, ("%s, PMF GROUP ROBUST\n", __func__));
 		}
 	}
 
@@ -1421,6 +1251,7 @@ BOOLEAN PMF_PerformRxFrameAction(RTMP_ADAPTER *pAd, RX_BLK *pRxBlk)
 	INT FrameType = NORMAL_FRAME;
 	PUCHAR pMgmtFrame;
 	UINT mgmt_len;
+	HEADER_802_11 Header;
 	PMAC_TABLE_ENTRY pEntry = NULL;
 	FRAME_CONTROL *FC = (FRAME_CONTROL *)pRxBlk->FC;
 
@@ -1434,14 +1265,9 @@ BOOLEAN PMF_PerformRxFrameAction(RTMP_ADAPTER *pAd, RX_BLK *pRxBlk)
 		(FC->Type == FC_TYPE_MGMT) &&
 		((FC->SubType == SUBTYPE_DISASSOC) || (FC->SubType == SUBTYPE_DEAUTH))) {
 #ifdef CONFIG_AP_SUPPORT
-		/* MTWF_DBG(pAd, DBG_CAT_SEC, CATSEC_PMF, DBG_LVL_ERROR, "[PMF]: Bcast  FRAME, FC->SubType=%d, pRxBlk->pRxInfo->U2M=%d, pRxBlk->pRxInfo->disasso=%d, pRxBlk->pRxInfo->Decrypted=%d, pRxBlk->wcid=%d\n", */
-		/* FC->SubType, pRxBlk->pRxInfo->U2M, pRxBlk->pRxInfo->disasso, pRxBlk->pRxInfo->Decrypted,pRxBlk->wcid); */
-		IF_DEV_CONFIG_OPMODE_ON_AP(pAd)
+		/* MTWF_LOG(DBG_CAT_SEC, CATSEC_PMF, DBG_LVL_ERROR, ("[PMF]%s: Bcast  FRAME, FC->SubType=%d, pRxBlk->pRxInfo->U2M=%d, pRxBlk->pRxInfo->disasso=%d, pRxBlk->pRxInfo->Decrypted=%d, pRxBlk->wcid=%d\n", */
+		/* __FUNCTION__, FC->SubType, pRxBlk->pRxInfo->U2M, pRxBlk->pRxInfo->disasso, pRxBlk->pRxInfo->Decrypted,pRxBlk->wcid)); */
 		pEntry = MacTableLookup(pAd, pRxBlk->Addr2);
-#endif
-#ifdef CONFIG_STA_SUPPORT
-		IF_DEV_CONFIG_OPMODE_ON_STA(pAd)
-		pEntry = MacTableLookup2(pAd, pRxBlk->Addr2, NULL);
 #endif
 
 		if (!pEntry)
@@ -1452,15 +1278,44 @@ BOOLEAN PMF_PerformRxFrameAction(RTMP_ADAPTER *pAd, RX_BLK *pRxBlk)
 		}
 	}
 
-	FrameType = PMF_RobustFrameClassify((HEADER_802_11 *)pRxBlk->FC,
-							(PUCHAR)(pMgmtFrame + LENGTH_802_11),
-							(mgmt_len - LENGTH_802_11),
-							(PUCHAR) pEntry,
-							TRUE);
+#ifdef MT_MAC
+
+	if ((IS_HIF_TYPE(pAd, HIF_MT))
+		&& (pEntry != NULL)
+		&& (pEntry->SecConfig.PmfCfg.UsePMFConnect == TRUE)
+		&& (FC->Type == FC_TYPE_MGMT)
+		&& (!(pRxBlk->Addr1[0] & 0x01))
+		&& ((FC->SubType == SUBTYPE_DISASSOC)  || (FC->SubType == SUBTYPE_DEAUTH) || (FC->SubType == SUBTYPE_ACTION))) {
+		if (pRxBlk->CipherMis) {
+			NdisZeroMemory(&Header, sizeof(HEADER_802_11));
+			NdisMoveMemory(&Header.Addr1, &pRxBlk->Addr1[0], 6);
+			NdisMoveMemory(&Header.FC, pRxBlk->FC, sizeof(FRAME_CONTROL));
+			FrameType = PMF_RobustFrameClassify(&Header,
+												(PUCHAR)(pMgmtFrame + LENGTH_802_11),
+												(mgmt_len - LENGTH_802_11),
+												(PUCHAR) pEntry,
+												TRUE);
+		}
+	} else
+#endif
+	{
+		NdisZeroMemory(&Header, sizeof(HEADER_802_11));
+		NdisMoveMemory(&Header.Addr1, &pRxBlk->Addr1[0], 6);
+		NdisMoveMemory(&Header.FC, pRxBlk->FC, sizeof(FRAME_CONTROL));
+		FrameType = PMF_RobustFrameClassify(&Header,
+											(PUCHAR)(pMgmtFrame + LENGTH_802_11),
+											(mgmt_len - LENGTH_802_11),
+											(PUCHAR) pEntry,
+											TRUE);
+	}
 
 #ifdef CONFIG_AP_SUPPORT
 	IF_DEV_CONFIG_OPMODE_ON_AP(pAd) {
 		switch (FrameType) {
+		case ERROR_FRAME:
+			MTWF_LOG(DBG_CAT_SEC, CATSEC_PMF, DBG_LVL_ERROR, ("[PMF]%s: ERROR FRAME, FC->SubType=%d\n", __func__, FC->SubType));
+			return FALSE;
+
 		case NORMAL_FRAME:
 			break;
 
@@ -1468,7 +1323,7 @@ BOOLEAN PMF_PerformRxFrameAction(RTMP_ADAPTER *pAd, RX_BLK *pRxBlk)
 #ifdef APCLI_SUPPORT
 
 			/* H/W Decrypt case won't fall into below case */
-			if ((pEntry) && IS_ENTRY_PEER_AP(pEntry)) {
+			if ((pEntry) && IS_ENTRY_APCLI(pEntry)) {
 				if (pEntry->SecConfig.PmfCfg.UsePMFConnect == TRUE)
 					return FALSE;
 			}
@@ -1478,8 +1333,8 @@ BOOLEAN PMF_PerformRxFrameAction(RTMP_ADAPTER *pAd, RX_BLK *pRxBlk)
 
 		case NOT_ROBUST_UNICAST_FRAME:
 #ifdef APCLI_SUPPORT
-			if ((pEntry) && IS_ENTRY_PEER_AP(pEntry)) {
-				if (((FC->SubType == SUBTYPE_DISASSOC) || (FC->SubType == SUBTYPE_DEAUTH))
+			if ((pEntry) && IS_ENTRY_APCLI(pEntry)) {
+				if (((Header.FC.SubType == SUBTYPE_DISASSOC) || (Header.FC.SubType == SUBTYPE_DEAUTH))
 					&& (pEntry->SecConfig.PmfCfg.UsePMFConnect == TRUE)) {
 					PMF_MlmeSAQueryReq(pAd, pEntry);
 					return FALSE;
@@ -1487,9 +1342,7 @@ BOOLEAN PMF_PerformRxFrameAction(RTMP_ADAPTER *pAd, RX_BLK *pRxBlk)
 			}
 
 #endif /* APCLI_SUPPORT */
-			MTWF_DBG(pAd, DBG_CAT_SEC, CATSEC_PMF, DBG_LVL_ERROR,
-					 "[PMF] : NOT_ROBUST_UNICAST_FRAME, FC->SubType=%d (wcid=%d)\n",
-					  FC->SubType, pRxBlk->wcid);
+			MTWF_LOG(DBG_CAT_SEC, CATSEC_PMF, DBG_LVL_ERROR, ("[PMF]%s: ERROR FRAME, FC->SubType=%d\n", __func__, FC->SubType));
 			return FALSE;
 
 		case UNICAST_ROBUST_FRAME: {
@@ -1514,69 +1367,13 @@ BOOLEAN PMF_PerformRxFrameAction(RTMP_ADAPTER *pAd, RX_BLK *pRxBlk)
 				return FALSE;
 
 #endif /* SOFT_ENCRYPT */
-			/* MTWF_DBG(pAd, DBG_CAT_SEC, CATSEC_PMF, DBG_LVL_ERROR, "[PMF]: GROUP_ROBUST_FRAME, FC->SubType=%d\n",  FC->SubType); */
+			/* MTWF_LOG(DBG_CAT_SEC, CATSEC_PMF, DBG_LVL_ERROR, ("[PMF]%s: GROUP_ROBUST_FRAME, FC->SubType=%d\n", __FUNCTION__, FC->SubType)); */
 			pRxBlk->MPDUtotalByteCnt -= (2 + LEN_PMF_MMIE);
 			break;
 		}
 		}
 	}
 #endif /* CONFIG_AP_SUPPORT */
-#ifdef CONFIG_STA_SUPPORT
-	IF_DEV_CONFIG_OPMODE_ON_STA(pAd) {
-		switch (FrameType) {
-		case NORMAL_FRAME:
-			break;
-
-		case NOT_ROBUST_UNICAST_FRAME:
-			if (((FC->SubType == SUBTYPE_DISASSOC) || (FC->SubType == SUBTYPE_DEAUTH))
-				&& (pEntry->SecConfig.PmfCfg.UsePMFConnect == TRUE)) {
-				PMF_MlmeSAQueryReq(pAd, pEntry);
-				return FALSE;
-			}
-
-			MTWF_DBG(pAd, DBG_CAT_SEC, CATSEC_PMF, DBG_LVL_ERROR, "[PMF] : NOT_ROBUST_UNICAST_FRAME, FC->SubType=%d\n", FC->SubType);
-			return FALSE;
-
-		case NOT_ROBUST_GROUP_FRAME:
-			if ((pEntry) && (pEntry->SecConfig.PmfCfg.UsePMFConnect == TRUE))
-				return FALSE;
-			else
-				break;
-
-		case UNICAST_ROBUST_FRAME: {
-#ifdef SOFT_ENCRYPT
-
-			if (!IS_HIF_TYPE(pAd, HIF_MT)) {
-				if (PMF_DecryptUniRobustFrameAction(pAd,
-													pMgmtFrame,
-													mgmt_len) != PMF_STATUS_SUCCESS)
-					return FALSE;
-
-				pRxBlk->MPDUtotalByteCnt -= (LEN_CCMP_HDR + LEN_CCMP_MIC);
-			}
-
-#endif /* SOFT_ENCRYPT */
-			break;
-		}
-
-		case GROUP_ROBUST_FRAME: {
-#ifdef SOFT_ENCRYPT
-
-			if (!IS_HIF_TYPE(pAd, HIF_MT)) {
-				if (PMF_ExtractBIPAction(pAd,
-										 pMgmtFrame,
-										 mgmt_len) != PMF_STATUS_SUCCESS)
-					return FALSE;
-
-				pRxBlk->MPDUtotalByteCnt -= (2 + LEN_PMF_MMIE);
-			}
-
-#endif /* SOFT_ENCRYPT */
-			break;
-		}
-		}
-	}
-#endif /* CONFIG_STA_SUPPORT */
 	return TRUE;
 }
 
@@ -1616,7 +1413,7 @@ void rtmp_read_pmf_parameters_from_file(
 		}
 
 		/* Protection Management Frame Capable */
-		if (RTMPGetKeyParameter("PMFMFPC", tmpbuf, PER_BSS_SIZE_2(pAd), pBuffer, TRUE)) {
+		if (RTMPGetKeyParameter("PMFMFPC", tmpbuf, 32, pBuffer, TRUE)) {
 			for (apidx = 0, macptr = rstrtok(tmpbuf, ";"); (macptr && apidx < pAd->ApCfg.BssidNum); macptr = rstrtok(NULL, ";"), apidx++) {
 				pObj->ioctl_if = apidx;
 				Set_PMFMFPC_Proc(pAd, macptr);
@@ -1624,14 +1421,14 @@ void rtmp_read_pmf_parameters_from_file(
 		}
 
 		/* Protection Management Frame Required */
-		if (RTMPGetKeyParameter("PMFMFPR", tmpbuf, PER_BSS_SIZE_2(pAd), pBuffer, TRUE)) {
+		if (RTMPGetKeyParameter("PMFMFPR", tmpbuf, 32, pBuffer, TRUE)) {
 			for (apidx = 0, macptr = rstrtok(tmpbuf, ";"); (macptr && apidx < pAd->ApCfg.BssidNum); macptr = rstrtok(NULL, ";"), apidx++) {
 				pObj->ioctl_if = apidx;
 				Set_PMFMFPR_Proc(pAd, macptr);
 			}
 		}
 
-		if (RTMPGetKeyParameter("PMFSHA256", tmpbuf, PER_BSS_SIZE_2(pAd), pBuffer, TRUE)) {
+		if (RTMPGetKeyParameter("PMFSHA256", tmpbuf, 32, pBuffer, TRUE)) {
 			for (apidx = 0, macptr = rstrtok(tmpbuf, ";"); (macptr && apidx < pAd->ApCfg.BssidNum); macptr = rstrtok(NULL, ";"), apidx++) {
 				pObj->ioctl_if = apidx;
 				Set_PMFSHA256_Proc(pAd, macptr);
@@ -1639,45 +1436,8 @@ void rtmp_read_pmf_parameters_from_file(
 		}
 	}
 #endif /* CONFIG_AP_SUPPORT */
-#ifdef CONFIG_STA_SUPPORT
-	IF_DEV_CONFIG_OPMODE_ON_STA(pAd) {
-		INT staidx;
-		POS_COOKIE pObj;
-		RTMP_STRING *macptr;
-
-		pObj = (POS_COOKIE) pAd->OS_Cookie;
-
-		for (staidx = 0, macptr = rstrtok(tmpbuf, ";"); (macptr && staidx < MAX_MULTI_STA); macptr = rstrtok(NULL, ";"), staidx++) {
-			pAd->StaCfg[staidx].wdev.SecConfig.PmfCfg.Desired_MFPC = FALSE;
-			pAd->StaCfg[staidx].wdev.SecConfig.PmfCfg.Desired_MFPR = FALSE;
-			pAd->StaCfg[staidx].wdev.SecConfig.PmfCfg.Desired_PMFSHA256 = FALSE;
-		}
-
-		/* Protection Management Frame Capable */
-		if (RTMPGetKeyParameter("PMFMFPC", tmpbuf, 32, pBuffer, TRUE)) {
-			for (staidx = 0, macptr = rstrtok(tmpbuf, ";"); (macptr && staidx < MAX_MULTI_STA); macptr = rstrtok(NULL, ";"), staidx++) {
-				pObj->ioctl_if = staidx;
-				Set_PMFMFPC_Proc(pAd, macptr);
-			}
-		}
-
-		/* Protection Management Frame Required */
-		if (RTMPGetKeyParameter("PMFMFPR", tmpbuf, 32, pBuffer, TRUE)) {
-			for (staidx = 0, macptr = rstrtok(tmpbuf, ";"); (macptr && staidx < MAX_MULTI_STA); macptr = rstrtok(NULL, ";"), staidx++) {
-				pObj->ioctl_if = staidx;
-				Set_PMFMFPR_Proc(pAd, macptr);
-			}
-		}
-
-		if (RTMPGetKeyParameter("PMFSHA256", tmpbuf, 32, pBuffer, TRUE)) {
-			for (staidx = 0, macptr = rstrtok(tmpbuf, ";"); (macptr && staidx < MAX_MULTI_STA); macptr = rstrtok(NULL, ";"), staidx++) {
-				pObj->ioctl_if = staidx;
-				Set_PMFSHA256_Proc(pAd, macptr);
-			}
-		}
-	}
-#endif /* CONFIG_STA_SUPPORT */
 }
+
 
 /*
 ========================================================================
@@ -1702,49 +1462,18 @@ INT Set_PMFMFPC_Proc(
 #ifdef CONFIG_AP_SUPPORT
 	IF_DEV_CONFIG_OPMODE_ON_AP(pAd) {
 		POS_COOKIE pObj;
-		UINT32 apidx = 0;
 
 		pObj = (POS_COOKIE) pAd->OS_Cookie;
 
-		if (pObj->ioctl_if < 0 || pObj->ioctl_if >= pAd->ApCfg.BssidNum) {
-			MTWF_DBG(pAd, DBG_CAT_SEC, CATSEC_PMF, DBG_LVL_ERROR,
-				"pObj->ioctl_if is invalid value\n");
-			return FALSE;
-		}
-
-		apidx = pObj->ioctl_if;
 		if (os_str_tol(arg, 0, 10))
-			pAd->ApCfg.MBSSID[apidx].wdev.SecConfig.PmfCfg.Desired_MFPC = TRUE;
+			pAd->ApCfg.MBSSID[pObj->ioctl_if].wdev.SecConfig.PmfCfg.Desired_MFPC = TRUE;
 		else
-			pAd->ApCfg.MBSSID[apidx].wdev.SecConfig.PmfCfg.Desired_MFPC = FALSE;
+			pAd->ApCfg.MBSSID[pObj->ioctl_if].wdev.SecConfig.PmfCfg.Desired_MFPC = FALSE;
 
-		MTWF_DBG(pAd, DBG_CAT_SEC, CATSEC_PMF, DBG_LVL_ERROR, "[PMF] :: apidx=%d, Desired MFPC=%d\n"
-				 , apidx, pAd->ApCfg.MBSSID[apidx].wdev.SecConfig.PmfCfg.Desired_MFPC);
+		MTWF_LOG(DBG_CAT_SEC, CATSEC_PMF, DBG_LVL_TRACE, ("[PMF]%s:: apidx=%d, Desired MFPC=%d\n", __func__
+				 , pObj->ioctl_if, pAd->ApCfg.MBSSID[pObj->ioctl_if].wdev.SecConfig.PmfCfg.Desired_MFPC));
 	}
 #endif /* CONFIG_AP_SUPPORT */
-#ifdef CONFIG_STA_SUPPORT
-	IF_DEV_CONFIG_OPMODE_ON_STA(pAd) {
-		POS_COOKIE pObj;
-		UINT32 staidx = 0;
-
-		pObj = (POS_COOKIE) pAd->OS_Cookie;
-
-		if (pObj->ioctl_if < 0 || pObj->ioctl_if >= pAd->MSTANum) {
-			MTWF_DBG(pAd, DBG_CAT_SEC, CATSEC_PMF, DBG_LVL_ERROR,
-				"pObj->ioctl_if is invalid value\n");
-			return FALSE;
-		}
-
-		staidx = pObj->ioctl_if;
-		if (os_str_tol(arg, 0, 10))
-			pAd->StaCfg[staidx].wdev.SecConfig.PmfCfg.Desired_MFPC = TRUE;
-		else
-			pAd->StaCfg[staidx].wdev.SecConfig.PmfCfg.Desired_MFPC = FALSE;
-
-		MTWF_DBG(pAd, DBG_CAT_SEC, CATSEC_PMF, DBG_LVL_INFO, "[PMF]: staidx=%d, Desired MFPC=%d\n",
-				 staidx, pAd->StaCfg[staidx].wdev.SecConfig.PmfCfg.Desired_MFPC);
-	}
-#endif /* CONFIG_STA_SUPPORT */
 	return TRUE;
 }
 
@@ -1772,49 +1501,18 @@ INT Set_PMFMFPR_Proc(
 #ifdef CONFIG_AP_SUPPORT
 	IF_DEV_CONFIG_OPMODE_ON_AP(pAd) {
 		POS_COOKIE pObj;
-		UINT32 apidx = 0;
 
 		pObj = (POS_COOKIE) pAd->OS_Cookie;
 
-		if (pObj->ioctl_if < 0 || pObj->ioctl_if >= pAd->ApCfg.BssidNum) {
-			MTWF_DBG(pAd, DBG_CAT_SEC, CATSEC_PMF, DBG_LVL_ERROR,
-				"pObj->ioctl_if is invalid value\n");
-			return FALSE;
-		}
-
-		apidx = pObj->ioctl_if;
 		if (os_str_tol(arg, 0, 10))
-			pAd->ApCfg.MBSSID[apidx].wdev.SecConfig.PmfCfg.Desired_MFPR = TRUE;
+			pAd->ApCfg.MBSSID[pObj->ioctl_if].wdev.SecConfig.PmfCfg.Desired_MFPR = TRUE;
 		else
-			pAd->ApCfg.MBSSID[apidx].wdev.SecConfig.PmfCfg.Desired_MFPR = FALSE;
+			pAd->ApCfg.MBSSID[pObj->ioctl_if].wdev.SecConfig.PmfCfg.Desired_MFPR = FALSE;
 
-		MTWF_DBG(pAd, DBG_CAT_SEC, CATSEC_PMF, DBG_LVL_INFO, "[PMF]: apidx=%d, Desired MFPR=%d\n"
-				 , apidx, pAd->ApCfg.MBSSID[apidx].wdev.SecConfig.PmfCfg.Desired_MFPR);
+		MTWF_LOG(DBG_CAT_SEC, CATSEC_PMF, DBG_LVL_TRACE, ("[PMF]%s:: apidx=%d, Desired MFPR=%d\n", __func__
+				 , pObj->ioctl_if, pAd->ApCfg.MBSSID[pObj->ioctl_if].wdev.SecConfig.PmfCfg.Desired_MFPR));
 	}
 #endif /* CONFIG_AP_SUPPORT */
-#ifdef CONFIG_STA_SUPPORT
-	IF_DEV_CONFIG_OPMODE_ON_STA(pAd) {
-		POS_COOKIE pObj;
-		UINT32 staidx = 0;
-
-		pObj = (POS_COOKIE) pAd->OS_Cookie;
-
-		if (pObj->ioctl_if < 0 || pObj->ioctl_if >= pAd->MSTANum) {
-			MTWF_DBG(pAd, DBG_CAT_SEC, CATSEC_PMF, DBG_LVL_ERROR,
-				 "pObj->ioctl_if is invalid value\n");
-			return FALSE;
-		}
-
-		staidx = pObj->ioctl_if;
-		if (os_str_tol(arg, 0, 10))
-			pAd->StaCfg[staidx].wdev.SecConfig.PmfCfg.Desired_MFPR = TRUE;
-		else
-			pAd->StaCfg[staidx].wdev.SecConfig.PmfCfg.Desired_MFPR = FALSE;
-
-		MTWF_DBG(pAd, DBG_CAT_SEC, CATSEC_PMF, DBG_LVL_INFO, "[PMF]: staidx=%d, Desired MFPR=%d\n"
-				 , staidx, pAd->StaCfg[staidx].wdev.SecConfig.PmfCfg.Desired_MFPR);
-	}
-#endif /* CONFIG_STA_SUPPORT */
 	return TRUE;
 }
 
@@ -1829,49 +1527,18 @@ INT Set_PMFSHA256_Proc(
 #ifdef CONFIG_AP_SUPPORT
 	IF_DEV_CONFIG_OPMODE_ON_AP(pAd) {
 		POS_COOKIE pObj;
-		UINT32 apidx = 0;
 
 		pObj = (POS_COOKIE) pAd->OS_Cookie;
 
-		if (pObj->ioctl_if < 0 || pObj->ioctl_if >= pAd->ApCfg.BssidNum) {
-			MTWF_DBG(pAd, DBG_CAT_SEC, CATSEC_PMF, DBG_LVL_ERROR,
-				"pObj->ioctl_if is invalid value\n");
-			return FALSE;
-		}
-
-		apidx = pObj->ioctl_if;
 		if (os_str_tol(arg, 0, 10))
-			pAd->ApCfg.MBSSID[apidx].wdev.SecConfig.PmfCfg.Desired_PMFSHA256 = TRUE;
+			pAd->ApCfg.MBSSID[pObj->ioctl_if].wdev.SecConfig.PmfCfg.Desired_PMFSHA256 = TRUE;
 		else
-			pAd->ApCfg.MBSSID[apidx].wdev.SecConfig.PmfCfg.Desired_PMFSHA256 = FALSE;
+			pAd->ApCfg.MBSSID[pObj->ioctl_if].wdev.SecConfig.PmfCfg.Desired_PMFSHA256 = FALSE;
 
-		MTWF_DBG(pAd, DBG_CAT_SEC, CATSEC_PMF, DBG_LVL_INFO, "[PMF]: apidx=%d, Desired PMFSHA256=%d\n"
-				 , apidx, pAd->ApCfg.MBSSID[apidx].wdev.SecConfig.PmfCfg.Desired_PMFSHA256);
+		MTWF_LOG(DBG_CAT_SEC, CATSEC_PMF, DBG_LVL_TRACE, ("[PMF]%s:: apidx=%d, Desired PMFSHA256=%d\n", __func__
+				 , pObj->ioctl_if, pAd->ApCfg.MBSSID[pObj->ioctl_if].wdev.SecConfig.PmfCfg.Desired_PMFSHA256));
 	}
 #endif /* CONFIG_AP_SUPPORT */
-#ifdef CONFIG_STA_SUPPORT
-	IF_DEV_CONFIG_OPMODE_ON_STA(pAd) {
-		POS_COOKIE pObj;
-		UINT32 staidx = 0;
-
-		pObj = (POS_COOKIE) pAd->OS_Cookie;
-
-		if (pObj->ioctl_if < 0 || pObj->ioctl_if >= pAd->MSTANum) {
-			MTWF_DBG(pAd, DBG_CAT_SEC, CATSEC_PMF, DBG_LVL_ERROR,
-				"pObj->ioctl_if is invalid value\n");
-			return FALSE;
-		}
-
-		staidx = pObj->ioctl_if;
-		if (os_str_tol(arg, 0, 10))
-			pAd->StaCfg[staidx].wdev.SecConfig.PmfCfg.Desired_PMFSHA256 = TRUE;
-		else
-			pAd->StaCfg[staidx].wdev.SecConfig.PmfCfg.Desired_PMFSHA256 = FALSE;
-
-		MTWF_DBG(pAd, DBG_CAT_SEC, CATSEC_PMF, DBG_LVL_INFO, "[PMF]: staidx=%d, Desired PMFSHA256=%d\n"
-				 , staidx, pAd->StaCfg[staidx].wdev.SecConfig.PmfCfg.Desired_PMFSHA256);
-	}
-#endif /* CONFIG_STA_SUPPORT */
 	return TRUE;
 }
 
@@ -1880,55 +1547,26 @@ INT Set_PMFSA_Q_Proc(
 	IN RTMP_STRING *arg)
 {
 #ifdef CONFIG_AP_SUPPORT
-	struct tx_rx_ctl *tr_ctl = &pAd->tr_ctl;
 	STA_TR_ENTRY *tr_entry = NULL;
-	BOOLEAN search_by_mac = FALSE;
-	UINT8 mac_addr[MAC_ADDR_LEN];
-	UINT16 idx = 0, wcid = 0;
-	PMAC_TABLE_ENTRY pEntry = NULL;
-	RTMP_STRING *value = NULL;
+	MAC_TABLE_ENTRY *pMacEntry = NULL;
+	CHAR Wcid = os_str_tol(arg, 0, 10);
 
-	if (strlen(arg) <= 17 && strlen(arg) >= 11) {
-		UCHAR i = 0;
-
-		for (i = 0, value = rstrtok(arg, ":"); value; value = rstrtok(NULL, ":"), i++) {
-			if ((strlen(value) == 1 && !isxdigit(*value)) ||
-				(strlen(value) == 2 && (!isxdigit(*value) || !isxdigit(*(value + 1)))) ||
-				(strlen(value) != 1 && strlen(value) != 2))
-				return FALSE;  /*Invalid */
-
-			AtoH(value, (UCHAR *)&mac_addr[i], 1);
-		}
-		search_by_mac = TRUE;
-	} else
-		wcid = (UINT16)os_str_tol(arg, 0, 10);
-
-	if (search_by_mac)
-		pEntry = MacTableLookup(pAd, mac_addr);
-	else {
-		for (idx = 0; idx < HcGetMaxStaNum(pAd); idx++) {
-			pEntry = &pAd->MacTab.Content[idx];
-
-			if (pEntry && !IS_ENTRY_NONE(pEntry) && pEntry->wcid == wcid)
-				break;
-		}
-	}
-
-	if (!pEntry)
+	if (!VALID_UCAST_ENTRY_WCID(pAd, Wcid))
 		return FALSE;
 
-	tr_entry = &tr_ctl->tr_entry[pEntry->wcid];
-	if ((pEntry->SecConfig.PmfCfg.UsePMFConnect == TRUE) &&
+	pMacEntry = &pAd->MacTab.Content[Wcid];
+	tr_entry = &pAd->MacTab.tr_entry[Wcid];
+	if ((pMacEntry->SecConfig.PmfCfg.UsePMFConnect == TRUE) &&
 		(tr_entry->PortSecured != WPA_802_1X_PORT_SECURED)) {
-		MTWF_DBG(pAd, DBG_CAT_SEC, CATSEC_PMF, DBG_LVL_ERROR,
-				 "PMF Connection IGNORE THIS PKT DUE TO NOT IN PORTSECURED(wcid = %d)\n", pEntry->wcid);
+		MTWF_LOG(DBG_CAT_SEC, CATSEC_PMF, DBG_LVL_ERROR,
+				 ("%s: PMF Connection IGNORE THIS PKT DUE TO NOT IN PORTSECURED\n", __func__));
 		return FALSE;
 	}
 
-	if (pEntry->SecConfig.PmfCfg.UsePMFConnect == TRUE) {
-		MTWF_DBG(pAd, DBG_CAT_SEC, CATSEC_PMF, DBG_LVL_ERROR,
-				 "PMF CONNECTION BUT RECV WEP=0 ACTION, ACTIVE THE SA QUERY(wcid = %d)\n", pEntry->wcid);
-		PMF_MlmeSAQueryReq(pAd, pEntry);
+	if (pMacEntry->SecConfig.PmfCfg.UsePMFConnect == TRUE) {
+		MTWF_LOG(DBG_CAT_SEC, CATSEC_PMF, DBG_LVL_ERROR,
+				 ("%s: PMF CONNECTION BUT RECV WEP=0 ACTION, ACTIVE THE SA QUERY\n", __func__));
+		PMF_MlmeSAQueryReq(pAd, pMacEntry);
 		return TRUE;
 	}
 #endif /* CONFIG_AP_SUPPORT */
@@ -1936,266 +1574,6 @@ INT Set_PMFSA_Q_Proc(
 
 }
 
-#ifdef APCLI_SUPPORT
-/* chane the cmd depend on security mode first, and update to run time flag*/
-INT Set_ApCliPMFMFPC_Proc(
-	IN PRTMP_ADAPTER pAd,
-	IN RTMP_STRING *arg)
-{
-	POS_COOKIE pObj;
-	PMF_CFG *pPmfCfg = NULL;
-	struct wifi_dev *wdev = NULL;
-	UINT32 staidx = 0;
 
-	if (strlen(arg) == 0)
-		return FALSE;
-
-	pObj = (POS_COOKIE) pAd->OS_Cookie;
-
-	if (pObj->ioctl_if < 0 || pObj->ioctl_if >= pAd->MSTANum) {
-		MTWF_DBG(pAd, DBG_CAT_SEC, CATSEC_PMF, DBG_LVL_ERROR,
-			"pObj->ioctl_if is invalid value\n");
-		return FALSE;
-	}
-
-	staidx = pObj->ioctl_if;
-	pPmfCfg = &pAd->StaCfg[staidx].wdev.SecConfig.PmfCfg;
-	wdev = &pAd->StaCfg[staidx].wdev;
-
-	if (!pPmfCfg || !wdev) {
-		MTWF_DBG(pAd, DBG_CAT_CFG, DBG_SUBCAT_ALL, DBG_LVL_ERROR, "[PMF] : pPmfCfg=%p, wdev=%p\n",
-				  pPmfCfg, wdev);
-		return FALSE;
-	}
-
-	if (os_str_tol(arg, 0, 10))
-		pPmfCfg->Desired_MFPC = TRUE;
-	else {
-		pPmfCfg->Desired_MFPC = FALSE;
-		pPmfCfg->MFPC = FALSE;
-		pPmfCfg->MFPR = FALSE;
-	}
-
-	MTWF_DBG(pAd, DBG_CAT_CFG, DBG_SUBCAT_ALL, DBG_LVL_INFO, "[PMF]: Desired MFPC=%d\n", pPmfCfg->Desired_MFPC);
-
-	if ((IS_AKM_WPA2_Entry(wdev) || IS_AKM_WPA2PSK_Entry(wdev)
-		|| IS_AKM_WPA3PSK_Entry(wdev) || IS_AKM_OWE_Entry(wdev)
-#ifdef DPP_SUPPORT
-		|| IS_AKM_DPP_Entry(wdev)
-#endif /* DPP_SUPPORT */
-		) && IS_CIPHER_AES_Entry(wdev)) {
-		pPmfCfg->PMFSHA256 = pPmfCfg->Desired_PMFSHA256;
-
-		if (pPmfCfg->Desired_MFPC) {
-			pPmfCfg->MFPC = TRUE;
-			pPmfCfg->MFPR = pPmfCfg->Desired_MFPR;
-
-			if (pPmfCfg->MFPR)
-				pPmfCfg->PMFSHA256 = TRUE;
-		}
-	} else if (pPmfCfg->Desired_MFPC)
-		MTWF_DBG(pAd, DBG_CAT_CFG, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-			"[PMF]: Security is not WPA2/WPA2PSK AES\n");
-
-	MTWF_DBG(pAd, DBG_CAT_CFG, DBG_SUBCAT_ALL, DBG_LVL_ERROR, "[PMF]: MFPC=%d, MFPR=%d, SHA256=%d\n",
-			 pPmfCfg->MFPC,
-			 pPmfCfg->MFPR,
-			 pPmfCfg->PMFSHA256);
-	return TRUE;
-}
-/* chane the cmd depend on security mode first, and update to run time flag*/
-INT Set_ApCliPMFMFPR_Proc(
-	IN PRTMP_ADAPTER pAd,
-	IN RTMP_STRING *arg)
-{
-	POS_COOKIE pObj;
-	PMF_CFG *pPmfCfg = NULL;
-	struct wifi_dev *wdev = NULL;
-	UINT32 staidx = 0;
-
-	if (strlen(arg) == 0)
-		return FALSE;
-
-	pObj = (POS_COOKIE) pAd->OS_Cookie;
-
-	if (pObj->ioctl_if < 0 || pObj->ioctl_if >= pAd->MSTANum) {
-		MTWF_DBG(pAd, DBG_CAT_SEC, CATSEC_PMF, DBG_LVL_ERROR,
-			"pObj->ioctl_if is invalid value\n");
-		return FALSE;
-	}
-
-	staidx = pObj->ioctl_if;
-	pPmfCfg = &pAd->StaCfg[staidx].wdev.SecConfig.PmfCfg;
-	wdev = &pAd->StaCfg[staidx].wdev;
-
-	if (!pPmfCfg || !wdev) {
-		MTWF_DBG(pAd, DBG_CAT_CFG, DBG_SUBCAT_ALL, DBG_LVL_ERROR, "[PMF]: pPmfCfg=%p, wdev=%p\n",
-				  pPmfCfg, wdev);
-		return FALSE;
-	}
-
-	if (os_str_tol(arg, 0, 10))
-		pPmfCfg->Desired_MFPR = TRUE;
-	else {
-		pPmfCfg->Desired_MFPR = FALSE;
-		/* only close the MFPR */
-		pPmfCfg->MFPR = FALSE;
-	}
-
-	MTWF_DBG(pAd, DBG_CAT_CFG, DBG_SUBCAT_ALL, DBG_LVL_INFO, "[PMF]: Desired MFPR=%d\n", pPmfCfg->Desired_MFPR);
-
-	if ((IS_AKM_WPA2_Entry(wdev) || IS_AKM_WPA2PSK_Entry(wdev)
-		|| IS_AKM_WPA3PSK_Entry(wdev)
-		|| IS_AKM_OWE_Entry(wdev)
-		) && IS_CIPHER_AES_Entry(wdev)) {
-		pPmfCfg->PMFSHA256 = pPmfCfg->Desired_PMFSHA256;
-
-		if (pPmfCfg->Desired_MFPC) {
-			pPmfCfg->MFPC = TRUE;
-			pPmfCfg->MFPR = pPmfCfg->Desired_MFPR;
-
-			if (pPmfCfg->MFPR)
-				pPmfCfg->PMFSHA256 = TRUE;
-		}
-	} else if (pPmfCfg->Desired_MFPC)
-		MTWF_DBG(pAd, DBG_CAT_CFG, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-			"[PMF]: Security is not WPA2/WPA2PSK AES\n");
-
-	MTWF_DBG(pAd, DBG_CAT_CFG, DBG_SUBCAT_ALL, DBG_LVL_ERROR, "[PMF]: MFPC=%d, MFPR=%d, SHA256=%d\n",
-			 pPmfCfg->MFPC,
-			 pPmfCfg->MFPR,
-			 pPmfCfg->PMFSHA256);
-	return TRUE;
-}
-INT Set_ApCliPMFSHA256_Proc(
-	IN PRTMP_ADAPTER pAd,
-	IN RTMP_STRING *arg)
-{
-	POS_COOKIE pObj;
-	PMF_CFG *pPmfCfg = NULL;
-	UINT32 staidx = 0;
-
-	if (strlen(arg) == 0)
-		return FALSE;
-
-	pObj = (POS_COOKIE) pAd->OS_Cookie;
-
-	if (pObj->ioctl_if < 0 || pObj->ioctl_if >= pAd->MSTANum) {
-		MTWF_DBG(pAd, DBG_CAT_SEC, CATSEC_PMF, DBG_LVL_ERROR,
-			"pObj->ioctl_if is invalid value\n");
-		return FALSE;
-	}
-
-	staidx = pObj->ioctl_if;
-	pPmfCfg = &pAd->StaCfg[staidx].wdev.SecConfig.PmfCfg;
-
-	if (!pPmfCfg) {
-		MTWF_DBG(pAd, DBG_CAT_CFG, DBG_SUBCAT_ALL, DBG_LVL_ERROR, "[PMF]: pPmfCfg=%p\n",
-				  pPmfCfg);
-		return FALSE;
-	}
-
-	if (os_str_tol(arg, 0, 10))
-		pPmfCfg->Desired_PMFSHA256 = TRUE;
-	else
-		pPmfCfg->Desired_PMFSHA256 = FALSE;
-
-	MTWF_DBG(pAd, DBG_CAT_CFG, DBG_SUBCAT_ALL, DBG_LVL_INFO, "[PMF]: Desired PMFSHA256=%d\n",
-			  pPmfCfg->Desired_PMFSHA256);
-	return TRUE;
-}
-#endif /* APCLI_SUPPORT */
-
-#ifdef BCN_PROTECTION_SUPPORT
-VOID read_bcn_prot_parma_from_file(
-	IN PRTMP_ADAPTER pAd,
-	IN RTMP_STRING * tmpbuf,
-	IN RTMP_STRING * pBuffer)
-{
-#ifdef CONFIG_AP_SUPPORT
-	INT i = 0;
-	struct _SECURITY_CONFIG *sec_cfg = NULL;
-	RTMP_STRING *macptr;
-#endif
-
-	if (RTMPGetKeyParameter("BcnProt", tmpbuf, MAX_PARAMETER_LEN, pBuffer, TRUE)) {
-#ifdef CONFIG_AP_SUPPORT
-		IF_DEV_CONFIG_OPMODE_ON_AP(pAd) {
-			for (i = 0, macptr = rstrtok(tmpbuf, ";"); (macptr && i < pAd->ApCfg.BssidNum); macptr = rstrtok(NULL, ";"), i++) {
-				UCHAR bcn_prot = 0;
-				sec_cfg = &pAd->ApCfg.MBSSID[PF_TO_BSS_IDX(pAd, i)].wdev.SecConfig;
-				MTWF_DBG(pAd, DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_INFO, "I/F(%s%d) ==> ",
-						 INF_MBSSID_DEV_NAME, i);
-				if (macptr)
-					bcn_prot = os_str_tol(macptr, 0, 10);
-				sec_cfg->bcn_prot_cfg.desired_bcn_prot_en = (bcn_prot) ? TRUE : FALSE;
-			}
-		}
-#endif /* CONFIG_AP_SUPPORT */
-	} else {
-#ifdef CONFIG_AP_SUPPORT
-			IF_DEV_CONFIG_OPMODE_ON_AP(pAd) {
-				i = 0;
-				while (i < MAX_MBSSID_NUM(pAd))
-					pAd->ApCfg.MBSSID[PF_TO_BSS_IDX(pAd, i++)].wdev.SecConfig.bcn_prot_cfg.desired_bcn_prot_en = FALSE;
-			}
-#endif /* CONFIG_AP_SUPPORT */
-		}
-}
-
-INT build_bcn_mmie(
-	IN struct bcn_protection_cfg *bcn_prot_cfg,
-	IN UCHAR *buf)
-{
-	UCHAR ie = IE_MME;
-	UCHAR ie_len = LEN_PMF_MMIE;
-
-	if (!bcn_prot_cfg->bcn_prot_en)
-		return 0;
-
-	os_zero_mem(buf, LEN_PMF_MMIE + 2);
-	os_move_mem(buf, &ie, 1);
-	os_move_mem(buf + 1, &ie_len, 1);
-	os_move_mem(buf + 2, &bcn_prot_cfg->bigtk_key_idx, 1);
-	os_move_mem(buf + 4, &bcn_prot_cfg->bipn[get_bigtk_table_idx(bcn_prot_cfg)][0], LEN_WPA_TSC);
-
-	hex_dump_with_cat_and_lvl("bcn_mmie", buf, LEN_PMF_MMIE + 2, DBG_CAT_SEC, CATSEC_BCNPROT, DBG_LVL_INFO);
-
-	return LEN_PMF_MMIE + 2;
-}
-
-
-VOID insert_bigtk_kde(
-	IN PRTMP_ADAPTER pAd,
-	IN INT apidx,
-	IN PUCHAR pFrameBuf,
-	OUT PULONG pFrameLen)
-{
-	insert_igtk_kde(pAd, apidx, KDE_BIGTK, pFrameBuf, pFrameLen);
-	hex_dump_with_cat_and_lvl("bigtk kde", pFrameBuf,
-		LEN_KDE_HDR + 8 + LEN_BIP128_IGTK, DBG_CAT_SEC, CATSEC_BCNPROT, DBG_LVL_INFO); /* todo: change to trace*/
-}
-
-UCHAR get_bigtk_table_idx(struct bcn_protection_cfg *bcn_prot_cfg)
-{
-	return (bcn_prot_cfg->bigtk_key_idx == 6) ? 0 : 1;
-}
-
-/* please update bipn in wdev->SecConfig.bcn_prot_cfg.bipn first */
-VOID bcn_prot_update_bipn(
-	IN struct _RTMP_ADAPTER *ad,
-	IN struct wifi_dev *wdev)
-{
-	struct _BSS_INFO_ARGUMENT_T bss;
-	UCHAR idx = get_bigtk_table_idx(&wdev->SecConfig.bcn_prot_cfg);
-
-	memcpy(&bss, &wdev->bss_info_argument, sizeof(bss));
-	bss.u4BssInfoFeature = BSS_INFO_BCN_PROT_FEATURE;
-	if (wpa3_test_ctrl == 7)
-		os_zero_mem(&bss.bcn_prot_cfg.bipn[idx][0], LEN_WPA_TSC);
-
-	AsicBssInfoUpdate(ad, &bss);
-}
-#endif
 #endif /* DOT11W_PMF_SUPPORT */
 

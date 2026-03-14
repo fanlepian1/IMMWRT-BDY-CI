@@ -1,16 +1,16 @@
-/*
- * Copyright (c) [2020], MediaTek Inc. All rights reserved.
- *
- * This software/firmware and related documentation ("MediaTek Software") are
- * protected under relevant copyright laws.
- * The information contained herein is confidential and proprietary to
- * MediaTek Inc. and/or its licensors.
- * Except as otherwise provided in the applicable licensing terms with
- * MediaTek Inc. and/or its licensors, any reproduction, modification, use or
- * disclosure of MediaTek Software, and information contained herein, in whole
- * or in part, shall be strictly prohibited.
-*/
 /****************************************************************************
+ * Ralink Tech Inc.
+ * 4F, No. 2 Technology 5th Rd.
+ * Science-based Industrial Park
+ * Hsin-chu, Taiwan, R.O.C.
+ * (c) Copyright 2002, Ralink Technology, Inc.
+ *
+ * All rights reserved. Ralink's source code is an unpublished work and the
+ * use of a copyright notice does not imply otherwise. This source code
+ * contains confidential trade secret material of Ralink Tech. Any attemp
+ * or participation in deciphering, decoding, reverse engineering or in any
+ * way altering the source code is stricitly prohibited, unless the prior
+ * written consent of Ralink Technology, Inc. is obtained.
  ****************************************************************************
 
     Abstract:
@@ -25,7 +25,12 @@
 #define BGND_RDD_DETEC				2
 #define BGND_CS_ANN					3
 #define BGND_SCAN_WAIT				4
+#ifdef ONDEMAND_DFS
+#define BGND_ONDMND_CNLSWITCH_ON	5
+#define BGND_SCAN_MAX_STATE			6
+#else
 #define BGND_SCAN_MAX_STATE			5
+#endif
 
 #define BGND_SCAN_REQ				0
 #define BGND_SCAN_TIMEOUT			1
@@ -34,14 +39,13 @@
 #define BGND_RDD_REQ				4
 #define BGND_RDD_CNCL				5
 #define BGND_RDD_TIMEOUT			6
-#define BGND_OUTBAND_RADAR_FOUND   	7
-#define BGND_OUTBAND_SWITCH        	8
+#define BGND_OUTBAND_RADAR_FOUND               	7
+#define BGND_OUTBAND_SWITCH               	8
 #define BGND_CH_SW_ANN				9
 #define BGND_PARTIAL_SCAN			10
 #define BGND_SCAN_DONE				11
-#define BGND_DEDICATE_RDD_REQ		12
-#define BGND_DEDICATE_RX_SCAN		13
-#define BGND_SCAN_MAX_MSG			14
+#define BGND_DEDICATE_RDD_REQ			12
+#define BGND_SCAN_MAX_MSG			13
 
 #define BGND_SCAN_FUNC_SIZE    (BGND_SCAN_MAX_STATE * BGND_SCAN_MAX_MSG)
 
@@ -55,18 +59,22 @@
 #define B0IrpiSwCtrlResetOffset		18
 #define B0IpiEnableCtrlOffset		12
 #define B0IpiEnableCtrlValue		0x5
+/*redefine for band1 for code readability*/
+#define B1IrpiSwCtrlOnlyOffset		29
+#define B1IrpiSwCtrlResetOffset		18
+#define B1IpiEnableCtrlOffset       12
+#define B1IpiEnableCtrlValue        0x5
+
+
 #define DefaultIdleTimeThreshold		80000 /*  *8us */
 
-/* Bit[7:4]: Band index, Bit[3:0]: background scan type */
-#define BGND_BAND_IDX_MASK 0xf0
-#define BGND_SCAN_TYPE_MASK 0x0f
-#define BGND_BAND_IDX_SHFT 4
-
-typedef enum _ENUM_BGND_TYPE {
-	ENUM_BGND_BGND_TYPE = 0,
-	ENUM_BGND_DFS_TYPE,
-	ENUM_BGND_TYPE_NUM,
-} ENUM_BGND_TYPE, *P_ENUM_BGND_TYPE;
+#ifdef ONDEMAND_DFS
+enum Dynamic_OnDemand_Chnl_Update_Status_Code {
+	DFS_CHNL_UPDATE_FAIL = 0,
+	DFS_CHNL_UPDATE_PASS,
+	DFS_CHNL_UPDATE_WAIT
+};
+#endif
 
 enum {
 	TYPE_BGND_DISABLE_SCAN,
@@ -82,17 +90,12 @@ typedef struct _BGND_SCAN_SUPP_CH_LIST {
 	UCHAR DfsReq;
 	UCHAR RegulatoryDomain;
 	BOOLEAN SkipChannel;
-#if (RDD_2_SUPPORTED == 1)
-	UINT32 ipi_hist_cnt; /* Get IPI histogram type 2 to 10 */
-	UINT32 ipi_hist_free_cnt; /* counter++ per 8us */
-	UINT32 ipi_noisy; /* TBD: judge noisy */
-#else
 	UINT32 PccaTime;
 	UINT32 SccaTime;
 	UINT32 EDCCATime;
 	UINT32 Band0TxTime;
 	UINT32 Mdrdy;
-#endif
+
 	/*
 		Channel property:
 
@@ -124,14 +127,9 @@ typedef struct _BGND_SCAN_CH_GROUP_LIST {
 	UCHAR CenChannel;
 	UCHAR DfsReq;
 	UCHAR RegulatoryDomain;
-#if (RDD_2_SUPPORTED == 1)
-	UINT32 max_ipi_noisy; /* Max in group */
-	UINT32 min_ipi_noisy; /* Min in group */
-#else
 	UINT32 Max_PCCA_Time; /* Max in group */
 	UINT32 Min_PCCA_Time; /* Min in group */
 	UINT32 Band0_Tx_Time;
-#endif
 	BOOLEAN SkipGroup;
 } BGND_SCAN_CH_GROUP_LIST, *PBGND_SCAN_CH_GROUP_LIST;
 
@@ -160,6 +158,7 @@ typedef struct _BACKGROUND_SCAN_CTRL {
 	*/
 	UCHAR					ScanBW;
 	UCHAR					ChannelListNum;
+	BOOL					IsABand;
 	BOOL					BgndScanSupport;
 	BGND_SCAN_SUPP_CH_LIST	BgndScanChList[MAX_NUM_OF_CHANNELS];	/* list all supported channels for background scan */
 	/* BGND_SCAN_CHINFO		BgndScanChInfo; */
@@ -170,7 +169,6 @@ typedef struct _BACKGROUND_SCAN_CTRL {
 
 	RALINK_TIMER_STRUCT		BgndScanTimer;
 	RALINK_TIMER_STRUCT		DfsZeroWaitTimer;
-	RALINK_TIMER_STRUCT		hist_scan_timer;
 	UCHAR					RxPath;		/* RxPath for background scan */
 	UCHAR					TxStream;	/* TxStream number for background scan */
 	UCHAR					FirstChannel; /* Record first channle of channle list */
@@ -179,11 +177,11 @@ typedef struct _BACKGROUND_SCAN_CTRL {
 	BGND_SCAN_CH_GROUP_LIST	GroupChList[MAX_NUM_OF_CHANNELS];
 	UCHAR					GroupChListNum;
 	UCHAR					BestChannel;
-	MT_SWITCH_CHANNEL_CFG	CurrentSwChCfg[BAND_NUM];
+	MT_SWITCH_CHANNEL_CFG	CurrentSwChCfg[1];
 	UINT32				PartialScanInterval;
 	UINT32				PartialScanIntervalCount;
 	UINT32				BgndScanIntervalCount;
-	UINT32				Noisy;
+	UCHAR				Noisy;
 	UCHAR				NoisyTH;
 	UINT32				ChBusyTimeTH;
 	UCHAR				DfsZeroWaitChannel;
@@ -193,19 +191,13 @@ typedef struct _BACKGROUND_SCAN_CTRL {
 	BOOL				RadarDetected;
 	UCHAR				BFSTARecord[MAX_LEN_OF_MAC_TABLE];
 	BOOL				DriverTrigger;
-	UINT8				ScanType; /* Bit[7:4]: Band index, Bit[3:0]: background scan type */
+	UINT8				ScanType; /* 0:Disable 1:partial scan 2:continuous scan */
 	UINT8				SkipChannelNum;
 	UCHAR				SkipChannelList[MAX_NUM_OF_CHANNELS];
 	BOOL				IsSwitchChannel;
 	UINT32				IPIIdleTime;
 	UINT32				IPIIdleTimeTH;
-	BOOL				init_done;
-	UCHAR				ipi_th;
-	UINT32				dfs_ipi_period;
-#ifdef IPI_SCAN_SUPPORT
-	INT8				antena_idx;
-#endif
-	UCHAR				band_idx;
+
 } BACKGROUND_SCAN_CTRL, *PBACKGROUND_SCAN_CTRL;
 
 #endif /* __BGND_SCAN_CMM_H__ */

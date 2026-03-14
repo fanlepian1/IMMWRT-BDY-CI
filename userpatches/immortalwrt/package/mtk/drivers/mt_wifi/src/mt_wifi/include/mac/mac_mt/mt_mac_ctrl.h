@@ -1,17 +1,13 @@
 /*
- * Copyright (c) [2020], MediaTek Inc. All rights reserved.
- *
- * This software/firmware and related documentation ("MediaTek Software") are
- * protected under relevant copyright laws.
- * The information contained herein is confidential and proprietary to
- * MediaTek Inc. and/or its licensors.
- * Except as otherwise provided in the applicable licensing terms with
- * MediaTek Inc. and/or its licensors, any reproduction, modification, use or
- * disclosure of MediaTek Software, and information contained herein, in whole
- * or in part, shall be strictly prohibited.
-*/
-/*
  ***************************************************************************
+ * MediaTek Inc.
+ *
+ * All rights reserved. source code is an unpublished work and the
+ * use of a copyright notice does not imply otherwise. This source code
+ * contains confidential trade secret material of MediaTek. Any attemp
+ * or participation in deciphering, decoding, reverse engineering or in any
+ * way altering the source code is stricitly prohibited, unless the prior
+ * written consent of MediaTek, Inc. is obtained.
  ***************************************************************************
 
 	Module Name:
@@ -117,6 +113,11 @@ INT32 ParseTxSPacket_v1(struct _RTMP_ADAPTER *pAd, UINT32 Pid, UINT8 Format, CHA
 INT32 ParseTxSPacket_v2(struct _RTMP_ADAPTER *pAd, UINT32 Pid, UINT8 Format, CHAR *Data);
 INT32 BcnTxSHandler(struct _RTMP_ADAPTER *pAd, CHAR *Data, UINT32 Priv);
 
+#ifdef STA_LP_PHASE_1_SUPPORT
+INT32 NullFramePM1TxSHandler(struct _RTMP_ADAPTER *pAd, CHAR *Data, UINT32 Priv);
+INT32 NullFramePM0TxSHandler(struct _RTMP_ADAPTER *pAd, CHAR *Data, UINT32 Priv);
+#endif /* STA_LP_PHASE_1_SUPPORT */
+
 INT32 AddTxSTypePerPktType(struct _RTMP_ADAPTER *pAd, UINT8 Type, UINT8 Subtype,
 						   UINT8 Format, TXS_HANDLER TxSHandler);
 INT32 RemoveTxSTypePerPktType(struct _RTMP_ADAPTER *pAd, UINT8 Type, UINT8 Subtype,
@@ -140,8 +141,6 @@ typedef struct _TMR_CTRL_STRUCT {
 	UCHAR TmrEnable;/* disable, initiator, responder */
 	UCHAR TmrState; /* used to control CR enable/disable@initiator role. */
 	UINT32 TmrCalResult;
-	UCHAR TmrThroughold;
-	UCHAR TmrIter;
 } TMR_CTRL_STRUCT, *PTMR_CTRL_STRUCT;
 
 

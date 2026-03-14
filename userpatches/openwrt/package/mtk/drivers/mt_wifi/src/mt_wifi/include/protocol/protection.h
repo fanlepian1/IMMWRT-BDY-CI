@@ -1,16 +1,17 @@
-/*
- * Copyright (c) [2020], MediaTek Inc. All rights reserved.
- *
- * This software/firmware and related documentation ("MediaTek Software") are
- * protected under relevant copyright laws.
- * The information contained herein is confidential and proprietary to
- * MediaTek Inc. and/or its licensors.
- * Except as otherwise provided in the applicable licensing terms with
- * MediaTek Inc. and/or its licensors, any reproduction, modification, use or
- * disclosure of MediaTek Software, and information contained herein, in whole
- * or in part, shall be strictly prohibited.
-*/
  /***************************************************************************
+ * MediaTek Inc.
+ * 4F, No. 2 Technology 5th Rd.
+ * Science-based Industrial Park
+ * Hsin-chu, Taiwan, R.O.C.
+ *
+ * (c) Copyright 1997-2016, MediaTek, Inc.
+ *
+ * All rights reserved. MediaTek source code is an unpublished work and the
+ * use of a copyright notice does not imply otherwise. This source code
+ * contains confidential trade secret material of MediaTek. Any attemp
+ * or participation in deciphering, decoding, reverse engineering or in any
+ * way altering the source code is stricitly prohibited, unless the prior
+ * written consent of MediaTek Technology, Inc. is obtained.
  ***************************************************************************
 
 
@@ -47,10 +48,10 @@ enum peer_state {
 
 enum protection {
 	/* 11n */
-	NO_PROTECTION, /*0*/
-	NON_MEMBER_PROTECT, /*1*/
-	HT20_PROTECT, /*2*/
-	NON_HT_MIXMODE_PROTECT, /*3*/
+	NO_PROTECTION,
+	NON_MEMBER_PROTECT,
+	HT20_PROTECT,
+	NON_HT_MIXMODE_PROTECT,
 	_NOT_DEFINE_HT_PROTECT,
 	/* b/g */
 	ERP,
@@ -64,20 +65,6 @@ enum protection {
 	_NOT_DEFINE_VENDOR_PROTECT,
 	_END_PROTECT
 };
-
-enum prot_service_type {
-	PROT_PROTOCOL,
-	PROT_RTS_THLD,
-#ifdef DOT11_HE_AX
-	PROT_TXOP_DUR_BASE,
-#endif
-	PROT_MAX_TYPE
-};
-
-#ifdef DOT11_HE_AX
-#define MAX_TXOP_DURATION_RTS_THRESHOLD	1023
-#define DISABLE_TXOP_DURATION_RTS_THRESHOLD	MAX_TXOP_DURATION_RTS_THRESHOLD
-#endif
 
 #define SET_PROTECT(x)  (1 << (x))
 

@@ -1,17 +1,18 @@
 /*
- * Copyright (c) [2020], MediaTek Inc. All rights reserved.
- *
- * This software/firmware and related documentation ("MediaTek Software") are
- * protected under relevant copyright laws.
- * The information contained herein is confidential and proprietary to
- * MediaTek Inc. and/or its licensors.
- * Except as otherwise provided in the applicable licensing terms with
- * MediaTek Inc. and/or its licensors, any reproduction, modification, use or
- * disclosure of MediaTek Software, and information contained herein, in whole
- * or in part, shall be strictly prohibited.
-*/
-/*
  ***************************************************************************
+ * Ralink Tech Inc.
+ * 4F, No. 2 Technology 5th Rd.
+ * Science-based Industrial Park
+ * Hsin-chu, Taiwan, R.O.C.
+ *
+ * (c) Copyright 2002-2004, Ralink Technology, Inc.
+ *
+ * All rights reserved. Ralink's source code is an unpublished work and the
+ * use of a copyright notice does not imply otherwise. This source code
+ * contains confidential trade secret material of Ralink Tech. Any attemp
+ * or participation in deciphering, decoding, reverse engineering or in any
+ * way altering the source code is stricitly prohibited, unless the prior
+ * written consent of Ralink Technology, Inc. is obtained.
  ***************************************************************************
 
 	Module Name:
@@ -30,14 +31,31 @@
 #include "rt_os_util.h"
 #include "rt_os_net.h"
 #include <linux/pci.h>
-
+#ifdef INTELP6_SUPPORT
+#include "rt_config.h"
+#endif
 /* Index 0 for Card_1, Index 1 for Card_2 */
 VOID *adapt_list[MAX_NUM_OF_INF] = {NULL};
 
 int multi_inf_adapt_reg(VOID *pAd)
 {
 	int status = 0;
+#ifdef INTELP6_SUPPORT
+	UINT32 Value;
+	PRTMP_ADAPTER pAdapter = (PRTMP_ADAPTER)pAd;
+	RTMP_IO_READ32(pAdapter, STRAP_STA, &Value);
 
+	if (GET_11N_ONLY(Value) && (adapt_list[0] == NULL))
+		adapt_list[0] = pAd;
+	else if (!GET_11N_ONLY(Value) && (adapt_list[1] == NULL))
+		adapt_list[1] = pAd;
+	else if (GET_11N_ONLY(Value) && (adapt_list[0] != NULL)) {
+		MTWF_LOG(DBG_CAT_INIT, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
+			("%s(): Both chips are 11N only  !\n", __func__));
+		status = NDIS_STATUS_FAILURE;
+		return status;
+	} else
+#endif
 	if (adapt_list[0] == NULL)
 		adapt_list[0] = pAd;
 	else if (adapt_list[1] == NULL)
@@ -45,13 +63,14 @@ int multi_inf_adapt_reg(VOID *pAd)
 	else if (adapt_list[2] == NULL)
 		adapt_list[2] = pAd;
 	else {
-		MTWF_DBG(pAd, DBG_CAT_INIT, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-				 "adapt_list assign error !\n");
+		MTWF_LOG(DBG_CAT_INIT, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
+				 ("%s(): adapt_list assign error !\n", __func__));
 		status = NDIS_STATUS_FAILURE;
 	}
 
 	return status;
 }
+
 
 int multi_inf_adapt_unreg(VOID *pAd)
 {
@@ -64,13 +83,14 @@ int multi_inf_adapt_unreg(VOID *pAd)
 	else if (adapt_list[2] == pAd)
 		adapt_list[2] = NULL;
 	else {
-		MTWF_DBG(pAd, DBG_CAT_INIT, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-				 "adapt_list assign error !\n");
+		MTWF_LOG(DBG_CAT_INIT, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
+				 ("%s(): adapt_list assign error !\n", __func__));
 		status = NDIS_STATUS_FAILURE;
 	}
 
 	return status;
 }
+
 
 int multi_inf_get_count(void)
 {
@@ -83,29 +103,11 @@ int multi_inf_get_count(void)
 	}
 
 	if (count == 0)
-		MTWF_DBG(NULL, DBG_CAT_INIT, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-			 "failed to find nonempty adapt_list!\n");
+		MTWF_LOG(DBG_CAT_INIT, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
+			 ("%s(): failed to find nonempty adapt_list!\n", __func__));
 	return count;
 }
 
-int multi_inf_active_cnt(void)
-{
-	int active_cnt = 0; /* use number 0 as default */
-	int idx;
-
-	for (idx = 0; idx < MAX_NUM_OF_INF; idx++) {
-		if (adapt_list[idx] != NULL) {
-			if (VIRTUAL_IF_NUM(adapt_list[idx]) == 0) {
-			} else {
-				active_cnt++;
-			}
-		}
-	}
-	if (active_cnt == 0)
-		MTWF_DBG(NULL, DBG_CAT_INIT, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-			 "failed to find nonempty adapt_list!\n");
-	return active_cnt;
-}
 
 int multi_inf_get_idx(VOID *pAd)
 {
@@ -116,8 +118,8 @@ int multi_inf_get_idx(VOID *pAd)
 			return idx;
 	}
 
-	MTWF_DBG(pAd, DBG_CAT_INIT, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-			 "failed to find the index in adapt_list!\n");
+	MTWF_LOG(DBG_CAT_INIT, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
+			 ("%s(): failed to find the index in adapt_list!\n", __func__));
 	return idx;
 }
 EXPORT_SYMBOL(multi_inf_get_idx);
@@ -127,13 +129,12 @@ static int __init wifi_drv_init_module(void)
 {
 	int status = 0;
 
-	os_module_init();
 #ifdef RTMP_RBUS_SUPPORT
 	status = wbsys_module_init();
 
 	if (status)
-		MTWF_DBG(NULL, DBG_CAT_INIT, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-				 "Register RBUS device driver failed(%d)!\n", status);
+		MTWF_LOG(DBG_CAT_INIT, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
+				 ("Register RBUS device driver failed(%d)!\n", status));
 
 #endif /* RTMP_RBUS_SUPPORT */
 
@@ -141,25 +142,29 @@ static int __init wifi_drv_init_module(void)
 	status = rt_pci_init_module();
 
 	if (status)
-		MTWF_DBG(NULL, DBG_CAT_INIT, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-				 "Register PCI device driver failed(%d)!\n", status);
+		MTWF_LOG(DBG_CAT_INIT, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
+				 ("Register PCI device driver failed(%d)!\n", status));
 
 #endif /* RTMP_PCI_SUPPORT */
+
+	/* Add out-of-memory notifier */
+
 	return status;
 }
 
 
 static void __exit wifi_drv_cleanup_module(void)
 {
+	/* Del out-of-memory notifier */
+
 #ifdef RTMP_PCI_SUPPORT
 	rt_pci_cleanup_module();
-	MTWF_DBG(NULL, DBG_CAT_INIT, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-			 "Unregister PCI device driver\n");
+	MTWF_LOG(DBG_CAT_INIT, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
+			 ("Unregister PCI device driver\n"));
 #endif /* RTMP_PCI_SUPPORT */
 #ifdef RTMP_RBUS_SUPPORT
 	wbsys_module_exit();
 #endif /* RTMP_RBUS_SUPPORT */
-	os_module_exit();
 }
 
 

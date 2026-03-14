@@ -1,17 +1,13 @@
 /*
- * Copyright (c) [2020], MediaTek Inc. All rights reserved.
- *
- * This software/firmware and related documentation ("MediaTek Software") are
- * protected under relevant copyright laws.
- * The information contained herein is confidential and proprietary to
- * MediaTek Inc. and/or its licensors.
- * Except as otherwise provided in the applicable licensing terms with
- * MediaTek Inc. and/or its licensors, any reproduction, modification, use or
- * disclosure of MediaTek Software, and information contained herein, in whole
- * or in part, shall be strictly prohibited.
-*/
-/*
  ***************************************************************************
+ * MediaTek Inc.
+ *
+ * All rights reserved. source code is an unpublished work and the
+ * use of a copyright notice does not imply otherwise. This source code
+ * contains confidential trade secret material of MediaTek. Any attemp
+ * or participation in deciphering, decoding, reverse engineering or in any
+ * way altering the source code is stricitly prohibited, unless the prior
+ * written consent of MediaTek, Inc. is obtained.
  ***************************************************************************
 
 	Module Name:
@@ -63,14 +59,8 @@
 #define RFIC_P18					28
 #define RFIC_7663					29
 #define RFIC_7611					30
-#define RFIC_AXE					31
-#define RFIC_7626					32
-#define RFIC_7616					33
-#define RFIC_7615A					34
-#define RFIC_7915					35
-#define RFIC_7986					36
-#define RFIC_7916					37
-#define RFIC_7981					38
+#define RFIC_7616					31
+#define RFIC_7615A					32
 #define RFIC_UNKNOWN				0xff
 
 /* TODO: shiang-MT7615 */
@@ -93,18 +83,12 @@
 	(__pAd->RfIcType == RFIC_7637) ||	\
 	(__pAd->RfIcType == RFIC_P18) ||	\
 	(__pAd->RfIcType == RFIC_7663) ||	\
-	(__pAd->RfIcType == RFIC_AXE) ||	\
-	(__pAd->RfIcType == RFIC_7626) ||	\
-	(__pAd->RfIcType == RFIC_7915) ||	\
-	(__pAd->RfIcType == RFIC_7986) ||	\
-	(__pAd->RfIcType == RFIC_7916) ||	\
-	(__pAd->RfIcType == RFIC_7981) ||	\
 	(__pAd->RfIcType == RFIC_UNKNOWN))
 
 
 #define BOARD_IS_2G_ONLY(__pAd)         0
 #define BOARD_IS_5G_ONLY(__pAd)         ((__pAd->RfIcType == RFIC_7611) || (__pAd->RfIcType == RFIC_7615A))
-#define BOARD_IS_NO_256QAM(__pAd)		(__pAd->RfIcType == RFIC_7616)
+#define BOARD_IS_NO_256QAM(__pAd)	(__pAd->RfIcType == RFIC_7616)
 
 typedef enum{
 	RX_CHAIN_0 = 1<<0,
@@ -164,11 +148,14 @@ typedef union _BBP_R49_STRUC {
 
 struct _RTMP_ADAPTER;
 
+
+
 struct rx_signal_info {
-	UCHAR raw_rssi[4];
+	CHAR raw_rssi[4];
 	UCHAR raw_snr[4];
 	CHAR freq_offset;
 };
+
 
 typedef struct _RSSI_SAMPLE {
 	CHAR LastRssi[4]; /* last received RSSI for ant 0~2 */
@@ -178,9 +165,6 @@ typedef struct _RSSI_SAMPLE {
 	CHAR AvgSnr[4];
 	SHORT AvgSnrX8[4];
 	/*CHAR LastNoiseLevel[3]; */
-	CHAR AckRssi[4];
-	CHAR Rssi_Updated;
-	CHAR AckSnr[4];
 } RSSI_SAMPLE;
 
 typedef enum ChannelSelAlg {
@@ -245,9 +229,6 @@ INT dynamic_vga_adjust(struct _RTMP_ADAPTER *pAd);
 #ifdef SMART_CARRIER_SENSE_SUPPORT
 INT Smart_Carrier_Sense(struct _RTMP_ADAPTER *pAd);
 #endif /* SMART_CARRIER_SENSE_SUPPORT */
-#ifdef DYNAMIC_WMM_SUPPORT
-INT Dynamic_Wmm_Process(struct _RTMP_ADAPTER *pAd);
-#endif /* DYNAMIC_WMM_SUPPORT */
 NDIS_STATUS NICInitBBP(struct _RTMP_ADAPTER *pAd);
 VOID InitRFRegisters(struct _RTMP_ADAPTER *pAd);
 INT32 ShowAllBBP(struct _RTMP_ADAPTER *pAd);
@@ -287,9 +268,6 @@ typedef struct phy_ops {
 #ifdef SMART_CARRIER_SENSE_SUPPORT
 	INT (*Smart_Carrier_Sense)(struct _RTMP_ADAPTER *pAd);
 #endif /* SMART_CARRIER_SENSE_SUPPORT */
-#ifdef DYNAMIC_WMM_SUPPORT
-	INT (*Dynamic_Wmm_Process)(struct _RTMP_ADAPTER *pAd);
-#endif /* DYNAMIC_WMM_SUPPORT */
 } PHY_OPS;
 
 

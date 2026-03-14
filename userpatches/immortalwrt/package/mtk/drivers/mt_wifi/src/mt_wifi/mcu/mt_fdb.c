@@ -1,18 +1,14 @@
-/*
- * Copyright (c) [2020], MediaTek Inc. All rights reserved.
- *
- * This software/firmware and related documentation ("MediaTek Software") are
- * protected under relevant copyright laws.
- * The information contained herein is confidential and proprietary to
- * MediaTek Inc. and/or its licensors.
- * Except as otherwise provided in the applicable licensing terms with
- * MediaTek Inc. and/or its licensors, any reproduction, modification, use or
- * disclosure of MediaTek Software, and information contained herein, in whole
- * or in part, shall be strictly prohibited.
-*/
 #ifdef MTK_LICENSE
 /*
  ***************************************************************************
+ * MediaTek Inc.
+ *
+ * All rights reserved. source code is an unpublished work and the
+ * use of a copyright notice does not imply otherwise. This source code
+ * contains confidential trade secret material of MediaTek. Any attemp
+ * or participation in deciphering, decoding, reverse engineering or in any
+ * way altering the source code is stricitly prohibited, unless the prior
+ * written consent of MediaTek, Inc. is obtained.
  ***************************************************************************
 
 	Module Name:
@@ -26,13 +22,59 @@
 /************************* access FW CR API ***********************/
 UINT32 HostAccessFwCr(RTMP_ADAPTER *pAd, UINT32 fw_cr_addr, UINT32 cr_op, UINT32 wrt_val)
 {
+        UINT32 ori_remap_cr_val = 0;
         UINT32 remapped_cr_val = 0;
 
-		if (cr_op == CR_OP_READ)
-			RTMP_IO_READ32(pAd->hdev_ctrl, fw_cr_addr, &remapped_cr_val);
-		else if (cr_op == CR_OP_WRITE)
-			RTMP_IO_WRITE32(pAd->hdev_ctrl, fw_cr_addr, wrt_val);
+        UINT32 rec_remap_cr_base_addr = 0;
+        UINT32 target_cr_offset = 0;
 
+		BOOLEAN fgFound;
+
+        if (IS_MT7615(pAd) || IS_MT7622(pAd))
+        {
+                /* keep the origonal remap cr1 value for restore */
+                HW_IO_READ32(pAd, MCU_PCIE_REMAP_1, &ori_remap_cr_val);
+                /* do PCI-E remap for physical base address to 0x40000 */
+                HW_IO_WRITE32(pAd, MCU_PCIE_REMAP_1, fw_cr_addr);
+                /* get real remap cr base addr */
+                HW_IO_READ32(pAd, MCU_PCIE_REMAP_1, &rec_remap_cr_base_addr);
+
+                if ((fw_cr_addr - rec_remap_cr_base_addr) > REMAP_1_OFFSET_MASK)
+                {
+                        MTWF_LOG(DBG_CAT_CFG, DBG_SUBCAT_ALL, DBG_LVL_OFF,
+                                ("%s:Exceed remap range(offset: 0x%x > mask: 0x%x)!!\n", __FUNCTION__, 
+                                        (fw_cr_addr - rec_remap_cr_base_addr), REMAP_1_OFFSET_MASK));
+                        /* restore the origonal remap cr1 value */
+                        HW_IO_WRITE32(pAd, MCU_PCIE_REMAP_1, ori_remap_cr_val);
+                }
+                target_cr_offset = ((fw_cr_addr - rec_remap_cr_base_addr) & REMAP_1_OFFSET_MASK);
+
+                if (cr_op == CR_OP_READ) {
+                        RTMP_IO_READ32(pAd, 0x40000 + target_cr_offset, &remapped_cr_val);
+                        
+                        //MTWF_LOG(DBG_CAT_HW, DBG_SUBCAT_ALL, DBG_LVL_OFF, ("%s:0x%x = 0x%x\n", 
+                          //      __FUNCTION__, (0x40000 + target_cr_offset), remapped_cr_val));
+                } else if (cr_op == CR_OP_WRITE) {
+                        RTMP_IO_WRITE32(pAd, 0x40000 + target_cr_offset, wrt_val);
+                }
+
+                /* restore the origonal remap cr1 value */
+                HW_IO_WRITE32(pAd, MCU_PCIE_REMAP_1, ori_remap_cr_val);
+		} else if (IS_MT7663(pAd)) {
+			fgFound = mt_mac_cr_range_mapping(pAd, &fw_cr_addr);
+			if (fgFound == FALSE) {/* not found*/
+				MTWF_LOG(DBG_CAT_HW, DBG_SUBCAT_ALL, DBG_LVL_OFF,
+						("%s:7663 cannot access CR [%08X]!\n", __func__, fw_cr_addr));
+			} else {
+				if (cr_op == CR_OP_READ)
+					RTMP_IO_READ32(pAd, fw_cr_addr, &remapped_cr_val);
+				else if (cr_op == CR_OP_WRITE)
+					RTMP_IO_WRITE32(pAd, fw_cr_addr, wrt_val);
+			}
+		} else {
+			MTWF_LOG(DBG_CAT_HW, DBG_SUBCAT_ALL, DBG_LVL_OFF,
+					("%s:Non 7615 don't support this cmd !\n", __func__));
+		}
         return remapped_cr_val;
 }
 
@@ -347,19 +389,16 @@ void fdb_enable(RTMP_ADAPTER *pAd)
 #define N9_PSE_SPARE_DUMMY_CR3 0x820682e8
 
 /* for 7663 SER status*/
-#define MT7663_N9_SER_TRIGGER_REASON 0x820600d0
+#define MT7663_N9_SER_TRIGGER_REASON 0x80000604
 
 /* backup 7663 PSE Error */
-#define MT7663_N9_PSE_STATUS_CR 0x820600d8
+#define MT7663_N9_PSE_STATUS_CR 0x820681e4
 
 /* backup 7663 PLE Error */
-#define MT7663_N9_PLE_STATUS_CR 0x820600d4
+#define MT7663_N9_PLE_STATUS_CR 0x820681e8
 
 /* backup 7663 LMAC WDT Error */
-#define MT7663_N9_LMAC_STATUS_CR 0x820681e4
-
-/* backup 7663 PP/DMASHDL Error */
-#define MT7663_N9_PP_DMASHDL_STATUS_CR 0x820682ec
+#define MT7663_N9_LMAC_STATUS_CR 0x820682ec
 
 
 /* Bora CL51004 */
@@ -561,9 +600,6 @@ void n9_dump(RTMP_ADAPTER *pAd){
 				HostAccessFwCr(pAd, MT7663_N9_PLE_STATUS_CR, CR_OP_READ, 0));
 		printk("MT7663_N9_LMAC_STATUS_CR = 0x%x\n",
 				HostAccessFwCr(pAd, MT7663_N9_LMAC_STATUS_CR, CR_OP_READ, 0));
-		printk("MT7663_N9_PP_DMASHDL_STATUS_CR = 0x%x\n",
-				HostAccessFwCr(pAd, MT7663_N9_PP_DMASHDL_STATUS_CR, CR_OP_READ, 0));
-
 	} else {
 		printk("SER_TRIGGER_REASON = 0x%x\n", HostAccessFwCr(pAd, N9_SER_TRIGGER_REASON, CR_OP_READ, 0));
 		printk("PSE_SPARE_DUMMY_CR1 = 0x%x\n", HostAccessFwCr(pAd, N9_PSE_SPARE_DUMMY_CR1, CR_OP_READ, 0));

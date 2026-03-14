@@ -1,17 +1,67 @@
-/*
- * Copyright (c) [2020], MediaTek Inc. All rights reserved.
+/***************************************************************************
+ * MediaTek Inc.
+ * 4F, No. 2 Technology 5th Rd.
+ * Science-based Industrial Park
+ * Hsin-chu, Taiwan, R.O.C.
  *
- * This software/firmware and related documentation ("MediaTek Software") are
- * protected under relevant copyright laws.
- * The information contained herein is confidential and proprietary to
- * MediaTek Inc. and/or its licensors.
- * Except as otherwise provided in the applicable licensing terms with
- * MediaTek Inc. and/or its licensors, any reproduction, modification, use or
- * disclosure of MediaTek Software, and information contained herein, in whole
- * or in part, shall be strictly prohibited.
+ * (c) Copyright 1997-2012, MediaTek, Inc.
+ *
+ * All rights reserved. MediaTek source code is an unpublished work and the
+ * use of a copyright notice does not imply otherwise. This source code
+ * contains confidential trade secret material of MediaTek. Any attemp
+ * or participation in deciphering, decoding, reverse engineering or in any
+ * way altering the source code is stricitly prohibited, unless the prior
+ * written consent of MediaTek Technology, Inc. is obtained.
+ ***************************************************************************
+
 */
 
 #include "rt_config.h"
+
+NDIS_STATUS RtmpMgmtTaskInit(RTMP_ADAPTER *pAd)
+{
+	RTMP_OS_TASK *pTask;
+	NDIS_STATUS status;
+	/* Creat Command Thread */
+	pTask = &pAd->cmdQTask;
+	RtmpCmdQInit(pAd);
+	RTMP_OS_TASK_INIT(pTask, "RtmpCmdQTask", pAd);
+	status = RtmpOSTaskAttach(pTask, RTPCICmdThread, (ULONG)pTask);
+
+	if (status == NDIS_STATUS_FAILURE) {
+		MTWF_LOG(DBG_CAT_HIF, CATHIF_PCI, DBG_LVL_ERROR, ("Unable to start RTPCICmdThread!\n"));
+		return NDIS_STATUS_FAILURE;
+	}
+
+#ifdef WSC_INCLUDED
+	/* start the crediential write task first. */
+	WscThreadInit(pAd);
+#endif /* WSC_INCLUDED */
+	return NDIS_STATUS_SUCCESS;
+}
+
+
+VOID RtmpMgmtTaskExit(RTMP_ADAPTER *pAd)
+{
+	INT ret;
+	/* Terminate cmdQ thread */
+	if (RTMP_OS_TASK_LEGALITY(&pAd->cmdQTask)) {
+		RtmpCmdQExit(pAd);
+		NdisAcquireSpinLock(&pAd->CmdQLock);
+		pAd->CmdQ.CmdQState = RTMP_TASK_STAT_STOPED;
+		NdisReleaseSpinLock(&pAd->CmdQLock);
+		/*RTUSBCMDUp(&pAd->cmdQTask); */
+		ret = RtmpOSTaskKill(&pAd->cmdQTask);
+
+		if (ret == NDIS_STATUS_FAILURE)
+			MTWF_LOG(DBG_CAT_HIF, CATHIF_PCI, DBG_LVL_ERROR, ("Kill command task fail!\n"));
+
+		pAd->CmdQ.CmdQState = RTMP_TASK_STAT_UNKNOWN;
+	}
+#ifdef WSC_INCLUDED
+	WscThreadExit(pAd);
+#endif /* WSC_INCLUDED */
+}
 
 /*
  * ========================================================================
@@ -95,7 +145,7 @@ INT RTPCICmdThread(
 	 * This is important in preemption kernels, which transfer the flow
 	 * of execution immediately upon a complete().
 	 */
-	MTWF_DBG(pAd, DBG_CAT_HIF, CATHIF_PCI, DBG_LVL_INFO, "<---RTPCICmdThread\n");
+	MTWF_LOG(DBG_CAT_HIF, CATHIF_PCI, DBG_LVL_TRACE, ("<---RTPCICmdThread\n"));
 	RtmpOSTaskNotifyToExit(pTask);
 	return 0;
 }
@@ -121,8 +171,6 @@ NDIS_STATUS mt_pci_chip_cfg(RTMP_ADAPTER *pAd, USHORT  id)
 		DriverOwn(pAd);
 
 #endif
-	pAd->ChipID = (UINT32)id;
-
 	if ((id == NIC7603_PCIe_DEVICE_ID)
 		|| (id == NIC7615_PCIe_DEVICE_ID)
 		|| (id == NIC7616_PCIe_DEVICE_ID)
@@ -131,24 +179,22 @@ NDIS_STATUS mt_pci_chip_cfg(RTMP_ADAPTER *pAd, USHORT  id)
 		|| (id == NIC7637_PCIe_DEVICE_ID)
 		|| (id == NICP18_PCIe_DEVICE_ID)
 		|| (id == NIC7663_PCIe_DEVICE_ID)
-		|| (id == NICAXE_PCIe_DEVICE_ID)
-		|| (id == 0x3280) /* debug by randy */
 	   ) {
-		UINT32 Value = 0;
+		UINT32 Value;
 
-		MAC_IO_READ32(pAd->hdev_ctrl, TOP_HVR, &Value);
+		RTMP_IO_READ32(pAd, TOP_HVR, &Value);
 		pAd->HWVersion = Value;
 
 		if (Value == 0)
 			ret = NDIS_STATUS_FAILURE;
 
-		MAC_IO_READ32(pAd->hdev_ctrl, TOP_FVR, &Value);
+		RTMP_IO_READ32(pAd, TOP_FVR, &Value);
 		pAd->FWVersion = Value;
 
 		if (Value == 0)
 			ret = NDIS_STATUS_FAILURE;
 
-		MAC_IO_READ32(pAd->hdev_ctrl, TOP_HCR, &Value);
+		RTMP_IO_READ32(pAd, TOP_HCR, &Value);
 		pAd->ChipID = Value;
 
 		if (id == NIC7616_PCIe_DEVICE_ID)
@@ -160,17 +206,29 @@ NDIS_STATUS mt_pci_chip_cfg(RTMP_ADAPTER *pAd, USHORT  id)
 			ret = NDIS_STATUS_FAILURE;
 
 		if (IS_MT7603(pAd)) {
-			MAC_IO_READ32(pAd->hdev_ctrl, STRAP_STA, &Value);
+			RTMP_IO_READ32(pAd, STRAP_STA, &Value);
 			pAd->AntMode = (Value >> 24) & 0x1;
 		}
 
-		MTWF_DBG(pAd, DBG_CAT_HIF, CATHIF_PCI, DBG_LVL_INFO,
-				"HWVer=0x%x, FWVer=0x%x, pAd->ChipID=0x%x\n",
-				pAd->HWVersion, pAd->FWVersion, pAd->ChipID);
-	}
+		cap->hif_type = HIF_MT;
+		pAd->infType = RTMP_DEV_INF_PCIE;
+		MTWF_LOG(DBG_CAT_HIF, CATHIF_PCI, DBG_LVL_OFF,
+				 ("%s(): HWVer=0x%x, FWVer=0x%x, pAd->ChipID=0x%x\n",
+				  __func__, pAd->HWVersion, pAd->FWVersion, pAd->ChipID));
+#ifdef MT7615
 
-	cap->hif_type = HIF_MT;
-	pAd->infType = RTMP_DEV_INF_PCIE;
+		if (IS_MT7615(pAd)) {
+			RTMP_IO_READ32(pAd, HIF_SYS_REV, &Value);
+
+			if (Value == 0)
+				ret = NDIS_STATUS_FAILURE;
+
+			MTWF_LOG(DBG_CAT_HIF, CATHIF_PCI, DBG_LVL_OFF,
+					 ("%s(): HIF_SYS_REV=0x%x\n", __func__, Value));
+		}
+
+#endif /* MT7615 */
+	}
 
 	return ret;
 }
@@ -196,8 +254,8 @@ VOID RTMPInitPCIeDevice(RT_CMD_PCIE_INIT *pConfig, VOID *pAdSrc)
 	device_id = le2cpu16(device_id);
 #endif /* RT_BIG_ENDIAN */
 	pObj->DeviceID = device_id;
-	MTWF_DBG(pAd, DBG_CAT_HIF, CATHIF_PCI, DBG_LVL_INFO, "device_id=0x%x\n",
-			device_id);
+	MTWF_LOG(DBG_CAT_HIF, CATHIF_PCI, DBG_LVL_OFF, ("%s():device_id=0x%x\n",
+			 __func__, device_id));
 	OPSTATUS_CLEAR_FLAG(pAd, fOP_STATUS_ADVANCE_POWER_SAVE_PCIE_DEVICE);
 #ifdef MT_MAC
 	ret = mt_pci_chip_cfg(pAd, device_id);
@@ -205,14 +263,51 @@ VOID RTMPInitPCIeDevice(RT_CMD_PCIE_INIT *pConfig, VOID *pAdSrc)
 	/* check pci configuration CR can be read successfully */
 	if (ret != NDIS_STATUS_SUCCESS) {
 		pConfig->pci_init_succeed = FALSE;
-		MTWF_DBG(pAd, DBG_CAT_HIF, CATHIF_PCI, DBG_LVL_ERROR, "pci configuration space can't be read\n");
+		MTWF_LOG(DBG_CAT_HIF, CATHIF_PCI, DBG_LVL_OFF, ("%s():pci configuration space can't be read\n",
+				 __func__));
 		return;
 	}
 
 	pConfig->pci_init_succeed = TRUE;
 
-#endif /* MT_MAC */
-
+#endif /* */
+#ifdef CONFIG_WIFI_MSI_SUPPORT
+	pAd->PciHif.is_msi = ((struct pci_dev *)pci_dev)->msi_enabled;
+#endif /*CONFIG_WIFI_MSI_SUPPORT*/
+#ifdef INTELP6_SUPPORT
+#ifdef MULTI_INF_SUPPORT
+	multi_inf_adapt_reg((VOID *) pAd);
+#endif /* MULTI_INF_SUPPORT */
+#endif
 	if (pAd->infType != RTMP_DEV_INF_UNKNOWN)
 		RtmpRaDevCtrlInit(pAd, pAd->infType);
 }
+
+#ifdef INTELP6_SUPPORT
+#ifdef MULTI_INF_SUPPORT
+struct pci_dev *rtmp_get_pci_dev(void *ad)
+{
+	struct pci_dev *pdev = NULL;
+#ifdef RTMP_PCI_SUPPORT
+	RTMP_ADAPTER *pAd = (RTMP_ADAPTER *)ad;
+	POS_COOKIE obj = (POS_COOKIE)pAd->OS_Cookie;
+
+	pdev = obj->pci_dev;
+#endif
+	return pdev;
+}
+#endif
+#endif
+
+struct device *rtmp_get_dev(void *ad)
+{
+	struct device *dev = NULL;
+	RTMP_ADAPTER *pAd = (RTMP_ADAPTER *)ad;
+	POS_COOKIE obj = (POS_COOKIE)pAd->OS_Cookie;
+
+	dev = (struct device *)obj->pDev;
+	return dev;
+}
+
+
+

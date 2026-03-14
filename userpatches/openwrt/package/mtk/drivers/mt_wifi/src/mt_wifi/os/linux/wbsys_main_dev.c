@@ -1,17 +1,18 @@
 /*
- * Copyright (c) [2020], MediaTek Inc. All rights reserved.
- *
- * This software/firmware and related documentation ("MediaTek Software") are
- * protected under relevant copyright laws.
- * The information contained herein is confidential and proprietary to
- * MediaTek Inc. and/or its licensors.
- * Except as otherwise provided in the applicable licensing terms with
- * MediaTek Inc. and/or its licensors, any reproduction, modification, use or
- * disclosure of MediaTek Software, and information contained herein, in whole
- * or in part, shall be strictly prohibited.
-*/
-/*
  ***************************************************************************
+ * MediaTek Inc.
+ * 4F, No. 2 Technology 5th Rd.
+ * Science-based Industrial Park
+ * Hsin-chu, Taiwan, R.O.C.
+ *
+ * (c) Copyright 1997-2012, MediaTek, Inc.
+ *
+ * All rights reserved. MediaTek source code is an unpublished work and the
+ * use of a copyright notice does not imply otherwise. This source code
+ * contains confidential trade secret material of MediaTek. Any attemp
+ * or participation in deciphering, decoding, reverse engineering or in any
+ * way altering the source code is stricitly prohibited, unless the prior
+ * written consent of MediaTek Technology, Inc. is obtained.
  ***************************************************************************
 
 */
@@ -29,6 +30,33 @@ extern int (*ra_classifier_init_func)(void);
 extern void (*ra_classifier_release_func)(void);
 extern struct proc_dir_entry *proc_ptr, *proc_ralink_wl_video;
 #endif
+
+/*
+*
+*/
+#ifdef MEM_ALLOC_INFO_SUPPORT
+
+extern MEM_INFO_LIST MemInfoList;
+extern MEM_INFO_LIST PktInfoList;
+
+static void free_meminfo(void)
+{
+	UINT32 memalctotal, pktalctotal;
+
+	memalctotal = ShowMemAllocInfo();
+	pktalctotal = ShowPktAllocInfo();
+
+	if ((memalctotal != 0) || (pktalctotal != 0)) {
+		MTWF_LOG(DBG_CAT_INIT, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
+				 ("Error: Memory leak!!\n"));
+		ASSERT(0);
+	}
+
+	MIListExit(&MemInfoList);
+	MIListExit(&PktInfoList);
+}
+#endif /* MEM_ALLOC_INFO_SUPPORT */
+
 /*
 *
 */
@@ -43,30 +71,30 @@ static int wbsys_probe(struct platform_device *pdev)
 	RTMP_ADAPTER *pAd;
 	RTMP_OS_NETDEV_OP_HOOK netDevHook;
 	unsigned int Value;
-	struct _PCI_HIF_T *pci_hif;
-	struct pci_hif_chip *hif_chip;
-	struct pci_hif_chip_cfg cfg;
-	struct _RTMP_CHIP_CAP *cap;
 
 	/*resource allocate*/
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	dev_irq = platform_get_irq(pdev, 0);
 	base_addr = (unsigned long)devm_ioremap(&pdev->dev, res->start, resource_size(res));
-	MTWF_DBG(pAd, DBG_CAT_INIT, DBG_SUBCAT_ALL, DBG_LVL_INFO,
-			 "irq=%d,base_addr=%lx\n", dev_irq, base_addr);
+	MTWF_LOG(DBG_CAT_INIT, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
+			 ("%s(): irq=%d,base_addr=%lx\n", __func__, dev_irq, base_addr));
 
 	if (dma_set_mask_and_coherent(&pdev->dev, DMA_BIT_MASK(32))) {
-		MTWF_DBG(pAd, DBG_CAT_HIF, CATHIF_PCI, DBG_LVL_ERROR,
-				 "set DMA mask failed!errno=%d\n", rv);
+		MTWF_LOG(DBG_CAT_HIF, CATHIF_PCI, DBG_LVL_ERROR,
+				 ("set DMA mask failed!errno=%d\n", rv));
 		goto err_out;
 	}
 
+	/*other global resource allocation*/
+#ifdef MEM_ALLOC_INFO_SUPPORT
+	MemInfoListInital();
+#endif /* MEM_ALLOC_INFO_SUPPORT */
 	/* RtmpDevInit */
 	/* Allocate RTMP_ADAPTER adapter structure */
 	os_alloc_mem(NULL, (UCHAR **)&handle, sizeof(struct os_cookie));
 
 	if (!handle) {
-		MTWF_DBG(pAd, DBG_CAT_HIF, CATHIF_PCI, DBG_LVL_ERROR, "Allocate memory for os_cookie failed!\n");
+		MTWF_LOG(DBG_CAT_HIF, CATHIF_PCI, DBG_LVL_ERROR, ("Allocate memory for os_cookie failed!\n"));
 		goto err_out;
 	}
 
@@ -75,19 +103,17 @@ static int wbsys_probe(struct platform_device *pdev)
 	/* get DRIVER operations */
 	RTMP_DRV_OPS_FUNCTION(pRtmpDrvOps, NULL, NULL, NULL);
 #endif /* OS_ABL_FUNC_SUPPORT */
-	rv = RTMPAllocAdapterBlock(handle, (VOID **)&pAd, RTMP_DEV_INF_RBUS);
+	rv = RTMPAllocAdapterBlock(handle, (VOID **)&pAd);
 
 	if (rv != NDIS_STATUS_SUCCESS) {
-		MTWF_DBG(pAd, DBG_CAT_HIF, CATHIF_PCI, DBG_LVL_ERROR, " RTMPAllocAdapterBlock !=  NDIS_STATUS_SUCCESS\n");
+		MTWF_LOG(DBG_CAT_HIF, CATHIF_PCI, DBG_LVL_ERROR, (" RTMPAllocAdapterBlock !=  NDIS_STATUS_SUCCESS\n"));
 		os_free_mem(handle);
 		goto err_out;
 	}
 
-	cap = hc_get_chip_cap(pAd->hdev_ctrl);
-	pci_hif = hc_get_hif_ctrl(pAd->hdev_ctrl);
-	pci_hif->CSRBaseAddress = (PUCHAR)base_addr;
 	/* Here are the RTMP_ADAPTER structure with rbus-bus specific parameters. */
-	RTMP_IO_READ32(pAd->hdev_ctrl, TOP_HCR, &Value);
+	pAd->PciHif.CSRBaseAddress = (PUCHAR)base_addr;
+	RTMP_IO_READ32(pAd, TOP_HCR, &Value);
 	pAd->ChipID = Value;
 	/*link platform dev to pAd*/
 	((POS_COOKIE)handle)->pci_dev = (void *)pdev;
@@ -105,33 +131,21 @@ static int wbsys_probe(struct platform_device *pdev)
 	/* Save CSR virtual address and irq to device structure */
 	net_dev->base_addr = base_addr;
 	/*link net_dev to platform_dev*/
-	cfg.csr_addr = base_addr;
-	cfg.msi_en = FALSE;
-	cfg.device = &pdev->dev;
-	cfg.device_id = pAd->ChipID;
-	cfg.irq = dev_irq;
-	pci_hif_chip_init((VOID **)&hif_chip, &cfg);
-	platform_set_drvdata(pdev, hif_chip);
-	pci_hif->main_hif_chip = hif_chip;
-	pci_hif->net_dev = net_dev;
-
+	platform_set_drvdata(pdev, net_dev);
 	/*link platform_dev to net_dev*/
 	SET_NETDEV_DEV(net_dev, &pdev->dev);
-#ifdef CONFIG_STA_SUPPORT
-	pAd->StaCfg[0].OriDevType = net_dev->type;
-#endif /* CONFIG_STA_SUPPORT */
 	/*All done, it's time to register the net device to kernel. */
 	rv = RtmpOSNetDevAttach(pAd->OpMode, net_dev, &netDevHook);
 
 	if (rv) {
-		MTWF_DBG(pAd, DBG_CAT_HIF, CATHIF_PCI, DBG_LVL_ERROR, "failed to call RtmpOSNetDevAttach(), rv=%d!\n", rv);
+		MTWF_LOG(DBG_CAT_HIF, CATHIF_PCI, DBG_LVL_ERROR, ("failed to call RtmpOSNetDevAttach(), rv=%d!\n", rv));
 		goto err_out_free_netdev;
 	}
 
 	wl_proc_init();
-	MTWF_DBG(pAd, DBG_CAT_HIF, CATHIF_PCI, DBG_LVL_INFO, "%s: at CSR addr 0x%lx, IRQ %ld.\n",
-			 net_dev->name, (ULONG)base_addr, (long int)net_dev->irq);
-	MTWF_DBG(pAd, DBG_CAT_HIF, CATHIF_PCI, DBG_LVL_INFO, "<=== wifi probe\n");
+	MTWF_LOG(DBG_CAT_HIF, CATHIF_PCI, DBG_LVL_TRACE, ("%s: at CSR addr 0x%lx, IRQ %ld.\n",
+			 net_dev->name, (ULONG)base_addr, (long int)net_dev->irq));
+	MTWF_LOG(DBG_CAT_HIF, CATHIF_PCI, DBG_LVL_TRACE, ("<=== wifi probe\n"));
 #if defined(CONFIG_RA_CLASSIFIER) && (!defined(CONFIG_RA_CLASSIFIER_MODULE))
 	proc_ptr = proc_ralink_wl_video;
 
@@ -142,6 +156,9 @@ static int wbsys_probe(struct platform_device *pdev)
 	return 0;
 err_out_free_netdev:
 	RtmpOSNetDevFree(net_dev);
+#ifdef MEM_ALLOC_INFO_SUPPORT
+	free_meminfo();
+#endif /* MEM_ALLOC_INFO_SUPPORT */
 err_out_free_radev:
 	/* free RTMP_ADAPTER strcuture and os_cookie*/
 	RTMPFreeAdapter(pAd);
@@ -154,8 +171,7 @@ err_out:
 */
 static int wbsys_remove(struct platform_device *pdev)
 {
-	struct pci_hif_chip *hif_chip = platform_get_drvdata(pdev);
-	struct net_device *net_dev = hif_chip->hif->net_dev;
+	struct net_device *net_dev = platform_get_drvdata(pdev);
 	RTMP_ADAPTER *pAd;
 
 	if (net_dev == NULL)
@@ -180,20 +196,22 @@ static int wbsys_remove(struct platform_device *pdev)
 
 #endif
 	wl_proc_exit();
+#ifdef MEM_ALLOC_INFO_SUPPORT
+	free_meminfo();
+#endif /* MEM_ALLOC_INFO_SUPPORT */
 	return 0;
 }
 
 static int wbsys_suspend(struct platform_device *pdev, pm_message_t state)
 {
 	INT32 retval = 0;
-	struct pci_hif_chip *hif_chip = platform_get_drvdata(pdev);
-	struct net_device *net_dev = hif_chip->hif->net_dev;
+	struct net_device *net_dev = platform_get_drvdata(pdev);
 	VOID *pAd = NULL;
 
-	MTWF_DBG(pAd, DBG_CAT_HIF, CATHIF_PCI, DBG_LVL_INFO, "===>\n");
+	MTWF_LOG(DBG_CAT_HIF, CATHIF_PCI, DBG_LVL_ERROR, ("===>%s()\n", __func__));
 
 	if (net_dev == NULL)
-		MTWF_DBG(pAd, DBG_CAT_HIF, CATHIF_PCI, DBG_LVL_ERROR, "net_dev == NULL!\n");
+		MTWF_LOG(DBG_CAT_HIF, CATHIF_PCI, DBG_LVL_ERROR, ("net_dev == NULL!\n"));
 	else {
 		UINT32 IfNum;
 
@@ -203,7 +221,7 @@ static int wbsys_suspend(struct platform_device *pdev, pm_message_t state)
 		/* so Linux will call suspend/resume function once */
 		RTMP_DRIVER_VIRTUAL_INF_NUM_GET(pAd, &IfNum);
 
-		MTWF_DBG(pAd, DBG_CAT_HIF, CATHIF_PCI, DBG_LVL_DEBUG, "IfNum=%d\n", IfNum);
+		MTWF_LOG(DBG_CAT_HIF, CATHIF_PCI, DBG_LVL_ERROR, ("%s::IfNum=%d\n", __func__, IfNum));
 
 		if (IfNum > 0) {
 			/* avoid users do suspend after interface is down */
@@ -218,20 +236,19 @@ static int wbsys_suspend(struct platform_device *pdev, pm_message_t state)
 		}
 	}
 
-	MTWF_DBG(pAd, DBG_CAT_HIF, CATHIF_PCI, DBG_LVL_INFO, "<===\n");
+	MTWF_LOG(DBG_CAT_HIF, CATHIF_PCI, DBG_LVL_ERROR, ("<===%s()\n", __func__));
 	return retval;
 }
 
 static int wbsys_resume(struct platform_device *pdev)
 {
-	struct pci_hif_chip *hif_chip = platform_get_drvdata(pdev);
-	struct net_device *net_dev = hif_chip->hif->net_dev;
+	struct net_device *net_dev = platform_get_drvdata(pdev);
 	VOID *pAd = NULL;
 
-	MTWF_DBG(pAd, DBG_CAT_HIF, CATHIF_PCI, DBG_LVL_INFO, "===>\n");
+	MTWF_LOG(DBG_CAT_HIF, CATHIF_PCI, DBG_LVL_ERROR, ("===>%s()\n", __func__));
 
 	if (net_dev == NULL)
-		MTWF_DBG(pAd, DBG_CAT_HIF, CATHIF_PCI, DBG_LVL_ERROR, "net_dev == NULL!\n");
+		MTWF_LOG(DBG_CAT_HIF, CATHIF_PCI, DBG_LVL_ERROR, ("net_dev == NULL!\n"));
 	else
 		GET_PAD_FROM_NET_DEV(pAd, net_dev);
 
@@ -257,7 +274,7 @@ static int wbsys_resume(struct platform_device *pdev)
 		}
 	}
 
-	MTWF_DBG(pAd, DBG_CAT_HIF, CATHIF_PCI, DBG_LVL_INFO, "<===\n");
+	MTWF_LOG(DBG_CAT_HIF, CATHIF_PCI, DBG_LVL_ERROR, ("<=== %s()\n", __func__));
 	return 0;
 }
 
@@ -287,9 +304,6 @@ int __init wbsys_module_init(void)
 {
 	int ret;
 
-#ifndef MULTI_INF_SUPPORT
-	os_module_init();
-#endif
 	wbsys_dev_alloc(&wbsys_dev);
 	ret = platform_driver_register(&wbsys_driver);
 	return ret;
@@ -300,9 +314,6 @@ VOID __exit wbsys_module_exit(void)
 {
 	wbsys_dev_release(&wbsys_dev);
 	platform_driver_unregister(&wbsys_driver);
- #ifndef MULTI_INF_SUPPORT
-	os_module_exit();
-#endif
 }
 
 #ifndef MULTI_INF_SUPPORT

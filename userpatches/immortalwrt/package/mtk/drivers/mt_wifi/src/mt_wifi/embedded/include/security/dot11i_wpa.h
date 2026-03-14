@@ -1,17 +1,17 @@
 /*
- * Copyright (c) [2020], MediaTek Inc. All rights reserved.
- *
- * This software/firmware and related documentation ("MediaTek Software") are
- * protected under relevant copyright laws.
- * The information contained herein is confidential and proprietary to
- * MediaTek Inc. and/or its licensors.
- * Except as otherwise provided in the applicable licensing terms with
- * MediaTek Inc. and/or its licensors, any reproduction, modification, use or
- * disclosure of MediaTek Software, and information contained herein, in whole
- * or in part, shall be strictly prohibited.
-*/
-/*
  ***************************************************************************
+ * Ralink Tech Inc.
+ * 5F., No.36 Taiyuan St., Jhubei City,
+ * Hsin-chu, Taiwan, R.O.C.
+ *
+ * (c) Copyright 2008, Ralink Technology, Inc.
+ *
+ * All rights reserved. Ralink's source code is an unpublished work and the
+ * use of a copyright notice does not imply otherwise. This source code
+ * contains confidential trade secret material of Ralink Tech. Any attemp
+ * or participation in deciphering, decoding, reverse engineering or in any
+ * way altering the source code is stricitly prohibited, unless the prior
+ * written consent of Ralink Technology, Inc. is obtained.
  ***************************************************************************
 
 	Module Name:
@@ -84,8 +84,6 @@
 /* RSN IE Length definition */
 #define MAX_LEN_OF_RSNIE			255
 #define MIN_LEN_OF_RSNIE			2
-#define MAX_LEN_OF_RSNXEIE                      255
-#define MIN_LEN_OF_RSNXEIE                      2
 #define MAX_LEN_GTK					32
 #define MIN_LEN_GTK					5
 
@@ -123,8 +121,7 @@
 #define LEN_TKIP_GTK				(LEN_TK + LEN_TK2)
 #define LEN_AES_GTK					LEN_TK
 #define LEN_MAX_GTK					32
-#define LEN_MAX_IGTK				32
-#define LEN_MAX_BIGTK				LEN_MAX_IGTK
+#define LEN_MAX_IGTK					32
 #define LEN_TKIP_TK					(LEN_TK + LEN_TK2)
 #define LEN_AES_TK					LEN_TK
 #define LEN_CCMP128_TK				16
@@ -134,10 +131,8 @@
 #define LEN_BIP128_IGTK				16
 #define LEN_BIP256_IGTK				32
 
-#define LEN_WEP40					5
-#define LEN_WEP104					13
-#define LEN_WEP128					16
-#define LEN_WPI_MIC				8
+#define LEN_WEP64					5
+#define LEN_WEP128					13
 
 #define OFFSET_OF_PTK_TK			(LEN_PTK_KCK + LEN_PTK_KEK)	/* The offset of the PTK Temporal key in PTK */
 #define OFFSET_OF_TKIP_RX_MIC	(OFFSET_OF_PTK_TK + LEN_TK)
@@ -157,21 +152,18 @@
 
 /* It's defined in IEEE Std 802.11-2007 Table 8-4 */
 typedef enum _WPA_KDE_ID {
-	KDE_RESV0 = 0,
-	KDE_GTK = 1,
-	KDE_RESV2 = 2,
-	KDE_MAC_ADDR = 3,
-	KDE_PMKID = 4,
-	KDE_SMK = 5,
-	KDE_NONCE = 6,
-	KDE_LIFETIME = 7,
-	KDE_ERROR = 8,
-	KDE_IGTK = 9,				/* Defined in IEEE 802.11w/D10.0 */
-	KDE_KEYID = 10,
-	KDE_MUL_BAND_GTK = 11,
-	KDE_MUL_BAND_KEYID = 12,
-	KDE_OCI = 13,
-	KDE_BIGTK = 14,
+	KDE_RESV0,
+	KDE_GTK,
+	KDE_RESV2,
+	KDE_MAC_ADDR,
+	KDE_PMKID,
+	KDE_SMK,
+	KDE_NONCE,
+	KDE_LIFETIME,
+	KDE_ERROR,
+#ifdef DOT11W_PMF_SUPPORT
+	KDE_IGTK,				/* Defined in IEEE 802.11w/D10.0 */
+#endif /* DOT11W_PMF_SUPPORT */
 	KDE_RESV_OTHER
 } WPA_KDE_ID;
 
@@ -269,11 +261,6 @@ typedef struct GNU_PACKED _RSNIE2 {
 	} ucast[1];
 } RSNIE2, *PRSNIE2;
 
-/*Updated RSNE 802.11-2016 has only the version field as mandatory*/
-typedef struct GNU_PACKED _RSNIE3 {
-	USHORT  version;
-} RSNIE3, *PRSNIE3;
-
 /* AKM Suite */
 typedef struct GNU_PACKED _RSNIE_AUTH {
 	USHORT acount;
@@ -293,9 +280,7 @@ typedef struct GNU_PACKED _RSNIE_PMKID {
 typedef	union GNU_PACKED _RSN_CAPABILITIES	{
 	struct	GNU_PACKED {
 #ifdef RT_BIG_ENDIAN
-		USHORT		Rsvd2:1;
-		USHORT		ocvc:1;
-		USHORT		Rsvd:6;
+		USHORT		Rsvd:8;
 		USHORT		MFPC:1;
 		USHORT		MFPR:1;
 		USHORT		GTKSA_R_Counter:2;
@@ -309,9 +294,7 @@ typedef	union GNU_PACKED _RSN_CAPABILITIES	{
 		USHORT		GTKSA_R_Counter:2;
 		USHORT		MFPR:1;
 		USHORT		MFPC:1;
-		USHORT		Rsvd:6;
-		USHORT		ocvc:1;
-		USHORT		Rsvd2:1;
+		USHORT		Rsvd:8;
 #endif
 	}	field;
 	USHORT			word;

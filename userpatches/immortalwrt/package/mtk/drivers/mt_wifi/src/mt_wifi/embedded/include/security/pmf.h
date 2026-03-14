@@ -1,16 +1,16 @@
-/*
- * Copyright (c) [2020], MediaTek Inc. All rights reserved.
- *
- * This software/firmware and related documentation ("MediaTek Software") are
- * protected under relevant copyright laws.
- * The information contained herein is confidential and proprietary to
- * MediaTek Inc. and/or its licensors.
- * Except as otherwise provided in the applicable licensing terms with
- * MediaTek Inc. and/or its licensors, any reproduction, modification, use or
- * disclosure of MediaTek Software, and information contained herein, in whole
- * or in part, shall be strictly prohibited.
-*/
 /****************************************************************************
+ * Ralink Tech Inc.
+ * 4F, No. 2 Technology 5th Rd.
+ * Science-based Industrial Park
+ * Hsin-chu, Taiwan, R.O.C.
+ * (c) Copyright 2002, Ralink Technology, Inc.
+ *
+ * All rights reserved. Ralink's source code is an unpublished work and the
+ * use of a copyright notice does not imply otherwise. This source code
+ * contains confidential trade secret material of Ralink Tech. Any attemp
+ * or participation in deciphering, decoding, reverse engineering or in any
+ * way altering the source code is stricitly prohibited, unless the prior
+ * written consent of Ralink Technology, Inc. is obtained.
  ****************************************************************************
 
     Abstract:
@@ -20,13 +20,6 @@
 #ifndef __PMF_H
 #define __PMF_H
 #ifdef DOT11W_PMF_SUPPORT
-
-#define SAQ_IDLE	0
-#define SAQ_RETRY	1
-#define SAQ_SENDING	2
-
-#define DEFAULT_SAQUERY_TIMEOUT		1000
-#define DEFAULT_SAQUERY_CONFIRM_TIMEOUT	200
 
 VOID PMF_PeerAction(
 	IN PRTMP_ADAPTER pAd,
@@ -126,31 +119,6 @@ INT Set_PMFSHA256_Proc(
 INT Set_PMFSA_Q_Proc(
 	IN PRTMP_ADAPTER pAd,
 	IN RTMP_STRING * arg);
-
-#ifdef BCN_PROTECTION_SUPPORT
-VOID read_bcn_prot_parma_from_file(
-	IN PRTMP_ADAPTER pAd,
-	IN RTMP_STRING * tmpbuf,
-	IN RTMP_STRING * pBuffer);
-
-INT build_bcn_mmie(
-	IN struct bcn_protection_cfg *bcn_prot_cfg,
-	IN UCHAR *buf);
-
-VOID insert_bigtk_kde(
-	IN PRTMP_ADAPTER pAd,
-	IN INT apidx,
-	IN PUCHAR pFrameBuf,
-	OUT PULONG pFrameLen);
-
-
-UCHAR get_bigtk_table_idx(
-	struct bcn_protection_cfg *bcn_prot_cfg);
-
-VOID bcn_prot_update_bipn(
-	IN struct _RTMP_ADAPTER *ad,
-	IN struct wifi_dev *wdev);
-#endif
 
 #endif /* DOT11W_PMF_SUPPORT */
 

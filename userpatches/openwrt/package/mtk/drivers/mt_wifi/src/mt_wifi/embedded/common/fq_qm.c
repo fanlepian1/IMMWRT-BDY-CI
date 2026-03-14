@@ -1,16 +1,17 @@
-/*
- * Copyright (c) [2020], MediaTek Inc. All rights reserved.
- *
- * This software/firmware and related documentation ("MediaTek Software") are
- * protected under relevant copyright laws.
- * The information contained herein is confidential and proprietary to
- * MediaTek Inc. and/or its licensors.
- * Except as otherwise provided in the applicable licensing terms with
- * MediaTek Inc. and/or its licensors, any reproduction, modification, use or
- * disclosure of MediaTek Software, and information contained herein, in whole
- * or in part, shall be strictly prohibited.
-*/
 /***************************************************************************
+ * MediaTek Inc.
+ * 4F, No. 2 Technology 5th Rd.
+ * Science-based Industrial Park
+ * Hsin-chu, Taiwan, R.O.C.
+ *
+ * (c) Copyright 1997-2012, MediaTek, Inc.
+ *
+ * All rights reserved. MediaTek source code is an unpublished work and the
+ * use of a copyright notice does not imply otherwise. This source code
+ * contains confidential trade secret material of MediaTek. Any attemp
+ * or participation in deciphering, decoding, reverse engineering or in any
+ * way altering the source code is stricitly prohibited, unless the prior
+ * written consent of MediaTek Technology, Inc. is obtained.
  ***************************************************************************
 
 */
@@ -19,7 +20,7 @@
 #include "mcu/mt_cmd.h"
 
 #ifdef FQ_SCH_SUPPORT
-static INT fq_reset_list_entry(RTMP_ADAPTER *pAd, UCHAR qidx, UINT16 wcid);
+static INT fq_reset_list_entry(RTMP_ADAPTER *pAd, UCHAR qidx, UCHAR wcid);
 static INT fq_add_list(RTMP_ADAPTER *pAd, UCHAR qidx, STA_TR_ENTRY *tr_entry);
 static INT fq_schedule_tx_que(RTMP_ADAPTER *pAd);
 static INT fq_del_report_v2(RTMP_ADAPTER *pAd, struct dequeue_info *info);
@@ -41,13 +42,11 @@ INT fq_init(RTMP_ADAPTER *pAd)
 {
 	INT i, j;
 	STA_TR_ENTRY *tr_entry;
-	struct tx_rx_ctl *tr_ctl = &pAd->tr_ctl;
 	struct fq_stainfo_type *pfq_sta = NULL;
 	UINT32 fq_en = 0, factor = 0;
 	ULONG IrqFlags = 0;
 	RTMP_CHIP_CAP *cap = hc_get_chip_cap(pAd->hdev_ctrl);
 	struct qm_ops **qm_ops = &pAd->qm_ops;
-	UINT16 wtbl_max_num = WTBL_MAX_NUM(pAd);
 
 #ifdef FQ_SCH_DBG_SUPPORT
 	for (i = 0; i < WMM_NUM_OF_AC; i++) {
@@ -60,7 +59,8 @@ INT fq_init(RTMP_ADAPTER *pAd)
 	if ((pAd->fq_ctrl.enable & FQ_EN) == 0)
 		return 0;
 
-	MTWF_PRINT("Fair Queueing Scheduler Initialization...\n");
+	MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_OFF,
+		("Fair Queueing Scheduler Initialization...\n"));
 	fq_en = pAd->fq_ctrl.enable;
 	factor = pAd->fq_ctrl.factor;
 	os_zero_mem(&pAd->fq_ctrl, sizeof(struct fq_ctrl_type));
@@ -79,8 +79,8 @@ INT fq_init(RTMP_ADAPTER *pAd)
 		pAd->fq_ctrl.drop_cnt[i] = 0;
 		RTMP_IRQ_UNLOCK(&pAd->tx_swq_lock[i], IrqFlags);
 	}
-	for (j = 0; j < wtbl_max_num ; j++) {
-		tr_entry = &tr_ctl->tr_entry[j];
+	for (j = 0; j < MAX_LEN_OF_MAC_TABLE ; j++) {
+		tr_entry = &pAd->MacTab.tr_entry[j];
 		pfq_sta = &tr_entry->fq_sta_rec;
 		for (i = 0; i < WMM_NUM_OF_AC; i++) {
 			os_zero_mem(pfq_sta, sizeof(struct fq_stainfo_type));
@@ -91,7 +91,7 @@ INT fq_init(RTMP_ADAPTER *pAd)
 
 	for (i = 0; i < WMM_NUM_OF_AC; i++) {
 		RTMP_IRQ_LOCK(&pAd->tx_swq_lock[i], IrqFlags);
-		for (j = 0; j < wtbl_max_num ; j++) {
+		for (j = 0; j < MAX_LEN_OF_MAC_TABLE ; j++) {
 			tr_entry = &pAd->MacTab.tr_entry[j];
 			if (tr_entry) {
 				RTMP_SPIN_LOCK(&tr_entry->txq_lock[i]);
@@ -104,11 +104,10 @@ INT fq_init(RTMP_ADAPTER *pAd)
 	}
 
 	for (i = 0; i < WMM_NUM_OF_AC; i++)
-		pAd->tx_swq[i].high_water_mark = FQ_PER_AC_LIMIT >> 1;
+		pAd->tx_swq[i].high_water_mark = FQ_PER_AC_LIMIT>>1;
 
 	if (cap->qm == FAST_PATH_FAIR_QM) {
 		(*qm_ops)->enq_dataq_pkt = fp_fair_enq_dataq_pkt;
-		(*qm_ops)->deq_tx_pkt = fp_fair_tx_pkt_deq_func;
 		(*qm_ops)->schedule_tx_que = fq_schedule_tx_que;
 
 		pAd->TxSwQMaxLen = MAX_PACKETS_IN_QUEUE;
@@ -117,11 +116,10 @@ INT fq_init(RTMP_ADAPTER *pAd)
 			NdisAllocateSpinLock(pAd, &pAd->tx_swq_lock[i]);
 
 		os_zero_mem(pAd->tx_swq, sizeof(pAd->tx_swq));
-	} else {
+	} else
 		(*qm_ops)->schedule_tx_que = fq_schedule_tx_que;
-	}
 
-	pAd->fq_ctrl.msdu_threshold = DEFAUT_PKT_TX_TOKEN_ID_MAX + cap->tx_ring_size;
+	pAd->fq_ctrl.msdu_threshold = FQ_PLE_SIZE + cap->tx_ring_size;
 
 	for (i = 0; i < WMM_NUM_OF_AC; i++)
 		pAd->fq_ctrl.srch_pos[i] = 1;
@@ -138,12 +136,11 @@ INT fq_deinit(RTMP_ADAPTER *pAd)
 	struct fq_stainfo_type *pfq_sta = NULL;
 	INT i, j;
 	UINT32 prev_enable;
-	UINT16 wtbl_max_num = WTBL_MAX_NUM(pAd);
 
 	pAd->fq_ctrl.enable &= ~FQ_READY;
 	prev_enable = pAd->fq_ctrl.enable & (FQ_EN | FQ_NEED_ON);
 
-	for (j = 0; j < wtbl_max_num ; j++) {
+	for (j = 0; j < MAX_LEN_OF_MAC_TABLE ; j++) {
 		tr_entry = &pAd->MacTab.tr_entry[j];
 		pfq_sta = &tr_entry->fq_sta_rec;
 		for (i = 0; i < WMM_NUM_OF_AC; i++) {
@@ -204,12 +201,10 @@ UINT16 fq_del_list(RTMP_ADAPTER *pAd, struct dequeue_info *info, CHAR deq_qid, U
 	INT tot_sta;
 	UINT16 deq_wcid = 0, wcid = 0, j;
 	QUEUE_ENTRY *pEntry = NULL, *pPrevEntry = NULL, *pTmpEntry = NULL;
-	struct tx_rx_ctl *tr_ctl = &pAd->tr_ctl;
 	STA_TR_ENTRY *tr_entry = NULL;
 	struct fq_stainfo_type *pfq_sta = NULL;
 	INT32 quota = 0;
 	UINT32 list_bitmap[FQ_BITMAP_DWORD] = {0};
-	UINT16 wtbl_max_num = WTBL_MAX_NUM(pAd);
 
 	if (pAd->fq_ctrl.enable & FQ_ARRAY_SCH)
 		return fq_del_list_v2(pAd, info, deq_qid, tx_quota);
@@ -236,7 +231,7 @@ UINT16 fq_del_list(RTMP_ADAPTER *pAd, struct dequeue_info *info, CHAR deq_qid, U
 		if (pEntry) {
 			pfq_sta = container_of(pEntry, struct fq_stainfo_type, Entry[deq_qid]);
 			wcid = pfq_sta->wcid;
-			tr_entry = &tr_ctl->tr_entry[wcid];
+			tr_entry = &pAd->MacTab.tr_entry[wcid];
 			list_bitmap[tr_entry->wcid >> FQ_BITMAP_SHIFT] |= 1<<(tr_entry->wcid & FQ_BITMAP_MASK);
 			if (IS_ENTRY_NONE(tr_entry)) {
 				if (pEntry == pAd->fq_ctrl.fq[deq_qid].Head) {
@@ -310,7 +305,7 @@ UINT16 fq_del_list(RTMP_ADAPTER *pAd, struct dequeue_info *info, CHAR deq_qid, U
 	} /* while */
 
 	if (deq_wcid == 0) {
-		for (j = 0; j < wtbl_max_num; j++) {
+		for (j = 0; j < MAX_LEN_OF_MAC_TABLE; j++) {
 			if ((pAd->fq_ctrl.list_map[deq_qid][j >> FQ_BITMAP_SHIFT] & (1 << (j & FQ_BITMAP_MASK)))
 				&& (!(list_bitmap[j >> FQ_BITMAP_SHIFT] & (1 << (j & FQ_BITMAP_MASK))))) {
 				/* add to list */
@@ -332,27 +327,22 @@ INT fq_del_report(RTMP_ADAPTER *pAd, struct dequeue_info *info)
 {
 	ULONG IrqFlags = 0;
 	UCHAR qidx = info->cur_q;
-	UINT16 wcid = info->cur_wcid;
+	UCHAR wcid = info->cur_wcid;
 	struct fq_stainfo_type *pfq_sta = NULL;
 	QUEUE_ENTRY *pEntry = NULL, *pTmpEntry = NULL;
-	struct tx_rx_ctl *tr_ctl = &pAd->tr_ctl;
 	STA_TR_ENTRY *tr_entry = NULL;
 	INT prev_wcid_tmp;
 	INT ret = NDIS_STATUS_SUCCESS;
-	struct _RTMP_CHIP_CAP *cap = NULL;
 
 	if (pAd->fq_ctrl.enable & FQ_ARRAY_SCH)
 		return fq_del_report_v2(pAd, info);
 
-	cap = hc_get_chip_cap(pAd->hdev_ctrl);
 	RTMP_IRQ_LOCK(&pAd->tx_swq_lock[qidx], IrqFlags);
 
-	if (cap->qm_version != QM_V2) {
 	if (info->q_max_cnt[info->cur_q] > 0)
 		info->q_max_cnt[info->cur_q] -= info->deq_pkt_cnt;
-	}
 
-	if (IS_TR_WCID_VALID(pAd, info->target_wcid))
+	if (info->target_wcid < MAX_LEN_OF_TR_TABLE)
 		info->pkt_cnt -= info->deq_pkt_cnt;
 
 #ifdef FQ_SCH_DBG_SUPPORT
@@ -365,11 +355,11 @@ INT fq_del_report(RTMP_ADAPTER *pAd, struct dequeue_info *info)
 			else
 				prev_wcid_tmp = pAd->fq_ctrl.prev_wcid[the_prev_qidx];
 
-			if ((prev_wcid_tmp > 0) && IS_WCID_VALID(pAd, prev_wcid_tmp)) {
+			if ((prev_wcid_tmp > 0) && (prev_wcid_tmp < MAX_LEN_OF_MAC_TABLE)) {
 				if ((pAd->fq_ctrl.prev_wcid[qidx] == wcid) &&
 					((pAd->fq_ctrl.fq[qidx].Number >= 1) || (!pAd->fq_ctrl.enable)
 					|| (pAd->fq_ctrl.nactive == 1))) {
-					tr_entry = &tr_ctl->tr_entry[wcid];
+					tr_entry = &pAd->MacTab.tr_entry[wcid];
 					pfq_sta = &tr_entry->fq_sta_rec;
 					pAd->fq_ctrl.prev_kick_cnt[qidx] += info->deq_pkt_cnt;
 					RTMP_SEM_LOCK(&pfq_sta->lock[qidx]);
@@ -377,7 +367,7 @@ INT fq_del_report(RTMP_ADAPTER *pAd, struct dequeue_info *info)
 						pfq_sta->KMAX = pAd->fq_ctrl.prev_kick_cnt[qidx];
 					RTMP_SEM_UNLOCK(&pfq_sta->lock[qidx]);
 				} else {
-					tr_entry = &tr_ctl->tr_entry[pAd->fq_ctrl.prev_wcid[qidx]];
+					tr_entry = &pAd->MacTab.tr_entry[pAd->fq_ctrl.prev_wcid[qidx]];
 					pfq_sta = &tr_entry->fq_sta_rec;
 					RTMP_SEM_LOCK(&pfq_sta->lock[qidx]);
 					if (pfq_sta->KMAX < pAd->fq_ctrl.prev_kick_cnt[the_prev_qidx])
@@ -394,7 +384,7 @@ INT fq_del_report(RTMP_ADAPTER *pAd, struct dequeue_info *info)
 	}
 #endif
 
-	tr_entry = &tr_ctl->tr_entry[info->cur_wcid];
+	tr_entry = &pAd->MacTab.tr_entry[wcid];
 	pfq_sta = &tr_entry->fq_sta_rec;
 	pEntry = &pfq_sta->Entry[qidx];
 
@@ -418,15 +408,15 @@ INT fq_del_report(RTMP_ADAPTER *pAd, struct dequeue_info *info)
 		if ((pAd->fq_ctrl.enable & FQ_SKIP_SINGLE_STA_CASE) || (pAd->fq_ctrl.nactive > 1))
 		if ((pfq_sta->thMax[qidx]<<pAd->fq_ctrl.factor) <=
 			(INT16)(pfq_sta->macInQLen[qidx] - pfq_sta->macOutQLen[qidx])) {
-				pfq_sta->kickPktCnt[qidx] = 0;
-				if (pAd->fq_ctrl.fq[qidx].Number > 1) {
+			pfq_sta->kickPktCnt[qidx] = 0;
+			if (pAd->fq_ctrl.fq[qidx].Number > 1) {
 					if (pEntry == pAd->fq_ctrl.fq[qidx].Head) {
 						pTmpEntry = RemoveHeadQueue(&pAd->fq_ctrl.fq[qidx]);
 					} else {
 						if (pAd->fq_ctrl.pPrevEntry[qidx] == NULL) {
-							MTWF_DBG(pAd, DBG_CAT_TX, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-								"-->(%d): STA%d[%d],pRrevEntry is NULL\n",
-								__LINE__, wcid, qidx);
+							MTWF_LOG(DBG_CAT_TX, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
+								("-->%s(%d): STA%d[%d],pRrevEntry is NULL\n",
+								__func__, __LINE__, wcid, qidx));
 							ret = NDIS_STATUS_FAILURE;
 							goto EXIT;
 						}
@@ -436,8 +426,8 @@ INT fq_del_report(RTMP_ADAPTER *pAd, struct dequeue_info *info)
 								pAd->fq_ctrl.pPrevEntry[qidx], pTmpEntry);
 					}
 					InsertTailQueue(&pAd->fq_ctrl.fq[qidx], pTmpEntry);
-				}
 			}
+		}
 	} else {
 		if (pAd->fq_ctrl.enable & FQ_NO_PKT_STA_KEEP_IN_LIST) {
 			if (pAd->fq_ctrl.fq[qidx].Number > 1) {
@@ -445,9 +435,9 @@ INT fq_del_report(RTMP_ADAPTER *pAd, struct dequeue_info *info)
 					pTmpEntry = RemoveHeadQueue(&pAd->fq_ctrl.fq[qidx]);
 				} else {
 					if (pAd->fq_ctrl.pPrevEntry[qidx] == NULL) {
-						MTWF_DBG(pAd, DBG_CAT_TX, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-							("-->(%d): STA%d[%d],pRrevEntry is NULL\n",
-							__LINE__, wcid, qidx);
+						MTWF_LOG(DBG_CAT_TX, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
+							("-->%s(%d): STA%d[%d],pRrevEntry is NULL\n",
+							__func__, __LINE__, wcid, qidx));
 						ret = NDIS_STATUS_FAILURE;
 						goto EXIT;
 					}
@@ -463,9 +453,9 @@ INT fq_del_report(RTMP_ADAPTER *pAd, struct dequeue_info *info)
 				pTmpEntry = RemoveHeadQueue(&pAd->fq_ctrl.fq[qidx]);
 			} else {
 				if (pAd->fq_ctrl.pPrevEntry[qidx] == NULL) {
-					MTWF_DBG(pAd, DBG_CAT_TX, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-						"-->(%d): STA%d[%d],pRrevEntry is NULL\n",
-						__LINE__, wcid, qidx);
+					MTWF_LOG(DBG_CAT_TX, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
+						("-->%s(%d): STA%d[%d],pRrevEntry is NULL\n",
+						__func__, __LINE__, wcid, qidx));
 					ret = NDIS_STATUS_FAILURE;
 					goto EXIT;
 				}
@@ -481,13 +471,6 @@ INT fq_del_report(RTMP_ADAPTER *pAd, struct dequeue_info *info)
 	}
 EXIT:
 	RTMP_SPIN_UNLOCK(&tr_entry->txq_lock[qidx]);
-
-	if (cap->qm_version != QM_V2) {
-		if (tx_flow_check_state(pAd, NO_ENOUGH_SWQ_SPACE, qidx) &&
-			fq_get_swq_free_num(pAd, qidx) > pAd->tx_swq[qidx].high_water_mark)
-			tx_flow_set_state_block(pAd, NULL, NO_ENOUGH_SWQ_SPACE, FALSE, qidx);
-	}
-
 	RTMP_IRQ_UNLOCK(&pAd->tx_swq_lock[qidx], IrqFlags);
 
 	if (info->deq_pkt_cnt <= 0)
@@ -496,19 +479,18 @@ EXIT:
 	return ret;
 }
 
-static INT fq_reset_list_entry(RTMP_ADAPTER *pAd, UCHAR qidx, UINT16 wcid)
+static INT fq_reset_list_entry(RTMP_ADAPTER *pAd, UCHAR qidx, UCHAR wcid)
 {
 	int i;
 	struct fq_stainfo_type *pfq_sta = NULL;
-	struct tx_rx_ctl *tr_ctl = &pAd->tr_ctl;
 	STA_TR_ENTRY *tr_entry = NULL;
 
-	if (!IS_TR_WCID_VALID(pAd, wcid))
+	if (wcid > MAX_LEN_OF_TR_TABLE)
 		return NDIS_STATUS_FAILURE;
 	if (qidx > WMM_NUM_OF_AC)
 		return NDIS_STATUS_FAILURE;
 
-	tr_entry = &tr_ctl->tr_entry[wcid];
+	tr_entry = &pAd->MacTab.tr_entry[wcid];
 	pfq_sta = &tr_entry->fq_sta_rec;
 
 	if (qidx < WMM_NUM_OF_AC) {
@@ -542,8 +524,7 @@ INT fq_clean_list(RTMP_ADAPTER *pAd, UCHAR qidx)
 	struct fq_stainfo_type *pfq_sta = NULL;
 	QUEUE_ENTRY *pEntry = NULL, *pPrevEntry = NULL, *pTmpEntry = NULL, *pPrevTmpEntry = NULL;
 	STA_TR_ENTRY *tr_entry = NULL;
-	UINT16 sta_num = 0, wcid;
-	UINT16 wtbl_max_num = WTBL_MAX_NUM(pAd);
+	UINT8	sta_num = 0, wcid;
 
 	if (pAd->fq_ctrl.enable & FQ_ARRAY_SCH)
 		return NDIS_STATUS_SUCCESS;
@@ -589,9 +570,9 @@ INT fq_clean_list(RTMP_ADAPTER *pAd, UCHAR qidx)
 				}
 			} else {
 				if (pfq_sta->status[qidx_c] == FQ_EMPTY_STA)
-					MTWF_DBG(pAd, DBG_CAT_TX, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-					 "-->(%d): STA%d[%d] Empty but in list\n",
-					  __LINE__, pfq_sta->wcid, qidx_c);
+					MTWF_LOG(DBG_CAT_TX, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
+					 ("-->%s(%d): STA%d[%d] Empty but in list\n",
+					  __func__, __LINE__, pfq_sta->wcid, qidx_c));
 				pfq_sta->status[qidx_c] = FQ_IN_LIST_STA;
 				if (tr_entry->tx_queue[qidx_c].Number > 0)
 					pAd->fq_ctrl.no_packet_chk_map[qidx_c][pfq_sta->wcid>>FQ_BITMAP_SHIFT] &=
@@ -615,7 +596,7 @@ INT fq_clean_list(RTMP_ADAPTER *pAd, UCHAR qidx)
 	if (qidx == WMM_NUM_OF_AC) {
 		for (qidx_c = qidx_s; qidx_c <= qidx_e; qidx_c++) {
 			RTMP_SEM_LOCK(&pAd->tx_swq_lock[qidx_c]);
-			for (wcid = 0; wcid < wtbl_max_num; wcid++) {
+			for (wcid = 0; wcid < MAX_LEN_OF_MAC_TABLE; wcid++) {
 				if (pAd->fq_ctrl.list_map[qidx_c][wcid>>FQ_BITMAP_SHIFT] &
 					(1<<(wcid & FQ_BITMAP_MASK))) {
 					tr_entry = &pAd->MacTab.tr_entry[wcid];
@@ -631,11 +612,11 @@ INT fq_clean_list(RTMP_ADAPTER *pAd, UCHAR qidx)
 					} else {
 						if ((pfq_sta->status[qidx_c] != FQ_IN_LIST_STA) &&
 							(tr_entry->tx_queue[qidx_c].Number > 0))
-							MTWF_DBG(pAd, DBG_CAT_TX, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-								"-->(%d): STA%d[%d]  txqnum:%d ,st:%d\n",
-								___LINE__, pfq_sta->wcid, qidx_c,
+							MTWF_LOG(DBG_CAT_TX, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
+								("-->%s(%d): STA%d[%d]  txqnum:%d ,st:%d\n",
+								__func__, __LINE__, pfq_sta->wcid, qidx_c,
 								tr_entry->tx_queue[qidx_c].Number,
-								pfq_sta->status[qidx_c]);
+								pfq_sta->status[qidx_c]));
 
 
 					}
@@ -649,7 +630,7 @@ INT fq_clean_list(RTMP_ADAPTER *pAd, UCHAR qidx)
 	return NDIS_STATUS_SUCCESS;
 }
 
-INT fq_update_thMax(RTMP_ADAPTER *pAd, STA_TR_ENTRY *tr_entry, UINT16 wcid,
+INT fq_update_thMax(RTMP_ADAPTER *pAd, STA_TR_ENTRY *tr_entry, UINT8 wcid,
 			INT32 mpduTime, UINT32 dwrr_quantum, UINT32 *Value)
 {
 	UINT32  max_thMax = 0, max_amptu_len = 0, max_ampdu_num = 0;
@@ -770,9 +751,9 @@ static INT fq_schedule_tx_que(RTMP_ADAPTER *pAd)
 					break;
 			}
 	}
-	if ((need_schedule != 0) || (pAd->mgmt_que[0].Number > 0) ||
+	if ((need_schedule != 0) || (pAd->mgmt_que.Number > 0) ||
 		(pAd->high_prio_que.Number > 0)) {
-		tm_ops->schedule_task(pAd, TX_DEQ_TASK, 0);
+		tm_ops->schedule_task(pAd, TX_DEQ_TASK);
 	}
 
 	return NDIS_STATUS_SUCCESS;
@@ -781,18 +762,16 @@ static INT fq_schedule_tx_que(RTMP_ADAPTER *pAd)
 BOOLEAN fq_queue_limit_check(RTMP_ADAPTER *pAd, NDIS_PACKET *pkt, UCHAR qidx, STA_TR_ENTRY *tr_entry)
 {
 	int i;
-	UINT16 wcid;
+	UCHAR wcid;
 	int qmax = 0;
 	int qidx_tmp = 0;
 	STA_TR_ENTRY *tr_entry_tmp;
-	struct tx_rx_ctl *tr_ctl = &pAd->tr_ctl;
-	struct tr_counter *tr_cnt = &tr_ctl->tr_cnt;
 	QUEUE_ENTRY *pEntry;
-	UINT16 wtbl_max_num = WTBL_MAX_NUM(pAd);
+	RTMP_ARCH_OP *arch_ops = &pAd->archOps;
 
 	if ((pAd->fq_ctrl.frm_cnt[qidx] >= (FQ_PER_AC_LIMIT)) && !(pAd->fq_ctrl.enable & FQ_LONGEST_DROP)) {
 		pAd->fq_ctrl.drop_cnt[qidx]++;
-		tr_cnt->tx_sw_dataq_drop++;
+		pAd->tr_ctl.tx_sw_q_drop++;
 		if (RTMP_TEST_FLAG(pAd, fRTMP_ADAPTER_DYNAMIC_BE_TXOP_ACTIVE) &&
 			!tx_flow_check_state(pAd, NO_ENOUGH_SWQ_SPACE, qidx))
 			tx_flow_set_state_block(pAd, NULL, NO_ENOUGH_SWQ_SPACE, TRUE, qidx);
@@ -817,7 +796,7 @@ BOOLEAN fq_queue_limit_check(RTMP_ADAPTER *pAd, NDIS_PACKET *pkt, UCHAR qidx, ST
 			qidx_tmp = qidx;
 		qmax = 0;
 		wcid = 0;
-		for (i = 0; i < wtbl_max_num; i++) {
+		for (i = 0; i < MAX_LEN_OF_MAC_TABLE; i++) {
 			if ((pAd->fq_ctrl.list_map[qidx_tmp][i>>FQ_BITMAP_SHIFT] &
 					(1 << (i & FQ_BITMAP_MASK)))) {
 				tr_entry_tmp = &pAd->MacTab.tr_entry[i];
@@ -841,6 +820,8 @@ BOOLEAN fq_queue_limit_check(RTMP_ADAPTER *pAd, NDIS_PACKET *pkt, UCHAR qidx, ST
 		pAd->fq_ctrl.drop_cnt[qidx_tmp]++;
 		pAd->fq_ctrl.frm_cnt[qidx_tmp]--;
 		TR_ENQ_COUNT_DEC(tr_entry_tmp);
+		if ((arch_ops->archRedEnqueueFail) && (!(pAd->fq_ctrl.enable & FQ_SKIP_RED)))
+			arch_ops->archRedEnqueueFail(wcid, qidx_tmp, pAd);
 		if (wcid != tr_entry->wcid)
 			RTMP_SPIN_UNLOCK(&tr_entry_tmp->txq_lock[qidx_tmp]);
 		RELEASE_NDIS_PACKET(pAd, QUEUE_ENTRY_TO_PACKET(pEntry), NDIS_STATUS_FAILURE);
@@ -863,14 +844,12 @@ INT fq_enq_req(RTMP_ADAPTER *pAd, NDIS_PACKET *pkt, UCHAR qidx,
 	BOOLEAN enq_done = FALSE;
 	INT enq_idx = 0;
 	struct tx_swq_fifo *fifo_swq;
-	UINT16 occupied_wcid = 0;
+	UCHAR occupied_wcid = 0;
 	QUEUE_ENTRY *pEntry;
 	struct fq_stainfo_type *pfq_sta = NULL;
 	UINT capCount = 0;
 	NDIS_PACKET *tmpPkt;
 	ULONG IrqFlags = 0;
-	struct tx_rx_ctl *tr_ctl = &pAd->tr_ctl;
-	struct tr_counter *tr_cnt = &tr_ctl->tr_cnt;
 
 	ASSERT(qidx < WMM_QUE_NUM);
 	ASSERT((tr_entry->wcid != 0));
@@ -881,7 +860,7 @@ INT fq_enq_req(RTMP_ADAPTER *pAd, NDIS_PACKET *pkt, UCHAR qidx,
 		&& (tr_entry->tx_queue[qidx].Number > SQ_ENQ_RESERVE_PERAC)) {
 		enq_done = FALSE;
 		pAd->fq_ctrl.drop_cnt[qidx]++;
-		tr_cnt->tx_sw_dataq_drop++;
+		pAd->tr_ctl.tx_sw_q_drop++;
 		goto enq_end;
 	}
 
@@ -915,9 +894,10 @@ INT fq_enq_req(RTMP_ADAPTER *pAd, NDIS_PACKET *pkt, UCHAR qidx,
 		tr_entry->TotalPageCount[qidx] += (INT16)(MTSDIOTxGetPageCount(GET_OS_PKT_LEN(pkt), FALSE));
 #endif /* TC_PAGE_BASED_DEMAND */
 #if DEBUG_ADAPTIVE_QUOTA
-		MTWF_PRINT("wcid %d q %d, pkt len %d, TotalPageCount %d\n",
-				tr_entry->wcid, qidx, GET_OS_PKT_LEN(pkt),
-				tr_entry->TotalPageCount[qidx]);
+		MTWF_LOG(DBG_CAT_TX, DBG_SUBCAT_ALL, DBG_LVL_OFF,
+				("%s: wcid %d q %d, pkt len %d, TotalPageCount %d\n",
+				__func__, tr_entry->wcid, qidx, GET_OS_PKT_LEN(pkt),
+				tr_entry->TotalPageCount[qidx]));
 #endif /* DEBUG_ADAPTIVE_QUOTA */
 #endif /* MT_SDIO_ADAPTIVE_TC_RESOURCE_CTRL */
 	} else {
@@ -960,9 +940,10 @@ INT fq_enq_req(RTMP_ADAPTER *pAd, NDIS_PACKET *pkt, UCHAR qidx,
 					(INT16)(MTSDIOTxGetPageCount(GET_OS_PKT_LEN(tmpPkt), FALSE));
 #endif /* TC_PAGE_BASED_DEMAND */
 #if DEBUG_ADAPTIVE_QUOTA
-				MTWF_PRINT("wcid %d q %d, pkt len %d TotalPageCount %d\n",
-					tr_entry->wcid, qidx, GET_OS_PKT_LEN(tmpPkt),
-					tr_entry->TotalPageCount[qidx]);
+				MTWF_LOG(DBG_CAT_TX, DBG_SUBCAT_ALL, DBG_LVL_OFF,
+					("%s: wcid %d q %d, pkt len %d TotalPageCount %d\n",
+					__func__, tr_entry->wcid, qidx, GET_OS_PKT_LEN(tmpPkt),
+					tr_entry->TotalPageCount[qidx]));
 #endif /* DEBUG_ADAPTIVE_QUOTA */
 #endif /* MT_SDIO_ADAPTIVE_TC_RESOURCE_CTRL */
 			} else {
@@ -974,10 +955,10 @@ INT fq_enq_req(RTMP_ADAPTER *pAd, NDIS_PACKET *pkt, UCHAR qidx,
 
 enq_end:
 	RTMP_IRQ_UNLOCK(&pAd->tx_swq_lock[qidx], IrqFlags);
-	MTWF_DBG(pAd, DBG_CAT_TX, DBG_SUBCAT_ALL, DBG_LVL_INFO,
-			 "EnqPkt(%p) for WCID(%d) to tx_swq[%d].swq[%d] %s\n",
-			  pkt, tr_entry->wcid, qidx, enq_idx,
-			  (enq_done ? "success" : "fail"));
+	MTWF_LOG(DBG_CAT_TX, DBG_SUBCAT_ALL, DBG_LVL_INFO,
+			 ("%s():EnqPkt(%p) for WCID(%d) to tx_swq[%d].swq[%d] %s\n",
+			  __func__, pkt, tr_entry->wcid, qidx, enq_idx,
+			  (enq_done ? "success" : "fail")));
 
 	if (enq_done == FALSE) {
 #ifdef DBG_DIAGNOSE
@@ -995,9 +976,8 @@ enq_end:
 		 * for AP mode to help account for the demand due to
 		 * delivery of PS buffered frame.
 		 */
-		UINT8 num_of_tx_ring = hif_get_tx_res_num(pAd->hdev_ctrl);
 		MTAdaptiveResourceCheckFastAdjustment(pAd, tr_entry->wcid, qidx);
-		MTAdaptiveResourceAllocation(pAd, WCID_ALL, num_of_tx_ring);
+		MTAdaptiveResourceAllocation(pAd, WCID_ALL, GET_NUM_OF_TX_RING(pAd->chipCap));
 	}
 
 #endif
@@ -1005,14 +985,12 @@ enq_end:
 }
 
 /* UserPriority To AccessCategory mapping */
-void fq_tx_free_per_packet(RTMP_ADAPTER *pAd, UINT8 ucAC, UINT16 u2WlanIdx, NDIS_PACKET *pkt)
+void fq_tx_free_per_packet(RTMP_ADAPTER *pAd, UINT8 ucAC, UINT8 ucWlanIdx, NDIS_PACKET *pkt)
 {
 	struct fq_stainfo_type *pfq_sta = NULL;
 	STA_TR_ENTRY *tr_entry = NULL;
-	struct tx_rx_ctl *tr_ctl = &pAd->tr_ctl;
-	tr_entry = &tr_ctl->tr_entry[u2WlanIdx];
 
-	tr_entry = &pAd->MacTab.tr_entry[u2WlanIdx];
+	tr_entry = &pAd->MacTab.tr_entry[ucWlanIdx];
 	pfq_sta = &tr_entry->fq_sta_rec;
 	pfq_sta->macOutQLen[ucAC]++;
 	pfq_sta->tx_msdu_cnt++;
@@ -1069,9 +1047,9 @@ INT set_fq_enable(PRTMP_ADAPTER pAd, RTMP_STRING *arg)
 
 			if ((factor <= 4) && (factor >= 0))
 				pAd->fq_ctrl.factor = factor;
-			MTWF_DBG(pAd, DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-				"set Host FQ Enable to %x (%d).(factor to %d)\n",
-				pAd->fq_ctrl.enable, en, pAd->fq_ctrl.factor);
+			MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
+				("%s: set Host FQ Enable to %x (%d).(factor to %d)\n", __func__,
+				pAd->fq_ctrl.enable, en, pAd->fq_ctrl.factor));
 		} else
 			return FALSE;
 	} else
@@ -1084,7 +1062,6 @@ INT show_fq_info(PRTMP_ADAPTER pAd, RTMP_STRING *arg)
 {
 	RTMP_CHIP_CAP *cap = hc_get_chip_cap(pAd->hdev_ctrl);
 	UINT i, j;
-	struct tx_rx_ctl *tr_ctl = &pAd->tr_ctl;
 	STA_TR_ENTRY *tr_entry = NULL;
 	struct fq_stainfo_type *pfq_sta = NULL;
 	QUEUE_ENTRY *pEntry = NULL;
@@ -1093,13 +1070,12 @@ INT show_fq_info(PRTMP_ADAPTER pAd, RTMP_STRING *arg)
 	UINT8 qidx = 0, idx = 0, nqid = 0;
 	ULONG IrqFlags = 0;
 	INT s_size = MAX_LEN_OF_MAC_TABLE*2;
-	UINT16 wtbl_max_num = WTBL_MAX_NUM(pAd);
 
-	for (i = 0; i < wtbl_max_num; i++) {
+	for (i = 0; i < MAX_LEN_OF_MAC_TABLE; i++) {
 		pos = 0;
 		os_zero_mem(buf, s_size);
 		pos += snprintf(buf + pos, s_size-pos, "wcid%d:", i);
-		tr_entry = &tr_ctl->tr_entry[i];
+		tr_entry = &pAd->MacTab.tr_entry[i];
 		pfq_sta = &tr_entry->fq_sta_rec;
 		nqid = 0;
 		for (qidx = 0; qidx < WMM_NUM_OF_AC; qidx++) {
@@ -1118,7 +1094,7 @@ INT show_fq_info(PRTMP_ADAPTER pAd, RTMP_STRING *arg)
 		if (nqid > 0) {
 			snprintf(buf + pos, s_size-pos, "KMAX=%d\n", pfq_sta->KMAX);
 			pfq_sta->KMAX = 0;
-			MTWF_PRINT("%s", buf);
+			MTWF_LOG(DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_OFF, ("%s", buf));
 		}
 	}
 
@@ -1129,60 +1105,60 @@ INT show_fq_info(PRTMP_ADAPTER pAd, RTMP_STRING *arg)
 
 	pAd->fq_ctrl.prev_qidx = -1;
 
-	if (!pAd->fq_ctrl.enable) {
-		MTWF_DBG(pAd, DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_ERROR, "FQ was is Disabled (qm=%d)\n", cap->qm);
+	if ((pAd->fq_ctrl.enable & FQ_EN) == 0) {
+		MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_ERROR, ("FQ was is Disabled (qm=%d)\n", cap->qm));
 		return TRUE;
 	}
-	MTWF_DBG(pAd, DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-		"FQ was Enabled [0x%x] qm:%d (nSTA:%d,%d[RED]) bcmc:%d ps:%d \n",
+	MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
+		("FQ was Enabled [0x%x] qm:%d (nSTA:%d,%d[RED]) bcmc:%d ps:%d \n",
 			pAd->fq_ctrl.enable, cap->qm, pAd->fq_ctrl.nactive,
-			pAd->red_in_use_sta, pAd->fq_ctrl.nbcmc_active, pAd->fq_ctrl.npow_save);
+			pAd->red_in_use_sta, pAd->fq_ctrl.nbcmc_active, pAd->fq_ctrl.npow_save));
 
 	for (i = 0; i < WMM_NUM_OF_AC; i++) {
-		MTWF_DBG(pAd, DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-			"FQAC%d's frm_cnt=%d.\n", i, pAd->fq_ctrl.frm_cnt[i]);
+		MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
+			("FQAC%d's frm_cnt=%d.\n", i, pAd->fq_ctrl.frm_cnt[i]));
 	}
 	for (i = 0; i < WMM_NUM_OF_AC; i++) {
-		MTWF_DBG(pAd, DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-			"FQAC%d's frm_max_cnt=%d.\n", i, pAd->fq_ctrl.frm_max_cnt[i]);
+		MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
+			("FQAC%d's frm_max_cnt=%d.\n", i, pAd->fq_ctrl.frm_max_cnt[i]));
 		pAd->fq_ctrl.frm_max_cnt[i] = 0;
 	}
 	for (i = 0; i < WMM_NUM_OF_AC; i++) {
-		MTWF_DBG(pAd, DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-			"FQAC%d's drop_cnt=%d.\n", i, pAd->fq_ctrl.drop_cnt[i]);
+		MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
+			("FQAC%d's drop_cnt=%d.\n", i, pAd->fq_ctrl.drop_cnt[i]));
 		pAd->fq_ctrl.drop_cnt[i] = 0;
 	}
 
 	for (i = 0; i < WMM_NUM_OF_AC; i++) {
-		MTWF_DBG(pAd, DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-			"FQAC%d's num=%d.\n", i, pAd->fq_ctrl.fq[i].Number);
+		MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
+			("FQAC%d's num=%d.\n", i, pAd->fq_ctrl.fq[i].Number));
 	}
 
 	for (i = 0; i < WMM_NUM_OF_AC; i++) {
 		for (j = 0; j < FQ_BITMAP_DWORD; j++)
-			MTWF_DBG(pAd, DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-				"no_packet_chkmap[%d][%d]=0x%08X.\n", i, j,
-				pAd->fq_ctrl.no_packet_chk_map[i][j]);
+			MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
+				("no_packet_chkmap[%d][%d]=0x%08X.\n", i, j,
+				pAd->fq_ctrl.no_packet_chk_map[i][j]));
 	}
 
 	for (j = 0; j < FQ_BITMAP_DWORD; j++)
-		MTWF_DBG(pAd, DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-			"staInUseBitmap[%d]=0x%08X.\n", j, pAd->fq_ctrl.staInUseBitmap[j]);
+		MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
+			("staInUseBitmap[%d]=0x%08X.\n", j, pAd->fq_ctrl.staInUseBitmap[j]));
 
 	for (i = 0; i < WMM_NUM_OF_AC; i++) {
 		for (j = 0; j < FQ_BITMAP_DWORD; j++)
-			MTWF_DBG(pAd, DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-				"list_map[%d][%d]=0x%08X.\n", i, j, pAd->fq_ctrl.list_map[i][j]);
+			MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
+				("list_map[%d][%d]=0x%08X.\n", i, j, pAd->fq_ctrl.list_map[i][j]));
 	}
 
 
-	MTWF_DBG(pAd, DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_ERROR, "sta_in_head:\n");
+	MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_ERROR, ("sta_in_head:\n"));
 	for (i = 0; i < WMM_NUM_OF_AC; i++) {
 		RTMP_IRQ_LOCK(&pAd->tx_swq_lock[i], IrqFlags);
-		for (j = 0; j < wtbl_max_num; j++)
+		for (j = 0; j < MAX_LEN_OF_MAC_TABLE; j++)
 			if (pAd->fq_ctrl.sta_in_head[i][j] > 0) {
-				MTWF_DBG(pAd, DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-					"[%d][%d]=%d\n", i, j, pAd->fq_ctrl.sta_in_head[i][j]);
+				MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
+					("[%d][%d]=%d\n", i, j, pAd->fq_ctrl.sta_in_head[i][j]));
 				pAd->fq_ctrl.sta_in_head[i][j] = 0;
 			}
 		RTMP_IRQ_UNLOCK(&pAd->tx_swq_lock[i], IrqFlags);
@@ -1210,7 +1186,8 @@ INT show_fq_info(PRTMP_ADAPTER pAd, RTMP_STRING *arg)
 				snprintf(buf+pos, s_size-pos, "%d[%d](%d)(%d)\n", pfq_sta->wcid,
 						tr_entry->tx_queue[i].Number,
 						pMACEntry->tr_tb_idx, tr_entry->wcid);
-						MTWF_PRINT("%s", buf);
+						MTWF_LOG(DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_OFF,
+							("%s", buf));
 				pos = 0;
 				os_zero_mem(buf, s_size);
 			} else
@@ -1227,13 +1204,14 @@ INT show_fq_info(PRTMP_ADAPTER pAd, RTMP_STRING *arg)
 				break;
 		}
 		if ((idx >= 0) && (pos >= 0))
-			MTWF_PRINT("%s}\n", buf);
+			MTWF_LOG(DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_OFF,
+				("%s}\n", buf));
 		RTMP_IRQ_UNLOCK(&pAd->tx_swq_lock[i], IrqFlags);
 	}
 
 	for (i = 0; i < WMM_NUM_OF_AC; i++) {
-		MTWF_DBG(pAd, DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-			"srchpos[%d]=%d\n", i, pAd->fq_ctrl.srch_pos[i]);
+		MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
+			("srchpos[%d]=%d\n", i, pAd->fq_ctrl.srch_pos[i]));
 	}
 
 	return TRUE;
@@ -1248,8 +1226,8 @@ INT set_fq_debug_enable(PRTMP_ADAPTER pAd, RTMP_STRING *arg)
 
 		if ((rv > 0) && (en <= FQ_DBG_MASK)) {
 			pAd->fq_ctrl.dbg_en = en;
-			MTWF_DBG(pAd, DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-			"set FQ Debug Message Enable to %d.\n", pAd->fq_ctrl.dbg_en);
+			MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
+			("%s: set FQ Debug Message Enable to %d.\n", __func__, pAd->fq_ctrl.dbg_en));
 		} else
 			return FALSE;
 	} else
@@ -1265,15 +1243,15 @@ INT set_fq_dbg_listmap(PRTMP_ADAPTER pAd, RTMP_STRING *arg)
 	if (arg) {
 		rv = sscanf(arg, "%d-%d-%d", &qidx, &wcid, &en);
 
-		if ((rv > 0) && (IS_WCID_VALID(pAd, wcid)) && (qidx <= WMM_AC_VO)) {
+		if ((rv > 0) && (wcid <= MAX_LEN_OF_MAC_TABLE) && (qidx <= WMM_AC_VO)) {
 			if (en == 0)
 				pAd->fq_ctrl.list_map[qidx][wcid>>FQ_BITMAP_SHIFT]
 						&= ~(1<<(wcid & FQ_BITMAP_MASK));
 			else
 				pAd->fq_ctrl.list_map[qidx][wcid>>FQ_BITMAP_SHIFT]
 						|= (1<<(wcid & FQ_BITMAP_MASK));
-			MTWF_DBG(pAd, DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-			"set STA%d[%d] to %d.\n", wcid, qidx, en);
+			MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
+			("%s: set STA%d[%d] to %d.\n", __func__, wcid, qidx, en));
 		} else
 			return FALSE;
 	} else
@@ -1288,11 +1266,10 @@ INT set_fq_dbg_linklist(PRTMP_ADAPTER pAd, RTMP_STRING *arg)
 	struct fq_stainfo_type *pfq_sta = NULL;
 	QUEUE_ENTRY *pEntry = NULL, *pPrevEntry = NULL, *pTmpEntry = NULL, *pPrevTmpEntry = NULL;
 	STA_TR_ENTRY *tr_entry = NULL;
-	UINT16 wtbl_max_num = WTBL_MAX_NUM(pAd);
 
 	if (arg) {
 		rv = sscanf(arg, "%d-%d-%d", &qidx, &wcid, &en);
-		if ((rv > 0) && (IS_WCID_VALID(pAd, wcid)) && (qidx <= WMM_AC_VO)) {
+		if ((rv > 0) && (wcid < MAX_LEN_OF_MAC_TABLE) && (qidx <= WMM_AC_VO)) {
 			if (en == 0) {
 				RTMP_SEM_LOCK(&pAd->tx_swq_lock[qidx]);
 				pEntry = pAd->fq_ctrl.fq[qidx].Head;
@@ -1324,7 +1301,7 @@ INT set_fq_dbg_linklist(PRTMP_ADAPTER pAd, RTMP_STRING *arg)
 						pPrevEntry = pPrevTmpEntry;
 					pEntry = pTmpEntry;
 					sta_num++;
-					if (sta_num >= wtbl_max_num)
+					if (sta_num >= MAX_LEN_OF_MAC_TABLE)
 						break;
 				}
 				RTMP_SEM_UNLOCK(&pAd->tx_swq_lock[qidx]);
@@ -1341,8 +1318,8 @@ INT set_fq_dbg_linklist(PRTMP_ADAPTER pAd, RTMP_STRING *arg)
 				RTMP_SPIN_UNLOCK(&pfq_sta->lock[qidx]);
 				RTMP_SEM_UNLOCK(&pAd->tx_swq_lock[qidx]);
 			}
-			MTWF_DBG(pAd, DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-			"set STA%d[%d] %s list .\n", wcid, qidx, (en == 0) ? "from" : "to");
+			MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
+			("%s: set STA%d[%d] %s list .\n", __func__, wcid, qidx, (en == 0) ? "from" : "to"));
 		} else
 			return FALSE;
 	} else
@@ -1357,7 +1334,6 @@ static UINT16 fq_del_list_v2(RTMP_ADAPTER *pAd, struct dequeue_info *info, CHAR 
 	STA_TR_ENTRY *tr_entry = NULL;
 	struct fq_stainfo_type *pfq_sta = NULL;
 	INT32 quota = 0, n;
-	UINT16 wtbl_max_num = WTBL_MAX_NUM(pAd);
 
 	if (info->q_max_cnt[deq_qid] == 0)
 		return 0;
@@ -1371,7 +1347,7 @@ static UINT16 fq_del_list_v2(RTMP_ADAPTER *pAd, struct dequeue_info *info, CHAR 
 		UINT16 srch_pos;
 
 		srch_pos = (pAd->fq_ctrl.srch_pos[deq_qid]+1);
-		if (srch_pos == wtbl_max_num)
+		if (srch_pos == MAX_LEN_OF_MAC_TABLE)
 			srch_pos = 1;
 		wcid = srch_pos;
 		if ((pAd->fq_ctrl.list_map[deq_qid][wcid>>FQ_BITMAP_SHIFT] & (1 << (wcid & FQ_BITMAP_MASK))) == 0)
@@ -1421,7 +1397,7 @@ static UINT16 fq_del_list_v2(RTMP_ADAPTER *pAd, struct dequeue_info *info, CHAR 
 LOOP_END:
 		n++;
 		pAd->fq_ctrl.srch_pos[deq_qid] = srch_pos;
-	} while (n < wtbl_max_num);
+	} while (n < MAX_LEN_OF_MAC_TABLE);
 	*tx_quota = 0;
 
 	return 0;
@@ -1432,22 +1408,20 @@ static INT fq_del_report_v2(RTMP_ADAPTER *pAd, struct dequeue_info *info)
 {
 	ULONG IrqFlags = 0;
 	UCHAR qidx = info->cur_q;
-	UINT16 wcid = info->cur_wcid;
+	UCHAR wcid = info->cur_wcid;
 	struct fq_stainfo_type *pfq_sta = NULL;
 	STA_TR_ENTRY *tr_entry = NULL;
 	INT prev_wcid_tmp;
 	INT ret = NDIS_STATUS_SUCCESS;
-	struct _RTMP_CHIP_CAP *cap = NULL;
+
 	ASSERT(qidx < WMM_QUE_NUM);
-	ASSERT(IS_TR_WCID_VALID(pAd, wcid));
+	ASSERT(wcid < MAX_LEN_OF_TR_TABLE);
 
 	RTMP_IRQ_LOCK(&pAd->tx_swq_lock[qidx], IrqFlags);
-	cap = hc_get_chip_cap(pAd->hdev_ctrl);
 
-	if (cap->qm_version != QM_V2) {
 	if (info->q_max_cnt[info->cur_q] > 0)
 		info->q_max_cnt[info->cur_q] -= info->deq_pkt_cnt;
-	}
+
 #ifdef FQ_SCH_DBG_SUPPORT
 	if (pAd->fq_ctrl.dbg_en&FQ_DBG_DUMP_STA_LOG) {
 		if (pAd->fq_ctrl.prev_qidx >= 0) {
@@ -1458,7 +1432,7 @@ static INT fq_del_report_v2(RTMP_ADAPTER *pAd, struct dequeue_info *info)
 			else
 				prev_wcid_tmp = pAd->fq_ctrl.prev_wcid[the_prev_qidx];
 
-			if ((prev_wcid_tmp > 0) && IS_WCID_VALID(pAd, prev_wcid_tmp)) {
+			if ((prev_wcid_tmp > 0) && (prev_wcid_tmp < MAX_LEN_OF_MAC_TABLE)) {
 				if ((pAd->fq_ctrl.prev_wcid[qidx] == wcid) &&
 					((pAd->fq_ctrl.fq[qidx].Number >= 1) || (!pAd->fq_ctrl.enable)
 					|| (pAd->fq_ctrl.nactive == 1))) {
@@ -1513,11 +1487,9 @@ static INT fq_del_report_v2(RTMP_ADAPTER *pAd, struct dequeue_info *info)
 					&= ~(1<<(tr_entry->wcid & FQ_BITMAP_MASK));
 		RTMP_SPIN_UNLOCK(&tr_entry->txq_lock[qidx]);
 
-		if (cap->qm_version != QM_V2) {
 		if (tx_flow_check_state(pAd, NO_ENOUGH_SWQ_SPACE, qidx) &&
 			fq_get_swq_free_num(pAd, qidx) > pAd->tx_swq[qidx].high_water_mark)
 			tx_flow_set_state_block(pAd, NULL, NO_ENOUGH_SWQ_SPACE, FALSE, qidx);
-	}
 	}
 
 	RTMP_IRQ_UNLOCK(&pAd->tx_swq_lock[qidx], IrqFlags);
@@ -1526,17 +1498,15 @@ static INT fq_del_report_v2(RTMP_ADAPTER *pAd, struct dequeue_info *info)
 }
 VOID app_show_fq_dbgmsg(RTMP_ADAPTER *pAd)
 {
-	UINT16 wcid, ac_idx, idx;
+	UINT_8 wcid, ac_idx, idx;
 	INT pos = 0;
 	char buf[MAX_LEN_OF_MAC_TABLE*2];
 	ULONG IrqFlags = 0;
-	struct tx_rx_ctl *tr_ctl = &pAd->tr_ctl;
 	STA_TR_ENTRY *tr_entry = NULL;
 	struct fq_stainfo_type *pfq_sta = NULL;
 	QUEUE_ENTRY *pEntry = NULL;
 	P_RED_STA_T prRedSta;
 	INT32 s_size = MAX_LEN_OF_MAC_TABLE*2;
-	UINT16 wtbl_max_num = WTBL_MAX_NUM(pAd);
 
 	/* Show Debug Message by cmd */
 	if (pAd->fq_ctrl.dbg_en&FQ_DBG_DUMP_FQLIST) {
@@ -1559,7 +1529,8 @@ VOID app_show_fq_dbgmsg(RTMP_ADAPTER *pAd)
 					pos += snprintf(buf+pos, s_size-pos, "%d", pfq_sta->wcid);
 				else if ((idx % 16) == 0) {
 					snprintf(buf+pos, s_size-pos, ",%d\n", pfq_sta->wcid);
-					MTWF_PRINT("%s", buf);
+					MTWF_LOG(DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_OFF,
+							("%s", buf));
 					pos = 0;
 					os_zero_mem(buf, MAX_LEN_OF_MAC_TABLE*2);
 				} else
@@ -1576,14 +1547,15 @@ VOID app_show_fq_dbgmsg(RTMP_ADAPTER *pAd)
 			}
 
 			if ((idx > 0) && (pos >= 0))
-				MTWF_PRINT("%s},frm:%d\n", buf, pAd->fq_ctrl.frm_cnt[ac_idx]);
+				MTWF_LOG(DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_OFF,
+					("%s},frm:%d\n", buf, pAd->fq_ctrl.frm_cnt[ac_idx]));
 
 			RTMP_IRQ_UNLOCK(&pAd->tx_swq_lock[ac_idx], IrqFlags);
 		}
 	}
 
-	for (wcid = 1; wcid < wtbl_max_num; wcid++) {
-		tr_entry = &tr_ctl->tr_entry[wcid];
+	for (wcid = 1; wcid < MAX_LEN_OF_MAC_TABLE; wcid++) {
+		tr_entry = &pAd->MacTab.tr_entry[wcid];
 		pfq_sta = &tr_entry->fq_sta_rec;
 		prRedSta = &pAd->red_sta[wcid];
 		for (ac_idx = WMM_AC_BK; ac_idx <= WMM_AC_VO; ac_idx++) {
@@ -1604,15 +1576,15 @@ VOID app_show_fq_dbgmsg(RTMP_ADAPTER *pAd)
 						pAd->fq_ctrl.list_map[ac_idx][wcid>>5],
 						pfq_sta->tx_msdu_cnt, prRedSta->tx_msdu_avg_cnt,
 						tr_entry->StaRec.ConnectionState);
-					MTWF_PRINT("%s\n", buf);
+					MTWF_LOG(DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_OFF, ("%s\n", buf));
 					if (pfq_sta->KMAX > 0)
 						pfq_sta->KMAX = 0;
 				}
 			}
 		}
 	}
-	MTWF_PRINT("frmcnt:[%d, %d, %d, %d]\n", pAd->fq_ctrl.frm_cnt[0],
-		pAd->fq_ctrl.frm_cnt[1], pAd->fq_ctrl.frm_cnt[2], pAd->fq_ctrl.frm_cnt[3]);
+	MTWF_LOG(DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_OFF, ("frmcnt:[%d, %d, %d, %d]\n", pAd->fq_ctrl.frm_cnt[0],
+		pAd->fq_ctrl.frm_cnt[1], pAd->fq_ctrl.frm_cnt[2], pAd->fq_ctrl.frm_cnt[3]));
 
 }
 

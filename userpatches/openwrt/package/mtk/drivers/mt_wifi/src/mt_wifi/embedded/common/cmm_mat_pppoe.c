@@ -1,17 +1,18 @@
 /*
- * Copyright (c) [2020], MediaTek Inc. All rights reserved.
- *
- * This software/firmware and related documentation ("MediaTek Software") are
- * protected under relevant copyright laws.
- * The information contained herein is confidential and proprietary to
- * MediaTek Inc. and/or its licensors.
- * Except as otherwise provided in the applicable licensing terms with
- * MediaTek Inc. and/or its licensors, any reproduction, modification, use or
- * disclosure of MediaTek Software, and information contained herein, in whole
- * or in part, shall be strictly prohibited.
-*/
-/*
  ***************************************************************************
+ * Ralink Tech Inc.
+ * 4F, No. 2 Technology 5th Rd.
+ * Science-based Industrial Park
+ * Hsin-chu, Taiwan, R.O.C.
+ *
+ * (c) Copyright 2002-2007, Ralink Technology, Inc.
+ *
+ * All rights reserved.	Ralink's source	code is	an unpublished work	and	the
+ * use of a	copyright notice does not imply	otherwise. This	source code
+ * contains	confidential trade secret material of Ralink Tech. Any attemp
+ * or participation	in deciphering,	decoding, reverse engineering or in	any
+ * way altering	the	source code	is stricitly prohibited, unless	the	prior
+ * written consent of Ralink Technology, Inc. is obtained.
  ***************************************************************************
 
 	Module Name:
@@ -171,7 +172,7 @@ NDIS_STATUS dumpSesMacTb(
 	pSesMacTable = (SesMacMappingTable *)pMatCfg->MatTableSet.SesMacTable;
 
 	if ((!pSesMacTable) || (!pSesMacTable->valid)) {
-		MTWF_DBG(NULL, DBG_CAT_PROTO, CATPROTO_MAT, DBG_LVL_ERROR, "SesMacTable not init yet, so cannot do dump!\n");
+		MTWF_LOG(DBG_CAT_PROTO, CATPROTO_MAT, DBG_LVL_OFF, ("SesMacTable not init yet, so cannot do dump!\n"));
 		return FALSE;
 	}
 
@@ -184,20 +185,20 @@ NDIS_STATUS dumpSesMacTb(
 		startIdx = endIdx = hashIdx;
 	}
 
-	MTWF_PRINT("%s():\n", __func__);
+	MTWF_LOG(DBG_CAT_PROTO, CATPROTO_MAT, DBG_LVL_OFF, ("%s():\n", __func__));
 
 	for (; startIdx <= endIdx; startIdx++) {
 		pHead = pSesMacTable->sesHash[startIdx];
 
 		while (pHead) {
-			MTWF_PRINT("SesMac[%d]:\n", startIdx);
-			MTWF_PRINT("\tsesID=%d,inMac="MACSTR",outMac="MACSTR",lastTime=0x%lx, pNext=%p\n",
-					 pHead->sessionID, MAC2STR(pHead->inMacAddr), MAC2STR(pHead->outMacAddr), pHead->lastTime, pHead->pNext);
+			MTWF_LOG(DBG_CAT_PROTO, CATPROTO_MAT, DBG_LVL_OFF, ("SesMac[%d]:\n", startIdx));
+			MTWF_LOG(DBG_CAT_PROTO, CATPROTO_MAT, DBG_LVL_OFF, ("\tsesID=%d,inMac=%02x:%02x:%02x:%02x:%02x:%02x,outMac=%02x:%02x:%02x:%02x:%02x:%02x,lastTime=0x%lx, pNext=%p\n",
+					 pHead->sessionID, PRINT_MAC(pHead->inMacAddr), PRINT_MAC(pHead->outMacAddr), pHead->lastTime, pHead->pNext));
 			pHead = pHead->pNext;
 		}
 	}
 
-	MTWF_PRINT("\t----EndOfDump!\n");
+	MTWF_LOG(DBG_CAT_PROTO, CATPROTO_MAT, DBG_LVL_OFF, ("\t----EndOfDump!\n"));
 	return TRUE;
 }
 
@@ -211,7 +212,7 @@ NDIS_STATUS dumpUidMacTb(MAT_STRUCT *pMatCfg, int hashIdx)
 	pUidMacTable = (UidMacMappingTable *)pMatCfg->MatTableSet.UidMacTable;
 
 	if ((!pUidMacTable) || (!pUidMacTable->valid)) {
-		MTWF_DBG(NULL, DBG_CAT_PROTO, CATPROTO_MAT, DBG_LVL_ERROR, "UidMacTable not init yet, so cannot do dump!\n");
+		MTWF_LOG(DBG_CAT_PROTO, CATPROTO_MAT, DBG_LVL_OFF, ("UidMacTable not init yet, so cannot do dump!\n"));
 		return FALSE;
 	}
 
@@ -224,26 +225,26 @@ NDIS_STATUS dumpUidMacTb(MAT_STRUCT *pMatCfg, int hashIdx)
 		startIdx = endIdx = hashIdx;
 	}
 
-	MTWF_PRINT("%s():\n", __func__);
+	MTWF_LOG(DBG_CAT_PROTO, CATPROTO_MAT, DBG_LVL_OFF, ("%s():\n", __func__));
 
 	for (; startIdx <= endIdx; startIdx++) {
 		pHead = pUidMacTable->uidHash[startIdx];
 
 		while (pHead) {
-			MTWF_PRINT("UidMac[%d]:\n", startIdx);
-			MTWF_PRINT("\tisSrv=%d, uIDAddbyUs=%d, Mac="MACSTR", lastTime=0x%lx, pNext=%p\n",
-					 pHead->isServer, pHead->uIDAddByUs, MAC2STR(pHead->macAddr), pHead->lastTime, pHead->pNext);
-			MTWF_PRINT("\tuIDStr=");
+			MTWF_LOG(DBG_CAT_PROTO, CATPROTO_MAT, DBG_LVL_OFF, ("UidMac[%d]:\n", startIdx));
+			MTWF_LOG(DBG_CAT_PROTO, CATPROTO_MAT, DBG_LVL_OFF, ("\tisSrv=%d, uIDAddbyUs=%d, Mac=%02x:%02x:%02x:%02x:%02x:%02x, lastTime=0x%lx, pNext=%p\n",
+					 pHead->isServer, pHead->uIDAddByUs, PRINT_MAC(pHead->macAddr), pHead->lastTime, pHead->pNext));
+			MTWF_LOG(DBG_CAT_PROTO, CATPROTO_MAT, DBG_LVL_OFF, ("\tuIDStr="));
 
 			for (i = 0; i < PPPOE_DIS_UID_LEN; i++)
-				MTWF_PRINT("%02x", pHead->uIDStr[i]);
+				MTWF_LOG(DBG_CAT_PROTO, CATPROTO_MAT, DBG_LVL_OFF, ("%02x", pHead->uIDStr[i]));
 
-			MTWF_PRINT("\n");
+			MTWF_LOG(DBG_CAT_PROTO, CATPROTO_MAT, DBG_LVL_OFF, ("\n"));
 			pHead = pHead->pNext;
 		}
 	}
 
-	MTWF_PRINT("\t----EndOfDump!\n");
+	MTWF_LOG(DBG_CAT_PROTO, CATPROTO_MAT, DBG_LVL_OFF, ("\t----EndOfDump!\n"));
 	return TRUE;
 }
 
@@ -369,12 +370,7 @@ static PUidMacMappingEntry UidMacTableUpdate(
 
 					/*After remove this entry from macHash list and uidHash list, now free it! */
 					MATDBEntryFree(pMatCfg, (PUCHAR)pEntry);
-					if (pEntry == pPrev) {
-						pEntry = NULL;
-						pPrev = NULL;
-					}
-					if (pMatCfg->nodeCount > 0)
-						pMatCfg->nodeCount--;
+					pMatCfg->nodeCount--;
 					pEntry = (pPrev == NULL ? NULL : pPrev->pNext);
 				} else {
 					pPrev = pEntry;
@@ -384,12 +380,6 @@ static PUidMacMappingEntry UidMacTableUpdate(
 		}
 	}
 
-#ifdef ETH_CONVERT_SUPPORT
-
-	if (pMatCfg->nodeCount >= ETH_CONVERT_NODE_MAX)
-		return FALSE;
-
-#endif /* ETH_CONVERT_SUPPORT */
 	/* Allocate a new UidMacMapping entry and insert into the double-hash */
 	pNewEntry = (UidMacMappingEntry *)MATDBEntryAlloc(pMatCfg, sizeof(UidMacMappingEntry));
 
@@ -447,9 +437,10 @@ static PUidMacMappingEntry UidMacTableLookUp(
 
 	while (pEntry) {
 		if (NdisEqualMemory(pEntry->uIDStr, pTagInfo, tagLen)) {
-			/*			MTWF_DBG(NULL, DBG_CAT_PROTO, CATPROTO_MAT, DBG_LVL_INFO, "dstMac="MACSTR" for mapped dstIP(%d.%d.%d.%d)\n",
-								MAC2STR(pEntry->macAddr),
-								(ipAddr>>24) & 0xff, (ipAddr>>16) & 0xff, (ipAddr>>8) & 0xff, ipAddr & 0xff);
+			/*			MTWF_LOG(DBG_CAT_PROTO, CATPROTO_MAT, DBG_LVL_TRACE,("%s(): dstMac=%02x:%02x:%02x:%02x:%02x:%02x for mapped dstIP(%d.%d.%d.%d)\n",
+								__func__, pEntry->macAddr[0],pEntry->macAddr[1],pEntry->macAddr[2],
+								pEntry->macAddr[3],pEntry->macAddr[4],pEntry->macAddr[5],
+								(ipAddr>>24) & 0xff, (ipAddr>>16) & 0xff, (ipAddr>>8) & 0xff, ipAddr & 0xff));
 			*/
 			/*Update the lastTime to prevent the aging before pDA processed! */
 			NdisGetSystemUpTime(&pEntry->lastTime);
@@ -482,8 +473,9 @@ static PUCHAR getInMacByOutMacFromSesMacTb(
 
 	while (pEntry) {
 		if ((pEntry->sessionID == sesID) &&  IS_EQUAL_MAC(pEntry->outMacAddr, outMac)) {
-			MTWF_DBG(NULL, DBG_CAT_PROTO, CATPROTO_MAT, DBG_LVL_INFO, "find it! dstMac="MACSTR"\n",
-					 MAC2STR(pEntry->inMacAddr));
+			MTWF_LOG(DBG_CAT_PROTO, CATPROTO_MAT, DBG_LVL_TRACE, ("%s(): find it! dstMac=%02x:%02x:%02x:%02x:%02x:%02x\n",
+					 __func__, pEntry->inMacAddr[0], pEntry->inMacAddr[1], pEntry->inMacAddr[2],
+					 pEntry->inMacAddr[3], pEntry->inMacAddr[4], pEntry->inMacAddr[5]));
 			/*Update the lastTime to prevent the aging before pDA processed! */
 			NdisGetSystemUpTime(&pEntry->lastTime);
 			return pEntry->inMacAddr;
@@ -516,8 +508,10 @@ static NDIS_STATUS SesMacTableUpdate(
 
 	hashIdx = sesID % MAT_MAX_HASH_ENTRY_SUPPORT;
 	/*
-		MTWF_DBG(NULL, DBG_CAT_PROTO, CATPROTO_MAT, DBG_LVL_INFO,"sesID=0x%04x,inMac="MACSTR",
-				outMac="MACSTR"\n", sesID, MAC2STR(inMacAddr), MAC2STR(outMacAddr));
+		MTWF_LOG(DBG_CAT_PROTO, CATPROTO_MAT, DBG_LVL_TRACE,("%s():sesID=0x%04x,inMac=%02x%02x:%02x:%02x:%02x:%02x,
+				outMac=%02x:%02x:%02x:%02x:%02x:%02x\n", __func__, sesID,
+				inMacAddr[0],inMacAddr[1],inMacAddr[2],inMacAddr[3],inMacAddr[4],inMacAddr[5],
+				outMacAddr[0],outMacAddr[1],outMacAddr[2],outMacAddr[3],outMacAddr[4],outMacAddr[5]));
 	*/
 	pEntry = pPrev = pSesMacTable->sesHash[hashIdx];
 
@@ -542,12 +536,7 @@ static NDIS_STATUS SesMacTableUpdate(
 					pPrev->pNext = pEntry->pNext;
 
 				MATDBEntryFree(pMatCfg, (PUCHAR)pEntry);
-				if (pEntry == pPrev) {
-					pEntry = NULL;
-					pPrev = NULL;
-				}
-				if (pMatCfg->nodeCount > 0)
-					pMatCfg->nodeCount--;
+				pMatCfg->nodeCount--;
 				pEntry = (pPrev == NULL ? NULL : pPrev->pNext);
 			} else {
 				pPrev = pEntry;
@@ -556,12 +545,6 @@ static NDIS_STATUS SesMacTableUpdate(
 		}
 	}
 
-#ifdef ETH_CONVERT_SUPPORT
-
-	if (pMatCfg->nodeCount >= ETH_CONVERT_NODE_MAX)
-		return FALSE;
-
-#endif /* ETH_CONVERT_SUPPORT */
 	/* Allocate a new IPMacMapping entry and insert into the hash */
 	pNewEntry = (SesMacMappingEntry *)MATDBEntryAlloc(pMatCfg, sizeof(SesMacMappingEntry));
 
@@ -692,7 +675,7 @@ static PUCHAR MATProto_PPPoEDis_Rx(
 				UINT removedTagLen, tailLen;
 				removedTagLen = 4 + tagLen; 	/*The total length tag ID/info we want to remove. */
 				tagHead = pTagContent - 4;	/*The start address of the tag we want to remove in sk bufffer */
-				tailLen = GET_OS_PKT_LEN(pSkb) - (tagHead - (PUCHAR)(GET_OS_PKT_DATAPTR(pSkb))) - removedTagLen; /*Total left bytes we want to move. */
+				tailLen = GET_OS_PKT_LEN(pSkb) - (pTagContent - (PUCHAR)(GET_OS_PKT_DATAPTR(pSkb))) - removedTagLen; /*Total left bytes we want to move. */
 
 				if (tailLen) {
 					nextTagHead = pTagContent + tagLen;	/*The start address of next tag ID/info in sk buffer. */
@@ -827,8 +810,9 @@ static PUCHAR MATProto_PPPoEDis_Tx(
 	if (pEntry && (pTagContent == NULL)) {
 		PUCHAR tailHead;
 
-		if ((skb_tailroom(RTPKT_TO_OSPKT(pSkb)) < (PPPOE_DIS_UID_LEN + 4)) || (OS_PKT_CLONED(pSkb))) {
-			pModSkb = skb_copy_expand(pSkb, skb_headroom(pSkb), (skb_tailroom(pSkb) + PPPOE_DIS_UID_LEN + 4), GFP_ATOMIC);
+		if (OS_PKT_CLONED(pSkb)) {
+			/*			pModSkb = (PNDIS_PACKET)skb_copy(RTPKT_TO_OSPKT(pSkb), MEM_ALLOC_FLAG); */
+			OS_PKT_COPY(RTPKT_TO_OSPKT(pSkb), pModSkb);
 		} else
 			pModSkb = (PNDIS_PACKET)RTPKT_TO_OSPKT(pSkb);
 

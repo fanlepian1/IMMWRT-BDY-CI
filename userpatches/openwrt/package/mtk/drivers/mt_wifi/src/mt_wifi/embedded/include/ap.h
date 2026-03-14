@@ -1,17 +1,18 @@
 /*
- * Copyright (c) [2020], MediaTek Inc. All rights reserved.
- *
- * This software/firmware and related documentation ("MediaTek Software") are
- * protected under relevant copyright laws.
- * The information contained herein is confidential and proprietary to
- * MediaTek Inc. and/or its licensors.
- * Except as otherwise provided in the applicable licensing terms with
- * MediaTek Inc. and/or its licensors, any reproduction, modification, use or
- * disclosure of MediaTek Software, and information contained herein, in whole
- * or in part, shall be strictly prohibited.
-*/
-/*
  ***************************************************************************
+ * Ralink Tech Inc.
+ * 4F, No. 2 Technology 5th Rd.
+ * Science-based Industrial Park
+ * Hsin-chu, Taiwan, R.O.C.
+ *
+ * (c) Copyright 2002, Ralink Technology, Inc.
+ *
+ * All rights reserved. Ralink's source code is an unpublished work and the
+ * use of a copyright notice does not imply otherwise. This source code
+ * contains confidential trade secret material of Ralink Tech. Any attemp
+ * or participation in deciphering, decoding, reverse engineering or in any
+ * way altering the source code is stricitly prohibited, unless the prior
+ * written consent of Ralink Technology, Inc. is obtained.
  ***************************************************************************
 
     Module Name:
@@ -31,30 +32,31 @@
 #include "ft_cmm.h"
 #endif /* DOT11R_FT_SUPPORT */
 
-#ifdef DELAY_TCP_ACK_V2
-#define PEAK_TP_AVG_TX_PKT_LEN 256
-#define PEAK_TP_AVG_RX_PKT_LEN 1000
-#define PEAK_TP_WO_REPORT_TIME 0x6
-#endif /* DELAY_TCP_ACK_V2 */
-#define MULTI_CLIENT_NUMS_EAP_TH 16
+#define INFRA_TP_PEEK_BOUND_THRESHOLD 50
+#define VERIWAVE_TP_PEEK_BOUND_TH 30
+#define VERIWAVE_2G_PKT_CNT_TH 100
+#define VERIWAVE_5G_PKT_CNT_TH 200
+#define BYTES_PER_SEC_TO_MBPS	17
+#define TX_MODE_RATIO_THRESHOLD	70
+#define RX_MODE_RATIO_THRESHOLD	70
+#define STA_TP_IDLE_THRESHOLD 10
+#define STA_NUMBER_FOR_TRIGGER                1
+#define MULTI_CLIENT_NUMS_TH 16
+#define MULTI_CLIENT_2G_NUMS_TH 16
+#define INFRA_KEEP_STA_PKT_TH 1
+#define VERIWAVE_TP_AMSDU_DIS_TH 1400
+#define VERIWAVE_2G_TP_AMSDU_DIS_TH 1024
+#define VERIWAVE_PER_RTS_DIS_TH_LOW_MARK 3
+#define VERIWAVE_PER_RTS_DIS_TH_HIGH_MARK 9
+#define VERIWAVE_PKT_LEN_LOW 60
+#define VERIWAVE_INVALID_PKT_LEN_HIGH 2000
+#define VERIWAVE_INVALID_PKT_LEN_LOW 64
+#define	TRAFFIC_0	0
+#define	TRAFFIC_DL_MODE	1
+#define	TRAFFIC_UL_MODE	2
+#define TRAFFIC_BIDIR_ACTIVE_MODE 3
+#define TRAFFIC_BIDIR_IDLE_MODE 4
 
-/* mcli iwpriv cmd */
-#define MCLI_RPS_ADJUST_ENABLE	1
-#define MCLI_FORCE_AGGLIMIT 	2
-#define MCLI_SHOW_INFO 		3
-#define MCLI_DEBUG_ON		4
-#define MCLI_RX_RPS_ENABLE	5
-#define MCLI_RX_RPS_CPUMAP	6
-#define MCLI_FORCE_RPS_CFG	7
-#define MCLI_FORCE_TX_PROCESS_CNT	8
-#define MCLI_CLI_NUMS_EAP_TH		9
-
-#define PER_DN_TH 35
-#define PER_UP_TH 15
-#define WINSIZE_KP_IDX 0x3
-
-#define NEAR_FAR_FAST_PHY_RATE_TH	520
-#define NEAR_FAR_SLOW_PHY_RATE_TH	54
 
 /* ============================================================= */
 /*      Common definition */
@@ -62,7 +64,7 @@
 #define MBSS_VLAN_INFO_GET(__pAd, __VLAN_VID, __VLAN_Priority, __func_idx) \
 	{																		\
 		if ((__func_idx < __pAd->ApCfg.BssidNum) &&					\
-			(VALID_MBSS(__pAd, __func_idx)) &&						\
+			(__func_idx < HW_BEACON_MAX_NUM) &&						\
 			(__pAd->ApCfg.MBSSID[__func_idx].wdev.VLAN_VID != 0)) {			\
 				__VLAN_VID = __pAd->ApCfg.MBSSID[__func_idx].wdev.VLAN_VID;	\
 				__VLAN_Priority = __pAd->ApCfg.MBSSID[__func_idx].wdev.VLAN_Priority; \
@@ -77,7 +79,19 @@
 		}																	\
 	}
 
-#if !defined(HOSTAPD_11R_SUPPORT) && !defined(HOSTAPD_WPA3_SUPPORT)
+#ifdef CUSTOMER_RSG_FEATURE
+#define TIMESTAMP_GET(__pAd, __TimeStamp)			\
+	{													\
+		UINT32 tsf_l = 0, tsf_h = 0; UINT64 __Value64;				\
+		AsicGetTsfTime((__pAd), &tsf_h, &tsf_l);\
+		__TimeStamp = (UINT64)tsf_l;					\
+		__Value64 = (UINT64)tsf_h;						\
+		__TimeStamp |= (tsf_h << 32);				\
+	}
+#endif
+
+
+#ifndef HOSTAPD_11R_SUPPORT
 typedef struct _AUTH_FRAME_INFO {
 	UCHAR addr1[MAC_ADDR_LEN];
 	UCHAR addr2[MAC_ADDR_LEN];
@@ -89,8 +103,7 @@ typedef struct _AUTH_FRAME_INFO {
 	FT_INFO FtInfo;
 #endif /* DOT11R_FT_SUPPORT */
 } AUTH_FRAME_INFO;
-#endif
-
+#endif /* HOSTAPD_11R_SUPPORT */
 
 #ifdef CONVERTER_MODE_SWITCH_SUPPORT
 typedef enum _ENUM_AP_START_STATE_T	{
@@ -109,8 +122,6 @@ typedef enum _ENUM_APCLI_MODE_T	{
 
 #endif /* CONVERTER_MODE_SWITCH_SUPPORT */
 
-
-
 typedef enum _ENUM_AP_BSS_OPER_T {
 	AP_BSS_OPER_ALL = 0,
 	AP_BSS_OPER_BY_RF,
@@ -118,15 +129,6 @@ typedef enum _ENUM_AP_BSS_OPER_T {
 	AP_BSS_OPER_NUM
 } ENUM_AP_BSS_OPER;
 
-
-#ifdef CONN_FAIL_EVENT
-struct CONN_FAIL_MSG {
-	CHAR Ssid[32];
-	UCHAR SsidLen;
-	UCHAR StaAddr[6];
-	USHORT ReasonCode;
-};
-#endif
 /* ============================================================= */
 /*      Function Prototypes */
 /* ============================================================= */
@@ -138,27 +140,7 @@ BOOLEAN APBridgeToWirelessSta(
 	IN  PUCHAR          pData,
 	IN  UINT            DataLen,
 	IN  ULONG           fromwdsidx);
-#ifdef ANTENNA_DIVERSITY_SUPPORT
-VOID ant_diversity_ctrl_init(RTMP_ADAPTER *pAd, UINT8 band_idx);
-VOID ant_diversity_ctrl_reset(RTMP_ADAPTER *pAd);
-UINT8 ant_diversity_allowed(RTMP_ADAPTER *pAd, UINT8 band_idx);
-UINT8 ant_diversity_update_indicator(RTMP_ADAPTER *pAd);
-VOID ant_diversity_process(RTMP_ADAPTER *pAd, UINT8 band_idx);
-VOID show_ant_diversity_debug_log(RTMP_ADAPTER *pAd, UINT8 band_idx);
-VOID ant_diversity_periodic_exec(RTMP_ADAPTER *pAd);
-INT set_ant_diversity_debug_log(RTMP_ADAPTER *pAd, RTMP_STRING *arg);
-INT set_ant_diversity_disable_forcedly(RTMP_ADAPTER *pAd, RTMP_STRING *arg);
-INT set_ant_diversity_dbg_tp_deg_th_proc(RTMP_ADAPTER *pAd, RTMP_STRING *arg);
-INT set_ant_diversity_dbg_cn_deg_th_proc(RTMP_ADAPTER *pAd, RTMP_STRING *arg);
-INT set_ant_diversity_dbg_rx_rate_deg_th_proc(RTMP_ADAPTER *pAd, RTMP_STRING *arg);
-INT set_ant_diversity_dbg_countdown_proc(RTMP_ADAPTER *pAd, RTMP_STRING *arg);
-INT set_ant_diversity_dbg_ul_th_proc(RTMP_ADAPTER *pAd, RTMP_STRING *arg);
-INT set_ant_diversity_select_antenna(RTMP_ADAPTER *pAd, RTMP_STRING *arg);
-INT set_ant_diversity_rx_rate_delta_th(RTMP_ADAPTER *pAd, RTMP_STRING *arg);
-INT set_read_interval_proc(RTMP_ADAPTER *pAd, RTMP_STRING *arg);
-INT set_ant_diversity_cn_deg_continuous_th(RTMP_ADAPTER *pAd, RTMP_STRING *arg);
-INT set_ant_diversity_rx_rate_deg_continuous_th(RTMP_ADAPTER *pAd, RTMP_STRING *arg);
-#endif
+
 INT ap_tx_pkt_allowed(RTMP_ADAPTER *pAd, struct wifi_dev *wdev, PNDIS_PACKET pPacket);
 INT ap_fp_tx_pkt_allowed(RTMP_ADAPTER *pAd, struct wifi_dev *wdev, PNDIS_PACKET pkt);
 INT ap_rx_pkt_allowed(RTMP_ADAPTER *pAd, struct wifi_dev *wdev, RX_BLK *pRxBlk);
@@ -203,7 +185,6 @@ VOID rx_eapol_frm_handle(
 
 VOID ap_rx_error_handle(RTMP_ADAPTER *pAd, RX_BLK *pRxBlk);
 BOOLEAN ap_chk_cl2_cl3_err(RTMP_ADAPTER *pAd, RX_BLK *pRxBlk);
-VOID ap_cls3_err_action(RTMP_ADAPTER *pAd, RX_BLK *pRxBlk);
 
 VOID RTMPDescriptorEndianChange(UCHAR *pData, ULONG DescriptorType);
 
@@ -221,11 +202,12 @@ VOID APAssocStateMachineInit(
 	OUT STATE_MACHINE_FUNC Trans[]);
 
 VOID MbssKickOutStas(RTMP_ADAPTER *pAd, INT apidx, USHORT Reason);
-VOID APMlmeKickOutSta(RTMP_ADAPTER *pAd, UCHAR *staAddr, UINT16 Wcid, USHORT Reason);
+VOID APMlmeKickOutSta(RTMP_ADAPTER *pAd, UCHAR *staAddr, UCHAR Wcid, USHORT Reason);
 
 #ifdef BW_VENDOR10_CUSTOM_FEATURE
 BOOLEAN IsClientConnected(RTMP_ADAPTER *pAd);
 #endif
+
 
 #ifdef DOT11W_PMF_SUPPORT
 VOID APMlmeKickOutAllSta(RTMP_ADAPTER *pAd, UCHAR apidx, USHORT Reason);
@@ -233,7 +215,16 @@ VOID APMlmeKickOutAllSta(RTMP_ADAPTER *pAd, UCHAR apidx, USHORT Reason);
 
 VOID  APCls3errAction(RTMP_ADAPTER *pAd, RX_BLK *pRxBlk);
 
-#if defined(HOSTAPD_11R_SUPPORT) || defined(HOSTAPD_WPA3_SUPPORT)
+/* ap_auth.c */
+
+void APAuthStateMachineInit(
+	IN PRTMP_ADAPTER pAd,
+	IN STATE_MACHINE * Sm,
+	OUT STATE_MACHINE_FUNC Trans[]);
+
+VOID APCls2errAction(RTMP_ADAPTER *pAd, RX_BLK *pRxBlk);
+
+#ifdef HOSTAPD_11R_SUPPORT
 /*for ap_assoc in cfg mode*/
 BOOLEAN PeerAssocReqCmmSanity(
 	RTMP_ADAPTER *pAd,
@@ -249,68 +240,103 @@ USHORT APBuildAssociation(
 	IN UCHAR MaxSupportedRateIn500Kbps,
 	OUT USHORT *pAid,
 	IN BOOLEAN isReassoc);
-#endif
-
-/* ap_auth.c */
-
-void APAuthStateMachineInit(
-	IN PRTMP_ADAPTER pAd,
-	IN STATE_MACHINE * Sm,
-	OUT STATE_MACHINE_FUNC Trans[]);
-
-VOID APCls2errAction(RTMP_ADAPTER *pAd, RX_BLK *pRxBlk);
-
+#endif /* HOSTAPD_11R_SUPPORT */
 /* ap_connect.c */
 
 #ifdef CONFIG_AP_SUPPORT
 #ifdef MT_MAC
+VOID APMakeAllTimFrame(RTMP_ADAPTER *pAd);
+VOID APMakeTimFrame(RTMP_ADAPTER *pAd, INT apidx);
 VOID APCheckBcnQHandler(RTMP_ADAPTER *pAd, INT apidx, BOOLEAN *is_pretbtt_int);
 #endif
-#ifdef ZERO_LOSS_CSA_SUPPORT
-VOID CSALastBcnTxEventTimeout(
-	IN PVOID SystemSpecific1,
-	IN PVOID FunctionContext,
-	IN PVOID SystemSpecific2,
-	IN PVOID SystemSpecific3);
-
-VOID ChnlSwitchStaNullAckWaitTimeout(
-	IN PVOID SystemSpecific1,
-	IN PVOID FunctionContext,
-	IN PVOID SystemSpecific2,
-	IN PVOID SystemSpecific3);
-#endif /*ZERO_LOSS_CSA_SUPPORT*/
-
-VOID CSAEventTimeout(
-	IN PVOID SystemSpecific1,
-	IN PVOID FunctionContext,
-	IN PVOID SystemSpecific2,
-	IN PVOID SystemSpecific3);
-
 #endif /* CONFIG_AP_SUPPORT */
 
 /* ap_sync.c */
+VOID APSyncStateMachineInit(
+	IN PRTMP_ADAPTER pAd,
+	IN STATE_MACHINE * Sm,
+	OUT STATE_MACHINE_FUNC Trans[]);
+
+VOID APScanTimeout(
+	IN PVOID SystemSpecific1,
+	IN PVOID FunctionContext,
+	IN PVOID SystemSpecific2,
+	IN PVOID SystemSpecific3);
+
+VOID ApSiteSurvey(
+	IN	PRTMP_ADAPTER		pAd,
+	IN	PNDIS_802_11_SSID	pSsid,
+	IN	UCHAR				ScanType,
+	IN	BOOLEAN				ChannelSel);
+
 VOID ApSiteSurvey_by_wdev(
 	IN	PRTMP_ADAPTER		pAd,
 	IN	PNDIS_802_11_SSID	pSsid,
 	IN	UCHAR				ScanType,
 	IN	BOOLEAN				ChannelSel,
 	IN  struct wifi_dev	*wdev);
+
 #ifdef TXRX_STAT_SUPPORT
 VOID Update_LastSec_TXRX_Stats(
 	IN PRTMP_ADAPTER   pAd);
 #endif
+#if defined(CUSTOMER_RSG_FEATURE) || defined (CUSTOMER_DCC_FEATURE)
 VOID Update_Wtbl_Counters(
 	IN PRTMP_ADAPTER   pAd);
+
+#endif
+#ifdef CUSTOMER_RSG_FEATURE
+VOID UpdateRadioStatCounters(
+	IN PRTMP_ADAPTER   	pAd);
+
+VOID ClearChannelStatsCr(
+	IN PRTMP_ADAPTER  	pAd);
+
+VOID ResetChannelStats(
+	IN PRTMP_ADAPTER 	pAd);
+
+#endif
+#ifdef CUSTOMER_DCC_FEATURE
+VOID GetTxRxActivityTime(
+	IN PRTMP_ADAPTER   pAd,
+	IN UINT wcid);
+VOID RemoveOldStaList(
+	IN PRTMP_ADAPTER 	pAd);
+
+VOID APResetStreamingStatus(
+	IN PRTMP_ADAPTER  	pAd);
+#endif
+
+#if defined(CUSTOMER_DCC_FEATURE) || defined(CONFIG_MAP_SUPPORT)
+VOID RemoveOldBssEntry(
+	IN PRTMP_ADAPTER 	pAd);
+#endif
+
+#ifdef APCLI_CFG80211_SUPPORT
+VOID ApCliSiteSurvey(
+	IN	PRTMP_ADAPTER		pAd,
+	IN	PNDIS_802_11_SSID	pSsid,
+	IN	UCHAR			ScanType,
+	IN	BOOLEAN			ChannelSel,
+	IN	struct wifi_dev		*wdev);
+#endif /* APCLI_CFG80211_SUPPORT */
+
 VOID SupportRate(
-	IN struct legacy_rate *rate,
+	IN PUCHAR SupRate,
+	IN UCHAR SupRateLen,
+	IN PUCHAR ExtRate,
+	IN UCHAR ExtRateLen,
 	OUT PUCHAR * Rates,
 	OUT PUCHAR RatesLen,
 	OUT PUCHAR pMaxSupportRate);
+
+
+BOOLEAN ApScanRunning(RTMP_ADAPTER *pAd, struct wifi_dev *wdev);
+
 #ifdef OFFCHANNEL_SCAN_FEATURE
 UCHAR Channel2Index(
 	IN PRTMP_ADAPTER	pAd,
-	IN UCHAR		channel,
-	IN UCHAR		BandIdx);
+	IN UCHAR			channel);
 
 INT ApSiteSurveyNew_by_wdev(
 	IN	PRTMP_ADAPTER	pAd,
@@ -320,6 +346,7 @@ INT ApSiteSurveyNew_by_wdev(
 	IN	BOOLEAN			ChannelSel,
 	IN  struct wifi_dev *wdev);
 #endif
+
 
 #ifdef DOT11_N_SUPPORT
 VOID APUpdateOperationMode(RTMP_ADAPTER *pAd, struct wifi_dev *wdev);
@@ -358,6 +385,9 @@ VOID APAsicRxAntEvalTimeout(RTMP_ADAPTER *pAd);
 UCHAR get_apidx_by_addr(RTMP_ADAPTER *pAd, UCHAR *addr);
 
 NDIS_STATUS APOneShotSettingInitialize(RTMP_ADAPTER *pAd);
+#ifdef CONFIG_INIT_RADIO_ONOFF
+VOID APStartUpForMain(RTMP_ADAPTER *pAd);
+#endif
 
 /* INT ap_func_init(RTMP_ADAPTER *pAd); */
 
@@ -408,10 +438,10 @@ VOID QBSS_LoadAlarmResume(RTMP_ADAPTER *pAd);
 UINT32 QBSS_LoadBusyTimeGet(RTMP_ADAPTER *pAd);
 BOOLEAN QBSS_LoadIsAlarmIssued(RTMP_ADAPTER *pAd);
 BOOLEAN QBSS_LoadIsBusyTimeAccepted(RTMP_ADAPTER *pAd, UINT32 BusyTime);
-UINT32 QBSS_LoadElementAppend(RTMP_ADAPTER *pAd, UINT8 *pBeaconBuf, QLOAD_CTRL *pQloadCtrl, UCHAR apidx);
+UINT32 QBSS_LoadElementAppend(RTMP_ADAPTER *pAd, UINT8 *pBeaconBuf, QLOAD_CTRL *pQloadCtrl);
 VOID QBSS_LoadUpdate(RTMP_ADAPTER *pAd, ULONG UpTime);
-VOID update_ap_qload_to_bcn(RTMP_ADAPTER *pAd);
-VOID QBSS_LoadStatusClear(struct wifi_dev *wdev);
+VOID QBSS_LoadStatusClear(RTMP_ADAPTER	*pAd, UCHAR	Channel);
+
 
 INT	Show_QoSLoad_Proc(RTMP_ADAPTER *pAd, RTMP_STRING *arg);
 #ifdef CONFIG_HOTSPOT_R2
@@ -441,22 +471,11 @@ VOID IAPP_L2_UpdatePostCtrl(RTMP_ADAPTER *pAd, UINT8 *mac, INT wdev_idx);
 INT rtmp_ap_init(RTMP_ADAPTER *pAd);
 VOID rtmp_ap_exit(RTMP_ADAPTER *pAd);
 
-BOOLEAN media_state_connected(struct wifi_dev *wdev);
-
 #if defined(VOW_SUPPORT) && defined(VOW_DVT)
 UINT32 vow_clone_legacy_frame(RTMP_ADAPTER *pAd, TX_BLK *pTxBlk);
 #endif
 VOID ap_over_lapping_scan(RTMP_ADAPTER *pAd, BSS_STRUCT *pMbss);
-VOID ap_handle_mic_error_event(RTMP_ADAPTER *ad, MAC_TABLE_ENTRY *entry, RX_BLK *rx_blk);
-VOID ap_fsm_ops_hook(struct wifi_dev *wdev);
 
-#ifdef CONN_FAIL_EVENT
-void ApSendConnFailMsg(
-	PRTMP_ADAPTER pAd,
-	CHAR *Ssid,
-	UCHAR SsidLen,
-	UCHAR *StaAddr,
-	USHORT ReasonCode);
-#endif
+
 #endif  /* __AP_H__ */
 

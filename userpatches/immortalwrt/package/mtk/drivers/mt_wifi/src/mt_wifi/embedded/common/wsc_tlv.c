@@ -1,17 +1,18 @@
 /*
- * Copyright (c) [2020], MediaTek Inc. All rights reserved.
- *
- * This software/firmware and related documentation ("MediaTek Software") are
- * protected under relevant copyright laws.
- * The information contained herein is confidential and proprietary to
- * MediaTek Inc. and/or its licensors.
- * Except as otherwise provided in the applicable licensing terms with
- * MediaTek Inc. and/or its licensors, any reproduction, modification, use or
- * disclosure of MediaTek Software, and information contained herein, in whole
- * or in part, shall be strictly prohibited.
-*/
-/*
  ***************************************************************************
+ * Ralink Tech Inc.
+ * 4F, No. 2 Technology	5th	Rd.
+ * Science-based Industrial	Park
+ * Hsin-chu, Taiwan, R.O.C.
+ *
+ * (c) Copyright 2002-2006, Ralink Technology, Inc.
+ *
+ * All rights reserved.	Ralink's source	code is	an unpublished work	and	the
+ * use of a	copyright notice does not imply	otherwise. This	source code
+ * contains	confidential trade secret material of Ralink Tech. Any attemp
+ * or participation	in deciphering,	decoding, reverse engineering or in	any
+ * way altering	the	source code	is stricitly prohibited, unless	the	prior
+ * written consent of Ralink Technology, Inc. is obtained.
  ***************************************************************************
 
 	Module Name:
@@ -146,28 +147,6 @@ static WSC_TLV_0B wsc_tlv_0b[] = {
 	/*Initialization Vector*/	{/*0x1060,*/ 32}, /* WSC_ID_INIT_VECTOR */
 	/*Key Provided Automatically*/	{/*0x1061,*/ 1}, /* WSC_ID_KEY_PROVIDED_AUTO */
 	/*802.1X Enabled*/		{/*0x1062,*/ 1}, /* WSC_ID_8021X_ENABLED */
-#ifdef IWSC_SUPPORT
-	{/*0,*/0},
-	{/*0,*/0},
-	{/*0,*/0},
-	{/*0,*/0},
-	{/*0,*/0},
-	{/*0,*/0},
-	{/*0,*/0},
-	{/*0,*/0}, /*A*/
-	{/*0,*/0}, /*B*/
-	{/*0,*/0}, /*C*/
-	/*Entry Acceptable (only for IBSS)*/  {/*0x106D,*/ 1}, /* WSC_ID_ENTRY_ACCEPTABLE */
-	/*Registration Ready (only for IBSS)*/{/*0x106E,*/ 1}, /* WSC_ID_REGISTRATON_READY */
-	/*Registrar IPv4 Address (only for IBSS)*/{/*0x106F,*/ 4}, /* WSC_ID_REGISTRAR_IPV4 */
-	/*IPv4 Subnet Mask (only for IBSS)*/{/*0x1070,*/ 4}, /* WSC_ID_IPV4_SUBMASK */
-	/*Enrollee IPv4 Address (only for IBSS)*/{/*0x1071,*/ 4}, /* WSC_ID_ENROLLEE_IPV4 */
-	/*Available IPv4 Submask List (only for IBSS)*/{/*0x1072,*/ 0},	/* WSC_ID_IPV4_SUBMASK_LIST (N*4B) */
-	/*IP Address Configuration Methods (only for IBSS)*/{/*0x1073,*/ 2}, /* WSC_ID_IP_ADDR_CONF_METHOD */
-#endif /* IWSC_SUPPORT */
-#ifdef MAP_R3
-	/*DPP URI information*/		{/*0x1BBB,*/ 0xff}, /* WSC_ID_DPP_URI_INFO */
-#endif /* MAP_R3 */
 	/*<Reserved for WFA> 0x106F V 0x1FFF*/
 	/*<Unavailable> 0x000 V 0x0FFF,0x2000 V 0xFFFF*/
 };
@@ -222,13 +201,6 @@ static VOID	WscParseEncrSettings(
 	IN  INT PlainLength,
 	IN  PWSC_CTRL pWscControl)
 {
-#ifdef CONFIG_STA_SUPPORT
-	/* Point to  M7 Profile */
-	PWSC_PROFILE pProfile = (PWSC_PROFILE) &pWscControl->WscM7Profile;
-	UCHAR *pTmp;
-	UINT Idx = 0, dataLen = 0;
-	USHORT tmpVal = 0;
-#endif /* CONFIG_STA_SUPPORT */
 	USHORT	WscType, WscLen, HmacLen;
 	PUCHAR	pData;
 	UCHAR	Hmac[8], Temp[32];
@@ -246,10 +218,6 @@ static VOID	WscParseEncrSettings(
 		memcpy((UINT8 *)&TLV_Encr, pData, 4);
 		WscType = be2cpu16(TLV_Encr.Type);
 		WscLen  = be2cpu16(TLV_Encr.Length);
-		if (PlainLength < WscLen + 4) {
-			MTWF_DBG(pAdapter, DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_ERROR, "unexpected WSC IE Length(%u)\n", WscLen);
-			break;
-		}
 		pData  += 4;
 		PlainLength -= 4;
 
@@ -257,115 +225,30 @@ static VOID	WscParseEncrSettings(
 		switch (WscType) {
 		case WSC_ID_E_SNONCE1:
 			/* for verification with our enrollee nonce */
-			if (WscLen > sizeof(pReg->Es1))
-				dataLen = sizeof(pReg->Es1);
-			else
-				dataLen = WscLen;
-			NdisMoveMemory(pReg->Es1, pData, dataLen);
+			NdisMoveMemory(pReg->Es1, pData, WscLen);
 			break;
 
 		case WSC_ID_E_SNONCE2:
 			/* for verification with our enrollee nonce */
-			if (WscLen > sizeof(pReg->Es2))
-				dataLen = sizeof(pReg->Es2);
-			else
-				dataLen = WscLen;
-			NdisMoveMemory(pReg->Es2, pData, dataLen);
+			NdisMoveMemory(pReg->Es2, pData, WscLen);
 			break;
 
 		case WSC_ID_R_SNONCE1:
 			/* for verification with our enrollee nonce */
-			if (WscLen > sizeof(pReg->Rs1))
-				dataLen = sizeof(pReg->Rs1);
-			else
-				dataLen = WscLen;
-			NdisMoveMemory(pReg->Rs1, pData, dataLen);
+			NdisMoveMemory(pReg->Rs1, pData, WscLen);
 			break;
 
 		case WSC_ID_R_SNONCE2:
 			/* for verification with our enrollee nonce */
-			if (WscLen > sizeof(pReg->Rs2))
-				dataLen = sizeof(pReg->Rs2);
-			else
-				dataLen = WscLen;
-			NdisMoveMemory(pReg->Rs2, pData, dataLen);
+			NdisMoveMemory(pReg->Rs2, pData, WscLen);
 			break;
 
 		case WSC_ID_KEY_WRAP_AUTH:
-			if (WscLen > sizeof(Hmac))
-				dataLen = sizeof(Hmac);
-			else
-				dataLen = WscLen;
-			NdisMoveMemory(Hmac, pData, dataLen);
+			NdisMoveMemory(Hmac, pData, WscLen);
 			break;
-#ifdef CONFIG_STA_SUPPORT
-
-		/* */
-		/* Parse AP Settings in M7 if the peer is configured AP. */
-		/* */
-		case WSC_ID_SSID:
-			/* Find the exact length of SSID without null terminator */
-			pTmp = pData;
-			if (WscLen > (USHORT)PlainLength)
-				dataLen = (USHORT)PlainLength;
-			else
-				dataLen = WscLen;
-
-			for (Idx = 0; Idx < dataLen; Idx++) {
-				if (*(pTmp++) == 0x0)
-					break;
-			}
-
-			pProfile->Profile[0].SSID.SsidLength =
-				(Idx > NDIS_802_11_LENGTH_SSID) ? NDIS_802_11_LENGTH_SSID : Idx;
-			RTMPZeroMemory(pProfile->Profile[0].SSID.Ssid, NDIS_802_11_LENGTH_SSID);
-			RTMPMoveMemory(pProfile->Profile[0].SSID.Ssid, pData, pProfile->Profile[0].SSID.SsidLength);
-			/* Svae the total number, always get the first profile */
-			pProfile->ProfileCnt = 1;
-			break;
-
-		case WSC_ID_MAC_ADDR:
-			if (!MAC_ADDR_EQUAL(pData, pWscControl->RegData.SelfInfo.MacAddr))
-				MTWF_DBG(pAdapter, DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_INFO, "WscParseEncrSettings --> Enrollee macAddr not match\n");
-
-			RTMPMoveMemory(pProfile->Profile[0].MacAddr, pData, 6);
-			break;
-
-		case WSC_ID_AUTH_TYPE:
-			tmpVal = get_unaligned((PUSHORT) pData);
-			pProfile->Profile[0].AuthType = cpu2be16(tmpVal);/*cpu2be16(*((PUSHORT) pData)); */
-			break;
-
-		case WSC_ID_ENCR_TYPE:
-			tmpVal = get_unaligned((PUSHORT) pData);
-			pProfile->Profile[0].EncrType = cpu2be16(tmpVal);/*cpu2be16(*((PUSHORT) pData)); */
-			break;
-
-		case WSC_ID_NW_KEY_INDEX:
-			/* Netork Key Index: 1 ~ 4 */
-			pProfile->Profile[0].KeyIndex = (*pData);
-			break;
-
-		case WSC_ID_NW_KEY:
-			if (WscLen) {
-				pProfile->Profile[0].KeyLength =
-				WscLen > sizeof(pProfile->Profile[0].Key) ? sizeof(pProfile->Profile[0].Key) : WscLen;
-				RTMPMoveMemory(pProfile->Profile[0].Key, pData, pProfile->Profile[0].KeyLength);
-			}
-			break;
-#endif /* CONFIG_STA_SUPPORT */
-#ifdef MAP_R3
-		case WSC_ID_DPP_URI_INFO:
-			NdisMoveMemory(pWscControl->rcvd_dpp_uri, pData, WscLen);
-			pWscControl->rcvd_uri_len = WscLen;
-			MTWF_DBG(pAdapter, DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_INFO,
-				"WscParseEncrSettings --> Received URI %s with len %d from peer device\n",
-				pWscControl->rcvd_dpp_uri, pWscControl->rcvd_uri_len);
-			break;
-#endif /* MAP_R3 */
 
 		default:
-			MTWF_DBG(pAdapter, DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_INFO, "WscParseEncrSettings --> Unknown IE 0x%04x\n", WscType);
+			MTWF_LOG(DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_TRACE, ("WscParseEncrSettings --> Unknown IE 0x%04x\n", WscType));
 			break;
 		}
 
@@ -378,14 +261,14 @@ static VOID	WscParseEncrSettings(
 	RT_HMAC_SHA256(pReg->AuthKey, 32, pPlainData, HmacLen, Temp, SHA256_DIGEST_SIZE);
 
 	if (RTMPEqualMemory(Hmac, Temp, 8) != 1) {
-		MTWF_DBG(pAdapter, DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_ERROR,
-				 "WscParseEncrSettings --> HMAC not match\n");
-		MTWF_DBG(pAdapter, DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_INFO,
-				 "MD --> 0x%08x-%08x\n",
-				  (UINT)cpu2be32(*((PUINT)&Temp[0])), (UINT)cpu2be32(*((PUINT)&Temp[4])));
-		MTWF_DBG(pAdapter, DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_INFO,
-				 "calculated --> 0x%08x-%08x\n",
-				  (UINT)cpu2be32(*((PUINT)&Hmac[0])), (UINT)cpu2be32(*((PUINT)&Hmac[4])));
+		MTWF_LOG(DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_ERROR,
+				 ("WscParseEncrSettings --> HMAC not match\n"));
+		MTWF_LOG(DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_TRACE,
+				 ("MD --> 0x%08x-%08x\n",
+				  (UINT)cpu2be32(*((PUINT)&Temp[0])), (UINT)cpu2be32(*((PUINT)&Temp[4]))));
+		MTWF_LOG(DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_TRACE,
+				 ("calculated --> 0x%08x-%08x\n",
+				  (UINT)cpu2be32(*((PUINT)&Hmac[0])), (UINT)cpu2be32(*((PUINT)&Hmac[4]))));
 	}
 }
 
@@ -414,17 +297,12 @@ BOOLEAN	WscProcessCredential(
 	IN  INT PlainLength,
 	IN  PWSC_CTRL pWscControl)
 {
-	USHORT WscType, WscLen, Cnt = 0, CurrentIdx = 0, tmpVal = 0;
-	UINT Idx = 0, dataLen = 0;
+	USHORT WscType, WscLen, Cnt = 0, CurrentIdx = 0, Idx, tmpVal = 0;
 	PUCHAR pData, pTmp;
 	PWSC_PROFILE pProfile;
 #ifdef WSC_V2_SUPPORT
 	BOOLEAN bReject = FALSE;
 #endif /* WSC_V2_SUPPORT */
-#ifdef IWSC_SUPPORT
-	UINT32 IPv4Addr = 0, IPv4SubMask = 0;
-	PIWSC_INFO pIWscInfo = &pAdapter->StaCfg[0].IWscInfo;
-#endif /* IWSC_SUPPORT */
 	pData  = pPlainData;
 	/* Cleanup Old contents */
 	NdisZeroMemory(&pWscControl->WscProfile, sizeof(WSC_PROFILE));
@@ -441,10 +319,6 @@ BOOLEAN	WscProcessCredential(
 		memcpy((UINT8 *)&TLV_Recv, pData, 4);
 		WscType = be2cpu16(TLV_Recv.Type);
 		WscLen  = be2cpu16(TLV_Recv.Length);
-		if (PlainLength < WscLen + 4) {
-			MTWF_DBG(pAdapter, DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_ERROR, "unexpected WSC IE Length(%u)\n", WscLen);
-			break;
-		}
 		pData  += 4;
 		PlainLength -= 4;
 
@@ -459,19 +333,13 @@ BOOLEAN	WscProcessCredential(
 		case WSC_ID_SSID:
 			/* Find the exact length of SSID without null terminator */
 			pTmp = pData;
-			if (WscLen > (USHORT)PlainLength)
-				dataLen = (USHORT)PlainLength;
-			else
-				dataLen = WscLen;
 
-			for (Idx = 0; Idx < dataLen; Idx++) {
+			for (Idx = 0; Idx < WscLen; Idx++) {
 				if (*(pTmp++) == 0x0)
 					break;
 			}
 
-			pProfile->Profile[CurrentIdx].SSID.SsidLength =
-				Idx > NDIS_802_11_LENGTH_SSID ? NDIS_802_11_LENGTH_SSID : Idx;
-
+			pProfile->Profile[CurrentIdx].SSID.SsidLength = Idx;
 			if (RTMPCheckStrPrintAble((CHAR *)pData, Idx) || (pWscControl->bCheckMultiByte == FALSE))
 				NdisMoveMemory(pProfile->Profile[CurrentIdx].SSID.Ssid, pData, pProfile->Profile[CurrentIdx].SSID.SsidLength);
 			else
@@ -495,17 +363,14 @@ BOOLEAN	WscProcessCredential(
 			break;
 
 		case WSC_ID_NW_KEY:
-			if (WscLen) {
-				dataLen = WscLen > sizeof(pProfile->Profile[CurrentIdx].Key) ?
-					sizeof(pProfile->Profile[CurrentIdx].Key) : WscLen;
-				if (RTMPCheckStrPrintAble((CHAR *)pData, (UCHAR)dataLen)
-					|| (pWscControl->bCheckMultiByte == FALSE)) {
-					pProfile->Profile[CurrentIdx].KeyLength = (USHORT)dataLen;
-					NdisMoveMemory(pProfile->Profile[CurrentIdx].Key,
-						pData, pProfile->Profile[CurrentIdx].KeyLength);
-				} else
-					return FALSE;
-			}
+			if (WscLen == 0)
+				break;
+
+			if (RTMPCheckStrPrintAble((CHAR *)pData, WscLen) || (pWscControl->bCheckMultiByte == FALSE)) {
+				pProfile->Profile[CurrentIdx].KeyLength = WscLen;
+				NdisMoveMemory(pProfile->Profile[CurrentIdx].Key, pData, pProfile->Profile[CurrentIdx].KeyLength);
+			} else
+				return FALSE;
 
 			break;
 
@@ -526,80 +391,10 @@ BOOLEAN	WscProcessCredential(
 			/* to be able to parse all profile fields */
 			WscLen = 0;
 			break;
-#ifdef IWSC_SUPPORT
-
-		case WSC_ID_IP_ADDR_CONF_METHOD:
-			tmpVal = get_unaligned((PUSHORT) pData);
-			pProfile->Profile[CurrentIdx].IpConfigMethod = be2cpu16(tmpVal);
-			break;
-
-		case WSC_ID_REGISTRAR_IPV4:
-			IPv4Addr = get_unaligned((PUINT32) pData);
-			pProfile->Profile[CurrentIdx].RegIpv4Addr = be2cpu32(IPv4Addr);
-
-			if (CurrentIdx == 0)
-				pIWscInfo->RegIpv4Addr = pProfile->Profile[CurrentIdx].RegIpv4Addr;
-
-			pIWscInfo->RegDepth = 1;
-			pIWscInfo->IpDevCount = 0;
-			break;
-
-		case WSC_ID_IPV4_SUBMASK:
-			IPv4SubMask = get_unaligned((PUINT32) pData);
-			pProfile->Profile[CurrentIdx].Ipv4SubMask = be2cpu32(IPv4SubMask);
-
-			if (pProfile->Profile[CurrentIdx].Ipv4SubMask != IWSC_DEFAULT_IPV4_SUBMASK)
-				MTWF_DBG(pAdapter, DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_INFO,
-						 "WscProcessCredential --> different IPv4 subnet mask (=0x%08x)\n",
-						  pProfile->Profile[CurrentIdx].Ipv4SubMask);
-
-			break;
-
-		case WSC_ID_ENROLLEE_IPV4:
-			IPv4Addr = get_unaligned((PUINT32) pData);
-			pProfile->Profile[CurrentIdx].EnrIpv4Addr = be2cpu32(IPv4Addr);
-
-			if (CurrentIdx == 0)
-				pIWscInfo->SelfIpv4Addr = pProfile->Profile[CurrentIdx].EnrIpv4Addr;
-
-			break;
-
-		case WSC_ID_IPV4_SUBMASK_LIST:
-			NdisZeroMemory(&pProfile->Profile[CurrentIdx].AvaIpv4SubmaskList[0], sizeof(pProfile->Profile[CurrentIdx].AvaIpv4SubmaskList));
-
-			if ((WscLen == 0) || (WscLen == 4) || ((WscLen % 4) != 0)) {
-				pIWscInfo->AvaSubMaskListCount = 0;
-				pIWscInfo->bAssignWscIPv4 = FALSE;
-				MTWF_DBG(pAdapter, DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_INFO,
-						 "WscProcessCredential --> WscLen = %d, set AvaSubMaskListCount to be 0\n", WscLen);
-			} else {
-				UINT8 i = 0, AvaSubMaskListCount;
-
-				AvaSubMaskListCount = (UINT8)((WscLen / 4) - 1);
-
-				for (i = 0; i < AvaSubMaskListCount; i++)
-					pProfile->Profile[CurrentIdx].AvaIpv4SubmaskList[i] = be2cpu32(get_unaligned((PUINT32) (pData + i + 1)));
-
-				pIWscInfo->bAssignWscIPv4 = TRUE;
-
-				if (CurrentIdx == 0) {
-					pIWscInfo->CurrentIpRange = be2cpu32(get_unaligned((PUINT32) pData));
-					pIWscInfo->AvaSubMaskListCount = (UINT8)AvaSubMaskListCount;
-					NdisZeroMemory(pIWscInfo->AvaSubMaskList, sizeof(pIWscInfo->AvaSubMaskList));
-					NdisMoveMemory(&pIWscInfo->AvaSubMaskList[0],
-								   &pProfile->Profile[CurrentIdx].AvaIpv4SubmaskList[0],
-								   sizeof(pIWscInfo->AvaSubMaskList));
-				}
-
-				pProfile->Profile[CurrentIdx].AvaIpv4SubmaskList[AvaSubMaskListCount] = pIWscInfo->CurrentIpRange;
-			}
-
-			break;
-#endif /* IWSC_SUPPORT */
 
 		default:
-			MTWF_DBG(pAdapter, DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_INFO,
-					 "WscProcessCredential --> Unknown IE 0x%04x\n", WscType);
+			MTWF_LOG(DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_TRACE,
+					 ("WscProcessCredential --> Unknown IE 0x%04x\n", WscType));
 			break;
 		}
 
@@ -631,8 +426,8 @@ BOOLEAN	WscProcessCredential(
 	}
 
 #endif /* WSC_V2_SUPPORT */
-	MTWF_DBG(pAdapter, DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_INFO,
-			 "WscProcessCredential --> %d profile retrieved from credential\n", Cnt);
+	MTWF_LOG(DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_TRACE,
+			 ("WscProcessCredential --> %d profile retrieved from credential\n", Cnt));
 	return TRUE;
 }
 
@@ -686,7 +481,7 @@ VOID WscGenPSK1(
 	os_alloc_mem(NULL, &pTempPsk, SHA256_DIGEST_SIZE);
 
 	if (pTempPsk == NULL) {
-		MTWF_DBG(pAd, DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_ERROR, "pTempPsk alloc failed.");
+		MTWF_LOG(DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_ERROR, ("%s - pTempPsk alloc failed.", __func__));
 		return;
 	}
 
@@ -712,7 +507,7 @@ VOID WscGenPSK2(
 	os_alloc_mem(NULL, &pTempPsk, SHA256_DIGEST_SIZE);
 
 	if (pTempPsk == NULL) {
-		MTWF_DBG(pAd, DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_ERROR, "pTempPsk alloc failed.");
+		MTWF_LOG(DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_ERROR, ("%s - pTempPsk alloc failed.", __func__));
 		return;
 	}
 
@@ -766,44 +561,14 @@ int BuildMessageM1(
 	PWSC_TLV			pWscTLV = &pWscControl->WscV2Info.ExtraTlv;
 #endif /* WSC_V2_SUPPORT */
 	UCHAR				CurOpMode = 0xFF;
-#ifdef CONFIG_MAP_SUPPORT
-	PSTA_ADMIN_CONFIG pApCliEntry = NULL;
-	UCHAR apidx = (pWscControl->EntryIfIdx & 0x0F);
+
 	struct wifi_dev *wdev = NULL;
-	UCHAR bandidx = 0;
-
-	wdev = &pAdapter->ApCfg.MBSSID[apidx].wdev;
-#ifdef WPS_UNCONFIG_FEATURE_SUPPORT
-	if ((pWscControl->WscConfStatus == 1) && (pAdapter->ApCfg.MBSSID[apidx].wdev.WscControl.wps_unconfig_trigger == TRUE)) {
-		pAdapter->ApCfg.MBSSID[apidx].wdev.WscControl.wps_unconfig_trigger = FALSE;
-		MTWF_DBG(pAdapter, DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_ERROR, "BuildMessage M1 :wdev is AP=%s\n", wdev->if_dev->name);
-	} else {
-#endif
-		bandidx = HcGetBandByWdev(wdev);
-
-		pApCliEntry = &pAdapter->StaCfg[bandidx];
-
-		if (pApCliEntry)
-			wdev = &pApCliEntry->wdev;
-#ifdef WPS_UNCONFIG_FEATURE_SUPPORT
-	}
-#endif
-#endif /* CONFIG_MAP_SUPPORT */
+	wdev = (struct wifi_dev *)pWscControl->wdev;
 
 #ifdef CONFIG_AP_SUPPORT
 	IF_DEV_CONFIG_OPMODE_ON_AP(pAdapter)
 	CurOpMode = AP_MODE;
 #endif /* CONFIG_AP_SUPPORT */
-#ifdef CONFIG_STA_SUPPORT
-	IF_DEV_CONFIG_OPMODE_ON_STA(pAdapter)
-	CurOpMode = STA_MODE;
-#ifdef P2P_SUPPORT
-
-	if (pWscControl->EntryIfIdx != BSS0)
-		CurOpMode = AP_MODE;
-
-#endif /* P2P_SUPPORT */
-#endif /* CONFIG_STA_SUPPORT */
 
 	/* Enrollee 16 byte E-S1 generation */
 	for (idx = 0; idx < 16; idx++)
@@ -828,7 +593,11 @@ int BuildMessageM1(
 	pData += templen;
 	Len   += templen;
 	/* 4. MAC address */
-	templen = AppendWSCTLV(WSC_ID_MAC_ADDR, pData, pReg->SelfInfo.MacAddr, 0);
+	if (wdev)
+		templen = AppendWSCTLV(WSC_ID_MAC_ADDR, pData, wdev->if_addr, 0);
+	else
+		templen = AppendWSCTLV(WSC_ID_MAC_ADDR, pData, pReg->SelfInfo.MacAddr, 0);
+
 	pData += templen;
 	Len   += templen;
 
@@ -872,16 +641,6 @@ int BuildMessageM1(
 		*	WPS Certification only check WSC_ID_CONFIG_METHODS of probe response.
 		*	@20160803
 		*/
-#ifdef IWSC_SUPPORT
-		if ((pWscControl->WscMode == WSC_PIN_MODE) &&
-			(pAdapter->StaCfg[0].BssType == BSS_ADHOC)) {
-			if (pAdapter->StaCfg[0].IWscInfo.bLimitedUI)
-				ConfigMethods &= (~WSC_CONFMET_KEYPAD);
-			else
-				ConfigMethods |= WSC_CONFMET_KEYPAD;
-		}
-
-#endif /* IWSC_SUPPORT */
 	} else
 #endif /* WSC_V2_SUPPORT */
 	{
@@ -890,16 +649,6 @@ int BuildMessageM1(
 		*	We cannot remove PBC capability here.
 		*/
 		ConfigMethods = (pWscControl->WscConfigMethods & 0x00FF);
-	}
-
-	/*
-	*	WSC 1.0 should set Config Methods ie for External Registrar.
-	*/
-	if (pReg->SelfInfo.Version == 0x10) {
-		if (pWscControl->WscMode == WSC_PIN_MODE)
-			ConfigMethods |= 0x04;
-		else if (pWscControl->WscMode == WSC_PBC_MODE)
-			ConfigMethods |= 0x8c;
 	}
 
 	ConfigMethods = cpu2be16(ConfigMethods);
@@ -980,15 +729,13 @@ int BuildMessageM1(
 
 #endif /* WSC_V2_SUPPORT */
 #ifdef CONFIG_MAP_SUPPORT
-	/* MAP Porting: changes */
-	if (wdev && IS_MAP_ENABLE(pAdapter) && (wdev->MAPCfg.DevOwnRole & BIT(MAP_ROLE_BACKHAUL_STA))) {
+	if (IS_MAP_ENABLE(pAdapter) && wdev->MAPCfg.DevOwnRole == WDEV_TYPE_APCLI) {
 		templen = MAP_InsertMapWscAttr(pAdapter, wdev, pData);
 
 		pData += templen;
 		Len   += templen;
 	}
 #endif /* CONFIG_MAP_SUPPORT */
-
 #ifdef WSC_V2_SUPPORT
 
 	/* Extra attribute that is not defined in WSC Sepc. */
@@ -999,10 +746,10 @@ int BuildMessageM1(
 	}
 
 #endif /* WSC_V2_SUPPORT */
-	MTWF_DBG(pAdapter, DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_INFO, "BuildMessageM1 - bUPnPMsgTimerRunning = %d, pWscControl->WscUseUPnP = %d, pWscControl->EapMsgRunning = %d\n",
+	MTWF_LOG(DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_TRACE, ("BuildMessageM1 - bUPnPMsgTimerRunning = %d, pWscControl->WscUseUPnP = %d, pWscControl->EapMsgRunning = %d\n",
 			 pWscControl->WscUPnPNodeInfo.bUPnPMsgTimerRunning,
 			 pWscControl->WscUseUPnP,
-			 pWscControl->EapMsgRunning);
+			 pWscControl->EapMsgRunning));
 
 	/* Fixed WCN vista logo 2 registrar test item issue. */
 	/* Also prevent that WCN GetDeviceInfo disturbs EAP processing. */
@@ -1016,7 +763,7 @@ int BuildMessageM1(
 	}
 
 	pWscControl->WscRetryCount = 0;
-	MTWF_DBG(pAdapter, DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_INFO, "BuildMessageM1.\n");
+	MTWF_LOG(DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_TRACE, ("BuildMessageM1.\n"));
 	return Len;
 }
 
@@ -1051,7 +798,7 @@ int BuildMessageM2(
 	INT					Len = 0, templen = 0;
 	PUCHAR				pData = (PUCHAR)pbuf, pAuth;
 	PWSC_REG_DATA		pReg;
-	UCHAR				DHKey[32] = {0}, KDK[32] = {0}, KdkInput[38] = {0}, KdfKey[80] = {0};
+	UCHAR				DHKey[32], KDK[32], KdkInput[38], KdfKey[80];
 	INT					DH_Len;
 	INT				    HmacLen = 0;
 	INT					idx;
@@ -1059,7 +806,6 @@ int BuildMessageM2(
 #ifdef WSC_V2_SUPPORT
 	PWSC_TLV			pWscTLV = &pWscControl->WscV2Info.ExtraTlv;
 #endif /* WSC_V2_SUPPORT */
-
 	pReg = (PWSC_REG_DATA) &pWscControl->RegData;
 
 	/* Enrollee 16 byte E-S1 generation */
@@ -1089,7 +835,7 @@ int BuildMessageM2(
 		NdisCopyMemory(&TempKey[DiffCnt], pReg->SecretKey, DH_Len);
 		NdisCopyMemory(pReg->SecretKey, TempKey, sizeof(TempKey));
 		DH_Len += DiffCnt;
-		MTWF_DBG(pAdapter, DBG_CAT_HW, DBG_SUBCAT_ALL, DBG_LVL_INFO, "%s: Do zero padding!\n", __func__);
+		MTWF_LOG(DBG_CAT_HW, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("%s: Do zero padding!\n", __func__));
 	}
 
 	RT_SHA256(&pReg->SecretKey[0], 192, &DHKey[0]);
@@ -1151,15 +897,6 @@ int BuildMessageM2(
 		*	WSC IE must reflect the correct configuration methods that the Internal Registrar
 		*	supports.
 		*/
-#ifdef IWSC_SUPPORT
-		if (pAdapter->StaCfg[0].BssType == BSS_ADHOC) {
-			if (pAdapter->StaCfg[0].IWscInfo.bLimitedUI)
-				ConfigMethods &= (~WSC_CONFMET_KEYPAD);
-			else
-				ConfigMethods |= WSC_CONFMET_KEYPAD;
-		}
-
-#endif /* IWSC_SUPPORT */
 	} else
 		ConfigMethods = (pWscControl->WscConfigMethods & 0x00FF);
 
@@ -1266,7 +1003,7 @@ int BuildMessageM2(
 	pReg->LastTx.Length = Len;
 	NdisMoveMemory(pReg->LastTx.Data, pbuf, Len);
 	pWscControl->WscRetryCount = 0;
-	MTWF_DBG(pAdapter, DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_INFO, "BuildMessageM2.\n");
+	MTWF_LOG(DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_TRACE, ("BuildMessageM2.\n"));
 	return Len;
 }
 
@@ -1403,7 +1140,7 @@ int BuildMessageM2D(
 
 #endif /* WSC_V2_SUPPORT */
 	pWscControl->WscRetryCount = 0;
-	MTWF_DBG(pAdapter, DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_INFO, "BuildMessageM2D.\n");
+	MTWF_LOG(DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_TRACE, ("BuildMessageM2D.\n"));
 	return Len;
 }
 
@@ -1542,7 +1279,7 @@ int BuildMessageM3(
 		os_free_mem(pHash);
 
 	pWscControl->WscRetryCount = 0;
-	MTWF_DBG(pAdapter, DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_INFO, "BuildMessageM3 :\n");
+	MTWF_LOG(DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_TRACE, ("BuildMessageM3 :\n"));
 	return Len;
 }
 
@@ -1578,7 +1315,7 @@ int BuildMessageM4(
 	PUCHAR				pData = (PUCHAR)pbuf, pAuth;
 	PWSC_REG_DATA			pReg = (PWSC_REG_DATA) &pWscControl->RegData;
 	INT				HmacLen;
-	UCHAR				KDK[32] = {0};
+	UCHAR				KDK[32];
 	UCHAR				Plain[128]; /*, IV_EncrData[144];//IV len 16,EncrData len 128 */
 	UCHAR				*IV_EncrData = NULL;/*IV len 16,EncrData len 128 */
 	UINT				PlainLen = 0, EncrLen;
@@ -1594,7 +1331,7 @@ int BuildMessageM4(
 	os_alloc_mem(NULL, (UCHAR **)&IV_EncrData, IV_ENCR_DATA_LEN_144);
 
 	if (IV_EncrData == NULL) {
-		MTWF_DBG(pAdapter, DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_ERROR, "Allocate memory fail!!!\n");
+		MTWF_LOG(DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_ERROR, ("%s: Allocate memory fail!!!\n", __func__));
 		goto LabelErr;
 	}
 
@@ -1651,7 +1388,7 @@ int BuildMessageM4(
 	/* Generate HMAC */
 	RT_HMAC_SHA256(pReg->AuthKey, 32, &Plain[0], PlainLen, TB, SHA256_DIGEST_SIZE);
 
-	if (PlainLen <= 123) /*PlainLen must >= 0*/
+	if (PlainLen >= 0 && PlainLen <= 123)
 		PlainLen += AppendWSCTLV(WSC_ID_KEY_WRAP_AUTH, &Plain[PlainLen], TB, 0);
 
 	/* 6b. Encrypted Settings */
@@ -1712,7 +1449,7 @@ LabelErr:
 	if (IV_EncrData != NULL)
 		os_free_mem(IV_EncrData);
 
-	MTWF_DBG(pAdapter, DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_INFO, "BuildMessageM4 :\n");
+	MTWF_LOG(DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_TRACE, ("BuildMessageM4 :\n"));
 	return Len;
 }
 
@@ -1759,7 +1496,7 @@ int BuildMessageM5(
 	os_alloc_mem(NULL, (UCHAR **)&IV_EncrData, IV_ENCR_DATA_LEN_144);
 
 	if (IV_EncrData == NULL) {
-		MTWF_DBG(pAdapter, DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_ERROR, "Allocate memory fail!!!\n");
+		MTWF_LOG(DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_ERROR, ("%s: Allocate memory fail!!!\n", __func__));
 		return 0;
 	}
 
@@ -1782,7 +1519,7 @@ int BuildMessageM5(
 	/* Generate HMAC */
 	RT_HMAC_SHA256(pReg->AuthKey, 32, &Plain[0], PlainLen, TB, SHA256_DIGEST_SIZE);
 
-	if (PlainLen <= 123) /*PlainLen must >= 0*/
+	if (PlainLen >= 0 && PlainLen <= 123)
 		PlainLen += AppendWSCTLV(WSC_ID_KEY_WRAP_AUTH, &Plain[PlainLen], TB, 0);
 
 	/* 4b. Encrypted Settings */
@@ -1838,7 +1575,7 @@ int BuildMessageM5(
 	if (IV_EncrData != NULL)
 		os_free_mem(IV_EncrData);
 
-	MTWF_DBG(pAdapter, DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_INFO, "BuildMessageM5 :\n");
+	MTWF_LOG(DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_TRACE, ("BuildMessageM5 :\n"));
 	return Len;
 }
 
@@ -1874,7 +1611,7 @@ int BuildMessageM6(
 	PUCHAR				pData = (PUCHAR)pbuf, pAuth;
 	PWSC_REG_DATA			pReg = (PWSC_REG_DATA) &pWscControl->RegData;
 	INT				HmacLen;
-	UCHAR				KDK[32] = {0};
+	UCHAR				KDK[32];
 	UCHAR				Plain[128]; /*, IV_EncrData[144];//IV len 16,EncrData len 128 */
 	UCHAR				*IV_EncrData = NULL;/*IV len 16,EncrData len 128 */
 	UINT				PlainLen = 0, EncrLen;
@@ -1885,7 +1622,7 @@ int BuildMessageM6(
 	os_alloc_mem(NULL, (UCHAR **)&IV_EncrData, 144);
 
 	if (IV_EncrData == NULL) {
-		MTWF_DBG(pAdapter, DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_ERROR, "Allocate memory fail!!!\n");
+		MTWF_LOG(DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_ERROR, ("%s: Allocate memory fail!!!\n", __func__));
 		return 0;
 	}
 
@@ -1908,7 +1645,7 @@ int BuildMessageM6(
 	/* Generate HMAC */
 	RT_HMAC_SHA256(pReg->AuthKey, 32, &Plain[0], PlainLen, TB, SHA256_DIGEST_SIZE);
 
-	if (PlainLen <= 123) /*PlainLen must >= 0*/
+	if (PlainLen >= 0 && PlainLen <= 123)
 		PlainLen += AppendWSCTLV(WSC_ID_KEY_WRAP_AUTH, &Plain[PlainLen], TB, 0);
 
 	/* 4b. Encrypted Settings */
@@ -1967,7 +1704,7 @@ int BuildMessageM6(
 	if (IV_EncrData != NULL)
 		os_free_mem(IV_EncrData);
 
-	MTWF_DBG(pAdapter, DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_INFO, "BuildMessageM6 :\n");
+	MTWF_LOG(DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_TRACE, ("BuildMessageM6 :\n"));
 	return Len;
 }
 
@@ -2018,16 +1755,6 @@ int BuildMessageM7(
 #ifdef CONFIG_AP_SUPPORT
 	IF_DEV_CONFIG_OPMODE_ON_AP(pAdapter)
 	CurOpMode = AP_MODE;
-#endif /* CONFIG_AP_SUPPORT */
-#ifdef CONFIG_STA_SUPPORT
-	IF_DEV_CONFIG_OPMODE_ON_STA(pAdapter)
-	CurOpMode = STA_MODE;
-#ifdef P2P_SUPPORT
-
-	if (pWscControl->EntryIfIdx != BSS0)
-		CurOpMode = AP_MODE;
-
-#endif /* P2P_SUPPORT */
 #endif /* CONFIG_AP_SUPPORT */
 	/* 1. Version */
 	templen = AppendWSCTLV(WSC_ID_VERSION, pData, &pReg->SelfInfo.Version, 0);
@@ -2092,28 +1819,9 @@ int BuildMessageM7(
 			PlainLen += AppendWSCTLV(WSC_ID_NW_KEY, &Plain[PlainLen], pCredential->Key, pCredential->KeyLength);
 	}
 
-#ifdef MAP_R3
-	if (IS_MAP_ENABLE(pAdapter) && IS_MAP_R3_ENABLE(pAdapter)) {
-		if (!pAdapter->map_onboard_type && pAdapter->dpp_uri_ptr && (PlainLen >= 0 && PlainLen <= 227)) {
-			MTWF_DBG(pAdapter, DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_INFO,
-					"DPP URI added in M7 message of WPS:\n");
-			PlainLen += AppendWSCTLV(WSC_ID_DPP_URI_INFO, &Plain[PlainLen],
-					pAdapter->dpp_uri_ptr, pAdapter->dpp_uri_len);
-		}
-	}
-#endif /* MAP_R3 */
-
 	/* Generate HMAC */
 	RT_HMAC_SHA256(pReg->AuthKey, 32, &Plain[0], PlainLen, TB, SHA256_DIGEST_SIZE);
 
-#ifdef MAP_R3
-	if (IS_MAP_ENABLE(pAdapter) && IS_MAP_R3_ENABLE(pAdapter)) {
-		if (!pAdapter->map_onboard_type && pAdapter->dpp_uri_ptr && (PlainLen >= 0 && PlainLen <= 223))
-			PlainLen += AppendWSCTLV(WSC_ID_KEY_WRAP_AUTH, &Plain[PlainLen], TB, 0);
-		else if (PlainLen >= 0 && PlainLen <= 227)
-			PlainLen += AppendWSCTLV(WSC_ID_KEY_WRAP_AUTH, &Plain[PlainLen], TB, 0);
-	} else
-#endif /* MAP_R3 */
 	if (PlainLen >= 0 && PlainLen <= 227)
 		PlainLen += AppendWSCTLV(WSC_ID_KEY_WRAP_AUTH, &Plain[PlainLen], TB, 0);
 
@@ -2170,11 +1878,10 @@ int BuildMessageM7(
 		os_free_mem(IV_EncrData);
 
 	pWscControl->WscRetryCount = 0;
-	MTWF_DBG(pAdapter, DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_INFO, "BuildMessageM7 :\n");
+	MTWF_LOG(DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_TRACE, ("BuildMessageM7 :\n"));
 	return Len;
 }
 
-#ifdef CONFIG_MAP_SUPPORT
 unsigned char same_band_profile(
 	PWSC_CTRL pWscControl,
 	unsigned char profile_index)
@@ -2184,7 +1891,7 @@ unsigned char same_band_profile(
 	struct wifi_dev *wdev = pWscControl->wdev;
 	PRTMP_ADAPTER ad = wdev->sys_handle;
 
-	for (i = 0; i < MAX_MBSSID_NUM(ad); i++) {
+	for (i = 0; i < HW_BEACON_MAX_NUM; i++) {
 		wdev_entry = ad->wdev_list[i];
 		if (wdev_entry == NULL)
 			continue;
@@ -2198,7 +1905,6 @@ unsigned char same_band_profile(
 	}
 	return FALSE;
 }
-#endif
 /*
 *	========================================================================
 *
@@ -2231,26 +1937,20 @@ int BuildMessageM8(
 	PUCHAR pData = (PUCHAR)pbuf, pAuth;
 	PWSC_REG_DATA pReg = (PWSC_REG_DATA) &pWscControl->RegData;
 	INT HmacLen;
-	UCHAR KDK[32] = {0};
+	UCHAR KDK[32];
 	UCHAR *IV_EncrData = NULL; /*IV len 16 ,EncrData len */
 	UCHAR *Plain = NULL;
 	INT CerLen = 0, PlainLen = 0, EncrLen;
-#ifdef CONFIG_MAP_SUPPORT
-	WSC_CREDENTIAL bh_cred;
-#endif
 	PWSC_CREDENTIAL pCredential = NULL;
 	USHORT AuthType = 0;
 	USHORT EncrType = 0;
 #ifdef CONFIG_AP_SUPPORT
-	UCHAR				apidx = (pWscControl->EntryIfIdx & 0x0F);
+	UCHAR               apidx = (pWscControl->EntryIfIdx & 0x0F);
 #endif /* CONFIG_AP_SUPPORT */
 #ifdef WSC_V2_SUPPORT
 	PWSC_TLV			pWscTLV = &pWscControl->WscV2Info.ExtraTlv;
 #endif /* WSC_V2_SUPPORT */
 	UCHAR				CurOpMode = 0xFF;
-#ifdef CONFIG_STA_SUPPORT
-	PSTA_ADMIN_CONFIG pStaCfg = &pAdapter->StaCfg[0];
-#endif
 	os_alloc_mem(NULL, (UCHAR **)&IV_EncrData, IV_ENCR_DATA_LEN_512);
 
 	if (!IV_EncrData)
@@ -2259,31 +1959,20 @@ int BuildMessageM8(
 	os_alloc_mem(NULL, (UCHAR **)&TB, 1024);
 
 	if (TB == NULL) {
-		MTWF_DBG(pAdapter, DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_ERROR, "Allocate memory fail!!!\n");
+		MTWF_LOG(DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_ERROR, ("%s: Allocate memory fail!!!\n", __func__));
 		goto LabelErr;
 	}
 
 	os_alloc_mem(NULL, (UCHAR **)&Plain, PLAIN_LEN_TOTAL_SIZE);
+
 	if (Plain == NULL) {
-		MTWF_DBG(pAdapter, DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_ERROR, "Allocate memory fail!!!\n");
+		MTWF_LOG(DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_ERROR, ("%s: Allocate memory fail!!!\n", __func__));
 		goto LabelErr;
 	}
-
-	NdisZeroMemory(Plain, PLAIN_LEN_TOTAL_SIZE);
 
 #ifdef CONFIG_AP_SUPPORT
 	IF_DEV_CONFIG_OPMODE_ON_AP(pAdapter)
 	CurOpMode = AP_MODE;
-#endif /* CONFIG_AP_SUPPORT */
-#ifdef CONFIG_STA_SUPPORT
-	IF_DEV_CONFIG_OPMODE_ON_STA(pAdapter)
-	CurOpMode = STA_MODE;
-#ifdef P2P_SUPPORT
-
-	if (pWscControl->EntryIfIdx != BSS0)
-		CurOpMode = AP_MODE;
-
-#endif /* P2P_SUPPORT */
 #endif /* CONFIG_AP_SUPPORT */
 	/* 1. Version */
 	templen = AppendWSCTLV(WSC_ID_VERSION, pData, &pReg->SelfInfo.Version, 0);
@@ -2302,19 +1991,26 @@ int BuildMessageM8(
 
 	if (CurOpMode == AP_MODE) {
 #ifdef CONFIG_MAP_SUPPORT
-		if ((!(IS_MAP_TURNKEY_ENABLE(pAdapter)))
-			&& pReg->PeerInfo.map_DevPeerRole & BIT(MAP_ROLE_BACKHAUL_STA)) {
-			if (pWscControl->WscBhProfiles.ProfileCnt != 0) {
-				NdisCopyMemory(&bh_cred, &pWscControl->WscBhProfiles.Profile[0], sizeof(WSC_CREDENTIAL));
-				pCredential = &bh_cred;
-				pCredential->KeyIndex = 1;
-#ifdef WSC_V2_SUPPORT
-				if (pWscControl->WscV2Info.bEnableWpsV2)
-					NdisMoveMemory(pCredential->MacAddr, pWscControl->EntryAddr, 6);
-#endif /* WSC_V2_SUPPORT */
-				hex_dump_with_lvl("WSCCred", (unsigned char *)pCredential, sizeof(WSC_CREDENTIAL), DBG_LVL_INFO);
+		if (pReg->PeerInfo.map_DevPeerRole & BIT(MAP_ROLE_BACKHAUL_STA)) {
+			PWSC_CTRL			pBhWscControl = NULL;
+			UCHAR				apidx = (pWscControl->EntryIfIdx & 0x0F);
+			UCHAR				band_idx = HcGetBandByWdev(&pAdapter->ApCfg.MBSSID[apidx].wdev);
+			struct wifi_dev		*bh_wdev = NULL;
+
+			bh_wdev = pAdapter->bh_bss_wdev[band_idx];
+			if (bh_wdev) {
+				pBhWscControl = &bh_wdev->WscControl;
+				MTWF_LOG(DBG_CAT_PROTO, CATPROTO_RRM, DBG_LVL_TRACE,
+						("band_idx %d  bh_bss_wdev [%s]\n", band_idx, bh_wdev->if_dev->name));
+				pBhWscControl->WscConfStatus = WSC_SCSTATE_CONFIGURED;
+				COPY_MAC_ADDR(pBhWscControl->EntryAddr, pWscControl->EntryAddr);
+				WscCreateProfileFromCfg(pAdapter,
+										REGISTRAR_ACTION | AP_MODE,
+										pBhWscControl,
+										&pBhWscControl->WscProfile);
+				pCredential = &pBhWscControl->WscProfile.Profile[0];
 			} else
-					goto LabelErr;
+				goto LabelErr;
 		} else
 #endif /* CONFIG_MAP_SUPPORT */
 		{
@@ -2327,46 +2023,21 @@ int BuildMessageM8(
 	}
 
 #endif /* CONFIG_AP_SUPPORT */
-#ifdef CONFIG_STA_SUPPORT
-
-	if (CurOpMode == STA_MODE) {
-		if (pAdapter->StaCfg[0].wdev.WscControl.WscProfile.ProfileCnt == 0 ||
-			(pAdapter->StaCfg[0].wdev.WscControl.bConfiguredAP
-#ifdef WSC_V2_SUPPORT
-			 /*
-			  * Check AP is v2 or v1, Check WscV2 Enabled or not
-			 */
-			 && !(pWscControl->WscV2Info.bForceSetAP
-				  && pWscControl->WscV2Info.bEnableWpsV2
-				  && (pWscControl->RegData.PeerInfo.Version2 != 0))
-#endif /* WSC_V2_SUPPORT */
-			))
-			WscCreateProfileFromCfg(pAdapter, STA_MODE, pWscControl, &pWscControl->WscProfile);
-
-		pCredential = &pAdapter->StaCfg[0].wdev.WscControl.WscProfile.Profile[0];
-		NdisMoveMemory(pCredential->MacAddr, pStaCfg->MlmeAux.Bssid, 6);
-	}
-
-#endif /* CONFIG_STA_SUPPORT */
 #ifdef CONFIG_MAP_SUPPORT
 	if ((IS_MAP_TURNKEY_ENABLE(pAdapter)) && (pReg->PeerInfo.map_DevPeerRole & BIT(MAP_ROLE_BACKHAUL_STA))) {
 		int i = 0;
 		unsigned char profile_count = 0;
-		BOOLEAN same_band_profile_missing = FALSE;
-APPEND_CONFIGS:
+
 		for (i = 0; i < pWscControl->WscBhProfiles.ProfileCnt; i++) {
 			pCredential = &pWscControl->WscBhProfiles.Profile[i];
 
 			if (pWscControl->WscBhProfiles.Profile[i].bss_role & BIT(MAP_ROLE_BACKHAUL_BSS)) {
-				if (same_band_profile(pWscControl, i)
-					&& profile_count == 0
-					&& same_band_profile_missing == FALSE) {
+				if (same_band_profile(pWscControl, i) && profile_count == 0) {
 					i = -1;
 					profile_count++;
 				} else if (same_band_profile(pWscControl, i)) {
 					continue;
-				} else if (profile_count == 0
-				&& same_band_profile_missing == FALSE) {
+				} else if (profile_count == 0) {
 					continue;
 				} else {
 					profile_count++;
@@ -2381,8 +2052,8 @@ APPEND_CONFIGS:
 			else if (profile_count == 3)
 				CerLen += AppendWSCTLV(WSC_ID_NW_INDEX, &TB[CerLen], (PUCHAR)"3", 0);
 			if (pCredential == NULL) {
-				MTWF_DBG(pAdapter, DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_ERROR,
-					"pWscControl == NULL!\n");
+				MTWF_LOG(DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_ERROR,
+					("%s: pWscControl == NULL!\n", __func__));
 				goto LabelErr;
 			}
 			AuthType = pCredential->AuthType;
@@ -2406,189 +2077,55 @@ APPEND_CONFIGS:
 			CerLen += AppendWSCTLV(WSC_ID_MAC_ADDR, &TB[CerLen], pCredential->MacAddr, 0);
 			/*	  Prepare plain text */
 		}
-		if (profile_count == 0 &&
-			same_band_profile_missing == FALSE) {
-			same_band_profile_missing = TRUE;
-			goto APPEND_CONFIGS;
-		}
 	} else
 #endif
 	{
 	/* 4a. Encrypted R-S1 */
-		CerLen += AppendWSCTLV(WSC_ID_NW_INDEX, &TB[0], (PUCHAR)"1", 0);
+	CerLen += AppendWSCTLV(WSC_ID_NW_INDEX, &TB[0], (PUCHAR)"1", 0);
 
-		if (pCredential == NULL) {
-			MTWF_DBG(pAdapter, DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_ERROR, "pWscControl == NULL!\n");
-			goto LabelErr;
-		}
-
-		AuthType = pCredential->AuthType;
-		EncrType = pCredential->EncrType;
-		/*
-		 *	Some Win7 WSC 1.0 STA has problem to receive mixed authType and encyType.
-		 *	We need to check STA is WSC 1.0 or WSC 2.0 here.
-		 *	If STA is WSC 1.0, re-assign authType and encyType.
-		 */
-		{
-			if ((AuthType == (WSC_AUTHTYPE_WPAPSK | WSC_AUTHTYPE_WPA2PSK))
-#ifdef DOT11_SAE_SUPPORT
-				|| (AuthType == (WSC_AUTHTYPE_WPA2PSK | WSC_AUTHTYPE_SAE))
-#endif
-				) {
-					AuthType = WSC_AUTHTYPE_WPA2PSK;
-#ifdef DOT11_SAE_SUPPORT
-					if (AuthType == (WSC_AUTHTYPE_WPA2PSK | WSC_AUTHTYPE_SAE))
-						MTWF_DBG(pAdapter, DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_INFO,
-						" AuthType WSC_AUTHTYPE_WPA2PSK | WSC_AUTHTYPE_SAE!!!\n");
-#endif
-				}
-
-			if (EncrType == (WSC_ENCRTYPE_TKIP | WSC_ENCRTYPE_AES))
-				EncrType = WSC_ENCRTYPE_AES;
-		}
-
-		AuthType = cpu2be16(AuthType);
-		EncrType = cpu2be16(EncrType);
-		CerLen += AppendWSCTLV(WSC_ID_SSID, &TB[CerLen], pCredential->SSID.Ssid, pCredential->SSID.SsidLength);
-		CerLen += AppendWSCTLV(WSC_ID_AUTH_TYPE, &TB[CerLen], (UINT8 *)&AuthType, 0);
-		CerLen += AppendWSCTLV(WSC_ID_ENCR_TYPE, &TB[CerLen], (UINT8 *)&EncrType, 0);
-		CerLen += AppendWSCTLV(WSC_ID_NW_KEY_INDEX, &TB[CerLen], &pCredential->KeyIndex, 0);
-		CerLen += AppendWSCTLV(WSC_ID_NW_KEY, &TB[CerLen], pCredential->Key, pCredential->KeyLength);
-		CerLen += AppendWSCTLV(WSC_ID_MAC_ADDR, &TB[CerLen], pCredential->MacAddr, 0);
+	if (pCredential == NULL) {
+		MTWF_LOG(DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_ERROR, ("%s: pWscControl == NULL!\n", __func__));
+		goto LabelErr;
 	}
+
+	AuthType = pCredential->AuthType;
+	EncrType = pCredential->EncrType;
+	/*
+	*	Some Win7 WSC 1.0 STA has problem to receive mixed authType and encyType.
+	*	We need to check STA is WSC 1.0 or WSC 2.0 here.
+	*	If STA is WSC 1.0, re-assign authType and encyType.
+	*/
+	{
+		if (AuthType == (WSC_AUTHTYPE_WPAPSK | WSC_AUTHTYPE_WPA2PSK))
+			AuthType = WSC_AUTHTYPE_WPA2PSK;
+
+		if (EncrType == (WSC_ENCRTYPE_TKIP | WSC_ENCRTYPE_AES))
+			EncrType = WSC_ENCRTYPE_AES;
+	}
+
+	AuthType = cpu2be16(AuthType);
+	EncrType = cpu2be16(EncrType);
+	CerLen += AppendWSCTLV(WSC_ID_SSID, &TB[CerLen], pCredential->SSID.Ssid, pCredential->SSID.SsidLength);
+	CerLen += AppendWSCTLV(WSC_ID_AUTH_TYPE, &TB[CerLen], (UINT8 *)&AuthType, 0);
+	CerLen += AppendWSCTLV(WSC_ID_ENCR_TYPE, &TB[CerLen], (UINT8 *)&EncrType, 0);
+	CerLen += AppendWSCTLV(WSC_ID_NW_KEY_INDEX, &TB[CerLen], &pCredential->KeyIndex, 0);
+	CerLen += AppendWSCTLV(WSC_ID_NW_KEY, &TB[CerLen], pCredential->Key, pCredential->KeyLength);
+	CerLen += AppendWSCTLV(WSC_ID_MAC_ADDR, &TB[CerLen], pCredential->MacAddr, 0);
 	/*    Prepare plain text */
-#ifdef CONFIG_STA_SUPPORT
-
-	if ((CurOpMode == STA_MODE) && (pAdapter->StaCfg[0].BssType == BSS_INFRA)) {
-		/* If Enrollee is AP, CREDENTIAL isn't needed in M8. */
-		PlainLen = CerLen;
-		NdisMoveMemory(Plain, TB, CerLen);
-	} else
-#endif /* CONFIG_STA_SUPPORT */
+}
 		if ((CurOpMode == AP_MODE)
-#ifdef CONFIG_STA_SUPPORT
-			|| ((CurOpMode == STA_MODE) && (pAdapter->StaCfg[0].BssType == BSS_ADHOC))
-#endif /* CONFIG_STA_SUPPORT */
 		   ) {
-#ifdef IWSC_SUPPORT
-			USHORT tmpVal = 0;
-			UINT32 tmpUint32 = 0;
-#endif /* IWSC_SUPPORT */
-#ifdef MAP_R3
-			if (IS_MAP_ENABLE(pAdapter) && IS_MAP_R3_ENABLE(pAdapter)
-					&& pWscControl->rcvd_uri_len != 0) {
-				if (pAdapter->map_onboard_type ||
-					(!pAdapter->map_onboard_type && (pAdapter->map_sec_enable == FALSE))) {
-					/* Reguired attribute item in M8 if Enrollee is STA. */
-					PlainLen += AppendWSCTLV(WSC_ID_CREDENTIAL, &Plain[0], TB, CerLen);
+			/* Reguired attribute item in M8 if Enrollee is STA. */
+			PlainLen += AppendWSCTLV(WSC_ID_CREDENTIAL, &Plain[0], TB, CerLen);
 
-					if (PlainLen > PLAIN_LEN_TOTAL_SIZE) {
-						/*Plain buf overflow*/
-						os_free_mem(Plain);
-						Plain = NULL;
-						MTWF_DBG(pAdapter, DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_ERROR,
-							"Plain buf overflow!!!\n");
-						goto LabelErr;
-					}
-					MTWF_DBG(pAdapter, DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_INFO,
-							" Credential Added in M8..!!!\n");
-				} else {
-					MTWF_DBG(pAdapter, DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_WARN,
-							" credential not added as 1905 security was enabled for DPP..!!!\n");
-				}
-				pWscControl->rcvd_uri_len = 0;
-			} else {
-#endif /* MAP_R3 */
-				/* Reguired attribute item in M8 if Enrollee is STA. */
-				PlainLen += AppendWSCTLV(WSC_ID_CREDENTIAL, &Plain[0], TB, CerLen);
-
-				if (PlainLen > PLAIN_LEN_TOTAL_SIZE) {
-					/*Plain buf overflow*/
-					os_free_mem(Plain);
-					Plain = NULL;
-					MTWF_DBG(pAdapter, DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_ERROR, "Plain buf overflow!!!\n");
-					goto LabelErr;
-				}
-#ifdef MAP_R3
-			}
-#endif /* MAP_R3 */
-
-#ifdef IWSC_SUPPORT
-			/* TODO: Need to check the total length, we need to alarm if total length exceeds the size of Plain. snowpin 2011/05/16 */
-
-			if (IWSC_IpContentForCredential(pAdapter)) {
-				PIWSC_INFO	pIWscInfo = &pAdapter->StaCfg[0].IWscInfo;
-				UINT32 *pIpv4SubMaskList = NULL;
-				USHORT Ipv4SubMaskListSize = 0;
-
-				if (pIWscInfo->AvaSubMaskListCount != 0) {
-					Ipv4SubMaskListSize = sizeof(UINT32) * pIWscInfo->AvaSubMaskListCount;
-					os_alloc_mem(NULL, (UCHAR **) &pIpv4SubMaskList, Ipv4SubMaskListSize);
-
-					if (pIWscInfo->AvaSubMaskListCount == 3) {
-						*pIpv4SubMaskList = cpu2be32(pIWscInfo->AvaSubMaskList[0]);
-						*(pIpv4SubMaskList + 1) = cpu2be32(pIWscInfo->AvaSubMaskList[1]);
-						*(pIpv4SubMaskList + 2) = cpu2be32(pIWscInfo->AvaSubMaskList[2]);
-					} else if (pIWscInfo->AvaSubMaskListCount == 2) {
-						*pIpv4SubMaskList = cpu2be32(pIWscInfo->AvaSubMaskList[0]);
-						*(pIpv4SubMaskList + 1) = cpu2be32(pIWscInfo->AvaSubMaskList[1]);
-					} else if (pIWscInfo->AvaSubMaskListCount == 1)
-						*pIpv4SubMaskList = cpu2be32(pIWscInfo->AvaSubMaskList[0]);
-
-					pIWscInfo->AvaSubMaskListCount--;
-				}
-
-				tmpVal = cpu2be16(pIWscInfo->IpMethod);
-
-				if (PlainLen >= 0 && PlainLen <= 295) {
-					PlainLen += AppendWSCTLV(WSC_ID_IP_ADDR_CONF_METHOD,
-											 &Plain[PlainLen],
-											 &tmpVal, 0);
-				}
-
-				pCredential->RegIpv4Addr = pIWscInfo->SelfIpv4Addr;
-				tmpUint32 = cpu2be32(pIWscInfo->SelfIpv4Addr);
-
-				if (PlainLen >= 0 && PlainLen <= 291) {
-					PlainLen += AppendWSCTLV(WSC_ID_REGISTRAR_IPV4,
-											 &Plain[PlainLen],
-											 (UCHAR *)&tmpUint32, 0);
-				}
-
-				tmpUint32 = cpu2be32(pIWscInfo->Ipv4SubMask);
-
-				if (PlainLen >= 0 && PlainLen <= 287) {
-					PlainLen += AppendWSCTLV(WSC_ID_IPV4_SUBMASK,
-											 &Plain[PlainLen],
-											 (UCHAR *)&tmpUint32, 0);
-				}
-
-				pCredential->EnrIpv4Addr = pIWscInfo->PeerIpv4Addr;
-				tmpUint32 = cpu2be32(pIWscInfo->PeerIpv4Addr);
-
-				if (PlainLen >= 0 && PlainLen <= 283) {
-					PlainLen += AppendWSCTLV(WSC_ID_ENROLLEE_IPV4,
-											 &Plain[PlainLen],
-											 (UCHAR *)&tmpUint32, 0);
-				}
-
-				if (pIpv4SubMaskList
-#ifdef IWSC_TEST_SUPPORT
-					&& (pIWscInfo->bEmptySubmaskList == FALSE)
-#endif /* IWSC_TEST_SUPPORT */
-				   ) {
-					if (PlainLen >= 0 && PlainLen <= 279) {
-						PlainLen += AppendWSCTLV(WSC_ID_IPV4_SUBMASK_LIST,
-												 &Plain[PlainLen],
-												 (UCHAR *)pIpv4SubMaskList, Ipv4SubMaskListSize);
-					}
-				}
-
-				if (pIpv4SubMaskList)
-					os_free_mem(pIpv4SubMaskList);
+			if (PlainLen > PLAIN_LEN_TOTAL_SIZE) {
+				/*Plain buf overflow*/
+				os_free_mem(Plain);
+				Plain = NULL;
+				MTWF_LOG(DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_ERROR, ("%s: Plain buf overflow!!!\n", __func__));
+				goto LabelErr;
 			}
 
-#endif /* IWSC_SUPPORT */
 		}
 
 	/* Generate HMAC */
@@ -2599,7 +2136,7 @@ APPEND_CONFIGS:
 		/*Plain buf overflow*/
 		os_free_mem(Plain);
 		Plain = NULL;
-		MTWF_DBG(pAdapter, DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_ERROR, "Plain buf overflow!!!\n");
+		MTWF_LOG(DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_ERROR, ("%s: Plain buf overflow!!!\n", __func__));
 		goto LabelErr;
 	}
 
@@ -2661,7 +2198,7 @@ LabelErr:
 	if (Plain != NULL)
 		os_free_mem(Plain);
 
-	MTWF_DBG(pAdapter, DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_INFO, "BuildMessageM8 :\n");
+	MTWF_LOG(DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_TRACE, ("BuildMessageM8 :\n"));
 	return Len;
 }
 
@@ -2715,7 +2252,7 @@ int BuildMessageDONE(
 
 #endif /* WSC_V2_SUPPORT */
 	pWscControl->WscRetryCount = 0;
-	MTWF_DBG(pAdapter, DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_INFO, "BuildMessageDONE :\n");
+	MTWF_LOG(DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_TRACE, ("BuildMessageDONE :\n"));
 	return Len;
 }
 
@@ -2769,7 +2306,7 @@ int BuildMessageACK(
 
 #endif /* WSC_V2_SUPPORT */
 	pWscControl->WscRetryCount = 0;
-	MTWF_DBG(pAdapter, DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_INFO, "BuildMessageACK :\n");
+	MTWF_LOG(DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_TRACE, ("BuildMessageACK :\n"));
 	return Len;
 }
 
@@ -2828,7 +2365,7 @@ int BuildMessageNACK(
 
 #endif /* WSC_V2_SUPPORT */
 	pWscControl->WscRetryCount = 0;
-	MTWF_DBG(pAdapter, DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_INFO, "BuildMessageNACK :\n");
+	MTWF_LOG(DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_TRACE, ("BuildMessageNACK :\n"));
 	return Len;
 }
 
@@ -2878,16 +2415,6 @@ int ProcessMessageM1(
 	IF_DEV_CONFIG_OPMODE_ON_AP(pAdapter)
 	CurOpMode = AP_MODE;
 #endif /* CONFIG_AP_SUPPORT */
-#ifdef CONFIG_STA_SUPPORT
-	IF_DEV_CONFIG_OPMODE_ON_STA(pAdapter)
-	CurOpMode = STA_MODE;
-#ifdef P2P_SUPPORT
-
-	if (pWscControl->EntryIfIdx != BSS0)
-		CurOpMode = AP_MODE;
-
-#endif /* P2P_SUPPORT */
-#endif /* CONFIG_STA_SUPPORT */
 	pReg->PeerInfo.Version2 = 0;
 	{
 		DH_Len = sizeof(pReg->Pkr);
@@ -2914,7 +2441,7 @@ int ProcessMessageM1(
 			NdisCopyMemory(&TempKey[DiffCnt], pReg->Pkr, DH_Len);
 			NdisCopyMemory(pReg->Pkr, TempKey, sizeof(TempKey));
 			DH_Len += DiffCnt;
-			MTWF_DBG(pAdapter, DBG_CAT_HW, DBG_SUBCAT_ALL, DBG_LVL_INFO, "%s: Do zero padding!\n", __func__);
+			MTWF_LOG(DBG_CAT_HW, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("%s: Do zero padding!\n", __func__));
 		}
 
 	}
@@ -2943,10 +2470,6 @@ int ProcessMessageM1(
 	FieldCheck[(WSC_TLV_BYTE2(WSC_ID_OS_VERSION))] |= (1 << WSC_TLV_BYTE1(WSC_ID_OS_VERSION));
 	/* Copy the content to Regdata for lastRx information */
 	/* Length must include authenticator IE size */
-	if (Length <= 0 || Length > sizeof(pReg->LastRx.Data)) {
-		ret = WSC_ERROR_OOB_INT_READ_ERR;
-		return ret;
-	}
 	pReg->LastRx.Length = Length;
 	NdisMoveMemory(pReg->LastRx.Data, precv, Length);
 	pData = pReg->LastRx.Data;
@@ -2959,10 +2482,6 @@ int ProcessMessageM1(
 		memcpy((UINT8 *)&TLV_Recv, pData, 4);
 		WscType = be2cpu16(TLV_Recv.Type);
 		WscLen  = be2cpu16(TLV_Recv.Length);
-		if (Length < WscLen + 4) {
-			MTWF_DBG(pAdapter, DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_ERROR, "unexpected WSC IE Length(%u)\n", WscLen);
-			break;
-		}
 		pData  += 4;
 		Length -= 4;
 
@@ -2970,59 +2489,38 @@ int ProcessMessageM1(
 		switch (WscType) {
 		case WSC_ID_VERSION:
 			if (pReg->SelfInfo.Version != *pData)
-				MTWF_DBG(pAdapter, DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_ERROR, "Rx WPS Message Version mismatched %02x\n", *pData);
+				MTWF_LOG(DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_ERROR, ("Rx WPS Message Version mismatched %02x\n", *pData));
 
 			FieldCheck[(WSC_TLV_BYTE2(WSC_ID_VERSION))] ^= (1 << WSC_TLV_BYTE1(WSC_ID_VERSION));
 			break;
 
 		case WSC_ID_MSG_TYPE:
 			if ((*pData) != WSC_ID_MESSAGE_M1)
-				MTWF_DBG(pAdapter, DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_ERROR, "Rx WPS Message Type mismatched %02x\n", *pData);
+				MTWF_LOG(DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_ERROR, ("Rx WPS Message Type mismatched %02x\n", *pData));
 
 			FieldCheck[(WSC_TLV_BYTE2(WSC_ID_MSG_TYPE))] ^= (1 << WSC_TLV_BYTE1(WSC_ID_MSG_TYPE));
 			break;
 
 		case WSC_ID_UUID_E:
-			if (WscLen <= sizeof(pReg->PeerInfo.Uuid)) {
-				NdisMoveMemory(pReg->PeerInfo.Uuid, pData, WscLen);
-				FieldCheck[(WSC_TLV_BYTE2(WSC_ID_UUID_E))] ^= (1 << WSC_TLV_BYTE1(WSC_ID_UUID_E));
-			} else {
-				MTWF_DBG(pAdapter, DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_ERROR,
-					"Wrong WSC IE(%x) length(%d)\n", WscType, WscLen);
-			}
+			NdisMoveMemory(pReg->PeerInfo.Uuid, pData, WscLen);
+			FieldCheck[(WSC_TLV_BYTE2(WSC_ID_UUID_E))] ^= (1 << WSC_TLV_BYTE1(WSC_ID_UUID_E));
 			break;
 
 		case WSC_ID_MAC_ADDR:
-			if (WscLen <= sizeof(pReg->PeerInfo.MacAddr)
-				&& WscLen <= sizeof(pWscControl->WscPeerInfo.WscPeerMAC)) {
-				NdisMoveMemory(pReg->PeerInfo.MacAddr, pData, WscLen);
-				NdisMoveMemory(pWscControl->WscPeerInfo.WscPeerMAC, pData, WscLen);
-				FieldCheck[(WSC_TLV_BYTE2(WSC_ID_MAC_ADDR))] ^= (1 << WSC_TLV_BYTE1(WSC_ID_MAC_ADDR));
-			} else {
-				MTWF_DBG(pAdapter, DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_ERROR,
-					"Wrong WSC IE(%x) length(%d)\n", WscType, WscLen);
-			}
+			NdisMoveMemory(pReg->PeerInfo.MacAddr, pData, WscLen);
+			NdisMoveMemory(pWscControl->WscPeerInfo.WscPeerMAC, pData, WscLen);
+			FieldCheck[(WSC_TLV_BYTE2(WSC_ID_MAC_ADDR))] ^= (1 << WSC_TLV_BYTE1(WSC_ID_MAC_ADDR));
 			break;
 
 		case WSC_ID_ENROLLEE_NONCE:
-			if (WscLen <= sizeof(pReg->EnrolleeNonce)) {
-				NdisMoveMemory(pReg->EnrolleeNonce, pData, WscLen);
-				FieldCheck[(WSC_TLV_BYTE2(WSC_ID_ENROLLEE_NONCE))] ^= (1 << WSC_TLV_BYTE1(WSC_ID_ENROLLEE_NONCE));
-			} else {
-				MTWF_DBG(pAdapter, DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_ERROR,
-					"Wrong WSC IE(%x) length(%d)\n", WscType, WscLen);
-			}
+			NdisMoveMemory(pReg->EnrolleeNonce, pData, WscLen);
+			FieldCheck[(WSC_TLV_BYTE2(WSC_ID_ENROLLEE_NONCE))] ^= (1 << WSC_TLV_BYTE1(WSC_ID_ENROLLEE_NONCE));
 			break;
 
 		case WSC_ID_PUBLIC_KEY:
 			/* Get Enrollee Public Key */
-			if (WscLen <= sizeof(pReg->Pke)) {
-				NdisMoveMemory(pReg->Pke, pData, WscLen);
-				FieldCheck[(WSC_TLV_BYTE2(WSC_ID_PUBLIC_KEY))] ^= (1 << WSC_TLV_BYTE1(WSC_ID_PUBLIC_KEY));
-			} else {
-				MTWF_DBG(pAdapter, DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_ERROR,
-					"Wrong WSC IE(%x) length(%d)\n", WscType, WscLen);
-			}
+			NdisMoveMemory(pReg->Pke, pData, WscLen);
+			FieldCheck[(WSC_TLV_BYTE2(WSC_ID_PUBLIC_KEY))] ^= (1 << WSC_TLV_BYTE1(WSC_ID_PUBLIC_KEY));
 			break;
 
 		case WSC_ID_AUTH_TYPE_FLAGS:
@@ -3047,85 +2545,42 @@ int ProcessMessageM1(
 
 		case WSC_ID_SC_STATE:
 			pReg->PeerInfo.ScState = get_unaligned((PUSHORT) pData);/**((PUSHORT) pData); */
-#ifdef CONFIG_STA_SUPPORT
-
-			if (CurOpMode == STA_MODE) {
-				/* Don't overwrite the credential of M7 received from AP when this flag is TRUE in registrar mode! */
-				pWscControl->bConfiguredAP = (pReg->PeerInfo.ScState == WSC_SCSTATE_CONFIGURED) ? TRUE : FALSE;
-			}
-
-#endif /* CONFIG_STA_SUPPORT */
 			FieldCheck[(WSC_TLV_BYTE2(WSC_ID_SC_STATE))] ^= (1 << WSC_TLV_BYTE1(WSC_ID_SC_STATE));
 			break;
 
 		case WSC_ID_MANUFACTURER:
-			if (WscLen <= sizeof(pReg->PeerInfo.Manufacturer)
-				&& WscLen <= sizeof(pWscControl->WscPeerInfo.WscPeerManufacturer)) {
-				NdisMoveMemory(&pReg->PeerInfo.Manufacturer, pData, WscLen);
-				NdisMoveMemory(&pWscControl->WscPeerInfo.WscPeerManufacturer, pData, WscLen);
-				FieldCheck[(WSC_TLV_BYTE2(WSC_ID_MANUFACTURER))] ^= (1 << WSC_TLV_BYTE1(WSC_ID_MANUFACTURER));
-			} else {
-				MTWF_DBG(pAdapter, DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_WARN,
-					"Wrong WSC IE(%x) length(%d)\n", WscType, WscLen);
-			}
+			NdisMoveMemory(&pReg->PeerInfo.Manufacturer, pData, WscLen);
+			NdisMoveMemory(&pWscControl->WscPeerInfo.WscPeerManufacturer, pData, WscLen);
+			FieldCheck[(WSC_TLV_BYTE2(WSC_ID_MANUFACTURER))] ^= (1 << WSC_TLV_BYTE1(WSC_ID_MANUFACTURER));
 			break;
 
 		case WSC_ID_MODEL_NAME:
-			if (WscLen <= sizeof(pReg->PeerInfo.ModelName)
-				&& WscLen <= sizeof(pWscControl->WscPeerInfo.WscPeerModelName)) {
-				NdisMoveMemory(&pReg->PeerInfo.ModelName, pData, WscLen);
-				NdisMoveMemory(&pWscControl->WscPeerInfo.WscPeerModelName, pData, WscLen);
-				FieldCheck[(WSC_TLV_BYTE2(WSC_ID_MODEL_NAME))] ^= (1 << WSC_TLV_BYTE1(WSC_ID_MODEL_NAME));
-			} else {
-				MTWF_DBG(pAdapter, DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_ERROR,
-					"Wrong WSC IE(%x) length(%d)\n", WscType, WscLen);
-			}
+			NdisMoveMemory(&pReg->PeerInfo.ModelName, pData, WscLen);
+			NdisMoveMemory(&pWscControl->WscPeerInfo.WscPeerModelName, pData, WscLen);
+			FieldCheck[(WSC_TLV_BYTE2(WSC_ID_MODEL_NAME))] ^= (1 << WSC_TLV_BYTE1(WSC_ID_MODEL_NAME));
 			break;
 
 		case WSC_ID_MODEL_NUMBER:
-			if (WscLen <= sizeof(pReg->PeerInfo.ModelNumber)
-				&& WscLen <= sizeof(pWscControl->WscPeerInfo.WscPeerModelNumber)) {
-				NdisMoveMemory(&pReg->PeerInfo.ModelNumber, pData, WscLen);
-				NdisMoveMemory(&pWscControl->WscPeerInfo.WscPeerModelNumber, pData, WscLen);
-				FieldCheck[(WSC_TLV_BYTE2(WSC_ID_MODEL_NUMBER))] ^= (1 << WSC_TLV_BYTE1(WSC_ID_MODEL_NUMBER));
-			} else {
-				MTWF_DBG(pAdapter, DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_ERROR,
-					"Wrong WSC IE(%x) length(%d)\n", WscType, WscLen);
-			}
+			NdisMoveMemory(&pReg->PeerInfo.ModelNumber, pData, WscLen);
+			NdisMoveMemory(&pWscControl->WscPeerInfo.WscPeerModelNumber, pData, WscLen);
+			FieldCheck[(WSC_TLV_BYTE2(WSC_ID_MODEL_NUMBER))] ^= (1 << WSC_TLV_BYTE1(WSC_ID_MODEL_NUMBER));
 			break;
 
 		case WSC_ID_SERIAL_NUM:
-			if (WscLen <= sizeof(pReg->PeerInfo.SerialNumber)
-				&& WscLen <= sizeof(pWscControl->WscPeerInfo.WscPeerSerialNumber)) {
-				NdisMoveMemory(&pReg->PeerInfo.SerialNumber, pData, WscLen);
-				NdisMoveMemory(&pWscControl->WscPeerInfo.WscPeerSerialNumber, pData, WscLen);
-				FieldCheck[(WSC_TLV_BYTE2(WSC_ID_SERIAL_NUM))] ^= (1 << WSC_TLV_BYTE1(WSC_ID_SERIAL_NUM));
-			} else {
-				MTWF_DBG(pAdapter, DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_ERROR,
-					"Wrong WSC IE(%x) length(%d)\n", WscType, WscLen);
-			}
+			NdisMoveMemory(&pReg->PeerInfo.SerialNumber, pData, WscLen);
+			NdisMoveMemory(&pWscControl->WscPeerInfo.WscPeerSerialNumber, pData, WscLen);
+			FieldCheck[(WSC_TLV_BYTE2(WSC_ID_SERIAL_NUM))] ^= (1 << WSC_TLV_BYTE1(WSC_ID_SERIAL_NUM));
 			break;
 
 		case WSC_ID_PRIM_DEV_TYPE:
-			if (WscLen <= sizeof(pReg->PeerInfo.PriDeviceType)) {
-				NdisMoveMemory(&pReg->PeerInfo.PriDeviceType, pData, WscLen);
-				FieldCheck[(WSC_TLV_BYTE2(WSC_ID_PRIM_DEV_TYPE))] ^= (1 << WSC_TLV_BYTE1(WSC_ID_PRIM_DEV_TYPE));
-			} else {
-				MTWF_DBG(pAdapter, DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_ERROR,
-					"Wrong WSC IE(%x) length(%d)\n", WscType, WscLen);
-			}
+			NdisMoveMemory(&pReg->PeerInfo.PriDeviceType, pData, WscLen);
+			FieldCheck[(WSC_TLV_BYTE2(WSC_ID_PRIM_DEV_TYPE))] ^= (1 << WSC_TLV_BYTE1(WSC_ID_PRIM_DEV_TYPE));
 			break;
 
 		case WSC_ID_DEVICE_NAME:
-			if (WscLen <= sizeof(pReg->PeerInfo.DeviceName)
-				&& WscLen <= sizeof(pWscControl->WscPeerInfo.WscPeerDeviceName)) {
-				NdisMoveMemory(&pReg->PeerInfo.DeviceName, pData, WscLen);
-				NdisMoveMemory(pWscControl->WscPeerInfo.WscPeerDeviceName, pData, WscLen);
-				FieldCheck[(WSC_TLV_BYTE2(WSC_ID_DEVICE_NAME))] ^= (1 << WSC_TLV_BYTE1(WSC_ID_DEVICE_NAME));
-			} else {
-				MTWF_DBG(pAdapter, DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_ERROR,
-					"Wrong WSC IE(%x) length(%d)\n", WscType, WscLen);
-			}
+			NdisMoveMemory(&pReg->PeerInfo.DeviceName, pData, WscLen);
+			NdisMoveMemory(pWscControl->WscPeerInfo.WscPeerDeviceName, pData, WscLen);
+			FieldCheck[(WSC_TLV_BYTE2(WSC_ID_DEVICE_NAME))] ^= (1 << WSC_TLV_BYTE1(WSC_ID_DEVICE_NAME));
 			break;
 
 		case WSC_ID_RF_BAND:
@@ -3146,16 +2601,16 @@ int ProcessMessageM1(
 			break;
 
 		case WSC_ID_DEVICE_PWD_ID:
-			MTWF_DBG(pAdapter, DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_INFO, "   WPS Registrar DPID %04x\n", pReg->SelfInfo.DevPwdId);
+			MTWF_LOG(DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_TRACE, ("   WPS Registrar DPID %04x\n", pReg->SelfInfo.DevPwdId));
 
 			if (get_unaligned((PUSHORT) pData) == WSC_DEVICEPWDID_DEFAULT) { /**(PUSHORT) pData) */
-				MTWF_DBG(pAdapter, DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_INFO, "Rx WPS           DPID PIN\n");
+				MTWF_LOG(DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_TRACE, ("Rx WPS           DPID PIN\n"));
 				pWscControl->RegData.SelfInfo.DevPwdId = cpu2be16(DEV_PASS_ID_PIN);
 			} else if (get_unaligned((PUSHORT) pData) == WSC_DEVICEPWDID_PUSH_BTN) { /**(PUSHORT) pData) */
-				MTWF_DBG(pAdapter, DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_INFO, "Rx WPS           DPID PBC\n");
+				MTWF_LOG(DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_TRACE, ("Rx WPS           DPID PBC\n"));
 				pWscControl->RegData.SelfInfo.DevPwdId = cpu2be16(DEV_PASS_ID_PBC);
 			} else
-				MTWF_DBG(pAdapter, DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_INFO, "Rx WPS           DPID unsupport\n");
+				MTWF_LOG(DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_TRACE, ("Rx WPS           DPID unsupport\n"));
 
 			FieldCheck[(WSC_TLV_BYTE2(WSC_ID_DEVICE_PWD_ID))] ^= (1 << WSC_TLV_BYTE1(WSC_ID_DEVICE_PWD_ID));
 			break;
@@ -3172,7 +2627,7 @@ int ProcessMessageM1(
 				UCHAR tmp_data_len = 0;
 
 				WscParseV2SubItem(WFA_EXT_ID_VERSION2, pData, WscLen, &pReg->PeerInfo.Version2, &tmp_data_len);
-				MTWF_DBG(pAdapter, DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_INFO, "ProcessMessageM1 --> Version2 = %x\n", pReg->PeerInfo.Version2);
+				MTWF_LOG(DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_TRACE, ("ProcessMessageM1 --> Version2 = %x\n", pReg->PeerInfo.Version2));
 			}
 
 #endif /* WSC_V2_SUPPORT */
@@ -3184,15 +2639,15 @@ int ProcessMessageM1(
 								pData, WscLen,
 								&pReg->PeerInfo.map_DevPeerRole,
 								&tmp_data_len);
-				MTWF_DBG(pAdapter, DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_INFO,
-					"ProcessMessageM1 --> MAP PeerRole = %x\n", pReg->PeerInfo.map_DevPeerRole);
+				MTWF_LOG(DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_OFF,
+					("ProcessMessageM1 --> MAP PeerRole = %x\n", pReg->PeerInfo.map_DevPeerRole));
 			}
 #endif /* CONFIG_MAP_SUPPORT */
 
 			break;
 
 		default:
-			MTWF_DBG(pAdapter, DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_INFO, "ProcessMessageM1 --> Unknown IE 0x%04x\n", WscType);
+			MTWF_LOG(DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_TRACE, ("ProcessMessageM1 --> Unknown IE 0x%04x\n", WscType));
 			break;
 		}
 
@@ -3204,7 +2659,7 @@ int ProcessMessageM1(
 	if (FieldCheck[0] || FieldCheck[1] || FieldCheck[2] || FieldCheck[3] || FieldCheck[4] || FieldCheck[5] || FieldCheck[6])
 		ret = WSC_ERROR_WANTING_FIELD;
 
-	MTWF_DBG(pAdapter, DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_INFO, "ProcessMessageM1 :\n");
+	MTWF_LOG(DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_TRACE, ("ProcessMessageM1 :\n"));
 	return ret;
 }
 
@@ -3240,8 +2695,8 @@ int ProcessMessageM2(
 {
 	int ret = WSC_ERROR_NO_ERROR;
 	INT HmacLen;
-	UCHAR Hmac[8] = { 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff }, KDK[32] = {0};
-	UCHAR DHKey[32], KdkInput[38], KdfKey[80] = {0};
+	UCHAR Hmac[8] = { 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff }, KDK[32];
+	UCHAR DHKey[32], KdkInput[38], KdfKey[80];
 	INT DH_Len;
 	PUCHAR pData = NULL;
 	USHORT WscType, WscLen, FieldCheck[7] = {0, 0, 0, 0, 0, 0, 0};
@@ -3251,17 +2706,8 @@ int ProcessMessageM2(
 	IF_DEV_CONFIG_OPMODE_ON_AP(pAdapter)
 	CurOpMode = AP_MODE;
 #endif /* CONFIG_AP_SUPPORT */
-#ifdef CONFIG_STA_SUPPORT
-	IF_DEV_CONFIG_OPMODE_ON_STA(pAdapter)
-	CurOpMode = STA_MODE;
-#ifdef P2P_SUPPORT
-
-	if (pWscControl->EntryIfIdx != BSS0)
-		CurOpMode = AP_MODE;
-
-#endif /* P2P_SUPPORT */
-#endif /* CONFIG_STA_SUPPORT */
 	pReg->PeerInfo.Version2 = 0;
+	RTMPZeroMemory(KDK, 32);
 	FieldCheck[(WSC_TLV_BYTE2(WSC_ID_VERSION))] |= (1 << WSC_TLV_BYTE1(WSC_ID_VERSION));
 	FieldCheck[(WSC_TLV_BYTE2(WSC_ID_MSG_TYPE))] |= (1 << WSC_TLV_BYTE1(WSC_ID_MSG_TYPE));
 	FieldCheck[(WSC_TLV_BYTE2(WSC_ID_ENROLLEE_NONCE))] |= (1 << WSC_TLV_BYTE1(WSC_ID_ENROLLEE_NONCE));
@@ -3286,21 +2732,11 @@ int ProcessMessageM2(
 	FieldCheck[(WSC_TLV_BYTE2(WSC_ID_AUTHENTICATOR))] |= (1 << WSC_TLV_BYTE1(WSC_ID_AUTHENTICATOR));
 	/* Copy the content to Regdata for lastRx information */
 	/* Length must include authenticator IE size */
-	if (Length <= 0 || Length > sizeof(pReg->LastRx.Data)) {
-		ret = WSC_ERROR_OOB_INT_READ_ERR;
-		return ret;
-	}
 	pReg->LastRx.Length = Length;
 	NdisMoveMemory(pReg->LastRx.Data, precv, Length);
 	pData = pReg->LastRx.Data;
 #ifdef CONFIG_AP_SUPPORT
-	IF_DEV_CONFIG_OPMODE_ON_AP(pAdapter)
 	pEntry = MacTableLookup(pAdapter, pReg->PeerInfo.MacAddr);
-#endif
-#ifdef CONFIG_STA_SUPPORT
-	/* Pat: TODO */
-	IF_DEV_CONFIG_OPMODE_ON_STA(pAdapter)
-	pEntry = MacTableLookup2(pAdapter, pReg->PeerInfo.MacAddr, NULL);
 #endif
 	NdisZeroMemory(&pWscControl->WscPeerInfo, sizeof(WSC_PEER_DEV_INFO));
 
@@ -3311,10 +2747,6 @@ int ProcessMessageM2(
 		memcpy((UINT8 *)&TLV_Recv, pData, 4);
 		WscType = be2cpu16(TLV_Recv.Type);
 		WscLen  = be2cpu16(TLV_Recv.Length);
-		if (Length < WscLen + 4) {
-			MTWF_DBG(pAdapter, DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_ERROR, "unexpected WSC IE Length(%u)\n", WscLen);
-			break;
-		}
 		pData  += 4;
 		Length -= 4;
 
@@ -3322,14 +2754,14 @@ int ProcessMessageM2(
 		switch (WscType) {
 		case WSC_ID_VERSION:
 			if (pReg->SelfInfo.Version != *pData)
-				MTWF_DBG(pAdapter, DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_ERROR, "Rx WPS Message Version mismatched %02x\n", *pData);
+				MTWF_LOG(DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_ERROR, ("Rx WPS Message Version mismatched %02x\n", *pData));
 
 			FieldCheck[(WSC_TLV_BYTE2(WSC_ID_VERSION))] ^= (1 << WSC_TLV_BYTE1(WSC_ID_VERSION));
 			break;
 
 		case WSC_ID_MSG_TYPE:
 			if ((*pData) != WSC_ID_MESSAGE_M2)
-				MTWF_DBG(pAdapter, DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_ERROR, "Rx WPS Message Type mismatched %02x\n", *pData);
+				MTWF_LOG(DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_ERROR, ("Rx WPS Message Type mismatched %02x\n", *pData));
 
 			FieldCheck[(WSC_TLV_BYTE2(WSC_ID_MSG_TYPE))] ^= (1 << WSC_TLV_BYTE1(WSC_ID_MSG_TYPE));
 			break;
@@ -3337,45 +2769,26 @@ int ProcessMessageM2(
 		case WSC_ID_ENROLLEE_NONCE:
 
 			/* for verification with our enrollee nonce */
-			if (WscLen <= sizeof(pReg->SelfNonce)) {
-				if (RTMPCompareMemory(pReg->SelfNonce, pData, WscLen) != 0)
-					MTWF_DBG(pAdapter, DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_ERROR, "Rx M2 Compare enrollee nonce mismatched\n");
-				FieldCheck[(WSC_TLV_BYTE2(WSC_ID_ENROLLEE_NONCE))] ^= (1 << WSC_TLV_BYTE1(WSC_ID_ENROLLEE_NONCE));
-			} else {
-				MTWF_DBG(pAdapter, DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_ERROR,
-					"Wrong WSC IE(%x) length(%d)\n", WscType, WscLen);
-			}
+			if (RTMPCompareMemory(pReg->SelfNonce, pData, WscLen) != 0)
+				MTWF_LOG(DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_TRACE, ("Rx M2 Compare enrollee nonce mismatched\n"));
+
+			FieldCheck[(WSC_TLV_BYTE2(WSC_ID_ENROLLEE_NONCE))] ^= (1 << WSC_TLV_BYTE1(WSC_ID_ENROLLEE_NONCE));
 			break;
 
 		case WSC_ID_REGISTRAR_NONCE:
-			if (WscLen <= sizeof(pReg->RegistrarNonce)) {
-				NdisMoveMemory(pReg->RegistrarNonce, pData, WscLen);
-				FieldCheck[(WSC_TLV_BYTE2(WSC_ID_REGISTRAR_NONCE))] ^= (1 << WSC_TLV_BYTE1(WSC_ID_REGISTRAR_NONCE));
-			} else {
-				MTWF_DBG(pAdapter, DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_ERROR,
-					"Wrong WSC IE(%x) length(%d)\n", WscType, WscLen);
-			}
+			NdisMoveMemory(pReg->RegistrarNonce, pData, WscLen);
+			FieldCheck[(WSC_TLV_BYTE2(WSC_ID_REGISTRAR_NONCE))] ^= (1 << WSC_TLV_BYTE1(WSC_ID_REGISTRAR_NONCE));
 			break;
 
 		case WSC_ID_UUID_R:
-			if (WscLen <= sizeof(pReg->PeerInfo.Uuid)) {
-				NdisMoveMemory(pReg->PeerInfo.Uuid, pData, WscLen);
-				FieldCheck[(WSC_TLV_BYTE2(WSC_ID_UUID_R))] ^= (1 << WSC_TLV_BYTE1(WSC_ID_UUID_R));
-			} else {
-				MTWF_DBG(pAdapter, DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_ERROR,
-					"Wrong WSC IE(%x) length(%d)\n", WscType, WscLen);
-			}
+			NdisMoveMemory(pReg->PeerInfo.Uuid, pData, WscLen);
+			FieldCheck[(WSC_TLV_BYTE2(WSC_ID_UUID_R))] ^= (1 << WSC_TLV_BYTE1(WSC_ID_UUID_R));
 			break;
 
 		case WSC_ID_PUBLIC_KEY:
 			/* Get Registrar Public Key */
-			if (WscLen <= sizeof(pReg->Pkr)) {
-				NdisMoveMemory(&pReg->Pkr, pData, WscLen);
-				FieldCheck[(WSC_TLV_BYTE2(WSC_ID_PUBLIC_KEY))] ^= (1 << WSC_TLV_BYTE1(WSC_ID_PUBLIC_KEY));
-			} else {
-				MTWF_DBG(pAdapter, DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_ERROR,
-					"Wrong WSC IE(%x) length(%d)\n", WscType, WscLen);
-			}
+			NdisMoveMemory(&pReg->Pkr, pData, WscLen);
+			FieldCheck[(WSC_TLV_BYTE2(WSC_ID_PUBLIC_KEY))] ^= (1 << WSC_TLV_BYTE1(WSC_ID_PUBLIC_KEY));
 			break;
 
 		case WSC_ID_AUTH_TYPE_FLAGS:
@@ -3399,73 +2812,38 @@ int ProcessMessageM2(
 			break;
 
 		case WSC_ID_MANUFACTURER:
-			if (WscLen <= sizeof(pReg->PeerInfo.Manufacturer)
-				&& WscLen <= sizeof(pWscControl->WscPeerInfo.WscPeerManufacturer)) {
-				NdisMoveMemory(&pReg->PeerInfo.Manufacturer, pData, WscLen);
-				NdisMoveMemory(&pWscControl->WscPeerInfo.WscPeerManufacturer, pData, WscLen);
-				FieldCheck[(WSC_TLV_BYTE2(WSC_ID_MANUFACTURER))] ^= (1 << WSC_TLV_BYTE1(WSC_ID_MANUFACTURER));
-			} else {
-				MTWF_DBG(pAdapter, DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_ERROR,
-					"Wrong WSC IE(%x) length(%d)\n", WscType, WscLen);
-			}
+			NdisMoveMemory(&pReg->PeerInfo.Manufacturer, pData, WscLen);
+			NdisMoveMemory(&pWscControl->WscPeerInfo.WscPeerManufacturer, pData, WscLen);
+			FieldCheck[(WSC_TLV_BYTE2(WSC_ID_MANUFACTURER))] ^= (1 << WSC_TLV_BYTE1(WSC_ID_MANUFACTURER));
 			break;
 
 		case WSC_ID_MODEL_NAME:
-			if (WscLen <= sizeof(pReg->PeerInfo.ModelName)
-				&& WscLen <= sizeof(pWscControl->WscPeerInfo.WscPeerModelName)) {
-				NdisMoveMemory(&pReg->PeerInfo.ModelName, pData, WscLen);
-				NdisMoveMemory(&pWscControl->WscPeerInfo.WscPeerModelName, pData, WscLen);
-				FieldCheck[(WSC_TLV_BYTE2(WSC_ID_MODEL_NAME))] ^= (1 << WSC_TLV_BYTE1(WSC_ID_MODEL_NAME));
-			} else {
-				MTWF_DBG(pAdapter, DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_ERROR,
-					"Wrong WSC IE(%x) length(%d)\n", WscType, WscLen);
-			}
+			NdisMoveMemory(&pReg->PeerInfo.ModelName, pData, WscLen);
+			NdisMoveMemory(&pWscControl->WscPeerInfo.WscPeerModelName, pData, WscLen);
+			FieldCheck[(WSC_TLV_BYTE2(WSC_ID_MODEL_NAME))] ^= (1 << WSC_TLV_BYTE1(WSC_ID_MODEL_NAME));
 			break;
 
 		case WSC_ID_MODEL_NUMBER:
-			if (WscLen <= sizeof(pReg->PeerInfo.ModelNumber)
-				&& WscLen <= sizeof(pWscControl->WscPeerInfo.WscPeerModelNumber)) {
-				NdisMoveMemory(&pReg->PeerInfo.ModelNumber, pData, WscLen);
-				NdisMoveMemory(&pWscControl->WscPeerInfo.WscPeerModelNumber, pData, WscLen);
-				FieldCheck[(WSC_TLV_BYTE2(WSC_ID_MODEL_NUMBER))] ^= (1 << WSC_TLV_BYTE1(WSC_ID_MODEL_NUMBER));
-			} else {
-				MTWF_DBG(pAdapter, DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_ERROR,
-					"Wrong WSC IE(%x) length(%d)\n", WscType, WscLen);
-			}
+			NdisMoveMemory(&pReg->PeerInfo.ModelNumber, pData, WscLen);
+			NdisMoveMemory(&pWscControl->WscPeerInfo.WscPeerModelNumber, pData, WscLen);
+			FieldCheck[(WSC_TLV_BYTE2(WSC_ID_MODEL_NUMBER))] ^= (1 << WSC_TLV_BYTE1(WSC_ID_MODEL_NUMBER));
 			break;
 
 		case WSC_ID_SERIAL_NUM:
-			if (WscLen <= sizeof(pReg->PeerInfo.SerialNumber)
-				&& WscLen <= sizeof(pWscControl->WscPeerInfo.WscPeerSerialNumber)) {
-				NdisMoveMemory(&pReg->PeerInfo.SerialNumber, pData, WscLen);
-				NdisMoveMemory(&pWscControl->WscPeerInfo.WscPeerSerialNumber, pData, WscLen);
-				FieldCheck[(WSC_TLV_BYTE2(WSC_ID_SERIAL_NUM))] ^= (1 << WSC_TLV_BYTE1(WSC_ID_SERIAL_NUM));
-			} else {
-				MTWF_DBG(pAdapter, DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_ERROR,
-					"Wrong WSC IE(%x) length(%d)\n", WscType, WscLen);
-			}
+			NdisMoveMemory(&pReg->PeerInfo.SerialNumber, pData, WscLen);
+			NdisMoveMemory(&pWscControl->WscPeerInfo.WscPeerSerialNumber, pData, WscLen);
+			FieldCheck[(WSC_TLV_BYTE2(WSC_ID_SERIAL_NUM))] ^= (1 << WSC_TLV_BYTE1(WSC_ID_SERIAL_NUM));
 			break;
 
 		case WSC_ID_PRIM_DEV_TYPE:
-			if (WscLen <= sizeof(pReg->PeerInfo.PriDeviceType)) {
-				NdisMoveMemory(&pReg->PeerInfo.PriDeviceType, pData, WscLen);
-				FieldCheck[(WSC_TLV_BYTE2(WSC_ID_PRIM_DEV_TYPE))] ^= (1 << WSC_TLV_BYTE1(WSC_ID_PRIM_DEV_TYPE));
-			} else {
-				MTWF_DBG(pAdapter, DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_ERROR,
-					"Wrong WSC IE(%x) length(%d)\n", WscType, WscLen);
-			}
+			NdisMoveMemory(&pReg->PeerInfo.PriDeviceType, pData, WscLen);
+			FieldCheck[(WSC_TLV_BYTE2(WSC_ID_PRIM_DEV_TYPE))] ^= (1 << WSC_TLV_BYTE1(WSC_ID_PRIM_DEV_TYPE));
 			break;
 
 		case WSC_ID_DEVICE_NAME:
-			if (WscLen <= sizeof(pReg->PeerInfo.DeviceName)
-				&& WscLen <= sizeof(pWscControl->WscPeerInfo.WscPeerDeviceName)) {
-				NdisMoveMemory(&pReg->PeerInfo.DeviceName, pData, WscLen);
-				NdisMoveMemory(&pWscControl->WscPeerInfo.WscPeerDeviceName, pData, WscLen);
-				FieldCheck[(WSC_TLV_BYTE2(WSC_ID_DEVICE_NAME))] ^= (1 << WSC_TLV_BYTE1(WSC_ID_DEVICE_NAME));
-			} else {
-				MTWF_DBG(pAdapter, DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_ERROR,
-					"Wrong WSC IE(%x) length(%d)\n", WscType, WscLen);
-			}
+			NdisMoveMemory(&pReg->PeerInfo.DeviceName, pData, WscLen);
+			NdisMoveMemory(&pWscControl->WscPeerInfo.WscPeerDeviceName, pData, WscLen);
+			FieldCheck[(WSC_TLV_BYTE2(WSC_ID_DEVICE_NAME))] ^= (1 << WSC_TLV_BYTE1(WSC_ID_DEVICE_NAME));
 			break;
 
 		case WSC_ID_RF_BAND:
@@ -3493,13 +2871,8 @@ int ProcessMessageM2(
 			break;
 
 		case WSC_ID_AUTHENTICATOR:
-			if (WscLen <= sizeof(Hmac)) {
-				NdisMoveMemory(Hmac, pData, WscLen);
-				FieldCheck[(WSC_TLV_BYTE2(WSC_ID_AUTHENTICATOR))] ^= (1 << WSC_TLV_BYTE1(WSC_ID_AUTHENTICATOR));
-			} else {
-				MTWF_DBG(pAdapter, DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_ERROR,
-					"Wrong WSC IE(%x) length(%d)\n", WscType, WscLen);
-			}
+			NdisMoveMemory(Hmac, pData, WscLen);
+			FieldCheck[(WSC_TLV_BYTE2(WSC_ID_AUTHENTICATOR))] ^= (1 << WSC_TLV_BYTE1(WSC_ID_AUTHENTICATOR));
 			break;
 
 		case WSC_ID_VENDOR_EXT:
@@ -3508,14 +2881,14 @@ int ProcessMessageM2(
 				UCHAR tmp_data_len = 0;
 
 				WscParseV2SubItem(WFA_EXT_ID_VERSION2, pData, WscLen, &pReg->PeerInfo.Version2, &tmp_data_len);
-				MTWF_DBG(pAdapter, DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_INFO, "ProcessMessageM2 --> Version2 = %x\n", pReg->PeerInfo.Version2);
+				MTWF_LOG(DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_TRACE, ("ProcessMessageM2 --> Version2 = %x\n", pReg->PeerInfo.Version2));
 			}
 
 #endif /* WSC_V2_SUPPORT */
 			break;
 
 		default:
-			MTWF_DBG(pAdapter, DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_INFO, "ProcessMessageM2 --> Unknown IE 0x%04x\n", WscType);
+			MTWF_LOG(DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_TRACE, ("ProcessMessageM2 --> Unknown IE 0x%04x\n", WscType));
 			break;
 		}
 
@@ -3544,7 +2917,7 @@ int ProcessMessageM2(
 		NdisCopyMemory(&TempKey[DiffCnt], pReg->SecretKey, DH_Len);
 		NdisCopyMemory(pReg->SecretKey, TempKey, sizeof(TempKey));
 		DH_Len += DiffCnt;
-		MTWF_DBG(pAdapter, DBG_CAT_HW, DBG_SUBCAT_ALL, DBG_LVL_INFO, "%s: Do zero padding!\n", __func__);
+		MTWF_LOG(DBG_CAT_HW, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("%s: Do zero padding!\n", __func__));
 	}
 
 	/* Compute the DHKey based on the DH secret */
@@ -3573,9 +2946,9 @@ int ProcessMessageM2(
 	}
 
 	if (RTMPEqualMemory(Hmac, KDK, 8) != 1) {
-		MTWF_DBG(pAdapter, DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_INFO, "ProcessMessageM2 --> HMAC not match\n");
-		MTWF_DBG(pAdapter, DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_INFO, "MD --> 0x%08x-%08x\n", (UINT)cpu2be32(*((PUINT) KDK)), (UINT)cpu2be32(*((PUINT)(KDK + 4))));
-		MTWF_DBG(pAdapter, DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_INFO, "calculated --> 0x%08x-%08x\n", (UINT)cpu2be32(*((PUINT)&Hmac[0])), (UINT)cpu2be32(*((PUINT)&Hmac[4])));
+		MTWF_LOG(DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_ERROR, ("ProcessMessageM2 --> HMAC not match\n"));
+		MTWF_LOG(DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_TRACE, ("MD --> 0x%08x-%08x\n", (UINT)cpu2be32(*((PUINT) KDK)), (UINT)cpu2be32(*((PUINT)(KDK + 4)))));
+		MTWF_LOG(DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_TRACE, ("calculated --> 0x%08x-%08x\n", (UINT)cpu2be32(*((PUINT)&Hmac[0])), (UINT)cpu2be32(*((PUINT)&Hmac[4]))));
 		ret = WSC_ERROR_HMAC_FAIL;
 	}
 
@@ -3583,7 +2956,7 @@ int ProcessMessageM2(
 		ret = WSC_ERROR_WANTING_FIELD;
 
 	/* out : */
-	MTWF_DBG(pAdapter, DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_INFO, "ProcessMessageM2 :\n");
+	MTWF_LOG(DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_TRACE, ("ProcessMessageM2 :\n"));
 	return ret;
 }
 
@@ -3620,10 +2993,6 @@ int ProcessMessageM2D(
 	USHORT				WscType, WscLen;
 	/* Copy the content to Regdata for lastRx information */
 	/* Length must include authenticator IE size */
-	if (Length <= 0 || Length > sizeof(pReg->LastRx.Data)) {
-		ret = WSC_ERROR_OOB_INT_READ_ERR;
-		return ret;
-	}
 	pReg->LastRx.Length = Length;
 	NdisMoveMemory(pReg->LastRx.Data, precv, Length);
 	pData = pReg->LastRx.Data;
@@ -3635,10 +3004,6 @@ int ProcessMessageM2D(
 		memcpy((UINT8 *)&TLV_Recv, pData, 4);
 		WscType = be2cpu16(TLV_Recv.Type);
 		WscLen  = be2cpu16(TLV_Recv.Length);
-		if (Length < WscLen + 4) {
-			MTWF_DBG(pAdapter, DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_ERROR, "unexpected WSC IE Length(%u)\n", WscLen);
-			break;
-		}
 		pData  += 4;
 		Length -= 4;
 
@@ -3646,47 +3011,34 @@ int ProcessMessageM2D(
 		switch (WscType) {
 		case WSC_ID_VERSION:
 			if (pReg->SelfInfo.Version != *pData)
-				MTWF_DBG(pAdapter, DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_ERROR, "Rx WPS Message Version mismatched %02x\n", *pData);
+				MTWF_LOG(DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_ERROR, ("Rx WPS Message Version mismatched %02x\n", *pData));
 
 			break;
 
 		case WSC_ID_MSG_TYPE:
 			if ((*pData) != WSC_ID_MESSAGE_M2D)
-				MTWF_DBG(pAdapter, DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_ERROR, "Rx WPS Message Type mismatched %02x\n", *pData);
+				MTWF_LOG(DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_ERROR, ("Rx WPS Message Type mismatched %02x\n", *pData));
 
 			break;
 
 		case WSC_ID_ENROLLEE_NONCE:
 
 			/* for verification with our enrollee nonce */
-			if (WscLen <= sizeof(pReg->EnrolleeNonce)) {
-				if (RTMPCompareMemory(pReg->EnrolleeNonce, pData, WscLen) != 0)
-					MTWF_DBG(pAdapter, DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_ERROR,
-							"Rx M2 Compare enrollee nonce mismatched\n");
-			}
+			if (RTMPCompareMemory(pReg->EnrolleeNonce, pData, WscLen) != 0)
+				MTWF_LOG(DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_TRACE, ("Rx M2 Compare enrollee nonce mismatched\n"));
 			break;
 
 		case WSC_ID_REGISTRAR_NONCE:
-			if (WscLen <= sizeof(pReg->RegistrarNonce)) {
-				NdisMoveMemory(pReg->RegistrarNonce, pData, WscLen);
-			} else {
-				MTWF_DBG(pAdapter, DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_ERROR,
-					"Wrong WSC IE(%x) length(%d)\n", WscType, WscLen);
-			}
+			NdisMoveMemory(pReg->RegistrarNonce, pData, WscLen);
 			break;
 
 		case WSC_ID_UUID_R:
-			if (WscLen <= sizeof(pReg->PeerInfo.Uuid)) {
-				NdisMoveMemory(pReg->PeerInfo.Uuid, pData, WscLen);
-			} else {
-				MTWF_DBG(pAdapter, DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_ERROR,
-					"Wrong WSC IE(%x) length(%d)\n", WscType, WscLen);
-			}
+			NdisMoveMemory(pReg->PeerInfo.Uuid, pData, WscLen);
 			break;
 
 		case WSC_ID_PUBLIC_KEY:
 			/* There shall be no Public transmitted in M2D */
-			MTWF_DBG(pAdapter, DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_INFO, "ProcessMessageM2D --> Receive WSC_ID_PUBLIC_KEY!! werid!\n");
+			MTWF_LOG(DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_TRACE, ("ProcessMessageM2D --> Receive WSC_ID_PUBLIC_KEY!! werid!\n"));
 			break;
 
 		case WSC_ID_AUTH_TYPE_FLAGS:
@@ -3706,57 +3058,27 @@ int ProcessMessageM2D(
 			break;
 
 		case WSC_ID_MANUFACTURER:
-			if (WscLen <= sizeof(pReg->PeerInfo.Manufacturer)) {
-				NdisMoveMemory(&pReg->PeerInfo.Manufacturer, pData, WscLen);
-			} else {
-				MTWF_DBG(pAdapter, DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_ERROR,
-					"Wrong WSC IE(%x) length(%d)\n", WscType, WscLen);
-			}
+			NdisMoveMemory(&pReg->PeerInfo.Manufacturer, pData, WscLen);
 			break;
 
 		case WSC_ID_MODEL_NAME:
-			if (WscLen <= sizeof(pReg->PeerInfo.ModelName)) {
-				NdisMoveMemory(&pReg->PeerInfo.ModelName, pData, WscLen);
-			} else {
-				MTWF_DBG(pAdapter, DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_ERROR,
-					"Wrong WSC IE(%x) length(%d)\n", WscType, WscLen);
-			}
+			NdisMoveMemory(&pReg->PeerInfo.ModelName, pData, WscLen);
 			break;
 
 		case WSC_ID_MODEL_NUMBER:
-			if (WscLen <= sizeof(pReg->PeerInfo.ModelNumber)) {
-				NdisMoveMemory(&pReg->PeerInfo.ModelNumber, pData, WscLen);
-			} else {
-				MTWF_DBG(pAdapter, DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_ERROR,
-					"Wrong WSC IE(%x) length(%d)\n", WscType, WscLen);
-			}
+			NdisMoveMemory(&pReg->PeerInfo.ModelNumber, pData, WscLen);
 			break;
 
 		case WSC_ID_SERIAL_NUM:
-			if (WscLen <= sizeof(pReg->PeerInfo.SerialNumber)) {
-				NdisMoveMemory(&pReg->PeerInfo.SerialNumber, pData, WscLen);
-			} else {
-				MTWF_DBG(pAdapter, DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_ERROR,
-					"Wrong WSC IE(%x) length(%d)\n", WscType, WscLen);
-			}
+			NdisMoveMemory(&pReg->PeerInfo.SerialNumber, pData, WscLen);
 			break;
 
 		case WSC_ID_PRIM_DEV_TYPE:
-			if (WscLen <= sizeof(pReg->PeerInfo.PriDeviceType)) {
-				NdisMoveMemory(&pReg->PeerInfo.PriDeviceType, pData, WscLen);
-			} else {
-				MTWF_DBG(pAdapter, DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_ERROR,
-					" Wrong WSC IE(%x) length(%d)\n", WscType, WscLen);
-			}
+			NdisMoveMemory(&pReg->PeerInfo.PriDeviceType, pData, WscLen);
 			break;
 
 		case WSC_ID_DEVICE_NAME:
-			if (WscLen <= sizeof(pReg->PeerInfo.DeviceName)) {
-				NdisMoveMemory(&pReg->PeerInfo.DeviceName, pData, WscLen);
-			} else {
-				MTWF_DBG(pAdapter, DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_ERROR,
-					"Wrong WSC IE(%x) length(%d)\n", WscType, WscLen);
-			}
+			NdisMoveMemory(&pReg->PeerInfo.DeviceName, pData, WscLen);
 			break;
 
 		case WSC_ID_RF_BAND:
@@ -3783,7 +3105,7 @@ int ProcessMessageM2D(
 			break;
 
 		default:
-			MTWF_DBG(pAdapter, DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_INFO, "ProcessMessageM2D --> Unknown IE 0x%04x\n", WscType);
+			MTWF_LOG(DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_TRACE, ("ProcessMessageM2D --> Unknown IE 0x%04x\n", WscType));
 			break;
 		}
 
@@ -3792,7 +3114,7 @@ int ProcessMessageM2D(
 		Length -= WscLen;
 	}
 
-	MTWF_DBG(pAdapter, DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_INFO, "ProcessMessageM2D :\n");
+	MTWF_LOG(DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_TRACE, ("ProcessMessageM2D :\n"));
 	return ret;
 }
 
@@ -3827,10 +3149,11 @@ int ProcessMessageM3(
 {
 	int ret = WSC_ERROR_NO_ERROR;
 	INT HmacLen;
-	UCHAR Hmac[8] = { 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff }, KDK[32] = {0};
+	UCHAR Hmac[8] = { 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff }, KDK[32];
 	PUCHAR pData = NULL;
 	USHORT WscType, WscLen, FieldCheck[7] = {0, 0, 0, 0, 0, 0, 0};
 
+	RTMPZeroMemory(KDK, 32);
 	FieldCheck[(WSC_TLV_BYTE2(WSC_ID_VERSION))] |= (1 << WSC_TLV_BYTE1(WSC_ID_VERSION));
 	FieldCheck[(WSC_TLV_BYTE2(WSC_ID_MSG_TYPE))] |= (1 << WSC_TLV_BYTE1(WSC_ID_MSG_TYPE));
 	FieldCheck[(WSC_TLV_BYTE2(WSC_ID_REGISTRAR_NONCE))] |= (1 << WSC_TLV_BYTE1(WSC_ID_REGISTRAR_NONCE));
@@ -3839,10 +3162,6 @@ int ProcessMessageM3(
 	FieldCheck[(WSC_TLV_BYTE2(WSC_ID_AUTHENTICATOR))] |= (1 << WSC_TLV_BYTE1(WSC_ID_AUTHENTICATOR));
 	/* Copy the content to Regdata for lastRx information */
 	/* Length must include authenticator IE size */
-	if (Length <= 0 || Length > sizeof(pReg->LastRx.Data)) {
-		ret = WSC_ERROR_OOB_INT_READ_ERR;
-		return ret;
-	}
 	pReg->LastRx.Length = Length;
 	NdisMoveMemory(pReg->LastRx.Data, precv, Length);
 	pData = pReg->LastRx.Data;
@@ -3854,10 +3173,6 @@ int ProcessMessageM3(
 		memcpy((UINT8 *)&TLV_Recv, pData, 4);
 		WscType = be2cpu16(TLV_Recv.Type);
 		WscLen  = be2cpu16(TLV_Recv.Length);
-		if (Length < WscLen + 4) {
-			MTWF_DBG(pAdapter, DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_ERROR, "unexpected WSC IE Length(%u)\n", WscLen);
-			break;
-		}
 		pData  += 4;
 		Length -= 4;
 
@@ -3865,14 +3180,14 @@ int ProcessMessageM3(
 		switch (WscType) {
 		case WSC_ID_VERSION:
 			if (pReg->SelfInfo.Version != *pData)
-				MTWF_DBG(pAdapter, DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_ERROR, "Rx WPS Message Version mismatched %02x\n", *pData);
+				MTWF_LOG(DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_ERROR, ("Rx WPS Message Version mismatched %02x\n", *pData));
 
 			FieldCheck[(WSC_TLV_BYTE2(WSC_ID_VERSION))] ^= (1 << WSC_TLV_BYTE1(WSC_ID_VERSION));
 			break;
 
 		case WSC_ID_MSG_TYPE:
 			if ((*pData) != WSC_ID_MESSAGE_M3)
-				MTWF_DBG(pAdapter, DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_ERROR, "Rx WPS Message Type mismatched %02x\n", *pData);
+				MTWF_LOG(DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_ERROR, ("Rx WPS Message Type mismatched %02x\n", *pData));
 
 			FieldCheck[(WSC_TLV_BYTE2(WSC_ID_MSG_TYPE))] ^= (1 << WSC_TLV_BYTE1(WSC_ID_MSG_TYPE));
 			break;
@@ -3880,47 +3195,29 @@ int ProcessMessageM3(
 		case WSC_ID_REGISTRAR_NONCE:
 
 			/* for verification with our Registrar nonce */
-			if (WscLen <= sizeof(pReg->RegistrarNonce)) {
-				if (RTMPCompareMemory(pReg->RegistrarNonce, pData, WscLen) != 0)
-					MTWF_DBG(pAdapter, DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_ERROR,
-							"Rx M3 Compare Registrar nonce mismatched\n");
-			}
+			if (RTMPCompareMemory(pReg->RegistrarNonce, pData, WscLen) != 0)
+				MTWF_LOG(DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_TRACE, ("Rx M3 Compare Registrar nonce mismatched\n"));
 
 			FieldCheck[(WSC_TLV_BYTE2(WSC_ID_REGISTRAR_NONCE))] ^= (1 << WSC_TLV_BYTE1(WSC_ID_REGISTRAR_NONCE));
 			break;
 
 		case WSC_ID_E_HASH1:
-			if (WscLen <= sizeof(pReg->EHash1)) {
-				NdisMoveMemory(&pReg->EHash1[0], pData, WscLen);
-				FieldCheck[(WSC_TLV_BYTE2(WSC_ID_E_HASH1))] ^= (1 << WSC_TLV_BYTE1(WSC_ID_E_HASH1));
-			} else {
-				MTWF_DBG(pAdapter, DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_ERROR,
-					"Wrong WSC IE(%x) length(%d)\n", WscType, WscLen);
-			}
+			NdisMoveMemory(&pReg->EHash1[0], pData, WscLen);
+			FieldCheck[(WSC_TLV_BYTE2(WSC_ID_E_HASH1))] ^= (1 << WSC_TLV_BYTE1(WSC_ID_E_HASH1));
 			break;
 
 		case WSC_ID_E_HASH2:
-			if (WscLen <= sizeof(pReg->EHash2)) {
-				NdisMoveMemory(&pReg->EHash2[0], pData, WscLen);
-				FieldCheck[(WSC_TLV_BYTE2(WSC_ID_E_HASH2))] ^= (1 << WSC_TLV_BYTE1(WSC_ID_E_HASH2));
-			} else {
-				MTWF_DBG(pAdapter, DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_ERROR,
-					"Wrong WSC IE(%x) length(%d)\n", WscType, WscLen);
-			}
+			NdisMoveMemory(&pReg->EHash2[0], pData, WscLen);
+			FieldCheck[(WSC_TLV_BYTE2(WSC_ID_E_HASH2))] ^= (1 << WSC_TLV_BYTE1(WSC_ID_E_HASH2));
 			break;
 
 		case WSC_ID_AUTHENTICATOR:
-			if (WscLen <= sizeof(Hmac)) {
-				NdisMoveMemory(Hmac, pData, WscLen);
-				FieldCheck[(WSC_TLV_BYTE2(WSC_ID_AUTHENTICATOR))] ^= (1 << WSC_TLV_BYTE1(WSC_ID_AUTHENTICATOR));
-			} else {
-				MTWF_DBG(pAdapter, DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_ERROR,
-					"Wrong WSC IE(%x) length(%d)\n", WscType, WscLen);
-			}
+			NdisMoveMemory(Hmac, pData, WscLen);
+			FieldCheck[(WSC_TLV_BYTE2(WSC_ID_AUTHENTICATOR))] ^= (1 << WSC_TLV_BYTE1(WSC_ID_AUTHENTICATOR));
 			break;
 
 		default:
-			MTWF_DBG(pAdapter, DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_INFO, "ProcessMessageM3 --> Unknown IE 0x%04x\n", WscType);
+			MTWF_LOG(DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_TRACE, ("ProcessMessageM3 --> Unknown IE 0x%04x\n", WscType));
 			break;
 		}
 
@@ -3941,16 +3238,16 @@ int ProcessMessageM3(
 	}
 
 	if (RTMPEqualMemory(Hmac, KDK, 8) != 1) {
-		MTWF_DBG(pAdapter, DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_INFO, "ProcessMessageM3 --> HMAC not match\n");
-		MTWF_DBG(pAdapter, DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_INFO, "MD --> 0x%08x-%08x\n", (UINT)cpu2be32(*((PUINT) KDK)), (UINT)cpu2be32(*((PUINT)(KDK + 4))));
-		MTWF_DBG(pAdapter, DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_INFO, "calculated --> 0x%08x-%08x\n", (UINT)cpu2be32(*((PUINT)&Hmac[0])), (UINT)cpu2be32(*((PUINT)&Hmac[4])));
+		MTWF_LOG(DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_ERROR, ("ProcessMessageM3 --> HMAC not match\n"));
+		MTWF_LOG(DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_TRACE, ("MD --> 0x%08x-%08x\n", (UINT)cpu2be32(*((PUINT) KDK)), (UINT)cpu2be32(*((PUINT)(KDK + 4)))));
+		MTWF_LOG(DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_TRACE, ("calculated --> 0x%08x-%08x\n", (UINT)cpu2be32(*((PUINT)&Hmac[0])), (UINT)cpu2be32(*((PUINT)&Hmac[4]))));
 		ret = WSC_ERROR_HMAC_FAIL;
 	}
 
 	if (FieldCheck[0] || FieldCheck[1] || FieldCheck[2] || FieldCheck[3] || FieldCheck[4] || FieldCheck[5] || FieldCheck[6])
 		ret = WSC_ERROR_WANTING_FIELD;
 
-	MTWF_DBG(pAdapter, DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_INFO, "ProcessMessageM3 :\n");
+	MTWF_LOG(DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_TRACE, ("ProcessMessageM3 :\n"));
 	return ret;
 }
 
@@ -3986,13 +3283,14 @@ int ProcessMessageM4(
 {
 	int ret = WSC_ERROR_NO_ERROR;
 	INT HmacLen;
-	UCHAR Hmac[8] = { 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff }, KDK[32] = {0}, RHash[32] = {0};
+	UCHAR Hmac[8] = { 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff }, KDK[32], RHash[32];
 	INT EncrLen;
 	PUCHAR pData = NULL;
 	UCHAR *IV_DecrData = NULL; /*IV len 16 ,DecrData len */
 	UCHAR *pHash = NULL; /*Reuse IV_DecrData memory */
 	USHORT WscType, WscLen, FieldCheck[7] = {0, 0, 0, 0, 0, 0, 0};
 
+	RTMPZeroMemory(KDK, 32);
 	FieldCheck[(WSC_TLV_BYTE2(WSC_ID_VERSION))] |= (1 << WSC_TLV_BYTE1(WSC_ID_VERSION));
 	FieldCheck[(WSC_TLV_BYTE2(WSC_ID_MSG_TYPE))] |= (1 << WSC_TLV_BYTE1(WSC_ID_MSG_TYPE));
 	FieldCheck[(WSC_TLV_BYTE2(WSC_ID_ENROLLEE_NONCE))] |= (1 << WSC_TLV_BYTE1(WSC_ID_ENROLLEE_NONCE));
@@ -4010,10 +3308,6 @@ int ProcessMessageM4(
 	pHash = IV_DecrData;
 	/* Copy the content to Regdata for lastRx information */
 	/* Length must include authenticator IE size */
-	if (Length <= 0 || Length > sizeof(pReg->LastRx.Data)) {
-		ret = WSC_ERROR_OOB_INT_READ_ERR;
-		goto out;
-	}
 	pReg->LastRx.Length = Length;
 	NdisMoveMemory(pReg->LastRx.Data, precv, Length);
 	pData = pReg->LastRx.Data;
@@ -4025,10 +3319,6 @@ int ProcessMessageM4(
 		memcpy((UINT8 *)&TLV_Recv, pData, 4);
 		WscType = be2cpu16(TLV_Recv.Type);
 		WscLen  = be2cpu16(TLV_Recv.Length);
-		if (Length < WscLen + 4) {
-			MTWF_DBG(pAdapter, DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_ERROR, "unexpected WSC IE Length(%u)\n", WscLen);
-			break;
-		}
 		pData  += 4;
 		Length -= 4;
 
@@ -4036,14 +3326,14 @@ int ProcessMessageM4(
 		switch (WscType) {
 		case WSC_ID_VERSION:
 			if (pReg->SelfInfo.Version != *pData)
-				MTWF_DBG(pAdapter, DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_ERROR, "Rx WPS Message Version mismatched %02x\n", *pData);
+				MTWF_LOG(DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_ERROR, ("Rx WPS Message Version mismatched %02x\n", *pData));
 
 			FieldCheck[(WSC_TLV_BYTE2(WSC_ID_VERSION))] ^= (1 << WSC_TLV_BYTE1(WSC_ID_VERSION));
 			break;
 
 		case WSC_ID_MSG_TYPE:
 			if ((*pData) != WSC_ID_MESSAGE_M4)
-				MTWF_DBG(pAdapter, DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_ERROR, "Rx WPS Message Type mismatched %02x\n", *pData);
+				MTWF_LOG(DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_ERROR, ("Rx WPS Message Type mismatched %02x\n", *pData));
 
 			FieldCheck[(WSC_TLV_BYTE2(WSC_ID_MSG_TYPE))] ^= (1 << WSC_TLV_BYTE1(WSC_ID_MSG_TYPE));
 			break;
@@ -4051,70 +3341,50 @@ int ProcessMessageM4(
 		case WSC_ID_ENROLLEE_NONCE:
 
 			/* for verification with our enrollee nonce */
-			if (WscLen <= sizeof(pReg->EnrolleeNonce)) {
-				if (RTMPCompareMemory(pReg->EnrolleeNonce, pData, WscLen) != 0)
-					MTWF_DBG(pAdapter, DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_ERROR,
-							"Rx M4 Compare enrollee nonce mismatched\n");
-			}
+			if (RTMPCompareMemory(pReg->EnrolleeNonce, pData, WscLen) != 0)
+				MTWF_LOG(DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_TRACE, ("Rx M4 Compare enrollee nonce mismatched\n"));
 
 			FieldCheck[(WSC_TLV_BYTE2(WSC_ID_ENROLLEE_NONCE))] ^= (1 << WSC_TLV_BYTE1(WSC_ID_ENROLLEE_NONCE));
 			break;
 
 		case WSC_ID_R_HASH1:
-			if (WscLen <= sizeof(pReg->RHash1)) {
-				NdisMoveMemory(&pReg->RHash1, pData, WscLen);
-				FieldCheck[(WSC_TLV_BYTE2(WSC_ID_R_HASH1))] ^= (1 << WSC_TLV_BYTE1(WSC_ID_R_HASH1));
-			} else {
-				MTWF_DBG(pAdapter, DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_ERROR,
-					"Wrong WSC IE(%x) length(%d)\n", WscType, WscLen);
-			}
+			NdisMoveMemory(&pReg->RHash1, pData, WscLen);
+			FieldCheck[(WSC_TLV_BYTE2(WSC_ID_R_HASH1))] ^= (1 << WSC_TLV_BYTE1(WSC_ID_R_HASH1));
 			break;
 
 		case WSC_ID_R_HASH2:
-			if (WscLen <= sizeof(pReg->RHash2)) {
-				NdisMoveMemory(&pReg->RHash2, pData, WscLen);
-				FieldCheck[(WSC_TLV_BYTE2(WSC_ID_R_HASH2))] ^= (1 << WSC_TLV_BYTE1(WSC_ID_R_HASH2));
-			} else {
-				MTWF_DBG(pAdapter, DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_ERROR,
-					"Wrong WSC IE(%x) length(%d)\n", WscType, WscLen);
-			}
+			NdisMoveMemory(&pReg->RHash2, pData, WscLen);
+			FieldCheck[(WSC_TLV_BYTE2(WSC_ID_R_HASH2))] ^= (1 << WSC_TLV_BYTE1(WSC_ID_R_HASH2));
 			break;
 
 		case WSC_ID_ENCR_SETTINGS:
 
 			/* There shall have smoe kind of length check */
-			if (WscLen <= 16) {
-				MTWF_DBG(pAdapter, DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_WARN, "ApEncrSettings array size(%d) is less than 16\n", WscLen);
+			if (WscLen <= 16)
 				break;
-			}
 
 			if (WscLen > 512) {
 				/* ApEncrSetting is not enough */
-				MTWF_DBG(pAdapter, DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_WARN, "ApEncrSettings array size is not enough, require %d\n", WscLen);
+				MTWF_LOG(DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_TRACE, ("ApEncrSettings array size is not enough, require %d\n", WscLen));
 				break;
 			}
 
 			NdisMoveMemory(IV_DecrData, pData, WscLen);
 			EncrLen = sizeof(pReg->ApEncrSettings);
 			AES_CBC_Decrypt(IV_DecrData + 16, (WscLen - 16), pReg->KeyWrapKey, sizeof(pReg->KeyWrapKey), IV_DecrData, 16, (UINT8 *) pReg->ApEncrSettings, (UINT *) &EncrLen);
-			MTWF_DBG(pAdapter, DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_INFO, "M4 ApEncrSettings len = %d\n", EncrLen);
+			MTWF_LOG(DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_TRACE, ("M4 ApEncrSettings len = %d\n", EncrLen));
 			/* Parse encryption settings */
 			WscParseEncrSettings(pAdapter, pReg->ApEncrSettings, EncrLen, pWscControl);
 			FieldCheck[(WSC_TLV_BYTE2(WSC_ID_ENCR_SETTINGS))] ^= (1 << WSC_TLV_BYTE1(WSC_ID_ENCR_SETTINGS));
 			break;
 
 		case WSC_ID_AUTHENTICATOR:
-			if (WscLen <= sizeof(Hmac)) {
-				NdisMoveMemory(Hmac, pData, WscLen);
-				FieldCheck[(WSC_TLV_BYTE2(WSC_ID_AUTHENTICATOR))] ^= (1 << WSC_TLV_BYTE1(WSC_ID_AUTHENTICATOR));
-			} else {
-				MTWF_DBG(pAdapter, DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_ERROR,
-					"Wrong WSC IE(%x) length(%d)\n", WscType, WscLen);
-			}
+			NdisMoveMemory(Hmac, pData, WscLen);
+			FieldCheck[(WSC_TLV_BYTE2(WSC_ID_AUTHENTICATOR))] ^= (1 << WSC_TLV_BYTE1(WSC_ID_AUTHENTICATOR));
 			break;
 
 		default:
-			MTWF_DBG(pAdapter, DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_INFO, "ProcessMessageM4 --> Unknown IE 0x%04x\n", WscType);
+			MTWF_LOG(DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_TRACE, ("ProcessMessageM4 --> Unknown IE 0x%04x\n", WscType));
 			break;
 		}
 
@@ -4133,7 +3403,7 @@ int ProcessMessageM4(
 	RT_HMAC_SHA256(pReg->AuthKey, 32, pHash, 416, RHash, SHA256_DIGEST_SIZE);
 
 	if (RTMPCompareMemory(pReg->RHash1, RHash, 32) != 0) {
-		MTWF_DBG(pAdapter, DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_WARN, "ProcessMessageM4 --> RHash1 not matched\n");
+		MTWF_LOG(DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_TRACE, ("ProcessMessageM4 --> RHash1 not matched\n"));
 		ret = WSC_ERROR_DEV_PWD_AUTH_FAIL;
 		goto out;
 	}
@@ -4150,9 +3420,9 @@ int ProcessMessageM4(
 	}
 
 	if (RTMPEqualMemory(Hmac, KDK, 8) != 1) {
-		MTWF_DBG(pAdapter, DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_WARN, "ProcessMessageM4 --> HMAC not match\n");
-		MTWF_DBG(pAdapter, DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_INFO, "MD --> 0x%08x-%08x\n", (UINT)cpu2be32(*((PUINT) KDK)), (UINT)cpu2be32(*((PUINT)(KDK + 4))));
-		MTWF_DBG(pAdapter, DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_INFO, "calculated --> 0x%08x-%08x\n", (UINT)cpu2be32(*((PUINT)&Hmac[0])), (UINT)cpu2be32(*((PUINT)&Hmac[4])));
+		MTWF_LOG(DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_ERROR, ("ProcessMessageM4 --> HMAC not match\n"));
+		MTWF_LOG(DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_TRACE, ("MD --> 0x%08x-%08x\n", (UINT)cpu2be32(*((PUINT) KDK)), (UINT)cpu2be32(*((PUINT)(KDK + 4)))));
+		MTWF_LOG(DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_TRACE, ("calculated --> 0x%08x-%08x\n", (UINT)cpu2be32(*((PUINT)&Hmac[0])), (UINT)cpu2be32(*((PUINT)&Hmac[4]))));
 		ret = WSC_ERROR_HMAC_FAIL;
 	}
 
@@ -4164,7 +3434,7 @@ out:
 	if (IV_DecrData)
 		os_free_mem(IV_DecrData);
 
-	MTWF_DBG(pAdapter, DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_INFO, "ProcessMessageM4 :\n");
+	MTWF_LOG(DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_TRACE, ("ProcessMessageM4 :\n"));
 	return ret;
 }
 
@@ -4200,13 +3470,14 @@ int ProcessMessageM5(
 {
 	int ret = WSC_ERROR_NO_ERROR;
 	INT HmacLen;
-	UCHAR Hmac[8] = { 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff }, KDK[32] = {0}, EHash[32] = {0};
+	UCHAR Hmac[8] = { 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff }, KDK[32], EHash[32];
 	INT EncrLen;
 	PUCHAR pData = NULL;
 	UCHAR *IV_DecrData = NULL; /*IV len 16 ,DecrData len */
 	UCHAR *pHash = NULL; /*Reuse IV_DecrData memory */
 	USHORT WscType, WscLen, FieldCheck[7] = {0, 0, 0, 0, 0, 0, 0};
 
+	RTMPZeroMemory(KDK, 32);
 	FieldCheck[(WSC_TLV_BYTE2(WSC_ID_VERSION))] |= (1 << WSC_TLV_BYTE1(WSC_ID_VERSION));
 	FieldCheck[(WSC_TLV_BYTE2(WSC_ID_MSG_TYPE))] |= (1 << WSC_TLV_BYTE1(WSC_ID_MSG_TYPE));
 	FieldCheck[(WSC_TLV_BYTE2(WSC_ID_REGISTRAR_NONCE))] |= (1 << WSC_TLV_BYTE1(WSC_ID_REGISTRAR_NONCE));
@@ -4222,10 +3493,6 @@ int ProcessMessageM5(
 	pHash = IV_DecrData;
 	/* Copy the content to Regdata for lastRx information */
 	/* Length must include authenticator IE size */
-	if (Length <= 0 || Length > sizeof(pReg->LastRx.Data)) {
-		ret = WSC_ERROR_OOB_INT_READ_ERR;
-		goto out;
-	}
 	pReg->LastRx.Length = Length;
 	NdisMoveMemory(pReg->LastRx.Data, precv, Length);
 	pData = pReg->LastRx.Data;
@@ -4237,10 +3504,6 @@ int ProcessMessageM5(
 		memcpy((UINT8 *)&TLV_Recv, pData, 4);
 		WscType = be2cpu16(TLV_Recv.Type);
 		WscLen  = be2cpu16(TLV_Recv.Length);
-		if (Length < WscLen + 4) {
-			MTWF_DBG(pAdapter, DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_ERROR, "unexpected WSC IE Length(%u)\n", WscLen);
-			break;
-		}
 		pData  += 4;
 		Length -= 4;
 
@@ -4248,25 +3511,22 @@ int ProcessMessageM5(
 		switch (WscType) {
 		case WSC_ID_VERSION:
 			if (pReg->SelfInfo.Version != *pData)
-				MTWF_DBG(pAdapter, DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_ERROR, "Rx WPS Message Version mismatched %02x\n", *pData);
+				MTWF_LOG(DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_ERROR, ("Rx WPS Message Version mismatched %02x\n", *pData));
 
 			FieldCheck[(WSC_TLV_BYTE2(WSC_ID_VERSION))] ^= (1 << WSC_TLV_BYTE1(WSC_ID_VERSION));
 			break;
 
 		case WSC_ID_MSG_TYPE:
 			if ((*pData) != WSC_ID_MESSAGE_M5)
-				MTWF_DBG(pAdapter, DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_ERROR, "Rx WPS Message Type mismatched %02x\n", *pData);
+				MTWF_LOG(DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_ERROR, ("Rx WPS Message Type mismatched %02x\n", *pData));
 
 			FieldCheck[(WSC_TLV_BYTE2(WSC_ID_MSG_TYPE))] ^= (1 << WSC_TLV_BYTE1(WSC_ID_MSG_TYPE));
 			break;
 
 		case WSC_ID_REGISTRAR_NONCE:
 			/* for verification with our Registrar nonce */
-			if (WscLen <= sizeof(pReg->RegistrarNonce)) {
-				if (RTMPCompareMemory(pReg->RegistrarNonce, pData, WscLen) != 0)
-					MTWF_DBG(pAdapter, DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_INFO,
-							"Rx M5 Compare Registrar nonce mismatched\n");
-			}
+			if (RTMPCompareMemory(pReg->RegistrarNonce, pData, WscLen) != 0)
+				MTWF_LOG(DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_TRACE, ("Rx M5 Compare Registrar nonce mismatched\n"));
 
 			FieldCheck[(WSC_TLV_BYTE2(WSC_ID_REGISTRAR_NONCE))] ^= (1 << WSC_TLV_BYTE1(WSC_ID_REGISTRAR_NONCE));
 			break;
@@ -4274,38 +3534,31 @@ int ProcessMessageM5(
 		case WSC_ID_ENCR_SETTINGS:
 
 			/* There shall have smoe kind of length check */
-			if (WscLen <= 16) {
-				MTWF_DBG(pAdapter, DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_WARN, "ApEncrSettings array size(%d) is less than 16\n", WscLen);
+			if (WscLen <= 16)
 				break;
-			}
 
 			if (WscLen > 512) {
 				/* ApEncrSetting is not enough */
-				MTWF_LOG(DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_WARN, ("ApEncrSettings array size is not enough, require %d\n", WscLen));
+				MTWF_LOG(DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_TRACE, ("ApEncrSettings array size is not enough, require %d\n", WscLen));
 				break;
 			}
 
 			NdisMoveMemory(IV_DecrData, pData, WscLen);
 			EncrLen = sizeof(pReg->ApEncrSettings);
 			AES_CBC_Decrypt(IV_DecrData + 16, (WscLen - 16), pReg->KeyWrapKey, sizeof(pReg->KeyWrapKey), IV_DecrData, 16, (UINT8 *) pReg->ApEncrSettings, (UINT *) &EncrLen);
-			MTWF_DBG(pAdapter, DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_INFO, "M5 ApEncrSettings len = %d\n", EncrLen);
+			MTWF_LOG(DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_TRACE, ("M5 ApEncrSettings len = %d\n", EncrLen));
 			/* Parse encryption settings */
 			WscParseEncrSettings(pAdapter, pReg->ApEncrSettings, EncrLen, pWscControl);
 			FieldCheck[(WSC_TLV_BYTE2(WSC_ID_ENCR_SETTINGS))] ^= (1 << WSC_TLV_BYTE1(WSC_ID_ENCR_SETTINGS));
 			break;
 
 		case WSC_ID_AUTHENTICATOR:
-			if (WscLen <= sizeof(Hmac)) {
-				NdisMoveMemory(Hmac, pData, WscLen);
-				FieldCheck[(WSC_TLV_BYTE2(WSC_ID_AUTHENTICATOR))] ^= (1 << WSC_TLV_BYTE1(WSC_ID_AUTHENTICATOR));
-			} else {
-				MTWF_DBG(pAdapter, DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_ERROR,
-					"Wrong WSC IE(%x) length(%d)\n", WscType, WscLen);
-			}
+			NdisMoveMemory(Hmac, pData, WscLen);
+			FieldCheck[(WSC_TLV_BYTE2(WSC_ID_AUTHENTICATOR))] ^= (1 << WSC_TLV_BYTE1(WSC_ID_AUTHENTICATOR));
 			break;
 
 		default:
-			MTWF_DBG(pAdapter, DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_INFO, "ProcessMessageM4 --> Unknown IE 0x%04x\n", WscType);
+			MTWF_LOG(DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_TRACE, ("ProcessMessageM4 --> Unknown IE 0x%04x\n", WscType));
 			break;
 		}
 
@@ -4333,7 +3586,7 @@ int ProcessMessageM5(
 	RT_HMAC_SHA256(pReg->AuthKey, 32, pHash, 416, EHash, SHA256_DIGEST_SIZE);
 
 	if (RTMPCompareMemory(pReg->EHash1, EHash, 32) != 0) {
-		MTWF_DBG(pAdapter, DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_WARN, "ProcessMessageM5 --> EHash1 not matched\n");
+		MTWF_LOG(DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_TRACE, ("ProcessMessageM5 --> EHash1 not matched\n"));
 		pReg->SelfInfo.ConfigError = WSC_ERROR_HASH_FAIL;
 		ret = WSC_ERROR_HASH_FAIL;
 		goto out;
@@ -4344,9 +3597,9 @@ int ProcessMessageM5(
 		RT_HMAC_SHA256(pReg->AuthKey, 32, pAdapter->pHmacData, HmacLen, KDK, SHA256_DIGEST_SIZE);
 
 	if (RTMPEqualMemory(Hmac, KDK, 8) != 1) {
-		MTWF_DBG(pAdapter, DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_WARN, "ProcessMessageM5 --> HMAC not match\n");
-		MTWF_DBG(pAdapter, DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_INFO, "MD --> 0x%08x-%08x\n", (UINT)cpu2be32(*((PUINT) KDK)), (UINT)cpu2be32(*((PUINT)(KDK + 4))));
-		MTWF_DBG(pAdapter, DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_INFO, "calculated --> 0x%08x-%08x\n", (UINT)cpu2be32(*((PUINT)&Hmac[0])), (UINT)cpu2be32(*((PUINT)&Hmac[4])));
+		MTWF_LOG(DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_ERROR, ("ProcessMessageM5 --> HMAC not match\n"));
+		MTWF_LOG(DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_TRACE, ("MD --> 0x%08x-%08x\n", (UINT)cpu2be32(*((PUINT) KDK)), (UINT)cpu2be32(*((PUINT)(KDK + 4)))));
+		MTWF_LOG(DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_TRACE, ("calculated --> 0x%08x-%08x\n", (UINT)cpu2be32(*((PUINT)&Hmac[0])), (UINT)cpu2be32(*((PUINT)&Hmac[4]))));
 		ret = WSC_ERROR_HMAC_FAIL;
 	}
 
@@ -4358,7 +3611,7 @@ out:
 	if (IV_DecrData)
 		os_free_mem(IV_DecrData);
 
-	MTWF_DBG(pAdapter, DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_INFO, "ProcessMessageM5 :\n");
+	MTWF_LOG(DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_TRACE, ("ProcessMessageM5 :\n"));
 	return ret;
 }
 
@@ -4394,13 +3647,14 @@ int ProcessMessageM6(
 {
 	int ret = WSC_ERROR_NO_ERROR;
 	INT HmacLen;
-	UCHAR Hmac[8] = { 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff }, KDK[32] = {0}, RHash[32] = {0};
+	UCHAR Hmac[8] = { 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff }, KDK[32], RHash[32];
 	INT EncrLen;
 	PUCHAR pData = NULL;
 	UCHAR *IV_DecrData = NULL; /*IV len 16 ,DecrData len */
 	UCHAR *pHash = NULL; /*Reuse IV_DecrData memory */
 	USHORT WscType, WscLen, FieldCheck[7] = {0, 0, 0, 0, 0, 0, 0};
 
+	RTMPZeroMemory(KDK, 32);
 	FieldCheck[(WSC_TLV_BYTE2(WSC_ID_VERSION))] |= (1 << WSC_TLV_BYTE1(WSC_ID_VERSION));
 	FieldCheck[(WSC_TLV_BYTE2(WSC_ID_MSG_TYPE))] |= (1 << WSC_TLV_BYTE1(WSC_ID_MSG_TYPE));
 	FieldCheck[(WSC_TLV_BYTE2(WSC_ID_ENROLLEE_NONCE))] |= (1 << WSC_TLV_BYTE1(WSC_ID_ENROLLEE_NONCE));
@@ -4416,10 +3670,6 @@ int ProcessMessageM6(
 	pHash = IV_DecrData;
 	/* Copy the content to Regdata for lastRx information */
 	/* Length must include authenticator IE size */
-	if (Length <= 0 || Length > sizeof(pReg->LastRx.Data)) {
-		ret = WSC_ERROR_OOB_INT_READ_ERR;
-		goto out;
-	}
 	pReg->LastRx.Length = Length;
 	NdisMoveMemory(pReg->LastRx.Data, precv, Length);
 	pData = pReg->LastRx.Data;
@@ -4431,10 +3681,6 @@ int ProcessMessageM6(
 		memcpy((UINT8 *)&TLV_Recv, pData, 4);
 		WscType = cpu2be16(TLV_Recv.Type);
 		WscLen  = cpu2be16(TLV_Recv.Length);
-		if (Length < WscLen + 4) {
-			MTWF_DBG(pAdapter, DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_ERROR, "unexpected WSC IE Length(%u)\n", WscLen);
-			break;
-		}
 		pData  += 4;
 		Length -= 4;
 
@@ -4442,14 +3688,14 @@ int ProcessMessageM6(
 		switch (WscType) {
 		case WSC_ID_VERSION:
 			if (pReg->SelfInfo.Version != *pData)
-				MTWF_DBG(pAdapter, DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_ERROR, "Rx WPS Message Version mismatched %02x\n", *pData);
+				MTWF_LOG(DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_ERROR, ("Rx WPS Message Version mismatched %02x\n", *pData));
 
 			FieldCheck[(WSC_TLV_BYTE2(WSC_ID_VERSION))] ^= (1 << WSC_TLV_BYTE1(WSC_ID_VERSION));
 			break;
 
 		case WSC_ID_MSG_TYPE:
 			if ((*pData) != WSC_ID_MESSAGE_M6)
-				MTWF_DBG(pAdapter, DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_ERROR, "Rx WPS Message Type mismatched %02x\n", *pData);
+				MTWF_LOG(DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_ERROR, ("Rx WPS Message Type mismatched %02x\n", *pData));
 
 			FieldCheck[(WSC_TLV_BYTE2(WSC_ID_MSG_TYPE))] ^= (1 << WSC_TLV_BYTE1(WSC_ID_MSG_TYPE));
 			break;
@@ -4457,11 +3703,8 @@ int ProcessMessageM6(
 		case WSC_ID_ENROLLEE_NONCE:
 
 			/* for verification with our enrollee nonce */
-			if (WscLen <= sizeof(pReg->EnrolleeNonce)) {
-				if (RTMPCompareMemory(pReg->EnrolleeNonce, pData, WscLen) != 0)
-					MTWF_DBG(pAdapter, DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_WARN,
-							"Rx M6 Compare enrollee nonce mismatched\n");
-			}
+			if (RTMPCompareMemory(pReg->EnrolleeNonce, pData, WscLen) != 0)
+				MTWF_LOG(DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_TRACE, ("Rx M6 Compare enrollee nonce mismatched\n"));
 
 			FieldCheck[(WSC_TLV_BYTE2(WSC_ID_ENROLLEE_NONCE))] ^= (1 << WSC_TLV_BYTE1(WSC_ID_ENROLLEE_NONCE));
 			break;
@@ -4469,38 +3712,31 @@ int ProcessMessageM6(
 		case WSC_ID_ENCR_SETTINGS:
 
 			/* There shall have smoe kind of length check */
-			if (WscLen <= 16) {
-				MTWF_DBG(pAdapter, DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_WARN, "ApEncrSettings array size(%d) is less than 16\n", WscLen);
+			if (WscLen <= 16)
 				break;
-			}
 
 			if (WscLen > 512) {
 				/* ApEncrSetting is not enough */
-				MTWF_DBG(pAdapter, DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_WARN, "ApEncrSettings array size is not enough, require %d\n", WscLen);
+				MTWF_LOG(DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_TRACE, ("ApEncrSettings array size is not enough, require %d\n", WscLen));
 				break;
 			}
 
 			NdisMoveMemory(IV_DecrData, pData, WscLen);
 			EncrLen = sizeof(pReg->ApEncrSettings);
 			AES_CBC_Decrypt(IV_DecrData + 16, (WscLen - 16), pReg->KeyWrapKey, sizeof(pReg->KeyWrapKey), IV_DecrData, 16, (UINT8 *) pReg->ApEncrSettings, (UINT *) &EncrLen);
-			MTWF_DBG(pAdapter, DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_INFO, "M6 ApEncrSettings len = %d\n", EncrLen);
+			MTWF_LOG(DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_TRACE, ("M6 ApEncrSettings len = %d\n", EncrLen));
 			/* Parse encryption settings */
 			WscParseEncrSettings(pAdapter, pReg->ApEncrSettings, EncrLen, pWscControl);
 			FieldCheck[(WSC_TLV_BYTE2(WSC_ID_ENCR_SETTINGS))] ^= (1 << WSC_TLV_BYTE1(WSC_ID_ENCR_SETTINGS));
 			break;
 
 		case WSC_ID_AUTHENTICATOR:
-			if (WscLen <= sizeof(Hmac)) {
-				NdisMoveMemory(Hmac, pData, WscLen);
-				FieldCheck[(WSC_TLV_BYTE2(WSC_ID_AUTHENTICATOR))] ^= (1 << WSC_TLV_BYTE1(WSC_ID_AUTHENTICATOR));
-			} else {
-				MTWF_DBG(pAdapter, DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_ERROR,
-					"Wrong WSC IE(%x) length(%d)\n", WscType, WscLen);
-			}
+			NdisMoveMemory(Hmac, pData, WscLen);
+			FieldCheck[(WSC_TLV_BYTE2(WSC_ID_AUTHENTICATOR))] ^= (1 << WSC_TLV_BYTE1(WSC_ID_AUTHENTICATOR));
 			break;
 
 		default:
-			MTWF_DBG(pAdapter, DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_INFO, "ProcessMessageM6 --> Unknown IE 0x%04x\n", WscType);
+			MTWF_LOG(DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_TRACE, ("ProcessMessageM6 --> Unknown IE 0x%04x\n", WscType));
 			break;
 		}
 
@@ -4519,7 +3755,7 @@ int ProcessMessageM6(
 	RT_HMAC_SHA256(pReg->AuthKey, 32, pHash, 416, RHash, SHA256_DIGEST_SIZE);
 
 	if (RTMPCompareMemory(pReg->RHash2, RHash, 32) != 0) {
-		MTWF_DBG(pAdapter, DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_WARN, "ProcessMessageM6 --> RHash2 not matched\n");
+		MTWF_LOG(DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_TRACE, ("ProcessMessageM6 --> RHash2 not matched\n"));
 		ret = WSC_ERROR_DEV_PWD_AUTH_FAIL;
 		goto out;
 	}
@@ -4536,9 +3772,9 @@ int ProcessMessageM6(
 	}
 
 	if (RTMPEqualMemory(Hmac, KDK, 8) != 1) {
-		MTWF_DBG(pAdapter, DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_WARN, "ProcessMessageM6 --> HMAC not match\n");
-		MTWF_DBG(pAdapter, DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_INFO, "MD --> 0x%08x-%08x\n", (UINT)cpu2be32(*((PUINT) KDK)), (UINT)cpu2be32(*((PUINT)(KDK + 4))));
-		MTWF_DBG(pAdapter, DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_INFO, "calculated --> 0x%08x-%08x\n", (UINT)cpu2be32(*((PUINT)&Hmac[0])), (UINT)cpu2be32(*((PUINT)&Hmac[4])));
+		MTWF_LOG(DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_ERROR, ("ProcessMessageM6 --> HMAC not match\n"));
+		MTWF_LOG(DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_TRACE, ("MD --> 0x%08x-%08x\n", (UINT)cpu2be32(*((PUINT) KDK)), (UINT)cpu2be32(*((PUINT)(KDK + 4)))));
+		MTWF_LOG(DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_TRACE, ("calculated --> 0x%08x-%08x\n", (UINT)cpu2be32(*((PUINT)&Hmac[0])), (UINT)cpu2be32(*((PUINT)&Hmac[4]))));
 		ret = WSC_ERROR_HMAC_FAIL;
 	}
 
@@ -4550,7 +3786,7 @@ out:
 	if (IV_DecrData)
 		os_free_mem(IV_DecrData);
 
-	MTWF_DBG(pAdapter, DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_INFO, "ProcessMessageM6 :\n");
+	MTWF_LOG(DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_TRACE, ("ProcessMessageM6 :\n"));
 	return ret;
 }
 
@@ -4586,12 +3822,13 @@ int ProcessMessageM7(
 {
 	int ret = WSC_ERROR_NO_ERROR;
 	INT HmacLen;
-	UCHAR Hmac[8] = { 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff }, KDK[32] = {0};
+	UCHAR Hmac[8] = { 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff }, KDK[32];
 	INT EncrLen;
 	PUCHAR pData = NULL;
 	USHORT WscType, WscLen;
 	UCHAR *IV_DecrData = NULL; /*IV len 16 ,DecrData len */
 
+	RTMPZeroMemory(KDK, 32);
 	os_alloc_mem(NULL, (UCHAR **)&IV_DecrData, 1024);
 
 	if (!IV_DecrData) {
@@ -4601,11 +3838,6 @@ int ProcessMessageM7(
 
 	/* Copy the content to Regdata for lastRx information */
 	/* Length must include authenticator IE size */
-	if (Length <= 0 || Length > sizeof(pReg->LastRx.Data)) {
-		ret = WSC_ERROR_OOB_INT_READ_ERR;
-		goto out;
-	}
-
 	pReg->LastRx.Length = Length;
 	NdisMoveMemory(pReg->LastRx.Data, precv, Length);
 	pData = pReg->LastRx.Data;
@@ -4617,10 +3849,6 @@ int ProcessMessageM7(
 		memcpy((UINT8 *)&TLV_Recv, pData, 4);
 		WscType = be2cpu16(TLV_Recv.Type);
 		WscLen  = be2cpu16(TLV_Recv.Length);
-		if (Length < WscLen + 4) {
-			MTWF_DBG(pAdapter, DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_ERROR, "unexpected WSC IE Length(%u)\n", WscLen);
-			break;
-		}
 		pData  += 4;
 		Length -= 4;
 
@@ -4628,66 +3856,50 @@ int ProcessMessageM7(
 		switch (WscType) {
 		case WSC_ID_VERSION:
 			if (pReg->SelfInfo.Version != *pData)
-				MTWF_DBG(pAdapter, DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_ERROR, "Rx WPS Message Version mismatched %02x\n", *pData);
+				MTWF_LOG(DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_ERROR, ("Rx WPS Message Version mismatched %02x\n", *pData));
 
 			break;
 
 		case WSC_ID_MSG_TYPE:
 			if ((*pData) != WSC_ID_MESSAGE_M7)
-				MTWF_DBG(pAdapter, DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_ERROR, "Rx WPS Message Type mismatched %02x\n", *pData);
+				MTWF_LOG(DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_ERROR, ("Rx WPS Message Type mismatched %02x\n", *pData));
 
 			break;
 
 		case WSC_ID_REGISTRAR_NONCE:
 
 			/* for verification with our Registrar nonce */
-			if (WscLen <= sizeof(pReg->RegistrarNonce)) {
-				if (RTMPCompareMemory(pReg->RegistrarNonce, pData, WscLen) != 0)
-					MTWF_DBG(pAdapter, DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_WARN,
-							"Rx M5 Compare Registrar nonce mismatched\n");
-			}
+			if (RTMPCompareMemory(pReg->RegistrarNonce, pData, WscLen) != 0)
+				MTWF_LOG(DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_TRACE, ("Rx M5 Compare Registrar nonce mismatched\n"));
 
 			break;
 
 		case WSC_ID_ENCR_SETTINGS:
 
 			/* There shall have smoe kind of length check */
-			if (WscLen <= 16) {
-				MTWF_DBG(pAdapter, DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_WARN, "ApEncrSettings array size(%d) is less than 16\n", WscLen);
+			if (WscLen <= 16)
 				break;
-			}
 
 			if (WscLen > 1024) {
 				/* ApEncrSetting is not enough */
-				MTWF_DBG(pAdapter, DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_WARN, "ApEncrSettings array size is not enough, require %d\n", WscLen);
+				MTWF_LOG(DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_TRACE, ("ApEncrSettings array size is not enough, require %d\n", WscLen));
 				break;
 			}
 
 			NdisMoveMemory(IV_DecrData, pData, WscLen);
 			EncrLen = sizeof(pReg->ApEncrSettings);
 			AES_CBC_Decrypt(IV_DecrData + 16, (WscLen - 16), pReg->KeyWrapKey, sizeof(pReg->KeyWrapKey), IV_DecrData, 16, (UINT8 *) pReg->ApEncrSettings, (UINT *) &EncrLen);
-			MTWF_DBG(pAdapter, DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_INFO, "M7 ApEncrSettings len = %d\n", EncrLen);
-#ifdef CONFIG_STA_SUPPORT
-			IF_DEV_CONFIG_OPMODE_ON_STA(pAdapter) {
-				/* Cleanup Old M7 Profile contents */
-				RTMPZeroMemory(&pWscControl->WscM7Profile, sizeof(WSC_PROFILE));
-			}
-#endif /* CONFIG_STA_SUPPORT */
+			MTWF_LOG(DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_TRACE, ("M7 ApEncrSettings len = %d\n", EncrLen));
 			/* Parse encryption settings */
 			WscParseEncrSettings(pAdapter, pReg->ApEncrSettings, EncrLen, pWscControl);
 			break;
 
 		case WSC_ID_AUTHENTICATOR:
-			if (WscLen <= sizeof(Hmac)) {
-				NdisMoveMemory(Hmac, pData, WscLen);
-			} else {
-				MTWF_DBG(pAdapter, DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_ERROR,
-					"Wrong WSC IE(%x) length(%d)\n", WscType, WscLen);
-			}
+			NdisMoveMemory(Hmac, pData, WscLen);
 			break;
 
 		default:
-			MTWF_DBG(pAdapter, DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_INFO, "ProcessMessageM7 --> Unknown IE 0x%04x\n", WscType);
+			MTWF_LOG(DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_TRACE, ("ProcessMessageM7 --> Unknown IE 0x%04x\n", WscType));
 			break;
 		}
 
@@ -4708,17 +3920,16 @@ int ProcessMessageM7(
 	}
 
 	if (RTMPEqualMemory(Hmac, KDK, 8) != 1) {
-		MTWF_DBG(pAdapter, DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_WARN, "ProcessMessageM7 --> HMAC not match\n");
-		MTWF_DBG(pAdapter, DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_INFO, "MD --> 0x%08x-%08x\n", (UINT)cpu2be32(*((PUINT) KDK)), (UINT)cpu2be32(*((PUINT)(KDK + 4))));
-		MTWF_DBG(pAdapter, DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_INFO, "calculated --> 0x%08x-%08x\n", (UINT)cpu2be32(*((PUINT)&Hmac[0])), (UINT)cpu2be32(*((PUINT)&Hmac[4])));
+		MTWF_LOG(DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_ERROR, ("ProcessMessageM7 --> HMAC not match\n"));
+		MTWF_LOG(DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_TRACE, ("MD --> 0x%08x-%08x\n", (UINT)cpu2be32(*((PUINT) KDK)), (UINT)cpu2be32(*((PUINT)(KDK + 4)))));
+		MTWF_LOG(DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_TRACE, ("calculated --> 0x%08x-%08x\n", (UINT)cpu2be32(*((PUINT)&Hmac[0])), (UINT)cpu2be32(*((PUINT)&Hmac[4]))));
 		ret = WSC_ERROR_HMAC_FAIL;
 	}
 
-out:
 	if (IV_DecrData)
 		os_free_mem(IV_DecrData);
 
-	MTWF_DBG(pAdapter, DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_INFO, "ProcessMessageM7 :\n");
+	MTWF_LOG(DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_TRACE, ("ProcessMessageM7 :\n"));
 	return ret;
 }
 
@@ -4753,13 +3964,14 @@ int ProcessMessageM8(
 {
 	int ret = WSC_ERROR_NO_ERROR;
 	INT HmacLen;
-	UCHAR Hmac[8] = { 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff }, KDK[32] = {0};
+	UCHAR Hmac[8] = { 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff }, KDK[32];
 	INT EncrLen;
 	PUCHAR pData = NULL;
 	USHORT WscType, WscLen;
 	UCHAR *IV_DecrData = NULL; /*IV len 16 ,DecrData len */
 	PWSC_REG_DATA pReg = &pWscControl->RegData;
 
+	RTMPZeroMemory(KDK, 32);
 	os_alloc_mem(NULL, (UCHAR **)&IV_DecrData, 1024);
 
 	if (!IV_DecrData) {
@@ -4769,10 +3981,6 @@ int ProcessMessageM8(
 
 	/* Copy the content to Regdata for lastRx information */
 	/* Length must include authenticator IE size */
-	if (Length <= 0 || Length > sizeof(pReg->LastRx.Data)) {
-		ret = WSC_ERROR_OOB_INT_READ_ERR;
-		goto out;
-	}
 	pReg->LastRx.Length = Length;
 	NdisMoveMemory(pReg->LastRx.Data, precv, Length);
 	pData = pReg->LastRx.Data;
@@ -4784,10 +3992,6 @@ int ProcessMessageM8(
 		memcpy((UINT8 *)&TLV_Recv, pData, 4);
 		WscType = be2cpu16(TLV_Recv.Type);
 		WscLen  = be2cpu16(TLV_Recv.Length);
-		if (Length < WscLen + 4) {
-			MTWF_DBG(pAdapter, DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_ERROR, "unexpected WSC IE Length(%u)\n", WscLen);
-			break;
-		}
 		pData  += 4;
 		Length -= 4;
 
@@ -4795,45 +3999,40 @@ int ProcessMessageM8(
 		switch (WscType) {
 		case WSC_ID_VERSION:
 			if (pReg->SelfInfo.Version != *pData)
-				MTWF_DBG(pAdapter, DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_ERROR, "Rx WPS Message Version mismatched %02x\n", *pData);
+				MTWF_LOG(DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_ERROR, ("Rx WPS Message Version mismatched %02x\n", *pData));
 
 			break;
 
 		case WSC_ID_MSG_TYPE:
 			if ((*pData) != WSC_ID_MESSAGE_M8)
-				MTWF_DBG(pAdapter, DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_ERROR, "Rx WPS Message Type mismatched %02x\n", *pData);
+				MTWF_LOG(DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_ERROR, ("Rx WPS Message Type mismatched %02x\n", *pData));
 
 			break;
 
 		case WSC_ID_ENROLLEE_NONCE:
 
 			/* for verification with our enrollee nonce */
-			if (WscLen <= sizeof(pReg->EnrolleeNonce)) {
-				if (RTMPCompareMemory(pReg->EnrolleeNonce, pData, WscLen) != 0)
-					MTWF_DBG(pAdapter, DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_WARN,
-							"Rx M8 Compare enrollee nonce mismatched\n");
-			}
+			if (RTMPCompareMemory(pReg->EnrolleeNonce, pData, WscLen) != 0)
+				MTWF_LOG(DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_TRACE, ("Rx M8 Compare enrollee nonce mismatched\n"));
 
 			break;
 
 		case WSC_ID_ENCR_SETTINGS:
 
 			/* There shall have smoe kind of length check */
-			if (WscLen <= 16) {
-				MTWF_DBG(pAdapter, DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_WARN, "ApEncrSettings array size(%d) is less than 16\n", WscLen);
+			if (WscLen <= 16)
 				break;
-			}
 
 			if (WscLen > 1024) {
 				/* ApEncrSetting is not enough */
-				MTWF_DBG(pAdapter, DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_WARN, "ApEncrSettings array size is not enough, require %d\n", WscLen);
+				MTWF_LOG(DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_TRACE, ("ApEncrSettings array size is not enough, require %d\n", WscLen));
 				break;
 			}
 
 			NdisMoveMemory(IV_DecrData, pData, WscLen);
 			EncrLen = sizeof(pReg->ApEncrSettings);
 			AES_CBC_Decrypt(IV_DecrData + 16, (WscLen - 16), pReg->KeyWrapKey, sizeof(pReg->KeyWrapKey), IV_DecrData, 16, (UINT8 *) pReg->ApEncrSettings, (UINT *) &EncrLen);
-			MTWF_DBG(pAdapter, DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_INFO, "M8 ApEncrSettings len = %d\n", EncrLen);
+			MTWF_LOG(DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_TRACE, ("M8 ApEncrSettings len = %d\n", EncrLen));
 
 			/* Parse encryption settings */
 			if (WscProcessCredential(pAdapter, pReg->ApEncrSettings, EncrLen, pWscControl) == FALSE) {
@@ -4846,16 +4045,11 @@ int ProcessMessageM8(
 			break;
 
 		case WSC_ID_AUTHENTICATOR:
-			if (WscLen <= sizeof(Hmac)) {
-				NdisMoveMemory(Hmac, pData, WscLen);
-			} else {
-				MTWF_DBG(pAdapter, DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_ERROR,
-					"Wrong WSC IE(%x) length(%d)\n", WscType, WscLen);
-			}
+			NdisMoveMemory(Hmac, pData, WscLen);
 			break;
 
 		default:
-			MTWF_DBG(pAdapter, DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_INFO, "ProcessMessageM8 --> Unknown IE 0x%04x\n", WscType);
+			MTWF_LOG(DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_TRACE, ("ProcessMessageM8 --> Unknown IE 0x%04x\n", WscType));
 			break;
 		}
 
@@ -4876,18 +4070,16 @@ int ProcessMessageM8(
 	}
 
 	if (RTMPEqualMemory(Hmac, KDK, 8) != 1) {
-		MTWF_DBG(pAdapter, DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_WARN, "ProcessMessageM8 --> HMAC not match\n");
-		MTWF_DBG(pAdapter, DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_INFO, "MD --> 0x%08x-%08x\n", (UINT)cpu2be32(*((PUINT) KDK)), (UINT)cpu2be32(*((PUINT)(KDK + 4))));
-		MTWF_DBG(pAdapter, DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_INFO, "calculated --> 0x%08x-%08x\n", (UINT)cpu2be32(*((PUINT)&Hmac[0])), (UINT)cpu2be32(*((PUINT)&Hmac[4])));
+		MTWF_LOG(DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_ERROR, ("ProcessMessageM8 --> HMAC not match\n"));
+		MTWF_LOG(DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_TRACE, ("MD --> 0x%08x-%08x\n", (UINT)cpu2be32(*((PUINT) KDK)), (UINT)cpu2be32(*((PUINT)(KDK + 4)))));
+		MTWF_LOG(DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_TRACE, ("calculated --> 0x%08x-%08x\n", (UINT)cpu2be32(*((PUINT)&Hmac[0])), (UINT)cpu2be32(*((PUINT)&Hmac[4]))));
 		ret = WSC_ERROR_HMAC_FAIL;
 	}
-
-out:
 
 	if (IV_DecrData)
 		os_free_mem(IV_DecrData);
 
-	MTWF_DBG(pAdapter, DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_INFO, "ProcessMessageM8 :\n");
+	MTWF_LOG(DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_TRACE, ("ProcessMessageM8 :\n"));
 	return ret;
 }
 #endif /* WSC_INCLUDED */

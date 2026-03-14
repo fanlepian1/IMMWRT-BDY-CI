@@ -1,17 +1,18 @@
 /*
- * Copyright (c) [2020], MediaTek Inc. All rights reserved.
- *
- * This software/firmware and related documentation ("MediaTek Software") are
- * protected under relevant copyright laws.
- * The information contained herein is confidential and proprietary to
- * MediaTek Inc. and/or its licensors.
- * Except as otherwise provided in the applicable licensing terms with
- * MediaTek Inc. and/or its licensors, any reproduction, modification, use or
- * disclosure of MediaTek Software, and information contained herein, in whole
- * or in part, shall be strictly prohibited.
-*/
-/*
  ***************************************************************************
+ * Ralink Tech Inc.
+ * 4F, No. 2 Technology 5th Rd.
+ * Science-based Industrial Park
+ * Hsin-chu, Taiwan, R.O.C.
+ *
+ * (c) Copyright 2002-2004, Ralink Technology, Inc.
+ *
+ * All rights reserved. Ralink's source code is an unpublished work and the
+ * use of a copyright notice does not imply otherwise. This source code
+ * contains confidential trade secret material of Ralink Tech. Any attemp
+ * or participation in deciphering, decoding, reverse engineering or in any
+ * way altering the source code is stricitly prohibited, unless the prior
+ * written consent of Ralink Technology, Inc. is obtained.
  ***************************************************************************
 
 	Module Name:
@@ -42,8 +43,7 @@
 	(((EVENT_RXD *)(event_rxd))->fw_rxd_0.field.pkt_type_id)
 #define GET_EVENT_FW_RXD_EID(event_rxd) \
 	(((EVENT_RXD *)(event_rxd))->fw_rxd_1.field.eid)
-#define GET_EVENT_FW_RXD_OPTION(event_rxd) \
-		(((EVENT_RXD *)(event_rxd))->fw_rxd_1.field.option)
+
 #define GET_EVENT_FW_RXD_SEQ_NUM(event_rxd) \
 	(((EVENT_RXD *)(event_rxd))->fw_rxd_1.field.seq_num)
 
@@ -69,22 +69,29 @@ struct cmd_msg;
 #define RATE_POWER_TMAC_SIZE             8
 #define CR_COLUMN_SIZE                   4
 
-#define NET_DEV_NAME_MAX_LENGTH			16
-
-
 VOID AndesMTFillCmdHeaderWithTXD(struct cmd_msg *msg, PNDIS_PACKET net_pkt);
 VOID AndesMTRxEventHandler(struct _RTMP_ADAPTER *pAd, UCHAR *data);
 INT32 AndesMTLoadFw(struct _RTMP_ADAPTER *pAd);
 INT32 AndesMTEraseFw(struct _RTMP_ADAPTER *pAd);
 
-VOID AndesMTRxProcessEvent(struct _RTMP_ADAPTER *pAd, struct cmd_msg *rx_msg);
+#if defined(RTMP_PCI_SUPPORT) || defined(RTMP_RBUS_SUPPORT)
+INT32 AndesMTPciKickOutCmdMsg(struct _RTMP_ADAPTER *pAd, struct cmd_msg *msg);
+#if defined(MT7615) || defined(MT7622) || defined(P18) || defined(MT7663)
+INT32 AndesMTPciKickOutCmdMsgFwDlRing(struct _RTMP_ADAPTER *pAd, struct cmd_msg *msg);
+INT32 AndesRestartCheck(struct _RTMP_ADAPTER *pAd);
+#endif /* defined(MT7615) || defined(MT7622) */
+VOID AndesMTPciFwInit(struct _RTMP_ADAPTER *pAd);
+VOID AndesMTPciFwExit(struct _RTMP_ADAPTER *pAd);
+#endif /* defined(RTMP_PCI_SUPPORT) || defined(RTMP_RBUS_SUPPORT) */
+
+
 
 #ifdef TXBF_SUPPORT
 VOID ExtEventBfStatusRead(struct _RTMP_ADAPTER *pAd, UINT8 *Data, UINT32 Length);
 #endif
 
 #ifdef LED_CONTROL_SUPPORT
-#if defined(MT7915) || defined(MT7986) || defined(MT7916) || defined(MT7981)
+#if defined(MT7615) || defined(MT7622)
 INT AndesLedEnhanceOP(
 	struct _RTMP_ADAPTER *pAd,
 	UCHAR led_idx,
@@ -96,122 +103,35 @@ INT AndesLedEnhanceOP(
 	UCHAR on_time,
 	UCHAR led_control_mode
 );
-
-typedef struct _led_tx_blink_pattern {
-	UINT8 led_combine; /* combine band0 and band1 LED actions on the same physical LED */
-	UINT8 blink_mode; /*0: all tx frames, 1: Exclude TX beacon and TIM broadcast frames, 2: Only data frames */
-	UINT8 rsvd_1;
-	UINT8 rsvd_2;
-	UINT16 tx_blink_on_time;  /* in ms */
-	UINT16 tx_blink_off_time; /* in ms */
-	UINT8 rsvd[4];
-} led_tx_blink_pattern, *p_led_tx_blink_pattern; /*tx_blink*/
-
-typedef struct _led_pure_blink_pattern {
-	UINT8 replay_mode;/* 0: Repeat last:S0->S1->S1->S1->S1->S1 1: Repeat all:S0->S1->S0->S1*/
-	UINT8 rsvd_1;
-	UINT8 rsvd_2;
-	UINT8 rsvd_3;
-	UINT32 s0_total_time; /* in ms */
-	UINT16 s0_on_time; /* in ms */
-	UINT16 s0_off_time; /* in ms */
-	UINT32 s1_total_time; /* in ms */
-	UINT16 s1_on_time; /* in ms */
-	UINT16 s1_off_time; /* in ms */
-	UINT8 rsvd[4];
-} led_pure_blink_pattern, *p_led_pure_blink_pattern;/*pure_blink*/
-
-typedef struct _led_mix_tx_pure_blink_pattern {
-	UINT8 led_combine; /*combine band0 and band1 LED actions on the same physical LED*/
-	UINT8 blink_mode; /*0: all tx frames, 1: Exclude TX beacon and TIM broadcast frames, 2: Only data frames */
-	UINT8 replay_mode;/* 0: Repeat last:S0->S1->S1->S1->S1->S1 1: Repeat all:S0->S1->S0->S1*/
-	UINT8 rsvd_1;
-	UINT32 s0_total_time; /* in ms */
-	UINT16 s0_on_time; /* in ms */
-	UINT16 s0_off_time; /* in ms */
-	UINT32 s1_total_time; /* in ms */
-	UINT16 s1_on_time; /* in ms */
-	UINT16 s1_off_time; /* in ms */
-	UINT16 tx_blink_on_time;  /* in ms */
-	UINT16 tx_blink_off_time; /* in ms */
-	UINT8 rsvd[4];
-} led_mix_tx_pure_blink_pattern, *p_led_mix_tx_pure_blink_pattern;/*mix_tx_pure_blink*/
-
-
-enum LED_IDX {
-	LED_IDX_0 = 0,
-	LED_IDX_1,
-	LED_IDX_2,
-	LED_MAX_NUM
-};
-
-enum LED_control_type {
-	HW_LED = 0,
-	FW_LED
-};
-
-#define GPIO(_x)		_x
-
-/*led gpio setting for usr*/
-typedef struct _LED_INIT_TABLE {
-	VOID (*gpio_inti_func)(struct _RTMP_ADAPTER *pAd, UINT8 led_index);
-	UINT8 led_idx;
-	UINT16 map_idx;
-	BOOLEAN control_type; /*0:HW 1:FW*/
-} LED_INIT_TABLE, *PLED_INIT_TABLE;
-
-enum LED_CATEGORY {
-	LED_CATEGORY_0_SOLID_ON = 0,
-	LED_CATEGORY_1_SOLID_OFF,
-	LED_CATEGORY_2_TX_BLINK,
-	LED_CATEGORY_3_PURE_BLINK,
-	LED_CATEGORY_4_MIX_TX_PURE_BLINK,
-	LED_CATEGORY_5_GPIO_SETTING
-};
-
-typedef struct _led_control_event {
-	UINT8 led_ver;
-	UINT8 pattern_category;
-	UINT8 led_idx;
-	UINT8 reverse_polarity;
-	UINT8 band_select;/* 0:band 0, 1: band1*/
-	UINT8 rsvd_1;
-	UINT8 rsvd_2;
-	UINT8 rsvd_3;
-} led_control_event, *p_led_control_event;
-INT AndesLedGpioMap(RTMP_ADAPTER *pAd, UINT8 led_index, UINT16 map_index, BOOLEAN ctr_type);
-#endif /* defined(MT7915) || defined(MT7986) || defined(MT7916) || defined(MT7981) */
+#else
+INT AndesLedEnhanceOP(
+	struct _RTMP_ADAPTER *pAd,
+	UCHAR led_idx,
+	UCHAR tx_over_blink,
+	UCHAR reverse_polarity,
+	UCHAR blink_mode,
+	UCHAR off_time,
+	UCHAR on_time,
+	UCHAR led_control_mode
+);
+#endif
 #endif
 
 INT32 AndesMTLoadRomPatch(struct _RTMP_ADAPTER *ad);
 INT32 AndesMTEraseRomPatch(struct _RTMP_ADAPTER *ad);
 
-#ifdef PHY_ICS_SUPPORT
-NTSTATUS PhyIcsRawDataHandler(struct _RTMP_ADAPTER *pAd, PCmdQElmt CMDQelmt);
-VOID ExtEventPhyIcsUnSolicitDataHandler(struct _RTMP_ADAPTER *pAd, UINT8 *pData, UINT32 Length);
-#endif /* PHY_ICS_SUPPORT */
-
 #ifdef WIFI_SPECTRUM_SUPPORT
 NTSTATUS WifiSpectrumRawDataHandler(struct _RTMP_ADAPTER *pAd, PCmdQElmt CMDQelmt);
-VOID ExtEventWifiSpectrumUnSolicitRawDataHandler(struct _RTMP_ADAPTER *pAd, UINT8 *pData, UINT32 Length);
-VOID ExtEventWifiSpectrumUnSolicitIQDataHandler(struct _RTMP_ADAPTER *pAd, UINT8 *pData, UINT32 Length);
+VOID ExtEventWifiSpectrumRawDataHandler(struct _RTMP_ADAPTER *pAd, UINT8 *pData, UINT32 Length);
 #endif /* WIFI_SPECTRUM_SUPPORT */
 
 #ifdef INTERNAL_CAPTURE_SUPPORT
 NTSTATUS ICapRawDataHandler(struct _RTMP_ADAPTER *pAd, PCmdQElmt CMDQelmt);
 VOID ExtEventICap96BitDataParser(struct _RTMP_ADAPTER  *pAd);
-VOID ExtEventICapUnSolicit96BitRawDataHandler(struct _RTMP_ADAPTER *pAd, UINT8 *pData, UINT32 Length);
-VOID ExtEventICapUnSolicitIQDataHandler(struct _RTMP_ADAPTER *pAd, UINT8 *pData, UINT32 Length);
-VOID ExtEventICapUnSolicitStatusHandler(struct _RTMP_ADAPTER *pAd, UINT8 *pData, UINT32 Length);
+VOID ExtEventICap96BitRawDataHandler(struct _RTMP_ADAPTER *pAd, UINT8 *pData, UINT32 Length);
+VOID ExtEventICapStatusHandler(struct _RTMP_ADAPTER *pAd, UINT8 *pData, UINT32 Length);
 #endif /* INTERNAL_CAPTURE_SUPPORT */
 
-
-VOID EventThermalProtectHandler(struct _RTMP_ADAPTER *pAd, UINT8 *Data, UINT32 Length);
-VOID EventThermalProtectReasonNotify(struct _RTMP_ADAPTER *pAd, UINT8 *Data, UINT32 Length);
-VOID EventThermalProtectInfo(struct _RTMP_ADAPTER *pAd, UINT8 *Data, UINT32 Length);
-VOID EventThermalHandler(struct _RTMP_ADAPTER *pAd, UINT8 *Data, UINT32 Length);
-VOID EventThermalSensorShowInfo(struct _RTMP_ADAPTER *pAd, UINT8 *Data, UINT32 Length);
-VOID EventThermalSensorTaskResp(struct _RTMP_ADAPTER *pAd, UINT8 *Data, UINT32 Length);
 VOID EventTxPowerHandler(struct _RTMP_ADAPTER *pAd, UINT8 *Data, UINT32 Length);
 VOID EventTxPowerShowInfo(struct _RTMP_ADAPTER *pAd, UINT8 *Data, UINT32 Length);
 VOID EventTxPowerEPAInfo(struct _RTMP_ADAPTER *pAd, UINT8 *Data, UINT32 Length);
@@ -219,15 +139,8 @@ VOID EventThermalStateShowInfo(struct _RTMP_ADAPTER *pAd, UINT8 *Data, UINT32 Le
 VOID EventPowerTableShowInfo(struct _RTMP_ADAPTER *pAd, UINT8 *Data, UINT32 Length);
 VOID EventTxPowerCompTable(struct _RTMP_ADAPTER *pAd, UINT8 *Data, UINT32 Length);
 VOID EventThermalCompTableShowInfo(struct _RTMP_ADAPTER *pAd, UINT8 *Data, UINT32 Length);
-VOID ExtEvenTpcInfoHandler(struct _RTMP_ADAPTER *pAd, UINT8 *Data, UINT32 Length);
-VOID EventTpcDownLinkTbl(struct _RTMP_ADAPTER *pAd, UINT8 *Data, UINT32 Length);
-VOID EventTpcUpLinkTbl(struct _RTMP_ADAPTER *pAd, UINT8 *Data, UINT32 Length);
-VOID EventRxvHandler(struct _RTMP_ADAPTER *pAd, UINT8 *Data, UINT32 Length);
-VOID EventRxFeCompHandler(struct _RTMP_ADAPTER *pAd, UINT8 *Data, UINT32 Length);
-VOID EventRxvReport(struct _RTMP_ADAPTER *pAd, UINT8 *Data, UINT32 Length);
-VOID EventTxPowerAllRatePowerShowInfo(struct _RTMP_ADAPTER *pAd, UINT8 *Data, UINT32 Length);
-VOID event_ecc_result(struct _RTMP_ADAPTER *ad, UINT8 *data, UINT32 length);
 NTSTATUS EventTxvBbpPowerInfo(struct _RTMP_ADAPTER *pAd, UINT8 *Data, UINT32 Length);
+
 #if defined(RLM_CAL_CACHE_SUPPORT) || defined(PRE_CAL_TRX_SET2_SUPPORT)
 NTSTATUS PreCalTxLPFStoreProcHandler(struct _RTMP_ADAPTER *pAd, PCmdQElmt CMDQelmt);
 NTSTATUS PreCalTxIQStoreProcHandler(struct _RTMP_ADAPTER *pAd, PCmdQElmt CMDQelmt);
@@ -236,17 +149,9 @@ NTSTATUS PreCalRxFIStoreProcHandler(struct _RTMP_ADAPTER *pAd, PCmdQElmt CMDQelm
 NTSTATUS PreCalRxFDStoreProcHandler(struct _RTMP_ADAPTER *pAd, PCmdQElmt CMDQelmt);
 #endif /* defined(RLM_CAL_CACHE_SUPPORT) || defined(PRE_CAL_TRX_SET2_SUPPORT) */
 
-#ifdef RED_SUPPORT
+#if defined(RED_SUPPORT) && (defined(MT7622) || defined(P18) || defined(MT7663) || defined(MT7615))
 VOID ExtEventMpduTimeHandler(struct _RTMP_ADAPTER *pAd, UINT8 *Data, UINT32 Length);
-VOID ExtEventRedTxReportHandler(struct _RTMP_ADAPTER *pAd, UINT8 *Data, UINT32 Length);
 #endif
-
-#ifdef WIFI_MD_COEX_SUPPORT
-NTSTATUS ExtEventFw2apccciMsgHandler(RTMP_ADAPTER *pAd, UINT8 *Data, UINT32 Length);
-VOID ExtEventLteSafeChnHandler(RTMP_ADAPTER *pAd, UINT8 *Data, UINT32 Length);
-VOID ExtEventIdcEventHandler(RTMP_ADAPTER *pAd, UINT8 *Data, UINT32 Length);
-#endif
-
 typedef struct _TX_RATE_POWER_TABLE_T {
 	UINT8  TxRateModulation;
 	UINT8  CRValue;
@@ -356,97 +261,6 @@ typedef enum _ENUM_TX_RATE_MODULATION_T {
 	VHT40
 } ENUM_TX_RATE_MODULATION_T, *P_ENUM_TX_RATE_MODULATION_T;
 
-#ifdef CFG_SUPPORT_CSI
-#define CSI_INFO_RSVD1 BIT(0)
-#define CSI_INFO_RSVD2 BIT(1)
-
-/*for filter mode type*/
-enum CSI_FILTER_MODE_T {
-	CSI_LENGTH_FILTER,
-	CSI_MAC_FILTER,
-	CSI_TS_FILTER,
-	CSI_FILTER_MODE_NUM
-};
-
-/*for mac filter*/
-enum CSI_STA_MAC_MODE_T {
-	CSI_STA_MAC_DEL,
-	CSI_STA_MAC_ADD,
-	CSI_STA_MAC_SHOW,
-	CSI_STA_MAC_MODE_NUM
-};
-
-enum CSI_CONTROL_MODE_T {
-	CSI_CONTROL_MODE_STOP,
-	CSI_CONTROL_MODE_START,
-	CSI_CONTROL_MODE_SET,
-	CSI_CONTROL_MODE_NUM
-};
-
-enum CSI_CONFIG_ITEM_T {
-	CSI_CONFIG_RSVD1,
-	CSI_CONFIG_WF,
-	CSI_CONFIG_RSVD2,
-	CSI_CONFIG_FRAME_TYPE,
-	CSI_CONFIG_TX_PATH,
-	CSI_CONFIG_OUTPUT_FORMAT,
-	CSI_CONFIG_INFO,
-	CSI_CONFIG_CHAIN_NUMBER,
-	CSI_CONFIG_FILTER_MODE,
-	CSI_CONFIG_ITEM_NUM
-};
-
-struct CMD_CSI_CONTROL_T {
-	UINT_8 BandIdx;
-	UINT_8 ucMode;
-	UINT_8 ucCfgItem;
-	UINT_8 ucValue1;
-	UINT_32 ucValue2;
-	UINT_8 mac_addr[MAC_ADDR_LEN];
-	UINT_8 aucResrved0[34];
-};
-
-enum CSI_OUTPUT_FORMAT_T {
-	CSI_OUTPUT_RAW,
-	CSI_OUTPUT_TONE_MASKED,
-	CSI_OUTPUT_TONE_MASKED_SHIFTED,
-	CSI_OUTPUT_FORMAT_NUM
-};
-
-enum CSI_EVENT_TLV_TAG {
-	CSI_EVENT_FW_VER,
-	CSI_EVENT_CBW,
-	CSI_EVENT_RSSI,
-	CSI_EVENT_SNR,
-	CSI_EVENT_BAND,
-	CSI_EVENT_CSI_NUM,
-	CSI_EVENT_CSI_I_DATA,
-	CSI_EVENT_CSI_Q_DATA,
-	CSI_EVENT_DBW,
-	CSI_EVENT_CH_IDX,
-	CSI_EVENT_TA,
-	CSI_EVENT_EXTRA_INFO,
-	CSI_EVENT_RX_MODE,
-	CSI_EVENT_RSVD1,
-	CSI_EVENT_RSVD2,
-	CSI_EVENT_RSVD3,
-	CSI_EVENT_RSVD4,
-	CSI_EVENT_H_IDX,
-	CSI_EVENT_TX_RX_IDX,
-	CSI_EVENT_TS,
-	CSI_EVENT_TLV_TAG_NUM,
-};
-
-ULONG NBytesAlign(ULONG len, ULONG nBytesAlign);
-INT AndesCSICtrl(RTMP_ADAPTER *pAd, struct CMD_CSI_CONTROL_T *prCSICtrl);
-VOID ExtEventCSICtrl(RTMP_ADAPTER *pAd, UINT8 *Data, UINT32 Length);
-#endif
-
-#ifdef DOT11_HE_AX
-#ifdef WIFI_TWT_SUPPORT
-VOID event_twt_resume_info(struct _RTMP_ADAPTER *pAd, UINT8 *data, UINT32 length);
-#endif /* WIFI_TWT_SUPPORT */
-#endif /* DOT11_HE_AX */
 
 #endif /* __ANDES_MT_H__ */
 

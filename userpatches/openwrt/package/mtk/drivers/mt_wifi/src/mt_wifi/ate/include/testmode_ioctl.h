@@ -36,16 +36,16 @@
 		INT _cnt = 0;										\
 		UINT32 *_arr = (UINT32 *)_byte_array;				\
 		for (_cnt = 0; _cnt < _len; _cnt++)						\
-			MTWF_DBG_NP(DBG_CAT_TEST, DBG_SUBCAT_ALL, _lvl, "DWORD%d:%08x\n", _cnt, _arr[_cnt]);	\
+			MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, _lvl, ("DWORD%d:%08x\n", _cnt, _arr[_cnt]));	\
 		_len;												\
 	});
 #define PKTUC_DUMP(_lvl, _len, _byte_array)({			\
 		INT _cnt = 0;										\
 		UCHAR *_arr = (UCHAR *)_byte_array;				\
-		MTWF_DBG_NP(DBG_CAT_TEST, DBG_SUBCAT_ALL, _lvl, "PKTUC_DUMP(%x): ", _len);	\
+		MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, _lvl, ("PKTUC_DUMP(%x): ", _len));	\
 		for (_cnt = 0; _cnt < _len; _cnt++)						\
-			MTWF_DBG_NP(DBG_CAT_TEST, DBG_SUBCAT_ALL, _lvl, "%02x", _arr[_cnt]);	\
-		MTWF_DBG_NP(DBG_CAT_TEST, DBG_SUBCAT_ALL, _lvl, "\n");	\
+			MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, _lvl, ("%02x", _arr[_cnt]));	\
+		MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, _lvl, ("\n"));	\
 		_len;												\
 	});
 #endif
@@ -407,7 +407,7 @@ struct GNU_PACKED _HQA_EXT_TXV {
 	UINT32 num_param;
 	UINT32 band_idx;
 	UINT32 pkt_cnt;
-	UINT32 tx_mode;
+	UINT32 phymode;
 	UINT32 rate;
 	UINT32 pwr;
 	UINT32 stbc;
@@ -466,6 +466,7 @@ struct GNU_PACKED _HQA_RX_STAT {
 	UINT32 RSSI0;
 	UINT32 RSSI1;
 	UINT32 rx_fifo_full;
+	/* #ifdef MT7615 */
 	UINT32 mac_rx_len_mismatch;
 	UINT32 mac_rx_fcs_err_cnt_band1;
 	UINT32 mac_rx_mdrdy_cnt_band1;
@@ -500,11 +501,8 @@ struct GNU_PACKED _HQA_RX_STAT {
 	UINT32 SIG_MCS;
 	UINT32 SINR;
 	UINT32 RXVRSSI;
-	UINT32 mac_rx_fcs_ok_cnt; /* MT7622 only */
-	UINT32 leg_rssi_sub[8];
-	INT32 user_rx_freq_offset[16];
-	UINT32 user_snr[16];
-	UINT32 fcs_error_cnt[16];
+	/* #endif */
+	UINT32 mac_rx_fcs_ok_cnt;	/* MT7622 only */
 };
 
 UINT32 HQA_CMDHandler(struct _RTMP_ADAPTER *pAd, struct __RTMP_IOCTL_INPUT_STRUCT *Wrq, struct _HQA_CMD_FRAME *HqaCmdFrame);
@@ -522,7 +520,5 @@ UINT32 HQA_CMDHandler(struct _RTMP_ADAPTER *pAd, struct __RTMP_IOCTL_INPUT_STRUC
 
 #define HQA_CMD_MAGIC_NO		0x18142880
 #define EFUSE_ADDR_FREQUENCY_OFFSET_MT7637 0xF4/* MT7637 */
-
-#define MAX_RDD_DUMP_SIZE 80
 
 #endif /* _TESTMODE_IOCTL_H */

@@ -15,7 +15,7 @@ INT32 ATECheckFWROMWiFiSysOn(RTMP_ADAPTER *pAd)
 	loop = 0;
 
 	do {
-		value = AsicGetFwSyncValue(pAd);
+		value = MtAsicGetFwSyncValue(pAd);
 
 		if (value == 0x0)
 			break;
@@ -25,11 +25,12 @@ INT32 ATECheckFWROMWiFiSysOn(RTMP_ADAPTER *pAd)
 	} while (loop <= 500);
 
 	if (loop > 500) {
-		MTWF_DBG(pAd, DBG_CAT_FW, DBG_SUBCAT_ALL, DBG_LVL_ERROR, "2. SW_SYN0 is not at init. state (SW_SYN0 = %d)\n", value);
+		MTWF_LOG(DBG_CAT_FW, DBG_SUBCAT_ALL, DBG_LVL_ERROR, ("%s: 2. SW_SYN0 is not at init. state (SW_SYN0 = %d)\n", __func__, value));
+		ntStatus = STATUS_UNSUCCESSFUL;
 	}
 
 	/* power on WiFi SYS*/
-	MTWF_DBG(pAd, DBG_CAT_FW, DBG_SUBCAT_ALL, DBG_LVL_INFO, "2. power on WiFi SYS\n");
+	MTWF_LOG(DBG_CAT_FW, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("%s: 2. power on WiFi SYS\n", __func__));
 	ntStatus = MtCmdPowerOnWiFiSys(pAd);
 
 	if (ntStatus)
@@ -39,7 +40,7 @@ INT32 ATECheckFWROMWiFiSysOn(RTMP_ADAPTER *pAd)
 	loop = 0;
 
 	do {
-		value = AsicGetFwSyncValue(pAd);
+		value = MtAsicGetFwSyncValue(pAd);
 
 		if (value == 0x1)
 			break;
@@ -49,7 +50,7 @@ INT32 ATECheckFWROMWiFiSysOn(RTMP_ADAPTER *pAd)
 	} while (loop <= 500);
 
 	if (loop > 500) {
-		MTWF_DBG(pAd, DBG_CAT_FW, DBG_SUBCAT_ALL, DBG_LVL_ERROR, "SW_SYN0 is not at init. state (SW_SYN0 = %d)\n", value);
+		MTWF_LOG(DBG_CAT_FW, DBG_SUBCAT_ALL, DBG_LVL_ERROR, ("%s: SW_SYN0 is not at init. state (SW_SYN0 = %d)\n", __func__, value));
 		ntStatus = STATUS_UNSUCCESSFUL;
 	}
 
@@ -71,11 +72,11 @@ INT32 FWSwitchToROM(
 {
 	INT32		ntStatus = STATUS_SUCCESS;
 
-	MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO, "\n");
+	MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("%s\n", __func__));
 #ifdef COMPOS_TESTMODE_WIN		/* Linux ready in FWRAM */
 
 	if (pAd->FWMode == FWROM)
-		MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO, "FWMode is already ROM\n");
+		MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_ERROR, ("%s: FWMode is already ROM\n", __func__));
 	else if (pAd->FWMode == FWRAM)
 #endif
 	{
@@ -83,13 +84,13 @@ INT32 FWSwitchToROM(
 		/* ntStatus = FirmwareCommnadRestartDownloadFW(pAd); */
 		/* if(ntStatus != STATUS_SUCCESS) */
 		/* { */
-		/* MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_ERROR,"RestartDownloadFW cmd failed\n"); */
+		/* MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_ERROR,("%s, RestartDownloadFW cmd failed\n",__FUNCTION__)); */
 		/* } */
 		NICRestartFirmware(pAd);
 		ntStatus = CheckFWROMWiFiSysOn(pAd);
 
 		if (ntStatus != STATUS_SUCCESS)
-			MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_ERROR, "CheckFWROMWiFiSysOn  failed\n");
+			MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_ERROR, ("%s, CheckFWROMWiFiSysOn  failed\n", __func__));
 	}
 
 	return ntStatus;
@@ -113,7 +114,7 @@ void LoopBack_Start(RTMP_ADAPTER *pAd, struct _LOOPBACK_SETTING *pSetting)
 	os_zero_mem(&pAd->LbCtrl.LoopBackResult, sizeof(struct _LOOPBACK_RESULT));
 
 	if (pSetting->StartLen < sizeof(TMAC_TXD_L)) {
-		MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_WARN, "startLength(0x%x) is shorter than sizeof(TMAC_TXD_L) (0x%lx)\n", pSetting->StartLen, (ULONG)sizeof(TMAC_TXD_L));
+		MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_WARN, ("%s startLength(0x%x) is shorter than sizeof(TMAC_TXD_L) (0x%lx)\n", __func__, pSetting->StartLen, (ULONG)sizeof(TMAC_TXD_L)));
 		return;
 	}
 
@@ -122,15 +123,15 @@ void LoopBack_Start(RTMP_ADAPTER *pAd, struct _LOOPBACK_SETTING *pSetting)
 	OS_SPIN_UNLOCK(&pAd->LbCtrl.LoopBackLock);
 	pAd->LbCtrl.LoopBackRunning = TRUE;
 	pAd->LbCtrl.LoopBackResult.Status = RUNNING;
-	MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO, "\n");
-	MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO, "IsDefaultPattern	%d\n", pSetting->IsDefaultPattern);
-	MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO, "RepeatTimes		%u, %u\n", pSetting->RepeatTimes, pAd->LbCtrl.LoopBackSetting.RepeatTimes);
-	MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO, "StartLen			%d\n", pSetting->StartLen);
-	MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO, "StopLen			%d\n", pSetting->StopLen);
+	MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("%s\n", __func__));
+	MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("IsDefaultPattern	%d\n", pSetting->IsDefaultPattern));
+	MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("RepeatTimes		%u, %u\n", pSetting->RepeatTimes, pAd->LbCtrl.LoopBackSetting.RepeatTimes));
+	MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("StartLen			%d\n", pSetting->StartLen));
+	MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("StopLen			%d\n", pSetting->StopLen));
 	pAd->LbCtrl.LoopBackDefaultPattern = (BOOLEAN)pSetting->IsDefaultPattern;
 
 	if (pAd->LbCtrl.DebugMode) {
-		MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO, "In LoopBack Debug Mode\n");
+		MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("In LoopBack Debug Mode\n"));
 		goto ATE_LPBK_DEBUG;
 	}
 
@@ -138,9 +139,9 @@ void LoopBack_Start(RTMP_ADAPTER *pAd, struct _LOOPBACK_SETTING *pSetting)
 		ntStatus = FWSwitchToROM(pAd);
 
 		if (ntStatus != STATUS_SUCCESS)
-			MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_ERROR, "Switch to ROM failed (0x%x)\n", ntStatus);
+			MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_ERROR, ("%s, Switch to ROM failed (0x%x)\n", __func__, ntStatus));
 
-		MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO, "FWSwitchToROM\n");
+		MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("%s FWSwitchToROM\n", __func__));
 	}
 
 
@@ -148,7 +149,7 @@ void LoopBack_Start(RTMP_ADAPTER *pAd, struct _LOOPBACK_SETTING *pSetting)
 		MtCmdHIFLoopBackTest(pAd, 1, (UINT8)RxQ);
 
 ATE_LPBK_DEBUG:
-	MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO, "***************************************@#@# Rx[%d]***************************************\n", RxQ);
+	MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("***************************************%s @#@# Rx[%d]***************************************\n", __func__, RxQ));
 	/* pAd->LbCtrl.LoopBackTxThread = NULL; */
 	/*
 	 * ntStatus =  PsCreateSystemThread(&pAd->LbCtrl.LoopBackTxTask.hThread,
@@ -162,14 +163,14 @@ ATE_LPBK_DEBUG:
 	ntStatus =  RtmpOSTaskAttach(&pAd->LbCtrl.LoopBackTxTask, LoopBack_TxThread, (ULONG)&pAd->LbCtrl.LoopBackTxTask);
 
 	if (ntStatus != STATUS_SUCCESS)
-		MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_ERROR, "thread create fail\n");
+		MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_ERROR, ("%s, thread create fail\n", __func__));
 }
 void LoopBack_Stop(RTMP_ADAPTER *pAd)
 {
 	UINT32 BreakCount = 0;
 
 	while (pAd->LbCtrl.LoopBackWaitRx == TRUE) {
-		MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO, "@#@#BreakCount = %d\n", BreakCount);
+		MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("%s, @#@#BreakCount = %d\n", __func__, BreakCount));
 
 		if (BreakCount > 100)
 			break;
@@ -183,14 +184,14 @@ void LoopBack_Stop(RTMP_ADAPTER *pAd)
 	}
 
 	if (RtmpOSTaskKill(&pAd->LbCtrl.LoopBackTxTask) == NDIS_STATUS_FAILURE)
-		MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_ERROR, "kill LoopBackTxTask task failed!\n");
+		MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_ERROR, ("kill LoopBackTxTask task failed!\n"));
 
 	if (pAd->LbCtrl.LoopBackResult.Status == RUNNING) {
 		pAd->LbCtrl.LoopBackResult.Status = PASS;
 		pAd->LbCtrl.LoopBackResult.FailReason = NO_ERROR;
 	}
 
-	MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO, "***************************************@#@#***************************************\n");
+	MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("***************************************%s @#@#***************************************\n", __func__));
 	pAd->LbCtrl.LoopBackRunning = FALSE;
 
 	if (pAd->LbCtrl.DebugMode)
@@ -201,24 +202,24 @@ void LoopBack_Stop(RTMP_ADAPTER *pAd)
 		MtCmdHIFLoopBackTest(pAd, 0, 0);
 
 ATE_LB_DEBUG_STOP:
-	MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO, "\n");
+	MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("%s,\n", __func__));
 }
 void LoopBack_Status(RTMP_ADAPTER *pAd, struct _LOOPBACK_RESULT *pResult)
 {
 	os_move_mem(pResult, &pAd->LbCtrl.LoopBackResult, sizeof(struct _LOOPBACK_RESULT));
-	MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO, "\n");
-	MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO, "Status: %d\n", pAd->LbCtrl.LoopBackResult.Status);
-	MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO, "FailReason: %d\n", pAd->LbCtrl.LoopBackResult.FailReason);
-	MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO, "RxByteCount: %d\n", pAd->LbCtrl.LoopBackResult.RxByteCount);
-	MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO, "RxPktCount: %d\n", pAd->LbCtrl.LoopBackResult.RxPktCount);
-	MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO, "TxByteCount: %d\n", pAd->LbCtrl.LoopBackResult.TxByteCount);
-	MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO, "TxPktCount: %d\n", pAd->LbCtrl.LoopBackResult.TxPktCount);
+	MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("%s\n", __func__));
+	MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("%s, Status: %d\n", __func__, pAd->LbCtrl.LoopBackResult.Status));
+	MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("%s, FailReason: %d\n", __func__, pAd->LbCtrl.LoopBackResult.FailReason));
+	MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("%s, RxByteCount: %d\n", __func__, pAd->LbCtrl.LoopBackResult.RxByteCount));
+	MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("%s, RxPktCount: %d\n", __func__, pAd->LbCtrl.LoopBackResult.RxPktCount));
+	MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("%s, TxByteCount: %d\n", __func__, pAd->LbCtrl.LoopBackResult.TxByteCount));
+	MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("%s, TxPktCount: %d\n", __func__, pAd->LbCtrl.LoopBackResult.TxPktCount));
 }
 void LoopBack_RawData(RTMP_ADAPTER *pAd, UINT32  *pLength, BOOLEAN IsTx, UCHAR *RawData)
 {
 	if (*pLength > LOOPBACK_SIZE) {
 		*pLength = LOOPBACK_SIZE;
-		MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO, "max length is %d\n", LOOPBACK_SIZE);
+		MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("%s, max length is %d\n", __func__, LOOPBACK_SIZE));
 	}
 
 	if (IsTx) {
@@ -231,9 +232,9 @@ void LoopBack_RawData(RTMP_ADAPTER *pAd, UINT32  *pLength, BOOLEAN IsTx, UCHAR *
 		os_move_mem(RawData, &pAd->LbCtrl.LoopBackRxRaw, *pLength);
 	}
 
-	MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO, "Length = 0x%x\n", *pLength);
-	MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO, "LoopBackRxRawLen = 0x%x\n", pAd->LbCtrl.LoopBackRxRawLen);
-	MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO, "LoopBackTxRawLen = 0x%x\n", pAd->LbCtrl.LoopBackTxRawLen);
+	MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("%s, Length = 0x%x\n", __func__, *pLength));
+	MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("%s, LoopBackRxRawLen = 0x%x\n", __func__, pAd->LbCtrl.LoopBackRxRawLen));
+	MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("%s, LoopBackTxRawLen = 0x%x\n", __func__, pAd->LbCtrl.LoopBackTxRawLen));
 }
 void LoopBack_ExpectRx(RTMP_ADAPTER *pAd, UINT32 Length, UINT8 *pRawData)
 {
@@ -242,7 +243,7 @@ void LoopBack_ExpectRx(RTMP_ADAPTER *pAd, UINT32 Length, UINT8 *pRawData)
 
 	if (Length > LOOPBACK_SIZE) {
 		Length = LOOPBACK_SIZE;
-		MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO, "max length is %d\n", LOOPBACK_SIZE);
+		MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("%s, max length is %d\n", __func__, LOOPBACK_SIZE));
 	}
 
 	/* (&pAd->LbCtrl.LoopBackExpectRx, pRawData, Length); */
@@ -250,12 +251,12 @@ void LoopBack_ExpectRx(RTMP_ADAPTER *pAd, UINT32 Length, UINT8 *pRawData)
 	ptr = (PULONG)(&pAd->LbCtrl.LoopBackExpectRx);
 	/* Length = ptr[0] & 0xffff; */
 	pAd->LbCtrl.LoopBackExpectRxLen = Length;
-	MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO, "Length = %d\n", Length);
+	MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("%s, Length = %d\n", __func__, Length));
 
 	for (i = 0; i < 20; i++)
-		MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO, "TXD(TXWI) %d 0x%08lX\n", i, *(ptr + i));
+		MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("TXD(TXWI) %d 0x%08lX\n", i, *(ptr + i)));
 
-	MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO, "\n");
+	MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("%s,\n", __func__));
 }
 
 void LoopBack_ExpectTx(RTMP_ADAPTER *pAd, UINT32 Length, UINT8 *pRawData)
@@ -265,7 +266,7 @@ void LoopBack_ExpectTx(RTMP_ADAPTER *pAd, UINT32 Length, UINT8 *pRawData)
 
 	if (Length > LOOPBACK_SIZE) {
 		Length = LOOPBACK_SIZE;
-		MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO, "max length is %d\n", LOOPBACK_SIZE);
+		MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("%s, max length is %d\n", __func__, LOOPBACK_SIZE));
 	}
 
 	/* RtlCopyMemory(&pAd->LoopBackExpectTx, pRawData, Length); */
@@ -273,18 +274,18 @@ void LoopBack_ExpectTx(RTMP_ADAPTER *pAd, UINT32 Length, UINT8 *pRawData)
 	ptr = (PULONG)(&pAd->LbCtrl.LoopBackExpectTx);
 	/* Length = ptr[0] & 0xffff; */
 	pAd->LbCtrl.LoopBackExpectTxLen = Length;
-	MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO, "Length = %d\n", Length);
+	MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("%s, Length = %d\n", __func__, Length));
 
 	for (i = 0; i < 20; i++)
-		MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO, "TXD(TXWI) %d 0x%08lX\n", i, *(ptr + i));
+		MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("TXD(TXWI) %d 0x%08lX\n", i, *(ptr + i)));
 
-	MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO, "\n");
+	MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("%s,\n", __func__));
 }
 
 void LoopBack_Run(RTMP_ADAPTER *pAd, struct _LOOPBACK_SETTING *pSetting, UINT32 Length)
 {
 	if (Length > LOOPBACK_SIZE) {
-		MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO, "LOOPBACK length too long\n");
+		MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("%s, LOOPBACK length too long\n", __func__));
 		return;
 	}
 
@@ -297,58 +298,58 @@ void LoopBack_BitTrueCheck(RTMP_ADAPTER *pAd)
 	if (!pAd->LbCtrl.LoopBackDefaultPattern) { /* Rx compare expect Rx */
 		if (pAd->LbCtrl.LoopBackExpectRxLen != pAd->LbCtrl.LoopBackRxRawLen) {
 			LoopBack_Fail(pAd, BIT_TRUE_FAIL);
-			MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO, "####################### TX/RX Length not equal ####################\n");
-			MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO, "ExpectRxLen = %d, RxRawLen = %d\n", pAd->LbCtrl.LoopBackExpectRxLen, pAd->LbCtrl.LoopBackRxRawLen);
+			MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("%s, ####################### TX/RX Length not equal ####################\n", __func__));
+			MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("%s, ExpectRxLen = %d, RxRawLen = %d\n", __func__, pAd->LbCtrl.LoopBackExpectRxLen, pAd->LbCtrl.LoopBackRxRawLen));
 		} else if (RTMPEqualMemory((PVOID)&pAd->LbCtrl.LoopBackExpectRx, (PVOID)&pAd->LbCtrl.LoopBackRxRaw, pAd->LbCtrl.LoopBackRxRawLen) == 0) {
 			if (pAd->LbCtrl.DebugMode) {
 				UINT32 j = 0;
 
-				MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO, "RxExpect Dump(%u): ", pAd->LbCtrl.LoopBackRxRawLen);
+				MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_OFF, ("RxExpect Dump(%u): ", pAd->LbCtrl.LoopBackRxRawLen));
 
 				for (j = 0; j < pAd->LbCtrl.LoopBackRxRawLen; j++)
-					MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO, "%02x", pAd->LbCtrl.LoopBackExpectRx[j]);
+					MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_OFF, ("%02x", pAd->LbCtrl.LoopBackExpectRx[j]));
 
-				MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO, "\n");
-				MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO, "RxBackRaw Dump: ");
+				MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_OFF, ("\n"));
+				MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_OFF, ("RxBackRaw Dump: "));
 
 				for (j = 0; j < pAd->LbCtrl.LoopBackRxRawLen; j++)
-					MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO, "%02x", pAd->LbCtrl.LoopBackRxRaw[j]);
+					MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_OFF, ("%02x", pAd->LbCtrl.LoopBackRxRaw[j]));
 
-				MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO, "\n");
+				MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_OFF, ("\n"));
 			}
 
 			LoopBack_Fail(pAd, BIT_TRUE_FAIL);
-			MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO, "####################### BIT_TRUE_FAIL ####################\n");
+			MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("%s, ####################### BIT_TRUE_FAIL ####################\n", __func__));
 		} else
 			pAd->LbCtrl.LoopBackResult.FailReason = NO_ERROR;
 	} else { /* Rx compare Tx */
 		if (pAd->LbCtrl.LoopBackTxRawLen != pAd->LbCtrl.LoopBackRxRawLen) {
 			LoopBack_Fail(pAd, BIT_TRUE_FAIL);
-			MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO, "####################### TX/RX Length not equal ####################\n");
-			MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO, "TxRawLen = %d, RxRawLen = %d\n", pAd->LbCtrl.LoopBackTxRawLen, pAd->LbCtrl.LoopBackRxRawLen);
+			MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("%s, ####################### TX/RX Length not equal ####################\n", __func__));
+			MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("%s, TxRawLen = %d, RxRawLen = %d\n", __func__, pAd->LbCtrl.LoopBackTxRawLen, pAd->LbCtrl.LoopBackRxRawLen));
 		} else if (RTMPEqualMemory((PVOID)&pAd->LbCtrl.LoopBackTxRaw, (PVOID)&pAd->LbCtrl.LoopBackRxRaw, pAd->LbCtrl.LoopBackTxRawLen) == 0) {
 			if (pAd->LbCtrl.DebugMode) {
 				UINT32 j = 0;
 
-				MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO, "TxExpect Dump(%u): ", pAd->LbCtrl.LoopBackTxRawLen);
+				MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("TxExpect Dump(%u): ", pAd->LbCtrl.LoopBackTxRawLen));
 
 				for (j = 0; j < pAd->LbCtrl.LoopBackRxRawLen; j++)
-					MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO, "%02x", pAd->LbCtrl.LoopBackTxRaw[j]);
+					MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("%02x", pAd->LbCtrl.LoopBackTxRaw[j]));
 
-				MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO, "\n");
-				MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO, "RxBackRaw Dump: ");
+				MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("\n"));
+				MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("RxBackRaw Dump: "));
 
 				for (j = 0; j < pAd->LbCtrl.LoopBackRxRawLen; j++)
-					MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO, "%02x", pAd->LbCtrl.LoopBackRxRaw[j]);
+					MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("%02x", pAd->LbCtrl.LoopBackRxRaw[j]));
 
-				MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO, "\n");
+				MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("\n"));
 			}
 
 			LoopBack_Fail(pAd, BIT_TRUE_FAIL);
-			MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO, "####################### BIT_TRUE_FAIL ####################\n");
+			MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("%s, ####################### BIT_TRUE_FAIL ####################\n", __func__));
 		} else {
 			pAd->LbCtrl.LoopBackResult.FailReason = NO_ERROR;
-			MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO, "####################### BIT_TRUE OK ####################\n");
+			MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("%s, ####################### BIT_TRUE OK ####################\n", __func__));
 		}
 	}
 }
@@ -358,7 +359,7 @@ void LoopBack_Fail(RTMP_ADAPTER *pAd, enum _LOOPBACK_FAIL FailNum)
 	if (pAd->LbCtrl.LoopBackResult.Status == RUNNING) {
 		pAd->LbCtrl.LoopBackResult.FailReason = FailNum;
 		pAd->LbCtrl.LoopBackResult.Status = FAIL;
-		MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO, "FailReason = %d\n", FailNum);
+		MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("%s, FailReason = %d\n", __func__, FailNum));
 	}
 }
 
@@ -380,7 +381,7 @@ INT LoopBack_TxThread(ULONG Context)
 	UINT32 BreakCount = 0;
 	UINT32 DbgCount = 0;
 	/* KIRQL Irql; */
-	MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO, "Repeat:%u\n", pSetting->RepeatTimes);
+	MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("%s, Repeat:%u\n", __func__, pSetting->RepeatTimes));
 
 	if (pSetting->RepeatTimes == 0)
 		pSetting->RepeatTimes = 0xffffffff;
@@ -399,20 +400,20 @@ INT LoopBack_TxThread(ULONG Context)
 #endif
 
 				if (BreakCount > 2000) {
-					MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_WARN, "no Rx come back  Stop1!!!\n");
+					MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_ERROR, ("%s, no Rx come back  Stop1!!!\n", __func__));
 					break;
 				}
 
-				MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO, "no Rx BreakCount = %d\n", BreakCount);
+				MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_ERROR, ("%s, no Rx BreakCount = %d\n", __func__, BreakCount));
 			}
 
 			if (BreakCount > 2000) {
-				MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_WARN, "no Rx come back  Stop2!!!\n");
+				MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_ERROR, ("%s, no Rx come back  Stop2!!!\n", __func__));
 				LoopBack_Fail(pAd, RX_TIMEOUT);
 				break;
 			}
 
-			MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_DEBUG, "Length =  %d\n", Length);
+			MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_ERROR, ("%s, Length =  %d\n", __func__, Length));
 			BreakCount = 0;
 
 			if (pAd->LbCtrl.LoopBackRunning == FALSE || pAd->LbCtrl.LoopBackResult.Status != RUNNING)
@@ -439,7 +440,7 @@ INT LoopBack_TxThread(ULONG Context)
 			RtmpusecDelay(200);
 #endif
 			DbgCount++;
-			MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_DEBUG, "DbgCount =  %d\n", DbgCount);
+			MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_ERROR, ("%s, DbgCount =  %d\n", __func__, DbgCount));
 
 			if (!pSetting->IsDefaultPattern) {
 				/* use script file does not need to auto increase length */
@@ -455,7 +456,7 @@ INT LoopBack_TxThread(ULONG Context)
 		LoopBack_Stop(pAd);
 
 	/* pAd->LbCtrl.LoopBackTxThread = NULL; */
-	MTWF_DBG(NULL, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_DEBUG, "+ + + + Control Thread Terminated + + + +\n");
+	MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO, ("+ + + + Control Thread Terminated + + + +\n"));
 	/* DecrementIoCount(pAd); */
 	/* PsTerminateSystemThread(STATUS_SUCCESS); */
 	RtmpOSTaskNotifyToExit(&pAd->LbCtrl.LoopBackTxTask);
@@ -471,14 +472,14 @@ VOID LoopBack_Rx(RTMP_ADAPTER *pAd, UINT32 pktlen, UINT8 *pData)
 		UINT32 LPLength = 0;
 		INT32 TotalLength = (INT32)pktlen;
 		UINT8  *ptr = pData;
-		EVENT_RXD EvnRxD = {0};
+		EVENT_RXD EvnRxD;
 
 		/* FwCMDRspTxD_STRUC FwCMDRspTxD; */
 		if (pAd->LbCtrl.DebugMode) {
-			MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO, "Debug Mode, Total Len:%d\n", TotalLength);
+			MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("%s, Debug Mode, Total Len:%d\n", __func__, TotalLength));
 			LPLength = pktlen;
 		} else {
-			MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO, "Driver Rx LoopBackRunning\n");
+			MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("Driver Rx LoopBackRunning\n"));
 			/* os_move_mem(&FwCMDRspTxD,ptr,sizeof(FwCMDRspTxD)); */
 			os_move_mem(&EvnRxD, ptr, sizeof(EvnRxD));
 			/* LPLength = FwCMDRspTxD.FwEventTxD.u2RxByteCount; */
@@ -486,7 +487,7 @@ VOID LoopBack_Rx(RTMP_ADAPTER *pAd, UINT32 pktlen, UINT8 *pData)
 
 			if (LPLength > LOOPBACK_SIZE) {
 				LPLength = LOOPBACK_SIZE;
-				MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO, "max length is %d\n", LOOPBACK_SIZE);
+				MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("%s, max length is %d\n", __func__, LOOPBACK_SIZE));
 			}
 		}
 
@@ -498,8 +499,8 @@ VOID LoopBack_Rx(RTMP_ADAPTER *pAd, UINT32 pktlen, UINT8 *pData)
 
 #endif
 			/* RtlCopyMemory(&FwCMDRspTxD,ptr,sizeof(FwCMDRspTxD)); */
-			MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO, "Total Length = %d, LPLength is %d, bytecount = %d\n",
-					 TotalLength, LPLength, EvnRxD.fw_rxd_0.field.length);
+			MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("%s, Total Length = %d, LPLength is %d, bytecount = %d\n",
+					 __func__, TotalLength, LPLength, EvnRxD.fw_rxd_0.field.length));
 			/* LPLength = FwCMDRspTxD.FwEventTxD.u2RxByteCount; */
 			pAd->LbCtrl.LoopBackResult.RxByteCount += LPLength;
 			pAd->LbCtrl.LoopBackResult.RxPktCount++;
@@ -515,7 +516,7 @@ VOID LoopBack_Rx(RTMP_ADAPTER *pAd, UINT32 pktlen, UINT8 *pData)
 		pAd->LbCtrl.LoopBackWaitRx = FALSE;
 		/* KeReleaseSpinLock(&pAdapter->LoopBackLock, Irql); */
 		OS_SPIN_UNLOCK(&pAd->LbCtrl.LoopBackLock);
-		MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO, "RxPktCount = %d\n", pAd->LbCtrl.LoopBackResult.RxPktCount);
+		MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("%s, RxPktCount = %d\n", __func__, pAd->LbCtrl.LoopBackResult.RxPktCount));
 	}
 }
 
@@ -539,9 +540,9 @@ void PCILoopBack_Run(RTMP_ADAPTER *pAd, struct _LOOPBACK_SETTING *pSetting, UINT
 #else
 	struct _ATE_CTRL *ate_ctrl = &(pAd->ATECtrl);
 
-	TxDataBuffer = pAd->ATECtrl.test_pkt;
+	TxDataBuffer = pAd->ATECtrl.pate_pkt;
 	BUF_SIZE = ATE_TESTPKT_LEN;
-	TxDataBufferLength = &pAd->ATECtrl.tx_len;
+	TxDataBufferLength = &pAd->ATECtrl.TxLength;
 #endif
 
 	/* length = 1024; */
@@ -555,24 +556,26 @@ void PCILoopBack_Run(RTMP_ADAPTER *pAd, struct _LOOPBACK_SETTING *pSetting, UINT
 
 		/* set pkt content */
 		TxD.TxD0.TxByteCount = length;
+#ifndef MT7615
 		TxD.TxD0.PIdx = 1;
 		TxD.TxD0.QIdx = 0;
 		TxD.TxD1.TxDFmt = 1;
 		TxD.TxD1.HdrFmt = 1;
+#endif
 		os_move_mem(TxDataBuffer, &TxD, sizeof(TxD));
 		os_move_mem(&pAd->LbCtrl.LoopBackTxRaw, TxDataBuffer, LOOPBACK_SIZE);
 		pAd->LbCtrl.LoopBackTxRawLen = length;
-		MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO, "length = %d\n", length);
+		MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("%s, length = %d\n", __func__, length));
 
 		if (length > 32) {
-			MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO, "===buffer===\n");
-			MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO, "0x%x 0x%x 0x%x 0x%x\n", TxDataBuffer[3], TxDataBuffer[2], TxDataBuffer[1], TxDataBuffer[0]);
-			MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO, "0x%x 0x%x 0x%x 0x%x\n", TxDataBuffer[7], TxDataBuffer[6], TxDataBuffer[5], TxDataBuffer[4]);
-			MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO, "0x%x 0x%x 0x%x 0x%x\n", TxDataBuffer[11], TxDataBuffer[10], TxDataBuffer[9], TxDataBuffer[8]);
-			MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO, "0x%x 0x%x 0x%x 0x%x\n", TxDataBuffer[15], TxDataBuffer[14], TxDataBuffer[13], TxDataBuffer[12]);
-			MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO, "0x%x 0x%x 0x%x 0x%x\n", TxDataBuffer[19], TxDataBuffer[18], TxDataBuffer[17], TxDataBuffer[16]);
-			MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO, "0x%x 0x%x 0x%x 0x%x\n", TxDataBuffer[23], TxDataBuffer[22], TxDataBuffer[21], TxDataBuffer[20]);
-			MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO, "0x%x 0x%x 0x%x 0x%x\n", TxDataBuffer[27], TxDataBuffer[26], TxDataBuffer[25], TxDataBuffer[24]);
+			MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("===buffer===\n"));
+			MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("0x%x 0x%x 0x%x 0x%x\n", TxDataBuffer[3], TxDataBuffer[2], TxDataBuffer[1], TxDataBuffer[0]));
+			MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("0x%x 0x%x 0x%x 0x%x\n", TxDataBuffer[7], TxDataBuffer[6], TxDataBuffer[5], TxDataBuffer[4]));
+			MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("0x%x 0x%x 0x%x 0x%x\n", TxDataBuffer[11], TxDataBuffer[10], TxDataBuffer[9], TxDataBuffer[8]));
+			MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("0x%x 0x%x 0x%x 0x%x\n", TxDataBuffer[15], TxDataBuffer[14], TxDataBuffer[13], TxDataBuffer[12]));
+			MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("0x%x 0x%x 0x%x 0x%x\n", TxDataBuffer[19], TxDataBuffer[18], TxDataBuffer[17], TxDataBuffer[16]));
+			MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("0x%x 0x%x 0x%x 0x%x\n", TxDataBuffer[23], TxDataBuffer[22], TxDataBuffer[21], TxDataBuffer[20]));
+			MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("0x%x 0x%x 0x%x 0x%x\n", TxDataBuffer[27], TxDataBuffer[26], TxDataBuffer[25], TxDataBuffer[24]));
 		}
 
 		if (length % 4 != 0)
@@ -581,12 +584,12 @@ void PCILoopBack_Run(RTMP_ADAPTER *pAd, struct _LOOPBACK_SETTING *pSetting, UINT
 		if (pAd->LbCtrl.DebugMode) {
 			int j = 0;
 
-			MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO, "Tx Dump: ");
+			MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("Tx Dump: "));
 
 			for (j = 0; j < length; j++)
-				MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO, "%02x", TxDataBuffer[j]);
+				MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("%02x", TxDataBuffer[j]));
 
-			MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO, "\n");
+			MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("\n"));
 		}
 
 		/* pAd->TxDataBufferLength = length + alignment + 4 ; */
@@ -599,22 +602,22 @@ void PCILoopBack_Run(RTMP_ADAPTER *pAd, struct _LOOPBACK_SETTING *pSetting, UINT
 		/* pAd->LoopBackExpectRxLen = length; */
 	}
 
-	MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO, "LP length = %d, alignment = %d\n", length, alignment);
+	MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("%s, LP length = %d, alignment = %d\n", __func__, length, alignment));
 	pAd->LbCtrl.LoopBackResult.TxByteCount += length;
 	pAd->LbCtrl.LoopBackResult.TxPktCount++;
-	MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO, "RxPktCount = %d\n", pAd->LbCtrl.LoopBackResult.RxPktCount);
+	MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("%s, RxPktCount = %d\n", __func__, pAd->LbCtrl.LoopBackResult.RxPktCount));
 #ifdef COMPOS_TESTMODE_WIN
 	StartTx(pAd, 1, 0);
 #else
 	ate_ctrl->TxLength = length;
-	mt_ate_enq_pkt(pAd, TESTMODE_BAND0);
+	MT_ATETxPkt(pAd, TESTMODE_BAND0);
 #endif
 
 	/* cannot pass UINT32 TimeOut1Second = 100; to wait_event, it will not wait.. workaround use 0 (1second instead of TimeOut1Second) */
 	if (!pAd->LbCtrl.DebugMode)
 		if (RTMP_OS_WAIT_FOR_COMPLETION_TIMEOUT(&pAd->LbCtrl.LoopBackPCITxEvent, 0) != STATUS_SUCCESS) {
 			LoopBack_Fail(pAd, TX_TIMEOUT);
-			MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO, "####################### TX_TIMEOUT ####################3\n");
+			MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("%s, ####################### TX_TIMEOUT ####################3\n", __func__));
 		}
 }
 #endif

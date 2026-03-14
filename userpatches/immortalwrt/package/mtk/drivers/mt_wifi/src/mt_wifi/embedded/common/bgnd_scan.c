@@ -1,16 +1,16 @@
-/*
- * Copyright (c) [2020], MediaTek Inc. All rights reserved.
- *
- * This software/firmware and related documentation ("MediaTek Software") are
- * protected under relevant copyright laws.
- * The information contained herein is confidential and proprietary to
- * MediaTek Inc. and/or its licensors.
- * Except as otherwise provided in the applicable licensing terms with
- * MediaTek Inc. and/or its licensors, any reproduction, modification, use or
- * disclosure of MediaTek Software, and information contained herein, in whole
- * or in part, shall be strictly prohibited.
-*/
 /****************************************************************************
+ * Ralink Tech Inc.
+ * 4F, No. 2 Technology 5th Rd.
+ * Science-based Industrial Park
+ * Hsin-chu, Taiwan, R.O.C.
+ * (c) Copyright 2002, Ralink Technology, Inc.
+ *
+ * All rights reserved. Ralink's source code is an unpublished work and the
+ * use of a copyright notice does not imply otherwise. This source code
+ * contains confidential trade secret material of Ralink Tech. Any attemp
+ * or participation in deciphering, decoding, reverse engineering or in any
+ * way altering the source code is stricitly prohibited, unless the prior
+ * written consent of Ralink Technology, Inc. is obtained.
  ****************************************************************************
 
     Module Name:
@@ -21,7 +21,6 @@
 
 #include "rt_config.h"
 #include "bgnd_scan.h"
-#ifdef CONFIG_AP_SUPPORT
 
 /* extern MT_SWITCH_CHANNEL_CFG CurrentSwChCfg[2]; */
 
@@ -58,31 +57,18 @@ static inline INT GetABandChOffset(
 	return 0;
 }
 
-UCHAR BgndSelectBestChannel(RTMP_ADAPTER *pAd, UINT8 band_idx)
+UCHAR BgndSelectBestChannel(RTMP_ADAPTER *pAd)
 {
 	int i;
-	UCHAR BestChannel = 0;
-	UINT32 BestPercen = 0xffffffff, Percen = 0;
+	UCHAR BestChannel = 0, BestPercen = 0xff, Percen = 0;
 
 	for (i = 0; i < pAd->BgndScanCtrl.GroupChListNum; i++) {
 		if (pAd->BgndScanCtrl.GroupChList[i].SkipGroup == 0) {
-#if (RDD_2_SUPPORTED == 1)
-			Percen = pAd->BgndScanCtrl.GroupChList[i].max_ipi_noisy;
-#else
 			Percen = ((pAd->BgndScanCtrl.GroupChList[i].Max_PCCA_Time) * 100) / (((pAd->BgndScanCtrl.ScanDuration) * 1000) - (pAd->BgndScanCtrl.GroupChList[i].Band0_Tx_Time));
-			MTWF_DBG(pAd, DBG_CAT_CHN, CATCHN_SCAN, DBG_LVL_INFO,
-				"Max_PCCA=%x, Min_PCCA=%x, Band0_Tx_Time=%x\n",
-				pAd->BgndScanCtrl.GroupChList[i].Max_PCCA_Time,
-				pAd->BgndScanCtrl.GroupChList[i].Min_PCCA_Time,
-				pAd->BgndScanCtrl.GroupChList[i].Band0_Tx_Time);
-#endif
-			MTWF_DBG(pAd, DBG_CAT_CHN, CATCHN_SCAN, DBG_LVL_INFO,
-				"Band index=%d, ChIdx=%d control-Channle=%d cen-channel=%d, Percentage=%d\n",
-				band_idx,
-				i,
-				pAd->BgndScanCtrl.GroupChList[i].BestCtrlChannel,
-				pAd->BgndScanCtrl.GroupChList[i].CenChannel,
-				Percen);
+			MTWF_LOG(DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_OFF, ("ChIdx=%d control-Channle=%d cen-channel=%d\n", i, pAd->BgndScanCtrl.GroupChList[i].BestCtrlChannel, pAd->BgndScanCtrl.GroupChList[i].CenChannel));
+			MTWF_LOG(DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_OFF, ("		Max_PCCA=%x, Min_PCCA=%x, Band0_Tx_Time=%x, Percentage=%d\n",
+					 pAd->BgndScanCtrl.GroupChList[i].Max_PCCA_Time, pAd->BgndScanCtrl.GroupChList[i].Min_PCCA_Time,
+					 pAd->BgndScanCtrl.GroupChList[i].Band0_Tx_Time, Percen));
 
 			if (Percen <= BestPercen) {
 				BestPercen = Percen;
@@ -90,7 +76,6 @@ UCHAR BgndSelectBestChannel(RTMP_ADAPTER *pAd, UINT8 band_idx)
 			}
 		}
 	}
-	pAd->BgndScanCtrl.Noisy = BestPercen;
 
 	return BestChannel;
 }
@@ -135,60 +120,20 @@ VOID FirstBgndScanChannel(RTMP_ADAPTER *pAd)
 
 }
 
-VOID BuildBgndScanChList(RTMP_ADAPTER *pAd, struct wifi_dev *wdev)
+VOID BuildBgndScanChList(RTMP_ADAPTER *pAd)
 {
-	INT channel_idx = 0, ChListNum = 0;
-	BOOLEAN is_aband = FALSE;
+	INT channel_idx, ChListNum = 0;
 	UCHAR ch;
-	UCHAR cfg_ht_bw = 0;
+	struct wifi_dev *wdev = get_default_wdev(pAd);
+	UCHAR cfg_ht_bw = wlan_config_get_ht_bw(wdev);
 #ifdef DOT11_VHT_AC
-	UCHAR vht_bw = 0;
+	UCHAR vht_bw = wlan_config_get_vht_bw(wdev);
 #endif
-	UINT8 band_idx = 0;
-	CHANNEL_CTRL *pChCtrl = NULL;
+	UCHAR BandIdx = HcGetBandByWdev(wdev);
+	CHANNEL_CTRL *pChCtrl = hc_get_channel_ctrl(pAd->hdev_ctrl, BandIdx);
 
-	/* sanity check for null pointer */
-	if (!wdev) {
-		MTWF_DBG(pAd, DBG_CAT_CHN, CATCHN_SCAN, DBG_LVL_ERROR,
-			"NULL wdev, band idx = %d\n", band_idx);
-		return;
-	}
-
-	band_idx = HcGetBandByWdev(wdev);
-	pChCtrl = hc_get_channel_ctrl(pAd->hdev_ctrl, band_idx);
-
-	is_aband = ((WMODE_CAP_5G(wdev->PhyMode)) ? TRUE : FALSE);
-
-	/* Get BW of wdev */
-	cfg_ht_bw = wlan_config_get_ht_bw(wdev);
-#ifdef DOT11_VHT_AC
-	vht_bw = wlan_config_get_vht_bw(wdev);
-#endif
-
-	/* Reset background scan channel list */
-	os_zero_mem(pAd->BgndScanCtrl.BgndScanChList, sizeof(BGND_SCAN_SUPP_CH_LIST) * MAX_NUM_OF_CHANNELS);
-	pAd->BgndScanCtrl.ChannelListNum = 0;
-
-	if (is_aband) {
-		/* Scan BW */
-#ifdef DOT11_VHT_AC
-		if (vht_bw == VHT_BW_80)
-			pAd->BgndScanCtrl.ScanBW = BW_80;
-		else if (vht_bw == VHT_BW_160)
-			pAd->BgndScanCtrl.ScanBW = BW_160;
-		else
-#endif /* DOT11_VHT_AC */
-			pAd->BgndScanCtrl.ScanBW = cfg_ht_bw;
-
-		/* Build background scan channel list */
+	if (pAd->BgndScanCtrl.IsABand) {
 		for (channel_idx = 0; channel_idx < pChCtrl->ChListNum; channel_idx++) {
-
-			if ((ChListNum >= MAX_NUM_OF_CHANNELS) || (channel_idx >= MAX_NUM_OF_CHANNELS)) {
-				MTWF_DBG(pAd, DBG_CAT_CHN, CATCHN_SCAN, DBG_LVL_ERROR,
-					"ChListNum/channel_idx is ERROR: %d/%d\n", ChListNum, channel_idx);
-				break;
-			}
-
 			ch = pChCtrl->ChList[channel_idx].Channel;
 
 			if (cfg_ht_bw == BW_20) {
@@ -220,19 +165,9 @@ VOID BuildBgndScanChList(RTMP_ADAPTER *pAd, struct wifi_dev *wdev)
 
 #ifdef DOT11_VHT_AC
 			else if (vht_bw == VHT_BW_80) {
-				if (vht80_channel_group(pAd, ch, wdev)) {
-					UCHAR ch_band = wlan_config_get_ch_band(wdev);
+				if (vht80_channel_group(pAd, ch)) {
 					pAd->BgndScanCtrl.BgndScanChList[ChListNum].Channel = pChCtrl->ChList[channel_idx].Channel;
-					pAd->BgndScanCtrl.BgndScanChList[ChListNum].CenChannel = vht_cent_ch_freq(ch, VHT_BW_80, ch_band);
-					pAd->BgndScanCtrl.BgndScanChList[ChListNum].DfsReq = pChCtrl->ChList[channel_idx].DfsReq;
-					pAd->BgndScanCtrl.BgndScanChList[ChListNum].SkipChannel = BackgroundScanSkipChannelCheck(pAd, ch);
-					ChListNum++;
-				}
-			} else if (vht_bw == VHT_BW_160) {
-				if (vht160_channel_group(pAd, ch, wdev)) {
-					UCHAR ch_band = wlan_config_get_ch_band(wdev);
-					pAd->BgndScanCtrl.BgndScanChList[ChListNum].Channel = pChCtrl->ChList[channel_idx].Channel;
-					pAd->BgndScanCtrl.BgndScanChList[ChListNum].CenChannel = vht_cent_ch_freq(ch, VHT_BW_160, ch_band);
+					pAd->BgndScanCtrl.BgndScanChList[ChListNum].CenChannel = vht_cent_ch_freq(ch, VHT_BW_80);
 					pAd->BgndScanCtrl.BgndScanChList[ChListNum].DfsReq = pChCtrl->ChList[channel_idx].DfsReq;
 					pAd->BgndScanCtrl.BgndScanChList[ChListNum].SkipChannel = BackgroundScanSkipChannelCheck(pAd, ch);
 					ChListNum++;
@@ -244,37 +179,25 @@ VOID BuildBgndScanChList(RTMP_ADAPTER *pAd, struct wifi_dev *wdev)
 		}
 	} else {
 		/* 2.4G only support BW20 background scan */
-		/* Scan BW */
-		pAd->BgndScanCtrl.ScanBW = BW_20;
 		for (channel_idx = 0; channel_idx < pChCtrl->ChListNum; channel_idx++) {
-			if ((ChListNum >= MAX_NUM_OF_CHANNELS) || (channel_idx >= MAX_NUM_OF_CHANNELS)) {
-				MTWF_DBG(pAd, DBG_CAT_CHN, CATCHN_SCAN, DBG_LVL_ERROR,
-					"ChListNum/channel_idx is ERROR: %d/%d\n", ChListNum, channel_idx);
-				break;
-			}
 			pAd->BgndScanCtrl.BgndScanChList[ChListNum].Channel = pAd->BgndScanCtrl.BgndScanChList[ChListNum].CenChannel = pChCtrl->ChList[channel_idx].Channel;
 			pAd->BgndScanCtrl.BgndScanChList[ChListNum].SkipChannel = BackgroundScanSkipChannelCheck(pAd, pChCtrl->ChList[channel_idx].Channel);
 			ChListNum++;
 		}
 	}
 
-	MTWF_DBG(pAd, DBG_CAT_CHN, CATCHN_SCAN, DBG_LVL_INFO,
-		"BandIdx=%d, IsABand=%d, ScanBW=%d\n",
-		band_idx, is_aband, pAd->BgndScanCtrl.ScanBW);
-
 	pAd->BgndScanCtrl.ChannelListNum = ChListNum;
 	if (pAd->BgndScanCtrl.ChannelListNum == 0) {
-		MTWF_DBG(pAd, DBG_CAT_CHN, CATCHN_SCAN, DBG_LVL_WARN,
-			"BandIdx = %d, pAd->BgndScanCtrl.ChannelListNum=%d\n",
-			band_idx, ChListNum);
+		MTWF_LOG(DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
+			("[BuildBgndScanChList] BandIdx = %d, pAd->BgndScanCtrl.ChannelListNum=%d\n",
+			BandIdx, pAd->BgndScanCtrl.ChannelListNum));
 	}
 
 	for (channel_idx = 0; channel_idx < pAd->BgndScanCtrl.ChannelListNum; channel_idx++) {
-		MTWF_DBG(pAd, DBG_CAT_CHN, CATCHN_SCAN, DBG_LVL_INFO, "Support channel: PrimCh=%d, CentCh=%d, DFS=%d\n",
+		MTWF_LOG(DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("Support channel: PrimCh=%d, CentCh=%d, DFS=%d\n",
 				 pAd->BgndScanCtrl.BgndScanChList[channel_idx].Channel, pAd->BgndScanCtrl.BgndScanChList[channel_idx].CenChannel,
-				 pAd->BgndScanCtrl.BgndScanChList[channel_idx].DfsReq);
+				 pAd->BgndScanCtrl.BgndScanChList[channel_idx].DfsReq));
 	}
-
 }
 
 UINT8 GroupChListSearch(PRTMP_ADAPTER pAd, UCHAR CenChannel)
@@ -295,67 +218,23 @@ UINT8 GroupChListSearch(PRTMP_ADAPTER pAd, UCHAR CenChannel)
 VOID GroupChListInsert(PRTMP_ADAPTER pAd, PBGND_SCAN_SUPP_CH_LIST pSource)
 {
 	UCHAR i = pAd->BgndScanCtrl.GroupChListNum;
-	PBGND_SCAN_CH_GROUP_LIST GroupChList = &pAd->BgndScanCtrl.GroupChList[i];
+	PBGND_SCAN_CH_GROUP_LIST	GroupChList = &pAd->BgndScanCtrl.GroupChList[i];
 
 	GroupChList->BestCtrlChannel = pSource->Channel;
 	GroupChList->CenChannel = pSource->CenChannel;
-	GroupChList->SkipGroup = pSource->SkipChannel;
-	pAd->BgndScanCtrl.GroupChListNum = i + 1;
-
-	MTWF_DBG(pAd, DBG_CAT_CHN, CATCHN_SCAN, DBG_LVL_INFO,
-		"Insert new group channel list Number=%d CenChannel=%d BestCtrlChannel=%d SkipGroup=%d\n",
-		pAd->BgndScanCtrl.GroupChListNum,
-		GroupChList->CenChannel,
-		GroupChList->BestCtrlChannel,
-		GroupChList->SkipGroup);
-
-#if (RDD_2_SUPPORTED == 1)
-	GroupChList->max_ipi_noisy = pSource->ipi_noisy;
-	GroupChList->min_ipi_noisy = GroupChList->max_ipi_noisy;
-	MTWF_DBG(pAd, DBG_CAT_CHN, CATCHN_SCAN, DBG_LVL_INFO,
-		"ipi_hist_free_cnt=0x%x, ipi_hist_cnt=0x%x, ipi_noisy = 0x%x\n",
-		pSource->ipi_hist_free_cnt,
-		pSource->ipi_hist_cnt,
-		GroupChList->min_ipi_noisy);
-
-#else
 	GroupChList->Max_PCCA_Time = GroupChList->Min_PCCA_Time = pSource->PccaTime;
 	GroupChList->Band0_Tx_Time = pSource->Band0TxTime;
-	MTWF_DBG(pAd, DBG_CAT_CHN, CATCHN_SCAN, DBG_LVL_INFO,
-		"Max_PCCA_TIEM=0x%x\n",
-		GroupChList->Max_PCCA_Time);
-
-#endif
-
+	GroupChList->SkipGroup = pSource->SkipChannel;
+	pAd->BgndScanCtrl.GroupChListNum = i + 1;
+	MTWF_LOG(DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("%s Insert new group channel list Number=%d CenChannel=%d BestCtrlChannel=%d Max_PCCA_TIEM=%x, SkipGroup=%d\n",
+			 __func__, pAd->BgndScanCtrl.GroupChListNum, GroupChList->CenChannel, GroupChList->BestCtrlChannel,	GroupChList->Max_PCCA_Time, GroupChList->SkipGroup));
 }
 
 VOID GroupChListUpdate(PRTMP_ADAPTER pAd, UCHAR index, PBGND_SCAN_SUPP_CH_LIST pSource)
 {
 	/* UCHAR i; */
-	PBGND_SCAN_CH_GROUP_LIST GroupChList = &pAd->BgndScanCtrl.GroupChList[index];
+	PBGND_SCAN_CH_GROUP_LIST	GroupChList = &pAd->BgndScanCtrl.GroupChList[index];
 
-	if (GroupChList->SkipGroup == 0 && pSource->SkipChannel == 1)
-		GroupChList->SkipGroup = pSource->SkipChannel;
-
-#if (RDD_2_SUPPORTED == 1)
-	if (pSource->ipi_noisy > GroupChList->max_ipi_noisy) {
-		GroupChList->max_ipi_noisy = pSource->ipi_noisy;
-	}
-
-	if (pSource->ipi_noisy < GroupChList->min_ipi_noisy) {
-		GroupChList->min_ipi_noisy = pSource->ipi_noisy;
-		GroupChList->BestCtrlChannel = pSource->Channel;
-	}
-
-	MTWF_DBG(pAd, DBG_CAT_CHN, CATCHN_SCAN, DBG_LVL_INFO,
-		"Update group channel list index=%d CenChannel=%d BestCtrlChannel=%d ipi_noisy=%x SkipGroup=%d\n",
-		pAd->BgndScanCtrl.GroupChListNum,
-		GroupChList->CenChannel,
-		GroupChList->BestCtrlChannel,
-		GroupChList->max_ipi_noisy,
-		GroupChList->SkipGroup);
-
-#else
 	if (pSource->PccaTime > GroupChList->Max_PCCA_Time) {
 		GroupChList->Max_PCCA_Time = pSource->PccaTime;
 		GroupChList->Band0_Tx_Time = pSource->Band0TxTime;
@@ -365,24 +244,23 @@ VOID GroupChListUpdate(PRTMP_ADAPTER pAd, UCHAR index, PBGND_SCAN_SUPP_CH_LIST p
 		GroupChList->Min_PCCA_Time = pSource->PccaTime;
 		GroupChList->BestCtrlChannel = pSource->Channel;
 	}
-	MTWF_DBG(pAd, DBG_CAT_CHN, CATCHN_SCAN, DBG_LVL_INFO,
-		"Update group channel list index=%d CenChannel=%d BestCtrlChannel=%d PCCA_TIEM=%x SkipGroup=%d\n",
-		pAd->BgndScanCtrl.GroupChListNum,
-		GroupChList->CenChannel,
-		GroupChList->BestCtrlChannel,
-		GroupChList->Max_PCCA_Time,
-		GroupChList->SkipGroup);
-#endif
 
+	if (GroupChList->SkipGroup == 0 && pSource->SkipChannel == 1)
+		GroupChList->SkipGroup = pSource->SkipChannel;
+
+	MTWF_LOG(DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("%s Update group channel list index=%d CenChannel=%d BestCtrlChannel=%d PCCA_TIEM=%x SkipGroup=%d\n",
+			 __func__, pAd->BgndScanCtrl.GroupChListNum, GroupChList->CenChannel, GroupChList->BestCtrlChannel,	GroupChList->Max_PCCA_Time, GroupChList->SkipGroup));
 }
 
 VOID GenerateGroupChannelList(PRTMP_ADAPTER pAd)
 {
 	UCHAR i, ListIndex;
-	PBGND_SCAN_SUPP_CH_LIST	SuppChList = pAd->BgndScanCtrl.BgndScanChList;
-
-	MTWF_DBG(pAd, DBG_CAT_CHN, CATCHN_SCAN, DBG_LVL_INFO, "ChannelListNum=%d\n",
-			 pAd->BgndScanCtrl.ChannelListNum);
+	/* PBGND_SCAN_CH_GROUP_LIST	GroupChList = pAd->BgndScanCtrl.GroupChList; */
+	PBGND_SCAN_SUPP_CH_LIST		SuppChList = pAd->BgndScanCtrl.BgndScanChList;
+	/* PBACKGROUND_SCAN_CTRL		BgndScanCtrl = &pAd->BgndScanCtrl; */
+	/* PBGND_SCAN_SUPP_CH_LIST		SuppChList = BgndScanCtrl->BgndScanChList; */
+	MTWF_LOG(DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("%s ChannelListNum=%d\n",
+			 __func__, pAd->BgndScanCtrl.ChannelListNum));
 	os_zero_mem(pAd->BgndScanCtrl.GroupChList, MAX_NUM_OF_CHANNELS * sizeof(BGND_SCAN_CH_GROUP_LIST));
 	pAd->BgndScanCtrl.GroupChListNum = 0; /* reset Group Number. */
 
@@ -413,7 +291,8 @@ VOID BackgroundScanStateMachineInit(
 	StateMachineSetAction(Sm, BGND_SCAN_WAIT, BGND_SCAN_REQ, (STATE_MACHINE_FUNC)BackgroundScanPartialAction);
 	StateMachineSetAction(Sm, BGND_SCAN_WAIT, BGND_SCAN_CNCL, (STATE_MACHINE_FUNC)BackgroundScanCancelAction);
 	StateMachineSetAction(Sm, BGND_SCAN_IDLE, BGND_SWITCH_CHANNEL, (STATE_MACHINE_FUNC)BackgroundSwitchChannelAction);
-	StateMachineSetAction(Sm, BGND_SCAN_LISTEN, BGND_DEDICATE_RX_SCAN, (STATE_MACHINE_FUNC)dedicated_rx_hist_scan_timeout_action);
+	StateMachineSetAction(Sm, BGND_SCAN_IDLE, BGND_RDD_REQ, (STATE_MACHINE_FUNC)DfsZeroWaitStartAction);
+	StateMachineSetAction(Sm, BGND_RDD_DETEC, BGND_RDD_TIMEOUT, (STATE_MACHINE_FUNC)DfsZeroWaitStopAction);
 #ifdef MT_DFS_SUPPORT
 	StateMachineSetAction(Sm, BGND_SCAN_IDLE, BGND_DEDICATE_RDD_REQ, (STATE_MACHINE_FUNC)DedicatedZeroWaitStartAction);
 	StateMachineSetAction(Sm, BGND_RDD_DETEC, BGND_OUTBAND_RADAR_FOUND, (STATE_MACHINE_FUNC)DedicatedZeroWaitRunningAction);
@@ -422,74 +301,75 @@ VOID BackgroundScanStateMachineInit(
 }
 
 VOID BackgroundScanInit(
-	IN PRTMP_ADAPTER pAd,
-	IN struct wifi_dev *wdev)
+	IN PRTMP_ADAPTER pAd)
 {
+	/* UCHAR channel_idx = 0; */
+	/* UINT32 Value; */
+	/* RTMP_REG_PAIR Reg[2]; */
+	UCHAR PhyMode = 0;
+	struct wifi_dev *wdev = get_default_wdev(pAd);
+	UCHAR cfg_ht_bw = wlan_config_get_ht_bw(wdev);
 #ifdef DOT11_VHT_AC
-	UCHAR vht_bw = 0;
+	UCHAR vht_bw = wlan_config_get_vht_bw(wdev);
 #endif
-	struct _RTMP_CHIP_OP *ops = hc_get_chip_ops(pAd->hdev_ctrl);
+	MTWF_LOG(DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("%s ===============>\n", __func__));
+	/*
+	ToDo: Based on current settings to decide support background scan or not.
+	Don't support case: DBDC, 80+80
+	*/
+	/* Scan BW */
+	PhyMode = HcGetRadioPhyMode(pAd);
+	pAd->BgndScanCtrl.IsABand = (WMODE_CAP_5G(PhyMode)) ? TRUE : FALSE;
 
-	/* Sanity check for NULL pointer */
-	if (!wdev) {
-		MTWF_DBG(pAd, DBG_CAT_CHN, CATCHN_SCAN, DBG_LVL_ERROR, "wdev is NULL, return\n");
-		return;
-	}
+	if (pAd->BgndScanCtrl.IsABand) {
 #ifdef DOT11_VHT_AC
-	vht_bw = wlan_config_get_vht_bw(wdev);
-#endif
 
-	/* Initilize BgndScanCtrl*/
-	if (pAd->BgndScanCtrl.init_done != TRUE) {
-		os_zero_mem(&pAd->BgndScanCtrl, sizeof(BACKGROUND_SCAN_CTRL));
-		pAd->BgndScanCtrl.init_done = TRUE;
-	}
+		if (vht_bw == VHT_BW_80)
+			pAd->BgndScanCtrl.ScanBW = BW_80;
+		else
+#endif /* DOT11_VHT_AC */
+			pAd->BgndScanCtrl.ScanBW = cfg_ht_bw;
+	} else /* 2.4G */
+		pAd->BgndScanCtrl.ScanBW = BW_20;
 
+	/* Decide RxPath&TxStream for background */
+	pAd->BgndScanCtrl.RxPath = 0xc;
+	pAd->BgndScanCtrl.TxStream = 0x2;
 #ifdef MT_DFS_SUPPORT
 	pAd->BgndScanCtrl.DfsZeroWaitDuration = DEFAULT_OFF_CHNL_CAC_TIME;/* 120000; 2 min */
 #endif
 
-	/*
-	Based on current settings to decide support background scan or not.
-	Don't support case: DBDC, 80+80
-	background scan can be supported if dedicated RX is used
-	*/
-
-#if (RDD_2_SUPPORTED == 1)
-	/* Dedicated RX for DFS & BackgroundScan, bgndscan can be supported when DBDC is enabled */
-	pAd->BgndScanCtrl.BgndScanSupport = 1;
-#else
-
-	if (pAd->CommonCfg.dbdc_mode == TRUE) {
-#if (RDD_PROJECT_TYPE_2 == 1)
-		pAd->BgndScanCtrl.BgndScanSupport = 1;
-#else
+	if (pAd->CommonCfg.dbdc_mode == TRUE)
 		pAd->BgndScanCtrl.BgndScanSupport = 0;
-#endif
-	}
 
 #ifdef DOT11_VHT_AC
-	else if (vht_bw == VHT_BW_8080) {
+	else if (vht_bw == VHT_BW_160 || vht_bw == VHT_BW_8080)
 		pAd->BgndScanCtrl.BgndScanSupport = 0;
-		pAd->BgndScanCtrl.DfsZeroWaitSupport = 0;
-	}
-#endif /* DOT11_VHT_AC */
 
+#endif /* DOT11_VHT_AC */
 	else
 		pAd->BgndScanCtrl.BgndScanSupport = 1;
 
-	pAd->BgndScanCtrl.RxPath = 0xc;
-	pAd->BgndScanCtrl.TxStream = 0x2;
-#endif /* RDD_2_SUPPORTED */
+	MTWF_LOG(DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("IsABand=%d, ScanBW=%d\n", pAd->BgndScanCtrl.IsABand, pAd->BgndScanCtrl.ScanBW));
 
 	if (pAd->BgndScanCtrl.BgndScanSupport) {
 		BackgroundScanStateMachineInit(pAd, &pAd->BgndScanCtrl.BgndScanStatMachine, pAd->BgndScanCtrl.BgndScanFunc);
+		/* Copy channel list for background. */
+		BuildBgndScanChList(pAd);
 		RTMPInitTimer(pAd, &pAd->BgndScanCtrl.BgndScanTimer, GET_TIMER_FUNCTION(BackgroundScanTimeout), pAd, FALSE);
+		RTMPInitTimer(pAd, &pAd->BgndScanCtrl.DfsZeroWaitTimer, GET_TIMER_FUNCTION(DfsZeroWaitTimeout), wdev, FALSE);
 
 		/* ToDo: Related CR initialization. */
-		if (ops->bgnd_scan_cr_init)
-			ops->bgnd_scan_cr_init(pAd);
-
+		MAC_IO_WRITE32(pAd, MIB_M1SCR, 0x7ef3ffff); /* 0x820fd200 Enable Band1 PSCCA time */
+		MAC_IO_WRITE32(pAd, MIB_M1SCR1, 0xffff); /* 0x820fd208  */
+		MAC_IO_WRITE32(pAd, PHY_BAND1_PHY_CCA, 0); /* 0x82070818 Enable Band1 EDCCA  */
+		/*
+		Reg[0].Register=0x820fd200;
+		Reg[1].Register=0x820fd208;
+		MtCmdMultipleMacRegAccessRead(pAd, Reg, 2);
+		*/
+		/* Enabel PSCCA time count & Enable EDCCA time count */
+		/* MtCmdMultipleMacRegAccessWrite */
 		pAd->BgndScanCtrl.ScanDuration = DefaultScanDuration;
 		/* pAd->BgndScanCtrl.BgndScanInterval = DefaultBgndScanInterval; */
 		pAd->BgndScanCtrl.BgndScanIntervalCount = 0;
@@ -499,65 +379,52 @@ VOID BackgroundScanInit(
 		pAd->BgndScanCtrl.ChBusyTimeTH = DefaultChBusyTimeThreshold;
 		pAd->BgndScanCtrl.DriverTrigger = FALSE;
 		pAd->BgndScanCtrl.IPIIdleTimeTH = DefaultIdleTimeThreshold;
-		pAd->BgndScanCtrl.ipi_th = RDD_IPI_HIST_2;
 	} else
-		MTWF_DBG(pAd, DBG_CAT_CHN, CATCHN_SCAN, DBG_LVL_INFO, "Background scan doesn't support in current settings....\n");
+		MTWF_LOG(DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("Background scan doesn't support in current settings....\n"));
+
+	MTWF_LOG(DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("%s <===============\n", __func__));
 }
 
 VOID BackgroundScanDeInit(
 	IN PRTMP_ADAPTER pAd)
 {
 	BOOLEAN Cancelled;
+
 	RTMPReleaseTimer(&pAd->BgndScanCtrl.BgndScanTimer, &Cancelled);
 	RTMPReleaseTimer(&pAd->BgndScanCtrl.DfsZeroWaitTimer, &Cancelled);
 }
 
 VOID BackgroundScanStart(
 	IN PRTMP_ADAPTER pAd,
-	IN struct wifi_dev *wdev,
-	IN UINT8	bgnd_band_scan_info)
+	IN UINT8	BgndscanType)
 {
 	/* UINT32	Value; */
 	/* In-band commad to notify FW(RA) background scan will start. */
 	/* Switch channel for Band0 (Include Star Tx/Rx ?) */
 	/* Scan channel for Band1 */
-	UINT8 bgnd_scan_type = (bgnd_band_scan_info & BGND_SCAN_TYPE_MASK);
-	UINT8 band_idx = ((bgnd_band_scan_info & BGND_BAND_IDX_MASK) >> BGND_BAND_IDX_SHFT);
-
 	/* Reset Group channel list */
 	os_zero_mem(pAd->BgndScanCtrl.GroupChList, sizeof(BGND_SCAN_CH_GROUP_LIST) * MAX_NUM_OF_CHANNELS);
 	pAd->BgndScanCtrl.GroupChListNum = 0;
+	MTWF_LOG(DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("%s BgndscanType=%d ===============>\n", __func__, BgndscanType));
 
-	/* Copy channel list for background. */
-	BuildBgndScanChList(pAd, wdev);
-
-	MTWF_DBG(pAd, DBG_CAT_CHN, CATCHN_SCAN, DBG_LVL_INFO,
-		"BgndscanType=%d, band idx=%d ===============>\n",
-		bgnd_scan_type, band_idx);
-	pAd->BgndScanCtrl.BgndScanStatMachine.CurrState = BGND_SCAN_IDLE;
-
-	if (bgnd_scan_type && (pAd->BgndScanCtrl.ScanType & BGND_SCAN_TYPE_MASK)) {
-		MTWF_DBG(pAd, DBG_CAT_CHN, CATCHN_SCAN, DBG_LVL_INFO,
-			"Ap Background scan is running ===============>\n");
+	if (BgndscanType && pAd->BgndScanCtrl.ScanType) {
+		MTWF_LOG(DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("%s Ap Background scan is running ===============>\n", __func__));
 		return;
 	}
-	pAd->BgndScanCtrl.ScanType = bgnd_band_scan_info;
 
-	/* bgnd_scan_type - 0:Disable, 1:partial scan, 2:continuous scan */
-	if (bgnd_scan_type == TYPE_BGND_PARTIAL_SCAN) {	/* partial scan */
+	pAd->BgndScanCtrl.ScanType = BgndscanType; /* 0:Disable 1:partial scan 2:continuous scan */
+
+	if (BgndscanType == TYPE_BGND_PARTIAL_SCAN) {	/* partial scan */
 		pAd->BgndScanCtrl.PartialScanIntervalCount = DefaultBgndScanPerChInterval; /* First time hope trigger scan immediately. */
-		MlmeEnqueue(pAd, BGND_SCAN_STATE_MACHINE, BGND_PARTIAL_SCAN, 0, NULL, bgnd_band_scan_info);
-	} else if (bgnd_scan_type == TYPE_BGND_CONTINUOUS_SCAN) /* continuous scan */
-
-		MlmeEnqueue(pAd, BGND_SCAN_STATE_MACHINE, BGND_SCAN_REQ, 0, NULL, bgnd_band_scan_info);
-	else if (bgnd_scan_type == TYPE_BGND_CONTINUOUS_SCAN_SWITCH_CH) {/* continuous scan and then switch channel*/
+		MlmeEnqueue(pAd, BGND_SCAN_STATE_MACHINE, BGND_PARTIAL_SCAN, 0, NULL, BgndscanType);
+	} else if (BgndscanType == TYPE_BGND_CONTINUOUS_SCAN) /* continuous scan */
+		MlmeEnqueue(pAd, BGND_SCAN_STATE_MACHINE, BGND_SCAN_REQ, 0, NULL, BgndscanType);
+	else if (BgndscanType == TYPE_BGND_CONTINUOUS_SCAN_SWITCH_CH) {/* continuous scan and then switch channel*/
 		pAd->BgndScanCtrl.IsSwitchChannel = TRUE;
-		bgnd_band_scan_info &= (~BGND_SCAN_TYPE_MASK);
-		bgnd_band_scan_info |= TYPE_BGND_CONTINUOUS_SCAN;
-		MlmeEnqueue(pAd, BGND_SCAN_STATE_MACHINE, BGND_SCAN_REQ, 0, NULL, bgnd_band_scan_info);
+		MlmeEnqueue(pAd, BGND_SCAN_STATE_MACHINE, BGND_SCAN_REQ, 0, NULL, TYPE_BGND_CONTINUOUS_SCAN);
 	} else {
 		pAd->BgndScanCtrl.PartialScanIntervalCount = 0;
-		MlmeEnqueue(pAd, BGND_SCAN_STATE_MACHINE, BGND_SCAN_CNCL, 0, NULL, bgnd_band_scan_info);
+		MlmeEnqueue(pAd, BGND_SCAN_STATE_MACHINE, BGND_SCAN_CNCL, 0, NULL, BgndscanType);
 	}
 
 	RTMP_MLME_HANDLER(pAd);
@@ -565,17 +432,17 @@ VOID BackgroundScanStart(
 
 VOID BackgroundScanStartAction(RTMP_ADAPTER *pAd, MLME_QUEUE_ELEM *Elem)
 {
-	UINT8 bgnd_band_scan_info = (UINT8)(Elem->Priv);
-	UINT8 bgnd_scan_type = (bgnd_band_scan_info & BGND_SCAN_TYPE_MASK);
-
-	/* 0:Disable 1:partial scan 2:continuous scan */
-	MTWF_DBG(pAd, DBG_CAT_CHN, CATCHN_SCAN, DBG_LVL_INFO, "ScanType=%d\n", bgnd_scan_type);
-	FirstBgndScanChannel(pAd);
-	pAd->BgndScanCtrl.ScanType = bgnd_band_scan_info;
+	UINT8 ScanType = (UINT8)(Elem->Priv);
 #ifdef GREENAP_SUPPORT
-	greenap_suspend(pAd, GREENAP_REASON_AP_BACKGROUND_SCAN);
+	struct greenap_ctrl *greenap = &pAd->ApCfg.greenap;
 #endif /* GREENAP_SUPPORT */
-	BackgroundScanNextChannel(pAd, bgnd_band_scan_info);
+	MTWF_LOG(DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("%s ===> ScanType=%d\n", __func__, ScanType));
+	FirstBgndScanChannel(pAd);
+	pAd->BgndScanCtrl.ScanType = ScanType;
+#ifdef GREENAP_SUPPORT
+	greenap_suspend(pAd, greenap, AP_BACKGROUND_SCAN);
+#endif /* GREENAP_SUPPORT */
+	BackgroundScanNextChannel(pAd, ScanType); /* 0:Disable 1:partial scan 2:continuous scan */
 }
 
 VOID BackgroundScanTimeout(
@@ -585,11 +452,10 @@ VOID BackgroundScanTimeout(
 	IN PVOID SystemSpecific3)
 {
 	PRTMP_ADAPTER pAd = (PRTMP_ADAPTER)FunctionContext;
-	/* Bit[7:4]: Band index, Bit[3:0]: background scan type */
-	UINT8 bgnd_band_scan_info = pAd->BgndScanCtrl.ScanType;
+	UINT8 ScanType = pAd->BgndScanCtrl.ScanType;
 
-	MTWF_DBG(pAd, DBG_CAT_CHN, CATCHN_SCAN, DBG_LVL_INFO, "ScanTypeInfo=%d\n", bgnd_band_scan_info);
-	MlmeEnqueue(pAd, BGND_SCAN_STATE_MACHINE, BGND_SCAN_TIMEOUT, 0, NULL, bgnd_band_scan_info);
+	MTWF_LOG(DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("%s ===> ScanType=%d\n", __func__, ScanType));
+	MlmeEnqueue(pAd, BGND_SCAN_STATE_MACHINE, BGND_SCAN_TIMEOUT, 0, NULL, ScanType);
 	RTMP_MLME_HANDLER(pAd);
 }
 
@@ -597,118 +463,83 @@ VOID BackgroundScanTimeoutAction(
 	RTMP_ADAPTER *pAd,
 	MLME_QUEUE_ELEM *Elem)
 {
-#if (RDD_2_SUPPORTED == 1)
-	EXT_EVENT_RDD_IPI_HIST rdd_ipi_hist_rlt;
-	UINT8 ipi_idx = 0;
-	UCHAR ipi_th = pAd->BgndScanCtrl.ipi_th;
-	UINT32 ipi_hist_val = 0;
-#else
+	/* UINT32	PCCA_TIME; */
 	RTMP_REG_PAIR Reg[5];
-#ifdef WIFI_UNIFIED_COMMAND
-	RTMP_CHIP_CAP *cap = hc_get_chip_cap(pAd->hdev_ctrl);
-#endif /* WIFI_UNIFIED_COMMAND */
-#endif
-	UINT8 bgnd_band_scan_info = (UINT8)(Elem->Priv);
-	UINT8 ScanType = (bgnd_band_scan_info & BGND_SCAN_TYPE_MASK);
-	UINT8 band_idx = ((bgnd_band_scan_info & BGND_BAND_IDX_MASK) >> BGND_BAND_IDX_SHFT);
-	UCHAR ch_idx = pAd->BgndScanCtrl.ChannelIdx;
-	struct _RTMP_CHIP_OP *ops = hc_get_chip_ops(pAd->hdev_ctrl);
-	PBGND_SCAN_SUPP_CH_LIST p_bgnd_scan_ch = &pAd->BgndScanCtrl.BgndScanChList[ch_idx];
-
-	MTWF_DBG(pAd, DBG_CAT_CHN, CATCHN_SCAN, DBG_LVL_INFO,
-		"band idx=%d, channel index=%d, ScanType=%d ==========>\n",
-		band_idx, ch_idx, ScanType);
-
-	if (p_bgnd_scan_ch == NULL) {
-		MTWF_DBG(pAd, DBG_CAT_CHN, CATCHN_SCAN, DBG_LVL_ERROR,
-			"p_bgnd_scan_ch == NULL\n");
-		return;
-	}
-
-#if (RDD_2_SUPPORTED == 1)
-	os_zero_mem(&rdd_ipi_hist_rlt, sizeof(EXT_EVENT_RDD_IPI_HIST));
-
-	/* Get IPI cnt */
-	rdd_ipi_hist_rlt.band_idx = band_idx;
-	mt_cmd_get_rdd_ipi_hist(pAd, RDD_IPI_HIST_ALL_CNT, &rdd_ipi_hist_rlt);
-	for (ipi_idx = 0; ipi_idx < IPI_HIST_TYPE_NUM; ipi_idx++) {
-		MTWF_DBG(pAd, DBG_CAT_CHN, CATCHN_SCAN, DBG_LVL_INFO,
-			"ChannelIdx [%d] ipi_idx = %d,\t ipi_hist_cnt=\t0x%x \n",
-			ch_idx,
-			ipi_idx,
-			rdd_ipi_hist_rlt.ipi_hist_val[ipi_idx]);
-
-		/* Get IPI2-IPI10 total cnt */
-		if (ipi_th <= ipi_idx && ipi_idx <= RDD_IPI_HIST_10) {
-			ipi_hist_val += rdd_ipi_hist_rlt.ipi_hist_val[ipi_idx];
-		}
-
-	}
-
-	/* Get IPI free run cnt */
-	p_bgnd_scan_ch->ipi_hist_free_cnt = rdd_ipi_hist_rlt.ipi_hist_val[RDD_IPI_FREE_RUN_CNT];
-
-	/* Get IPI2-IPI10 total cnt */
-	p_bgnd_scan_ch->ipi_hist_cnt = ipi_hist_val;
-
-	/* TBD: judge noisy */
-	p_bgnd_scan_ch->ipi_noisy = ipi_hist_val;
-
-	MTWF_DBG(pAd, DBG_CAT_CHN, CATCHN_SCAN, DBG_LVL_INFO,
-		"ChannelIdx [%d], Channel=%d, ipi_th=%d, ipi_hist_cnt=0x%x <===============\n",
-		ch_idx,
-		p_bgnd_scan_ch->Channel,
-		ipi_th,
-		p_bgnd_scan_ch->ipi_hist_cnt);
-
-#else
-	/* Update channel info */
+	MT_BGND_SCAN_CFG BgndScanCfg;
+	MT_BGND_SCAN_NOTIFY BgScNotify;
+	MT_SWITCH_CHANNEL_CFG *CurrentSwChCfg;
+	UCHAR	RxStreamNums = 0;
+	UCHAR	RxPath = 0;
+	INT	i;
+	UINT8 ScanType = (UINT8)(Elem->Priv);
+	/* UINT32	pccatime, sccatime, edtime, band0txtime, mdrdy; */
+	MTWF_LOG(DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("%s channel index=%d====ScanTyep=%d ==========>\n", __func__, pAd->BgndScanCtrl.ChannelIdx, ScanType));
+	/* Updaet channel info */
+	/* RTMP_IO_READ32(pAd, 0x820fd248, &PCCA_TIME); */
 	Reg[0].Register = 0x820fd248/*MIB_M1SDR16*/; /* PCCA Time */
 	Reg[1].Register = 0x820fd24c/*MIB_M1SDR17*/; /* SCCA Time */
 	Reg[2].Register = 0x820fd250/*MIB_M1SDR18*/; /* ED Time */
 	Reg[3].Register = 0x820fd094/*MIB_M0SDR35*/; /* Bnad0 TxTime */
 	Reg[4].Register = 0x820fd258/*MIB_M1SDR20*/; /* Mdrdy */
-#ifdef WIFI_UNIFIED_COMMAND
-	if (cap->uni_cmd_support)
-		UniCmdMultipleMacRegAccessRead(pAd, Reg, 5);
-	else
-#endif /* WIFI_UNIFIED_COMMAND */
-		MtCmdMultipleMacRegAccessRead(pAd, Reg, 5);
-	p_bgnd_scan_ch->PccaTime = Reg[0].Value;
-	p_bgnd_scan_ch->SccaTime = Reg[1].Value;
-	p_bgnd_scan_ch->EDCCATime = Reg[2].Value;
-	p_bgnd_scan_ch->Band0TxTime = Reg[3].Value;
-	p_bgnd_scan_ch->Mdrdy = Reg[4].Value;
-	MTWF_DBG(pAd, DBG_CAT_CHN, CATCHN_SCAN, DBG_LVL_INFO, "ChannelIdx [%d].PCCA_TIME=%x, SCCA_TIEM=%x, EDCCA_TIME=%x, Band0TxTime=%x Mdrdy=%x ===============>\n", pAd->BgndScanCtrl.ChannelIdx, Reg[0].Value, Reg[1].Value, Reg[2].Value, Reg[3].Value, Reg[4].Value);
-#endif
-
+	MtCmdMultipleMacRegAccessRead(pAd, Reg, 5);
+	pAd->BgndScanCtrl.BgndScanChList[pAd->BgndScanCtrl.ChannelIdx].PccaTime = Reg[0].Value;
+	pAd->BgndScanCtrl.BgndScanChList[pAd->BgndScanCtrl.ChannelIdx].SccaTime = Reg[1].Value;
+	pAd->BgndScanCtrl.BgndScanChList[pAd->BgndScanCtrl.ChannelIdx].EDCCATime = Reg[2].Value;
+	pAd->BgndScanCtrl.BgndScanChList[pAd->BgndScanCtrl.ChannelIdx].Band0TxTime = Reg[3].Value;
+	pAd->BgndScanCtrl.BgndScanChList[pAd->BgndScanCtrl.ChannelIdx].Mdrdy = Reg[4].Value;
+	MTWF_LOG(DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("ChannelIdx [%d].PCCA_TIME=%x, SCCA_TIEM=%x, EDCCA_TIME=%x, Band0TxTime=%x Mdrdy=%x ===============>\n", pAd->BgndScanCtrl.ChannelIdx, Reg[0].Value, Reg[1].Value, Reg[2].Value, Reg[3].Value, Reg[4].Value));
 	NextBgndScanChannel(pAd, pAd->BgndScanCtrl.ScanChannel);
 
 	if (pAd->BgndScanCtrl.ScanChannel == 0 || ScanType == TYPE_BGND_CONTINUOUS_SCAN) /* Ready to stop or continuous scan */
-		BackgroundScanNextChannel(pAd, bgnd_band_scan_info);
+		BackgroundScanNextChannel(pAd, ScanType);
 	else {	/* Next time partail scan */
+		/*TODO: Switch to 4x4 mode */
+		/* RxStream to RxPath */
+		/* Restore switch channel configuration */
+		CurrentSwChCfg = &(pAd->BgndScanCtrl.CurrentSwChCfg[0]);
+		RxStreamNums = CurrentSwChCfg->RxStream;
 
-		/* return to SynA only */
-		if (ops->set_off_ch_scan)
-			ops->set_off_ch_scan(pAd, CH_SWITCH_BACKGROUND_SCAN_STOP, ENUM_BGND_BGND_TYPE);
+		if (RxStreamNums > 4) {
+			MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
+					 ("%s():illegal RxStreamNums(%d)\n",
+					  __func__, RxStreamNums));
+			RxStreamNums = 4;
+		}
 
+		for (i = 0; i < RxStreamNums; i++)
+			RxPath |= 1 << i;
 
-#if (RDD_2_SUPPORTED == 0)
+		BgndScanCfg.BandIdx = 0;
+		BgndScanCfg.Bw = CurrentSwChCfg->Bw;
+		BgndScanCfg.ControlChannel = CurrentSwChCfg->ControlChannel;
+		BgndScanCfg.CentralChannel = CurrentSwChCfg->CentralChannel;
+		BgndScanCfg.Reason = CH_SWITCH_BACKGROUND_SCAN_STOP;
+		BgndScanCfg.RxPath = RxPath; /* return to 4 Rx */
+		BgndScanCfg.TxStream = CurrentSwChCfg->TxStream;
+		MTWF_LOG(DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("%s Stop Scan Bandidx=%d, BW=%d, CtrlCh=%d, CenCh=%d, Reason=%d, RxPath=%d\n",
+				 __func__, BgndScanCfg.BandIdx, BgndScanCfg.Bw, BgndScanCfg.ControlChannel,
+				 BgndScanCfg.CentralChannel, BgndScanCfg.Reason, BgndScanCfg.RxPath));
+		MtCmdBgndScan(pAd, BgndScanCfg);
+		/* Notify RA background scan stop */
+		BgScNotify.NotifyFunc =  (BgndScanCfg.TxStream << 5 | 0xf);
+		BgScNotify.BgndScanStatus = 0;/* stop */
+		MTWF_LOG(DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("Background scan Notify NotifyFunc=%x, Status=%d\n", BgScNotify.NotifyFunc, BgScNotify.BgndScanStatus));
+		MtCmdBgndScanNotify(pAd, BgScNotify);
 		/* Enable BF, MU */
-#if defined(MT_MAC) && defined(TXBF_SUPPORT)
+#if defined(MT_MAC) && (!defined(MT7636)) && defined(TXBF_SUPPORT)
 		BfSwitch(pAd, 1);
 #endif
-
 #ifdef CFG_SUPPORT_MU_MIMO
 		MuSwitch(pAd, 1);
 #endif /* CFG_SUPPORT_MU_MIMO */
-#endif
 		MlmeEnqueue(pAd, BGND_SCAN_STATE_MACHINE, BGND_SCAN_DONE, 0, NULL, 0);
 	}
 }
 
+
 VOID BackgroundScanWaitAction(RTMP_ADAPTER *pAd, MLME_QUEUE_ELEM *Elem)
 {
+	MTWF_LOG(DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("%s ===============>\n", __func__));
 	/* Change state to Wait State. If all conditions match, will trigger partial scan */
 	pAd->BgndScanCtrl.BgndScanStatMachine.CurrState = BGND_SCAN_WAIT;
 }
@@ -717,14 +548,16 @@ VOID BackgroundScanPartialAction(
 	MLME_QUEUE_ELEM *Elem)
 {
 	UINT8 ScanType = (UINT8)(Elem->Priv);
-
-	MTWF_DBG(pAd, DBG_CAT_CHN, CATCHN_SCAN, DBG_LVL_INFO, "ScanType = %d\n", ScanType);
+#ifdef GREENAP_SUPPORT
+	struct greenap_ctrl *greenap = &pAd->ApCfg.greenap;
+#endif /* GREENAP_SUPPORT */
+	MTWF_LOG(DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("%s =====ScanType=%d===>\n", __func__, ScanType));
 
 	if (pAd->BgndScanCtrl.ScanChannel == 0) {
-		MTWF_DBG(pAd, DBG_CAT_CHN, CATCHN_SCAN, DBG_LVL_INFO, "First time\n");
+		MTWF_LOG(DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("%s First time===========>\n", __func__));
 		FirstBgndScanChannel(pAd);
 #ifdef GREENAP_SUPPORT
-		greenap_suspend(pAd, GREENAP_REASON_AP_BACKGROUND_SCAN);
+		greenap_suspend(pAd, greenap, AP_BACKGROUND_SCAN);
 #endif /* GREENAP_SUPPORT */
 	}
 
@@ -736,6 +569,10 @@ VOID BackgroundScanCancelAction(
 	MLME_QUEUE_ELEM *Elem)
 {
 	BOOLEAN Cancelled;
+#ifdef GREENAP_SUPPORT
+	struct greenap_ctrl *greenap = &pAd->ApCfg.greenap;
+#endif /* GREENAP_SUPPORT */
+	MTWF_LOG(DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("%s ===============>\n", __func__));
 	/* Re-init related parameters */
 	pAd->BgndScanCtrl.BgndScanStatMachine.CurrState = BGND_SCAN_IDLE;/* Scan Stop */
 	pAd->BgndScanCtrl.ScanChannel = 0;
@@ -743,52 +580,77 @@ VOID BackgroundScanCancelAction(
 	pAd->BgndScanCtrl.IsSwitchChannel = FALSE;
 	RTMPCancelTimer(&pAd->BgndScanCtrl.BgndScanTimer, &Cancelled);
 #ifdef GREENAP_SUPPORT
-	greenap_resume(pAd, GREENAP_REASON_AP_BACKGROUND_SCAN);
+	greenap_resume(pAd, greenap, AP_BACKGROUND_SCAN);
 #endif /* GREENAP_SUPPORT */
 	/* RTMPCancelTimer(&pAd->BgndScanCtrl.BgndScanNextTimer, &Cancelled); */
 }
-
 VOID BackgroundScanNextChannel(
 	IN PRTMP_ADAPTER pAd,
-	IN UINT8 bgnd_band_scan_info)
+	IN UINT8		ScanType)
 {
-
-	UINT8 bgnd_scan_type = (bgnd_band_scan_info & BGND_SCAN_TYPE_MASK);
-	UINT8 band_idx = ((bgnd_band_scan_info & BGND_BAND_IDX_MASK) >> BGND_BAND_IDX_SHFT);
-	UCHAR BestChannel = 0;
-	MT_SWITCH_CHANNEL_CFG *CurrentSwChCfg;
-	struct _RTMP_CHIP_OP *ops = hc_get_chip_ops(pAd->hdev_ctrl);
-#if (RDD_2_SUPPORTED == 0)
+	MT_BGND_SCAN_CFG BgndScanCfg;
 	RTMP_REG_PAIR Reg[5];
-#ifdef WIFI_UNIFIED_COMMAND
-	RTMP_CHIP_CAP *cap = hc_get_chip_cap(pAd->hdev_ctrl);
-#endif /* WIFI_UNIFIED_COMMAND */
-#else
-	EXT_CMD_RDD_IPI_HIST_T cmd_rdd_ipi_hist;
-
-	os_zero_mem(&cmd_rdd_ipi_hist, sizeof(EXT_CMD_RDD_IPI_HIST_T));
-#endif
-
+	MT_BGND_SCAN_NOTIFY BgScNotify;
+	INT	i;
+	/* UINT32	pccatime, sccatime, edtime, band0txtime, mdrdy; */
+	UCHAR	BestChannel = 0;
+	UCHAR	RxStreamNums = 0;
+	UCHAR	RxPath = 0;
+	MT_SWITCH_CHANNEL_CFG *CurrentSwChCfg;
+#ifdef GREENAP_SUPPORT
+	struct greenap_ctrl *greenap = &pAd->ApCfg.greenap;
+#endif /* GREENAP_SUPPORT */
 	/* Restore switch channel configuration */
-	CurrentSwChCfg = &(pAd->BgndScanCtrl.CurrentSwChCfg[band_idx]);
-	MTWF_DBG(pAd, DBG_CAT_CHN, CATCHN_SCAN, DBG_LVL_INFO,
-		"Scan Channel=%d, band idx = %d\n",
-		pAd->BgndScanCtrl.ScanChannel, band_idx);
+	CurrentSwChCfg = &(pAd->BgndScanCtrl.CurrentSwChCfg[0]);
+	MTWF_LOG(DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("%s Scan Channel=%d===============>\n", __func__, pAd->BgndScanCtrl.ScanChannel));
 
 	if (pAd->BgndScanCtrl.ScanChannel == 0) {
-		/* return to SynA only */
-		if (ops->set_off_ch_scan)
-			ops->set_off_ch_scan(pAd, CH_SWITCH_BACKGROUND_SCAN_STOP, ENUM_BGND_BGND_TYPE);
+		/* pAd->BgndScanCtrl.BgndScanStatMachine.CurrState = BGND_SCAN_IDLE;//Scan Stop */
+		/* pAd->BgndScanCtrl.ScanType = 0;//Scan Complete. */
+		/* RxStream to RxPath */
+		RxStreamNums = CurrentSwChCfg->RxStream;
 
+		if (RxStreamNums > 4) {
+			MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
+					 ("%s():illegal RxStreamNums(%d)\n",
+					  __func__, RxStreamNums));
+			RxStreamNums = 4;
+		}
+
+		for (i = 0; i < RxStreamNums; i++)
+			RxPath |= 1 << i;
+
+		BgndScanCfg.BandIdx = 0;
+		BgndScanCfg.Bw = CurrentSwChCfg->Bw;
+		BgndScanCfg.ControlChannel = CurrentSwChCfg->ControlChannel;
+		BgndScanCfg.CentralChannel = CurrentSwChCfg->CentralChannel;
+		BgndScanCfg.Reason = CH_SWITCH_BACKGROUND_SCAN_STOP;
+		BgndScanCfg.RxPath = RxPath; /* return to 4 Rx */
+		BgndScanCfg.TxStream = CurrentSwChCfg->TxStream;
+		MTWF_LOG(DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("%s Stop Scan Bandidx=%d, BW=%d, CtrlCh=%d, CenCh=%d, Reason=%d, RxPath=%d\n",
+				 __func__, BgndScanCfg.BandIdx, BgndScanCfg.Bw, BgndScanCfg.ControlChannel,
+				 BgndScanCfg.CentralChannel, BgndScanCfg.Reason, BgndScanCfg.RxPath));
+		MtCmdBgndScan(pAd, BgndScanCfg);
+		/* Notify RA background scan stop */
+		BgScNotify.NotifyFunc =  (BgndScanCfg.TxStream << 5 | 0xf);
+		BgScNotify.BgndScanStatus = 0;/* stop */
+		MTWF_LOG(DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("Background scan Notify NotifyFunc=%x, Status=%d", BgScNotify.NotifyFunc, BgScNotify.BgndScanStatus));
+		MtCmdBgndScanNotify(pAd, BgScNotify);
+		/* Enable BF, MU */
+#if defined(MT_MAC) && (!defined(MT7636)) && defined(TXBF_SUPPORT)
+		BfSwitch(pAd, 1);
+#endif
+#ifdef CFG_SUPPORT_MU_MIMO
+		MuSwitch(pAd, 1);
+#endif /* CFG_SUPPORT_MU_MIMO */
+		/* Dump Channel Info */
+		MTWF_LOG(DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("Dump Channel Info\n"));
 		GenerateGroupChannelList(pAd);
-		BestChannel = BgndSelectBestChannel(pAd, band_idx);
+		BestChannel = BgndSelectBestChannel(pAd);
 		pAd->BgndScanCtrl.BestChannel = BestChannel;
-		MTWF_DBG(pAd, DBG_CAT_CHN, CATCHN_SCAN, DBG_LVL_WARN,
-			"Best Channel=%d, IsSwitchChannel=%d Noisy=%d\n",
-			BestChannel, pAd->BgndScanCtrl.IsSwitchChannel, pAd->BgndScanCtrl.Noisy);
-
+		MTWF_LOG(DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_OFF, ("Best Channel=%d, IsSwitchChannel=%d Noisy=%d\n", BestChannel, pAd->BgndScanCtrl.IsSwitchChannel, pAd->BgndScanCtrl.Noisy));
 		pAd->BgndScanCtrl.BgndScanStatMachine.CurrState = BGND_SCAN_IDLE;/* Scan Stop */
-		pAd->BgndScanCtrl.ScanType = TYPE_BGND_DISABLE_SCAN;/* Scan Complete. */
+		pAd->BgndScanCtrl.ScanType = 0;/* Scan Complete. */
 
 		if (BestChannel != CurrentSwChCfg->ControlChannel && pAd->BgndScanCtrl.IsSwitchChannel == TRUE) {
 			pAd->BgndScanCtrl.IsSwitchChannel = FALSE;
@@ -798,94 +660,123 @@ VOID BackgroundScanNextChannel(
 
 		pAd->BgndScanCtrl.IsSwitchChannel = FALSE;
 #ifdef GREENAP_SUPPORT
-		greenap_resume(pAd, GREENAP_REASON_AP_BACKGROUND_SCAN);
+		greenap_resume(pAd, greenap, AP_BACKGROUND_SCAN);
 #endif /* GREENAP_SUPPORT */
-	} else if (bgnd_scan_type == TYPE_BGND_PARTIAL_SCAN) { /* Partial Scan */
+	} else if (ScanType == TYPE_BGND_PARTIAL_SCAN) { /* Partial Scan */
+		BgScNotify.NotifyFunc =  (0x2 << 5 | 0xf);
+		BgScNotify.BgndScanStatus = 1;/* start */
+		MTWF_LOG(DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("Background scan Notify NotifyFunc=%x, Status=%d\n", BgScNotify.NotifyFunc, BgScNotify.BgndScanStatus));
+		MtCmdBgndScanNotify(pAd, BgScNotify);
+		/* Disable BF, MU */
+#if defined(MT_MAC) && (!defined(MT7636)) && defined(TXBF_SUPPORT)
+		BfSwitch(pAd, 0);
+#endif
+#ifdef CFG_SUPPORT_MU_MIMO
+		MuSwitch(pAd, 0);
+#endif /* CFG_SUPPORT_MU_MIMO */
+		/* Switch Band1 channel to pAd->BgndScanCtrl.ScanChannel */
 		pAd->BgndScanCtrl.BgndScanStatMachine.CurrState = BGND_SCAN_LISTEN;
-		/* Split into SynA + SynB */
-		if (ops->set_off_ch_scan)
-			ops->set_off_ch_scan(pAd, CH_SWITCH_BACKGROUND_SCAN_START, ENUM_BGND_BGND_TYPE);
-
+		/* Fill band1 BgndScanCfg */
+		BgndScanCfg.BandIdx = 1;
+		BgndScanCfg.Bw = pAd->BgndScanCtrl.ScanBW;
+		BgndScanCfg.ControlChannel = pAd->BgndScanCtrl.ScanChannel;
+		BgndScanCfg.CentralChannel = pAd->BgndScanCtrl.ScanCenChannel;
+		BgndScanCfg.Reason = CH_SWITCH_BACKGROUND_SCAN_START;
+		BgndScanCfg.RxPath = 0x0C; /* Distribute 2 Rx for background scan */
+		BgndScanCfg.TxStream = 2;
+		MTWF_LOG(DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("%s Start Scan Bandidx=%d,	BW=%d, CtrlCh=%d, CenCh=%d, Reason=%d, RxPath=%d\n",
+				 __func__, BgndScanCfg.BandIdx, BgndScanCfg.Bw, BgndScanCfg.ControlChannel,
+				 BgndScanCfg.CentralChannel, BgndScanCfg.Reason, BgndScanCfg.RxPath));
+		MtCmdBgndScan(pAd, BgndScanCfg);
+		/* Fill band0 BgndScanCfg */
+		BgndScanCfg.BandIdx = 0;
+		BgndScanCfg.Bw = CurrentSwChCfg->Bw /*pAd->BgndScanCtrl.ScanBW*/;
+		BgndScanCfg.ControlChannel = CurrentSwChCfg->ControlChannel;
+		BgndScanCfg.CentralChannel = CurrentSwChCfg->CentralChannel;
+		BgndScanCfg.Reason = CH_SWITCH_BACKGROUND_SCAN_START;
+		BgndScanCfg.RxPath = 0x03; /* Keep 2 Rx for original service */
+		BgndScanCfg.TxStream = 2;
+		MTWF_LOG(DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("%s Start Scan Bandidx=%d,	BW=%d, CtrlCh=%d, CenCh=%d, Reason=%d, RxPath=%d\n",
+				 __func__, BgndScanCfg.BandIdx, BgndScanCfg.Bw, BgndScanCfg.ControlChannel,
+				 BgndScanCfg.CentralChannel, BgndScanCfg.Reason, BgndScanCfg.RxPath));
+		MtCmdBgndScan(pAd, BgndScanCfg);
 		/* Read clear below CR */
-#if (RDD_2_SUPPORTED == 1)
-		cmd_rdd_ipi_hist.ipi_hist_idx = RDD_SET_IPI_HIST_RESET;
-		cmd_rdd_ipi_hist.set_val = 0;
-		cmd_rdd_ipi_hist.band_idx = band_idx;
-
-		mt_cmd_set_rdd_ipi_hist(pAd, &cmd_rdd_ipi_hist);
-#else
 		Reg[0].Register = 0x820fd248/*MIB_M1SDR16*/; /* PCCA Time */
 		Reg[1].Register = 0x820fd24c/*MIB_M1SDR17*/; /* SCCA Time */
 		Reg[2].Register = 0x820fd250/*MIB_M1SDR18*/; /* ED Time */
 		Reg[3].Register = 0x820fd094/*MIB_M0SDR35*/; /* Bnad0 TxTime */
 		Reg[4].Register = 0x820fd258/*MIB_M1SDR20*/; /* Mdrdy */
-#ifdef WIFI_UNIFIED_COMMAND
-		if (cap->uni_cmd_support)
-			UniCmdMultipleMacRegAccessRead(pAd, Reg, 5);
-		else
-#endif /* WIFI_UNIFIED_COMMAND */
-			MtCmdMultipleMacRegAccessRead(pAd, Reg, 5);
-#endif
+		MtCmdMultipleMacRegAccessRead(pAd, Reg, 5);
 		RTMPSetTimer(&pAd->BgndScanCtrl.BgndScanTimer, pAd->BgndScanCtrl.ScanDuration); /* 200ms timer */
 	} else if (pAd->BgndScanCtrl.ScanChannel == pAd->BgndScanCtrl.FirstChannel) {
-		/* First time to do background scan */
+		BgScNotify.NotifyFunc =  (0x2 << 5 | 0xf);
+		BgScNotify.BgndScanStatus = 1;/* start */
+		MTWF_LOG(DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("Background scan Notify NotifyFunc=%x, Status=%d\n", BgScNotify.NotifyFunc, BgScNotify.BgndScanStatus));
+		MtCmdBgndScanNotify(pAd, BgScNotify);
+		/* Disable BF, MU */
+#if defined(MT_MAC) && (!defined(MT7636)) && defined(TXBF_SUPPORT)
+		BfSwitch(pAd, 0);
+#endif
+#ifdef CFG_SUPPORT_MU_MIMO
+		MuSwitch(pAd, 0);
+#endif /* CFG_SUPPORT_MU_MIMO */
+		/* Switch Band1 channel to pAd->BgndScanCtrl.ScanChannel */
 		pAd->BgndScanCtrl.BgndScanStatMachine.CurrState = BGND_SCAN_LISTEN;
-		/* Split into SynA + SynB */
-		if (ops->set_off_ch_scan)
-			ops->set_off_ch_scan(pAd, CH_SWITCH_BACKGROUND_SCAN_START, ENUM_BGND_BGND_TYPE);
-
+		/* Fill band1 BgndScanCfg */
+		BgndScanCfg.BandIdx = 1;
+		BgndScanCfg.Bw = pAd->BgndScanCtrl.ScanBW;
+		BgndScanCfg.ControlChannel = pAd->BgndScanCtrl.ScanChannel;
+		BgndScanCfg.CentralChannel = pAd->BgndScanCtrl.ScanCenChannel;
+		BgndScanCfg.Reason = CH_SWITCH_BACKGROUND_SCAN_START;
+		BgndScanCfg.RxPath = 0x0C; /* Distribute 2 Rx for background scan */
+		BgndScanCfg.TxStream = 2;
+		MTWF_LOG(DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("%s Start Scan Bandidx=%d,	BW=%d, CtrlCh=%d, CenCh=%d, Reason=%d, RxPath=%d\n",
+				 __func__, BgndScanCfg.BandIdx, BgndScanCfg.Bw, BgndScanCfg.ControlChannel,
+				 BgndScanCfg.CentralChannel, BgndScanCfg.Reason, BgndScanCfg.RxPath));
+		MtCmdBgndScan(pAd, BgndScanCfg);
+		/* Fill band0 BgndScanCfg */
+		BgndScanCfg.BandIdx = 0;
+		BgndScanCfg.Bw = CurrentSwChCfg->Bw /*pAd->BgndScanCtrl.ScanBW*/;
+		BgndScanCfg.ControlChannel = CurrentSwChCfg->ControlChannel;
+		BgndScanCfg.CentralChannel = CurrentSwChCfg->CentralChannel;
+		BgndScanCfg.Reason = CH_SWITCH_BACKGROUND_SCAN_START;
+		BgndScanCfg.RxPath = 0x03; /* Keep 2 Rx for original service */
+		BgndScanCfg.TxStream = 2;
+		MTWF_LOG(DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("%s Start Scan Bandidx=%d,	BW=%d, CtrlCh=%d, CenCh=%d, Reason=%d, RxPath=%d\n",
+				 __func__, BgndScanCfg.BandIdx, BgndScanCfg.Bw, BgndScanCfg.ControlChannel,
+				 BgndScanCfg.CentralChannel, BgndScanCfg.Reason, BgndScanCfg.RxPath));
+		MtCmdBgndScan(pAd, BgndScanCfg);
 		/* Read clear below CR */
-#if (RDD_2_SUPPORTED == 1)
-		cmd_rdd_ipi_hist.ipi_hist_idx = RDD_SET_IPI_HIST_RESET;
-		cmd_rdd_ipi_hist.set_val = 0;
-		cmd_rdd_ipi_hist.band_idx = band_idx;
-
-		mt_cmd_set_rdd_ipi_hist(pAd, &cmd_rdd_ipi_hist);
-#else
 		Reg[0].Register = 0x820fd248/*MIB_M1SDR16*/; /* PCCA Time */
 		Reg[1].Register = 0x820fd24c/*MIB_M1SDR17*/; /* SCCA Time */
 		Reg[2].Register = 0x820fd250/*MIB_M1SDR18*/; /* ED Time */
 		Reg[3].Register = 0x820fd094/*MIB_M0SDR35*/; /* Bnad0 TxTime */
 		Reg[4].Register = 0x820fd258/*MIB_M1SDR20*/; /* Mdrdy */
-#ifdef WIFI_UNIFIED_COMMAND
-		if (cap->uni_cmd_support)
-			UniCmdMultipleMacRegAccessRead(pAd, Reg, 5);
-		else
-#endif /* WIFI_UNIFIED_COMMAND */
-			MtCmdMultipleMacRegAccessRead(pAd, Reg, 5);
-#endif
-
+		MtCmdMultipleMacRegAccessRead(pAd, Reg, 5);
 		RTMPSetTimer(&pAd->BgndScanCtrl.BgndScanTimer, pAd->BgndScanCtrl.ScanDuration); /* 200ms timer */
 	} else {
 		/* RTMPSetTimer(&pAd->BgndScanCtrl.BgndScanTimer, 200); //200ms timer */
 		/* Switch Band1 channel to pAd->BgndScanCtrl.ScanChannel */
 		pAd->BgndScanCtrl.BgndScanStatMachine.CurrState = BGND_SCAN_LISTEN;
-
-		/* Switch channel of SynB */
-		if (ops->set_off_ch_scan)
-			ops->set_off_ch_scan(pAd, CH_SWITCH_BACKGROUND_SCAN_RUNNING, ENUM_BGND_BGND_TYPE);
-
+		/* Fill band1 BgndScanCfg */
+		BgndScanCfg.BandIdx = 1;
+		BgndScanCfg.Bw = pAd->BgndScanCtrl.ScanBW;
+		BgndScanCfg.ControlChannel = pAd->BgndScanCtrl.ScanChannel;
+		BgndScanCfg.CentralChannel = pAd->BgndScanCtrl.ScanCenChannel;
+		BgndScanCfg.Reason = CH_SWITCH_BACKGROUND_SCAN_RUNNING;
+		BgndScanCfg.RxPath = 0x0C; /* Distribute 2 Rx for background scan */
+		BgndScanCfg.TxStream = 2;
+		MTWF_LOG(DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("%s Running Scan Bandidx=%d,	BW=%d, CtrlCh=%d, CenCh=%d, Reason=%d, RxPath=%d\n",
+				 __func__, BgndScanCfg.BandIdx, BgndScanCfg.Bw, BgndScanCfg.ControlChannel,
+				 BgndScanCfg.CentralChannel, BgndScanCfg.Reason, BgndScanCfg.RxPath));
+		MtCmdBgndScan(pAd, BgndScanCfg);
 		/* Read clear below CR */
-#if (RDD_2_SUPPORTED == 1)
-		cmd_rdd_ipi_hist.ipi_hist_idx = RDD_SET_IPI_HIST_RESET;
-		cmd_rdd_ipi_hist.set_val = 0;
-		cmd_rdd_ipi_hist.band_idx = band_idx;
-
-		mt_cmd_set_rdd_ipi_hist(pAd, &cmd_rdd_ipi_hist);
-#else
 		Reg[0].Register = 0x820fd248/*MIB_M1SDR16*/; /* PCCA Time */
 		Reg[1].Register = 0x820fd24c/*MIB_M1SDR17*/; /* SCCA Time */
 		Reg[2].Register = 0x820fd250/*MIB_M1SDR18*/; /* ED Time */
 		Reg[3].Register = 0x820fd094/*MIB_M0SDR35*/; /* Bnad0 TxTime */
 		Reg[4].Register = 0x820fd258/*MIB_M1SDR20*/; /* Mdrdy */
-#ifdef WIFI_UNIFIED_COMMAND
-		if (cap->uni_cmd_support)
-			UniCmdMultipleMacRegAccessRead(pAd, Reg, 5);
-		else
-#endif /* WIFI_UNIFIED_COMMAND */
-			MtCmdMultipleMacRegAccessRead(pAd, Reg, 5);
-#endif
-
+		MtCmdMultipleMacRegAccessRead(pAd, Reg, 5);
 		RTMPSetTimer(&pAd->BgndScanCtrl.BgndScanTimer, pAd->BgndScanCtrl.ScanDuration); /* 500ms timer */
 	}
 }
@@ -895,10 +786,9 @@ VOID BackgroundSwitchChannelAction(
 	IN MLME_QUEUE_ELEM *Elem)
 {
 	struct wifi_dev *wdev = NULL;
-
 	wdev = pAd->wdev_list[0];
 	pAd->BgndScanCtrl.BgndScanStatMachine.CurrState = BGND_CS_ANN;
-	MTWF_DBG(pAd, DBG_CAT_CHN, CATCHN_SCAN, DBG_LVL_WARN, "Switch to channel to %d\n", pAd->BgndScanCtrl.BestChannel);
+	printk("Switch to channel to %d\n", pAd->BgndScanCtrl.BestChannel);
 	rtmp_set_channel(pAd, wdev, pAd->BgndScanCtrl.BestChannel);
 	pAd->BgndScanCtrl.BgndScanStatMachine.CurrState = BGND_SCAN_IDLE;
 }
@@ -907,745 +797,523 @@ VOID BackgroundChannelSwitchAnnouncementAction(
 	IN RTMP_ADAPTER *pAd,
 	IN MLME_QUEUE_ELEM *Elem)
 {
-	MTWF_DBG(pAd, DBG_CAT_CHN, CATCHN_SCAN, DBG_LVL_INFO, "Trigger Channel Switch Announcemnet IE\n");
+	printk("Trigger Channel Switch Announcemnet IE\n");
+	MTWF_LOG(DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("Trigger Channel Switch Announcemnet IE\n"));
 	pAd->BgndScanCtrl.BgndScanStatMachine.CurrState = BGND_CS_ANN; /* Channel switch annoncement. */
 	/* HcUpdateCsaCntByChannel(pAd, pAd->BgndScanCtrl.BestChannel); */
 	/* pAd->BgndScanCtrl.BgndScanStatMachine.CurrState = BGND_SCAN_IDLE; //For temporary */
 }
 
-NDIS_STATUS set_dfs_dedicated_rx_proc(IN PRTMP_ADAPTER pAd, IN RTMP_STRING * arg)
-{
-	NDIS_STATUS status = NDIS_STATUS_SUCCESS;
-	INT32 recv = 0;
-	POS_COOKIE pObj = (POS_COOKIE) pAd->OS_Cookie;
-	struct _RTMP_CHIP_OP *ops = hc_get_chip_ops(pAd->hdev_ctrl);
-	struct wifi_dev *wdev =
-		get_wdev_by_ioctl_idx_and_iftype(pAd, pObj->ioctl_if, pObj->ioctl_if_type);
-	UCHAR ch_band = 0;
-	UCHAR band_idx = 0;
-	UINT32 ch = 0, cen_ch = 0;
-	UINT32 bw = 0;
-	EXT_CMD_RDD_IPI_HIST_T cmd_rdd_ipi_hist;
-	UCHAR bgnd_band_scan_info = 0;
-
-	if (wdev == NULL) {
-		MTWF_DBG(pAd, DBG_CAT_CHN, CATCHN_SCAN, DBG_LVL_ERROR,
-		"wdev is Null\n");
-		return NDIS_STATUS_FAILURE;
-	}
-
-	ch_band = wlan_config_get_ch_band(wdev);
-	band_idx = HcGetBandByWdev(wdev);
-
-	os_zero_mem(&cmd_rdd_ipi_hist, sizeof(EXT_CMD_RDD_IPI_HIST_T));
-
-	if (arg) {
-		recv = sscanf(arg, "%d:%d", &(ch), &(bw));
-
-		if (recv != 2) {
-				MTWF_DBG(pAd, DBG_CAT_CHN, CATCHN_SCAN, DBG_LVL_ERROR,
-					"Format Error! Please enter in the following format\n"
-					"ch:bw(0: 20MHz, 1: 40MHz, 2: 80MHz, 3: 160MHz)\n");
-				MTWF_DBG(pAd, DBG_CAT_CHN, CATCHN_SCAN, DBG_LVL_ERROR,
-					"Set 0:0 to disable 5th RX\n");
-		       return TRUE;
-		}
-
-		if (ch == 0 && bw == 0) {
-			if (ops->set_off_ch_scan)
-			ops->set_off_ch_scan(pAd, CH_SWITCH_BACKGROUND_SCAN_STOP, ENUM_BGND_BGND_TYPE);
-
-				MTWF_DBG(pAd, DBG_CAT_CHN, CATCHN_SCAN, DBG_LVL_WARN,
-					"disable dedicated rx\n");
-
-				return NDIS_STATUS_SUCCESS;
-       }
-
-		MTWF_DBG(pAd, DBG_CAT_CHN, CATCHN_SCAN, DBG_LVL_INFO,
-			"ch %d, bw = %d\n", ch, bw);
-
-		/* Dedicated RX */
-		pAd->BgndScanCtrl.ScanChannel = ch;
-		pAd->BgndScanCtrl.ScanBW = bw;
-		bgnd_band_scan_info |= (band_idx << BGND_BAND_IDX_SHFT);
-		pAd->BgndScanCtrl.ScanType = bgnd_band_scan_info;
-
-		/* set central channel*/
-		switch (bw) {
-		case BW_20:
-			cen_ch = ch;
-			break;
-
-		case BW_40:
-			if (N_ChannelGroupCheck(pAd, ch, wdev) && ch_band == CMD_CH_BAND_5G) {
-				if (GetABandChOffset(ch) == 1)
-					cen_ch = ch + 2;
-				else
-					cen_ch = ch - 2;
-			}
-			else if (N_ChannelGroupCheck(pAd, ch, wdev) && ch_band == CMD_CH_BAND_24G) {
-				UCHAR ext_cha = wlan_operate_get_ext_cha(wdev);
-				if (ext_cha == EXTCHA_ABOVE)
-					if (ch <= 9)
-						cen_ch = ch + 2;
-					/* error handling: use extcha_below */
-					else
-						cen_ch = ch - 2;
-				else {
-					if (ch >= 5)
-						cen_ch = ch - 2;
-					/* error handling: use extcha_above */
-					else
-						cen_ch = ch + 2;
-				}
-			} else {
-				if (ch == 14)
-					cen_ch = ch - 1;
-				else
-					cen_ch = ch;
-			}
-			break;
-
-		case BW_80:
-			if (vht80_channel_group(pAd, ch, wdev))
-				cen_ch = vht_cent_ch_freq(ch, VHT_BW_80, ch_band);
-			else
-				cen_ch = ch;
-
-			break;
-
-		case BW_160:
-			if (vht160_channel_group(pAd, ch, wdev))
-				cen_ch = vht_cent_ch_freq(ch, VHT_BW_160, ch_band);
-			else
-				cen_ch = ch;
-
-			break;
-
-		default:
-			cen_ch = ch;
-			break;
-		}
-		pAd->BgndScanCtrl.ScanCenChannel = cen_ch;
-
-		if (ops->set_off_ch_scan)
-			ops->set_off_ch_scan(pAd, CH_SWITCH_BACKGROUND_SCAN_START, ENUM_BGND_BGND_TYPE);
-
-		/* Read clear below CR */
-		cmd_rdd_ipi_hist.ipi_hist_idx = RDD_SET_IPI_HIST_RESET;
-		cmd_rdd_ipi_hist.set_val = 0;
-		cmd_rdd_ipi_hist.band_idx = band_idx;
-
-		mt_cmd_set_rdd_ipi_hist(pAd, &cmd_rdd_ipi_hist);
-
-
-		} else {
-			MTWF_DBG(pAd, DBG_CAT_CHN, CATCHN_SCAN, DBG_LVL_ERROR, "Arg is Null\n");
-			status = NDIS_STATUS_FAILURE;
-		}
-
-		return status;
-}
-
-NDIS_STATUS set_dedicated_rx_hist_proc(IN PRTMP_ADAPTER pAd, IN RTMP_STRING * arg)
-{
-	NDIS_STATUS status = NDIS_STATUS_SUCCESS;
-	UCHAR band_idx = 0;
-	INT32 recv = 0;
-	UINT32 thres = 0;
-	UINT32 period = 0;
-	EXT_CMD_RDD_IPI_HIST_T cmd_rdd_ipi_hist;
-	POS_COOKIE pObj = (POS_COOKIE) pAd->OS_Cookie;
-	struct wifi_dev *wdev =
-		get_wdev_by_ioctl_idx_and_iftype(pAd, pObj->ioctl_if, pObj->ioctl_if_type);
-
-	os_zero_mem(&cmd_rdd_ipi_hist, sizeof(EXT_CMD_RDD_IPI_HIST_T));
-
-	RTMPInitTimer(pAd, &pAd->BgndScanCtrl.hist_scan_timer,
-		GET_TIMER_FUNCTION(dedicated_rx_hist_scan_timeout), pAd, FALSE);
-
-	if (wdev == NULL) {
-		MTWF_DBG(pAd, DBG_CAT_CHN, CATCHN_SCAN, DBG_LVL_ERROR, "wdev is Null\n");
-		return NDIS_STATUS_FAILURE;
-	}
-
-	band_idx = HcGetBandByWdev(wdev);
-
-	if (arg) {
-		recv = sscanf(arg, "%d:%d", &(thres), &(period));
-
-		if (recv != 2) {
-				MTWF_DBG(pAd, DBG_CAT_CHN, CATCHN_SCAN, DBG_LVL_ERROR,
-					"Format Error! Please enter in the following format\n"
-					"threshold(0-10):period(ms)\n");
-		       return TRUE;
-		}
-
-		pAd->BgndScanCtrl.ipi_th = thres;
-		pAd->BgndScanCtrl.dfs_ipi_period = period;
-		pAd->BgndScanCtrl.band_idx = band_idx;
-		pAd->BgndScanCtrl.BgndScanStatMachine.CurrState = BGND_SCAN_LISTEN;
-
-		MTWF_DBG(pAd, DBG_CAT_CHN, CATCHN_SCAN, DBG_LVL_WARN,
-			"band[%d], thres %d (ipi_threshold), period %d (ms)\n",
-			band_idx, thres, pAd->BgndScanCtrl.dfs_ipi_period);
-
-		/* clear histogram CR */
-		cmd_rdd_ipi_hist.ipi_hist_idx = RDD_SET_IPI_HIST_RESET;
-		cmd_rdd_ipi_hist.set_val = 0;
-		cmd_rdd_ipi_hist.band_idx = band_idx;
-		mt_cmd_set_rdd_ipi_hist(pAd, &cmd_rdd_ipi_hist);
-
-		/* Start timer */
-		RTMPSetTimer(&pAd->BgndScanCtrl.hist_scan_timer, period);
-
-		} else {
-			MTWF_DBG(pAd, DBG_CAT_CHN, CATCHN_SCAN, DBG_LVL_ERROR, "Arg is Null\n");
-			status = NDIS_STATUS_FAILURE;
-		}
-
-		return status;
-}
-
-#ifdef IPI_SCAN_SUPPORT
-NDIS_STATUS set_ipi_scan_ctrl_proc(IN PRTMP_ADAPTER pAd, IN RTMP_STRING * arg)
-{
-	INT32 recv = 0;
-	POS_COOKIE pObj = (POS_COOKIE) pAd->OS_Cookie;
-	struct wifi_dev *tgt_wdev =
-		get_wdev_by_ioctl_idx_and_iftype(pAd, pObj->ioctl_if, pObj->ioctl_if_type);
-	UCHAR band_idx = 0;
-	UINT32 ch = 0;
-	UINT32 bw = 0;
-	UCHAR i = 0;
-
-	if (tgt_wdev == NULL) {
-		MTWF_DBG(pAd, DBG_CAT_CHN, CATCHN_SCAN, DBG_LVL_ERROR, "wdev is Null\n");
-		return TRUE;
-	}
-	band_idx = HcGetBandByWdev(tgt_wdev);
-
-	if (arg) {
-		recv = sscanf(arg, "%d:%d", &(ch), &(bw));
-		if (recv != 2) {
-			MTWF_DBG(pAd, DBG_CAT_CHN, CATCHN_SCAN, DBG_LVL_ERROR,
-				"Format Error! Please enter in the following format\n"
-				"ch:bw 2G(0: 20MHz, 1: 40MHz), 5G(0: 20MHz/40MHz, 1: 80MHz, 2:160MHz)\n");
-			return TRUE;
-		}
-		if (WMODE_CAP_AC(tgt_wdev->PhyMode)) {
-			if (bw > VHT_BW_160)
-				bw = VHT_BW_2040;
-
-			for (i = 0; i < WDEV_NUM_MAX; i++) {
-				struct wifi_dev *wdev;
-				wdev = pAd->wdev_list[i];
-				if (wdev && (band_idx == HcGetBandByWdev(wdev))) {
-					wlan_config_set_vht_bw(wdev, bw);
-					wlan_operate_set_vht_bw(wdev, bw);
-					//SetCommonHtVht(pAd, tdev);
-				}
-			}
-		} else {
-			if ((bw != BW_40) && (bw != BW_20))
-				bw = BW_20;
-
-			for (i = 0; i < WDEV_NUM_MAX; i++) {
-				struct wifi_dev *wdev;
-				wdev = pAd->wdev_list[i];
-				if (wdev && (band_idx == HcGetBandByWdev(wdev))) {
-					if (bw == BW_40) {
-						wlan_config_set_ht_bw(wdev, BW_40);
-						wlan_operate_set_ht_bw(wdev, HT_BW_40, wlan_operate_get_ext_cha(wdev));
-					} else {
-						wlan_config_set_ht_bw(wdev, BW_20);
-						wlan_operate_set_ht_bw(wdev, HT_BW_20, EXTCHA_NONE);
-					}
-					if (wdev->channel == ch) {
-						MTWF_DBG(pAd, DBG_CAT_CHN, CATCHN_SCAN, DBG_LVL_WARN,
-							"%s: Same Channel %d Updating Bw %d\n", __func__, ch, bw);
-						SetCommonHtVht(pAd, wdev);
-					}
-				}
-			}
-		}
-
-		MTWF_DBG(pAd, DBG_CAT_CHN, CATCHN_SCAN, DBG_LVL_WARN,
-			"%s: Channel %d Bw %d\n", __func__, ch, bw);
-		rtmp_set_channel(pAd, tgt_wdev, ch);
-	} else {
-		MTWF_DBG(pAd, DBG_CAT_CHN, CATCHN_SCAN, DBG_LVL_ERROR,
-			"%s: Arg is Null\n", __func__);
-	}
-	return TRUE;
-}
-
-NDIS_STATUS set_ipi_scan_hist_proc(IN PRTMP_ADAPTER pAd, IN RTMP_STRING * arg)
-{
-	NDIS_STATUS status;
-
-	RTMP_STRING *threshold, *period, *idx;
-	INT8 ant_index = -1;
-	UCHAR band_idx = 0;
-
-	EXT_CMD_RDD_IPI_SCAN_T cmd_rdd_ipi_scan;
-	POS_COOKIE pObj = (POS_COOKIE) pAd->OS_Cookie;
-	struct wifi_dev *wdev =
-		get_wdev_by_ioctl_idx_and_iftype(pAd, pObj->ioctl_if, pObj->ioctl_if_type);
-
-	os_zero_mem(&cmd_rdd_ipi_scan, sizeof(EXT_CMD_RDD_IPI_SCAN_T));
-
-	RTMPInitTimer(pAd, &pAd->BgndScanCtrl.hist_scan_timer,
-		GET_TIMER_FUNCTION(dedicated_rx_hist_scan_timeout), pAd, FALSE);
-
-	if (wdev == NULL) {
-		MTWF_DBG(pAd, DBG_CAT_CHN, CATCHN_SCAN, DBG_LVL_ERROR, "wdev is Null\n");
-		return TRUE;
-	}
-
-	band_idx = HcGetBandByWdev(wdev);
-
-	if (arg) {
-		threshold = rstrtok(arg, ":");
-		period = rstrtok(NULL, ":");
-		idx = rstrtok(NULL, ":");
-		if ((threshold == NULL) || (period == NULL)) {
-			MTWF_DBG(pAd, DBG_CAT_CHN, CATCHN_SCAN, DBG_LVL_ERROR,
-				"Format Error! Please enter in the following format\n"
-				"threshold:period or threshold:period:antena idx\n");
-			return TRUE;
-		}
-		if (idx != NULL) {
-			ant_index = simple_strtol(idx, 0, 10);
-			if ((ant_index > 3) || (ant_index < 0)) {
-				MTWF_DBG(pAd, DBG_CAT_CHN, CATCHN_SCAN, DBG_LVL_ERROR,
-					"antena idx out of range Using all antenas\n");
-				ant_index = -1;
-			}
-		}
-
-		pAd->BgndScanCtrl.ipi_th = simple_strtol(threshold, 0, 10) ;
-		pAd->BgndScanCtrl.dfs_ipi_period = simple_strtol(period, 0, 10);
-		pAd->BgndScanCtrl.band_idx = band_idx;
-		pAd->BgndScanCtrl.antena_idx = ant_index;
-
-		if (pAd->BgndScanCtrl.ipi_th > 10) {
-			MTWF_DBG(pAd, DBG_CAT_CHN, CATCHN_SCAN, DBG_LVL_ERROR,
-				"ipi_threshold out of range Using ipi_threshold 0\n");
-		}
-
-		pAd->BgndScanCtrl.BgndScanStatMachine.CurrState = BGND_SCAN_LISTEN;
-
-		MTWF_DBG(pAd, DBG_CAT_CHN, CATCHN_SCAN, DBG_LVL_WARN,
-			"band[%d], thres %d (ipi_threshold), period %d (ms) antena index %d\n",
-			band_idx, pAd->BgndScanCtrl.ipi_th, pAd->BgndScanCtrl.dfs_ipi_period,
-			pAd->BgndScanCtrl.antena_idx);
-
-		/* clear histogram CR */
-		cmd_rdd_ipi_scan.u1mode = 1;
-		status = mt_cmd_set_rdd_ipi_scan(pAd, &cmd_rdd_ipi_scan);
-
-		if (status == NDIS_STATUS_SUCCESS) {
-			/* Start timer */
-			RTMPSetTimer(&pAd->BgndScanCtrl.hist_scan_timer, pAd->BgndScanCtrl.dfs_ipi_period);
-		} else {
-			MTWF_DBG(pAd, DBG_CAT_CHN, CATCHN_SCAN, DBG_LVL_ERROR,
-			"%s: ipi scan command failed\n", __func__);
-		}
-
-	} else {
-		MTWF_DBG(pAd, DBG_CAT_CHN, CATCHN_SCAN, DBG_LVL_ERROR,
-			"%s: Arg is Null\n", __func__);
-	}
-	return TRUE;
-}
-#endif
-
-VOID dedicated_rx_hist_scan_timeout(
+VOID DfsZeroWaitTimeout(
 	IN PVOID SystemSpecific1,
 	IN PVOID FunctionContext,
 	IN PVOID SystemSpecific2,
 	IN PVOID SystemSpecific3)
 {
-	PRTMP_ADAPTER pAd = (PRTMP_ADAPTER)FunctionContext;
-	BOOLEAN Cancelled;
+	struct wifi_dev *wdev = (struct wifi_dev *)FunctionContext;
+	RTMP_ADAPTER *pAd = NULL;
 
-	MlmeEnqueue(pAd, BGND_SCAN_STATE_MACHINE, BGND_DEDICATE_RX_SCAN, 0, NULL, 0);
+	if (wdev == NULL)
+		return;
+	pAd = wdev->sys_handle;
+
+#ifdef MT_DFS_SUPPORT
+	UPDATE_MT_ZEROWAIT_DFS_STATE(pAd, DFS_OFF_CHNL_CAC_TIMEOUT);
+	MTWF_LOG(DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("%s: Status=%d",
+			 __func__,
+			 GET_MT_ZEROWAIT_DFS_STATE(pAd)));
+#endif
+	MlmeEnqueue(pAd, BGND_SCAN_STATE_MACHINE, BGND_RDD_TIMEOUT, sizeof(struct wifi_dev), wdev, 0);
 	RTMP_MLME_HANDLER(pAd);
+}
 
-	RTMPCancelTimer(&pAd->BgndScanCtrl.hist_scan_timer, &Cancelled);
-	RTMPReleaseTimer(&pAd->BgndScanCtrl.hist_scan_timer, &Cancelled);
+VOID DfsZeroWaitStart(
+	IN PRTMP_ADAPTER pAd,
+	IN BOOLEAN	DfsZeroWaitEnable,
+	struct wifi_dev *wdev)
+{
+	if (wdev == NULL)
+		return;
 
-	return;
+	if (DfsZeroWaitEnable)
+		MlmeEnqueue(pAd, BGND_SCAN_STATE_MACHINE, BGND_RDD_REQ, sizeof(struct wifi_dev), wdev, 0);
+	else
+		MlmeEnqueue(pAd, BGND_SCAN_STATE_MACHINE, BGND_RDD_CNCL, 0, NULL, 0); /* So far not thing to do. */
+
+	RTMP_MLME_HANDLER(pAd);
 }
 
 
-VOID dedicated_rx_hist_scan_timeout_action(
-	RTMP_ADAPTER * pAd,
-	MLME_QUEUE_ELEM *Elem)
+VOID DfsZeroWaitStartAction(
+	IN RTMP_ADAPTER *pAd,
+	IN MLME_QUEUE_ELEM *Elem)
 {
-	UINT8 ipi_idx = 0;
-	UCHAR ipi_th = pAd->BgndScanCtrl.ipi_th;
-	UINT32 ipi_hist_val = 0;
-	UINT32 free_cnt = 0;
-	UINT32 self_idle_ratio = 0, ipi_percent = 0, ch_load = 0;
-	UINT32 ipi_idle_ratio = 0, threshold = 0;
-	UINT32 period = 0;
-#define INC_PRECISION 1000
-	MTWF_DBG(pAd, DBG_CAT_CHN, CATCHN_SCAN, DBG_LVL_INFO,
-		"%s(): band[%d], show IPI histogram\n", __func__, pAd->BgndScanCtrl.band_idx);
+	MT_BGND_SCAN_CFG BgndScanCfg;
+	UCHAR		channel_idx;
+	MT_BGND_SCAN_NOTIFY BgScNotify;
+	MT_SWITCH_CHANNEL_CFG *CurrentSwChCfg;
+	struct freq_oper oper;
+	struct wifi_dev *wdev = (struct wifi_dev *)Elem->Msg;
 
-#ifdef IPI_SCAN_SUPPORT
-	if (IS_MT7986(pAd) || IS_MT7981(pAd)) {
-		UINT8 start_idx = 0;
-		UINT8 i, antena_count = 1;
-		EXT_EVENT_RDD_IPI_SCAN rdd_ipi_scan_hist;
-		os_zero_mem(&rdd_ipi_scan_hist, sizeof(EXT_EVENT_RDD_IPI_SCAN));
-		mt_cmd_get_rdd_ipi_scan(pAd, &rdd_ipi_scan_hist);
-		if (pAd->BgndScanCtrl.band_idx == 1)
-			start_idx = 4;
+	if (wdev == NULL) {
+		MTWF_LOG(DBG_CAT_CFG, DBG_SUBCAT_ALL, DBG_LVL_ERROR, ("%s: wdev is NULL! \n", __func__));
 
-		if (pAd->BgndScanCtrl.antena_idx == -1)
-			antena_count = 4;
-		else
-			start_idx += pAd->BgndScanCtrl.antena_idx;
+		return;
+	}
+	if (hc_radio_query_by_wdev(wdev, &oper)) {
+		return;
+	}
 
-		for (i = 0; i < antena_count; i++) {
-			free_cnt = 0;
-			ipi_hist_val = 0;
-			for (ipi_idx = 0; ipi_idx < PWR_INDICATE_HIST_MAX; ipi_idx++) {
-				MTWF_DBG(pAd, DBG_CAT_CHN, CATCHN_SCAN, DBG_LVL_WARN,
-					"ipi[%d],\t ipi_hist_cnt=\t%d\n",
-					ipi_idx,
-					rdd_ipi_scan_hist.au4IpiHistVal[start_idx][ipi_idx]);
 
-				/* Get IPI2-IPI10 total cnt */
-				if (ipi_th <= ipi_idx && ipi_idx <= RDD_IPI_HIST_10) {
-					ipi_hist_val += rdd_ipi_scan_hist.au4IpiHistVal[start_idx][ipi_idx];
-				}
-				/* Get IPI free run cnt */
-				free_cnt += rdd_ipi_scan_hist.au4IpiHistVal[start_idx][ipi_idx];
-			}
-
-			MTWF_DBG(pAd, DBG_CAT_CHN, CATCHN_SCAN, DBG_LVL_WARN,
-				"threshold ipi[%d], ipi cnt %d, free run cnt %d\n",
-				ipi_th, ipi_hist_val, free_cnt);
-			MTWF_DBG(pAd, DBG_CAT_CHN, CATCHN_SCAN, DBG_LVL_INFO,
-				"tx_assert_time %d (ms)\n", rdd_ipi_scan_hist.u4TxAssertTime / 1000);
-			MTWF_DBG(pAd, DBG_CAT_CHN, CATCHN_SCAN, DBG_LVL_WARN,
-				"Period %d (ms)\n", pAd->BgndScanCtrl.dfs_ipi_period);
-
-			/* channel_load */
-			ipi_percent = (INC_PRECISION * 100 * ipi_hist_val / free_cnt);
-			if (ipi_percent >= 100 * INC_PRECISION)
-				ipi_percent = 100 * INC_PRECISION;
-
-			ipi_idle_ratio = ((100 * INC_PRECISION) - ipi_percent);
-
-			period = pAd->BgndScanCtrl.dfs_ipi_period; /* ms */
-			self_idle_ratio = (INC_PRECISION * 100 * (period - (rdd_ipi_scan_hist.u4TxAssertTime / 1000))) / period;
-			/* Channel_Load = (Self_Idle_Ratio - Idle_Ratio)/Self_Idle_Ratio */
-			if (self_idle_ratio < ipi_idle_ratio)
-				ch_load = 0;
-			else
-				ch_load = (self_idle_ratio - ipi_idle_ratio);
-
-			if (self_idle_ratio <= threshold * INC_PRECISION) {
-				MTWF_DBG(pAd, DBG_CAT_CHN, CATCHN_SCAN, DBG_LVL_ERROR,
-					"band[%d] - self_idle_ratio %d%% < threshold %d%%\n",
-				rdd_ipi_scan_hist.u1BandIdx, self_idle_ratio/INC_PRECISION, threshold/INC_PRECISION);
-
-				pAd->BgndScanCtrl.BgndScanStatMachine.CurrState = BGND_SCAN_IDLE;
-				return;
-			}
-
-			ch_load = (100 * ch_load) / self_idle_ratio;
-
-			MTWF_DBG(pAd, DBG_CAT_CHN, CATCHN_SCAN, DBG_LVL_WARN,
-				"ch_load %d%%, band[%d] antena idx[%d] - self_idle_ratio %d%%, idle_ratio %d%%\n",
-				ch_load, pAd->BgndScanCtrl.band_idx, start_idx, self_idle_ratio/INC_PRECISION, ipi_idle_ratio/INC_PRECISION);
-			start_idx++;
-		}
-	} else
+	pAd->BgndScanCtrl.BgndScanStatMachine.CurrState = BGND_RDD_DETEC;
+	CurrentSwChCfg = &(pAd->BgndScanCtrl.CurrentSwChCfg[0]);
+	BgScNotify.NotifyFunc =  (0x2 << 5 | 0xf);
+	BgScNotify.BgndScanStatus = 1;/* start */
+	MTWF_LOG(DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("DfsZeroWaitStartAction Notify NotifyFunc=%x, Status=%d", BgScNotify.NotifyFunc, BgScNotify.BgndScanStatus));
+	MtCmdBgndScanNotify(pAd, BgScNotify);
+	/* Disable BF, MU */
+#if defined(MT_MAC) && (!defined(MT7636)) && defined(TXBF_SUPPORT)
+	BfSwitch(pAd, 0);
 #endif
-	{
-		EXT_EVENT_RDD_IPI_HIST rdd_ipi_hist_rlt;
-		os_zero_mem(&rdd_ipi_hist_rlt, sizeof(EXT_EVENT_RDD_IPI_HIST));
-		/* Get IPI cnt */
-		rdd_ipi_hist_rlt.band_idx = pAd->BgndScanCtrl.band_idx;
-		mt_cmd_get_rdd_ipi_hist(pAd, RDD_IPI_HIST_ALL_CNT, &rdd_ipi_hist_rlt);
-		for (ipi_idx = 0; ipi_idx < (IPI_HIST_TYPE_NUM - 1); ipi_idx++) {
-			MTWF_DBG(pAd, DBG_CAT_CHN, CATCHN_SCAN, DBG_LVL_WARN,
-				"ipi[%d],\t ipi_hist_cnt=\t%d\n",
-				ipi_idx,
-				rdd_ipi_hist_rlt.ipi_hist_val[ipi_idx]);
+#ifdef CFG_SUPPORT_MU_MIMO
+	MuSwitch(pAd, 0);
+#endif /* CFG_SUPPORT_MU_MIMO */
+	BgndScanCfg.CentralChannel = 0;
 
-		/* Get IPI2-IPI10 total cnt */
-			if (ipi_th <= ipi_idx && ipi_idx <= RDD_IPI_HIST_10) {
-				ipi_hist_val += rdd_ipi_hist_rlt.ipi_hist_val[ipi_idx];
-			}
-
+	for (channel_idx = 0; channel_idx < pAd->BgndScanCtrl.ChannelListNum; channel_idx++) {
+		if (pAd->BgndScanCtrl.DfsZeroWaitChannel == pAd->BgndScanCtrl.BgndScanChList[channel_idx].Channel) {
+			BgndScanCfg.CentralChannel = pAd->BgndScanCtrl.BgndScanChList[channel_idx].CenChannel;
+			break;
 		}
+	}
 
-		/* Get IPI free run cnt */
-		free_cnt = rdd_ipi_hist_rlt.ipi_hist_val[RDD_IPI_FREE_RUN_CNT];
-		MTWF_DBG(pAd, DBG_CAT_CHN, CATCHN_SCAN, DBG_LVL_INFO,
-			"threshold ipi[%d], ipi cnt %d, free run cnt %d\n",
-			ipi_th, ipi_hist_val, free_cnt);
-		MTWF_DBG(pAd, DBG_CAT_CHN, CATCHN_SCAN, DBG_LVL_INFO,
-			"tx_assert_time %d (ms)\n", rdd_ipi_hist_rlt.tx_assert_time / 1000);
-		MTWF_DBG(pAd, DBG_CAT_CHN, CATCHN_SCAN, DBG_LVL_INFO,
-			"Period %d (ms)\n", pAd->BgndScanCtrl.dfs_ipi_period);
+	if (BgndScanCfg.CentralChannel == 0)
+		MTWF_LOG(DBG_CAT_CFG, DBG_SUBCAT_ALL, DBG_LVL_ERROR, ("%s: Illege CentralChannel=%d\n", __func__, BgndScanCfg.CentralChannel));
 
-		/* channel_load */
-		ipi_percent = (INC_PRECISION * 100 * ipi_hist_val / free_cnt);
-		if (ipi_percent >= 100 * INC_PRECISION)
-			ipi_percent = 100 * INC_PRECISION;
+	BgndScanCfg.ControlChannel = pAd->BgndScanCtrl.DfsZeroWaitChannel;
+	BgndScanCfg.BandIdx = 1;
+	BgndScanCfg.Bw = pAd->BgndScanCtrl.ScanBW;
+	BgndScanCfg.Reason = CH_SWITCH_BACKGROUND_SCAN_START;
+	BgndScanCfg.RxPath = 0x0C; /* Distribute 2 Rx for background scan */
+	BgndScanCfg.TxStream = 2;
+	MTWF_LOG(DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("%s Start DFS Zero Wait Bandidx=%d,	BW=%d, CtrlCh=%d, CenCh=%d, Reason=%d, RxPath=%d\n",
+			 __func__, BgndScanCfg.BandIdx, BgndScanCfg.Bw, BgndScanCfg.ControlChannel,
+			 BgndScanCfg.CentralChannel, BgndScanCfg.Reason, BgndScanCfg.RxPath));
+	MtCmdBgndScan(pAd, BgndScanCfg);
+	/* Fill band0 BgndScanCfg */
+	BgndScanCfg.BandIdx = 0;
+	BgndScanCfg.Bw = CurrentSwChCfg->Bw /*pAd->BgndScanCtrl.ScanBW*/;
+	BgndScanCfg.ControlChannel = CurrentSwChCfg->ControlChannel;
+	BgndScanCfg.CentralChannel = CurrentSwChCfg->CentralChannel;
+	BgndScanCfg.Reason = CH_SWITCH_BACKGROUND_SCAN_START;
+	BgndScanCfg.RxPath = 0x03; /* Keep 2 Rx for original service */
+	BgndScanCfg.TxStream = 2;
+	MTWF_LOG(DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("%s Start DFS Zero Wait Bandidx=%d,	BW=%d, CtrlCh=%d, CenCh=%d, Reason=%d, RxPath=%d\n",
+			 __func__, BgndScanCfg.BandIdx, BgndScanCfg.Bw, BgndScanCfg.ControlChannel,
+			 BgndScanCfg.CentralChannel, BgndScanCfg.Reason, BgndScanCfg.RxPath));
+	MtCmdBgndScan(pAd, BgndScanCfg);
+	/* Enable band1 DFS */
+#ifdef MT_DFS_SUPPORT
+	RadarStateCheck(pAd, wdev);
+	DfsCacNormalStart(pAd, wdev, RD_NORMAL_MODE);
+	WrapDfsRadarDetectStart(pAd, wdev);
+#endif /* MT_DFS_SUPPORT */
+	RTMPSetTimer(&pAd->BgndScanCtrl.DfsZeroWaitTimer, pAd->BgndScanCtrl.DfsZeroWaitDuration);
+}
 
-		ipi_idle_ratio = ((100 * INC_PRECISION) - ipi_percent);
+VOID DfsZeroWaitStopAction(
+	IN RTMP_ADAPTER *pAd,
+	IN MLME_QUEUE_ELEM *Elem)
+{
+	MT_BGND_SCAN_CFG BgndScanCfg;
+	MT_BGND_SCAN_NOTIFY BgScNotify;
+	MT_SWITCH_CHANNEL_CFG *CurrentSwChCfg;
+	UCHAR	RxStreamNums = 0;
+	UCHAR	RxPath = 0;
+	UCHAR	i;
+	BOOL	Cancelled;
+	BACKGROUND_SCAN_CTRL *BgndScanCtrl = &pAd->BgndScanCtrl;
+	struct wifi_dev *wdev = (struct wifi_dev *)Elem->Msg;
+	struct DOT11_H *pDot11h = NULL;
 
-		period = pAd->BgndScanCtrl.dfs_ipi_period; /* ms */
-		self_idle_ratio = (INC_PRECISION * 100 * (period - (rdd_ipi_hist_rlt.tx_assert_time / 1000))) / period;
-		/* Channel_Load = (Self_Idle_Ratio - Idle_Ratio)/Self_Idle_Ratio */
-		if (self_idle_ratio < ipi_idle_ratio)
-			ch_load = 0;
-		else
-			ch_load = (self_idle_ratio - ipi_idle_ratio);
+	/* Please fix me in next phase for neptune DFS zero wait*/
+	/*wdev will be NULL in MbssZeroWaitStopValidate and WrapDfsRddReportHandle case*/
+	if (wdev == NULL) {
+		MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
+				 ("%s():illegal Elem\n",
+				 __func__));
+		return;
+	}
 
-		if (self_idle_ratio <= threshold * INC_PRECISION) {
-			MTWF_DBG(pAd, DBG_CAT_CHN, CATCHN_SCAN, DBG_LVL_ERROR,
-				"band[%d] - self_idle_ratio %d%% < threshold %d%%\n",
-				rdd_ipi_hist_rlt.band_idx, self_idle_ratio/INC_PRECISION, threshold/INC_PRECISION);
+	pDot11h = wdev->pDot11_H;
 
-			pAd->BgndScanCtrl.BgndScanStatMachine.CurrState = BGND_SCAN_IDLE;
+	RTMPCancelTimer(&BgndScanCtrl->DfsZeroWaitTimer, &Cancelled);
+	BgndScanCtrl->BgndScanStatMachine.CurrState = BGND_SCAN_IDLE;
+	CurrentSwChCfg = &(BgndScanCtrl->CurrentSwChCfg[0]);
+#ifdef MT_DFS_SUPPORT
+	MTWF_LOG(DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("[%s]RadarDetected=%d, state=%d\n",
+			 __func__,
+			 BgndScanCtrl->RadarDetected,
+			 GET_MT_ZEROWAIT_DFS_STATE(pAd)));
+	/* Disable Band1 DFS */
+	WrapDfsRadarDetectStop(pAd);
+#endif /* MT_DFS_SUPPORT */
+	/* RxStream to RxPath */
+	RxStreamNums = CurrentSwChCfg->RxStream;
+
+	if (RxStreamNums > 4) {
+		MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
+				 ("%s():illegal RxStreamNums(%d)\n",
+				  __func__, RxStreamNums));
+		RxStreamNums = 4;
+	}
+
+	for (i = 0; i < RxStreamNums; i++)
+		RxPath |= 1 << i;
+
+	BgndScanCfg.BandIdx = 0;
+	BgndScanCfg.Bw = CurrentSwChCfg->Bw;
+	BgndScanCfg.ControlChannel = CurrentSwChCfg->ControlChannel;
+	BgndScanCfg.CentralChannel = CurrentSwChCfg->CentralChannel;
+	BgndScanCfg.Reason = CH_SWITCH_BACKGROUND_SCAN_STOP;
+	BgndScanCfg.RxPath = RxPath; /* return to 4 Rx */
+	BgndScanCfg.TxStream = CurrentSwChCfg->TxStream;
+	MTWF_LOG(DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("%s Stop Scan Bandidx=%d, BW=%d, CtrlCh=%d, CenCh=%d, Reason=%d, RxPath=%d\n",
+			 __func__, BgndScanCfg.BandIdx, BgndScanCfg.Bw, BgndScanCfg.ControlChannel,
+			 BgndScanCfg.CentralChannel, BgndScanCfg.Reason, BgndScanCfg.RxPath));
+	MtCmdBgndScan(pAd, BgndScanCfg);
+	/* Notify RA background scan stop */
+	BgScNotify.NotifyFunc =  (BgndScanCfg.TxStream << 5 | 0xf);
+	BgScNotify.BgndScanStatus = 0;/* stop */
+	MTWF_LOG(DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("Background scan Notify NotifyFunc=%x, Status=%d", BgScNotify.NotifyFunc, BgScNotify.BgndScanStatus));
+	MtCmdBgndScanNotify(pAd, BgScNotify);
+	/* Enable BF, MU */
+#if defined(MT_MAC) && (!defined(MT7636)) && defined(TXBF_SUPPORT)
+	BfSwitch(pAd, 1);
+#endif
+#ifdef CFG_SUPPORT_MU_MIMO
+	MuSwitch(pAd, 1);
+#endif /* CFG_SUPPORT_MU_MIMO */
+#ifdef MT_DFS_SUPPORT
+	MTWF_LOG(DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("[%s]RadarDetected=%d, state=%d\n",
+			 __func__,
+			 BgndScanCtrl->RadarDetected,
+			 GET_MT_ZEROWAIT_DFS_STATE(pAd)));
+
+	/* MBSS Zero Wait Stop flow */
+	if (CHK_MT_ZEROWAIT_DFS_STATE(pAd, DFS_MBSS_CAC))
+		return;
+
+	if ((BgndScanCtrl->RadarDetected != 1)
+#ifdef MAC_REPEATER_SUPPORT
+		&& (!(CHK_MT_ZEROWAIT_DFS_STATE(pAd, DFS_OFF_CHNL_CAC_TIMEOUT) && (pAd->ApCfg.bMACRepeaterEn == TRUE)))
+#endif
+	   ) {
+		UCHAR org_ch;
+
+		if (wdev == NULL) {
+			MTWF_LOG(DBG_CAT_CFG, DBG_SUBCAT_ALL, DBG_LVL_ERROR, ("%s: wdev is NULL!\n",
+					 __func__));
+			/*pDot11h->RDMode = RD_NORMAL_MODE;*/
+			UPDATE_MT_ZEROWAIT_DFS_STATE(pAd, DFS_IDLE);
 			return;
 		}
 
-		ch_load = (100 * ch_load) / self_idle_ratio;
+		MTWF_LOG(DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_OFF, ("[%s]ZeroWaitStop,no radar, state=%d\n",
+				 __func__,
+				 GET_MT_ZEROWAIT_DFS_STATE(pAd)));
+		pDot11h->RDMode = RD_SWITCHING_MODE;
 
-		MTWF_DBG(pAd, DBG_CAT_CHN, CATCHN_SCAN, DBG_LVL_INFO,
-			"ch_load %d%%, band[%d] - self_idle_ratio %d%%, idle_ratio %d%%\n",
-			ch_load, rdd_ipi_hist_rlt.band_idx, self_idle_ratio/INC_PRECISION, ipi_idle_ratio/INC_PRECISION);
+
+		if (CHK_MT_ZEROWAIT_DFS_STATE(pAd, DFS_OFF_CHNL_CAC_TIMEOUT)) {
+			/* Off-Channel CAC timeout: Band1 DFS channel is safe for using */
+			MTWF_LOG(DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("[%s]Currstate:CAC_TIMEOUT, Switch to CH%d!\n",
+					 __func__,
+					 pAd->BgndScanCtrl.DfsZeroWaitChannel));
+			rtmp_set_channel(pAd, wdev, pAd->BgndScanCtrl.DfsZeroWaitChannel);
+		} else if (CHK_MT_ZEROWAIT_DFS_STATE(pAd, DFS_CAC)) {
+			UCHAR   Channel;
+
+			/* Off-Channel CAC period -> set new channel(nonDFS/DFS) */
+			if ((BgndScanCtrl->DfsZeroWaitChannel == 0)
+				|| (RadarChannelCheck(pAd, BgndScanCtrl->DfsZeroWaitChannel) == FALSE)
+#ifdef MAC_REPEATER_SUPPORT
+				|| (pAd->ApCfg.bMACRepeaterEn)
+#endif /* MAC_REPEATER_SUPPORT */
+			   ) {
+				/* 1. set nonDFS Channel case and next step is APStop/APStartUp
+				   2. Previous is CAC state and repeater dynamic enable
+				*/
+				Channel  = BgndScanCtrl->DfsZeroWaitChannel;
+				MTWF_LOG(DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("[%s]Currstate:DFS_CAC, Switch to CH%d!\n",
+						 __func__,
+						 Channel));
+				UPDATE_MT_ZEROWAIT_DFS_STATE(pAd, DFS_IDLE);
+#ifdef MAC_REPEATER_SUPPORT
+
+				/* Disable DFS zero wait support  for repeater mode dynamic enable */
+				if (pAd->ApCfg.bMACRepeaterEn) {
+					BgndScanCtrl->DfsZeroWaitSupport = FALSE;
+					UPDATE_MT_ZEROWAIT_DFS_Support(pAd, FALSE);
+				}
+
+#endif /* MAC_REPEATER_SUPPORT */
+				/* Do ChSwAnn by Set_Channel_Proc */
+				rtmp_set_channel(pAd, wdev, Channel);
+			} else {
+				/* Ori CAC -> set DFS channel case
+				   Next Step is ZeroWaitStart and still is CAC state */
+				/* Re-select a non-DFS channel. */
+				Channel = WrapDfsRandomSelectChannel(pAd, TRUE, 0); /* Skip DFS CH */
+				/* Assign DfsZeroWait Band0 CH and update into BgnScan.CurrSwChCfg */
+				CurrentSwChCfg->ControlChannel = Channel;
+				CurrentSwChCfg->CentralChannel = DfsGetCentCh(pAd, Channel, CurrentSwChCfg->Bw, wdev);
+				MTWF_LOG(DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("[%s][CAC Period->Set DFS Ch]New nonDfsCh=%d, DfsCh=%d\n",
+						 __func__,
+						 Channel,
+						 BgndScanCtrl->DfsZeroWaitChannel));
+				org_ch = wdev->channel;
+				wdev->channel = Channel;
+				pDot11h->CSCount = 0;
+				pDot11h->new_channel = Channel;
+				pDot11h->RDMode = RD_SWITCHING_MODE; /* New add */
+
+				if (HcUpdateCsaCntByChannel(pAd, org_ch) != 0)
+					MTWF_LOG(DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_ERROR, ("[%s]Update CsaCnt by Channel%d fail\n", __func__, Channel));
+			}
+		}
+	} else {
+		/*1. Radar detected during off-channel CAC*/
+		/*2. Repeater enable during off-channel CAC*/
+		MTWF_LOG(DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("[%s]ZeroWaitStop,have radar(or repeater En during off-channel CAC), state=%d\n",
+				 __func__,
+				 GET_MT_ZEROWAIT_DFS_STATE(pAd)));
+
+		if (CHK_MT_ZEROWAIT_DFS_STATE(pAd, DFS_RADAR_DETECT)) {
+			DfsSetZeroWaitCacSecond(pAd);
+			WrapDfsRddReportHandle(pAd, HW_RDD1);
+			/* OffChl CAC period -> detected radar -> band1 Non-Dfs CH is single work CH */
+			/* UPDATE_MT_ZEROWAIT_DFS_STATE(pAd, DFS_IDLE); */
+			/* Enable Tx Queues and ACK */
+			/* MtCmdSetDfsTxStart(pAd, DBDC_BAND0); */
+#ifdef MAC_REPEATER_SUPPORT
+
+			/* Disable DFS zero wait support  for repeater mode dynamic enable */
+			if (pAd->ApCfg.bMACRepeaterEn) {
+				BgndScanCtrl->DfsZeroWaitSupport = FALSE;
+				UPDATE_MT_ZEROWAIT_DFS_Support(pAd, FALSE);
+			}
+
+#endif /* MAC_REPEATER_SUPPORT */
+		}
 	}
-	pAd->BgndScanCtrl.BgndScanStatMachine.CurrState = BGND_SCAN_IDLE;
-
-	return;
+#endif /* MT_DFS_SUPPORT */
 }
-
 
 #ifdef MT_DFS_SUPPORT
 VOID DedicatedZeroWaitStartAction(
-	IN RTMP_ADAPTER * pAd,
-	IN MLME_QUEUE_ELEM * Elem)
+		IN RTMP_ADAPTER * pAd,
+		IN MLME_QUEUE_ELEM * Elem)
 {
-	struct _RTMP_CHIP_OP *ops = hc_get_chip_ops(pAd->hdev_ctrl);
-#if (RDD_2_SUPPORTED == 0)
+	MT_BGND_SCAN_CFG BgndScanCfg;
+	MT_SWITCH_CHANNEL_CFG *CurrentSwChCfg;
 	MT_BGND_SCAN_NOTIFY BgScNotify;
-#endif
-#if (DFS_ZEROWAIT_DEFAULT_FLOW == 1)
-	P_ENUM_DFS_INB_CH_SWITCH_STAT_T ch_stat = &pAd->CommonCfg.DfsParameter.inband_ch_stat;
-#endif
+	CHAR OutBandCh = GET_BGND_PARAM(pAd, OUTBAND_CH);
+	CHAR OutBandBw = GET_BGND_PARAM(pAd, OUTBAND_BW);
+	CHAR InBandCh = GET_BGND_PARAM(pAd, INBAND_CH);
+	CHAR InBandBw = GET_BGND_PARAM(pAd, INBAND_BW);
 
 	pAd->BgndScanCtrl.BgndScanStatMachine.CurrState = BGND_RDD_DETEC;
 
-#if (RDD_2_SUPPORTED == 0)
-	/* Initialize */
-	os_zero_mem(&BgScNotify, sizeof(MT_BGND_SCAN_NOTIFY));
+	CurrentSwChCfg = &(pAd->BgndScanCtrl.CurrentSwChCfg[0]);
+
+	os_zero_mem(&BgndScanCfg, sizeof(MT_BGND_SCAN_CFG));
 
 	BgScNotify.NotifyFunc =  (0x2 << 5 | 0xf);
 	BgScNotify.BgndScanStatus = 1;/*start*/
 	MtCmdBgndScanNotify(pAd, BgScNotify);
 
 	/*Disable BF, MU*/
-#if defined(MT_MAC) && defined(TXBF_SUPPORT)
+#if defined(MT_MAC) && (!defined(MT7636)) && defined(TXBF_SUPPORT)
 	/*BfSwitch(pAd, 0);*/
 	DynamicTxBfDisable(pAd, TRUE);
 #endif
 #ifdef CFG_SUPPORT_MU_MIMO
 	MuSwitch(pAd, 0);
 #endif /* CFG_SUPPORT_MU_MIMO */
-#endif /* RDD_2_SUPPORTED */
 
-	/* Split into synA + synB */
-	if (ops->set_off_ch_scan)
-		ops->set_off_ch_scan(pAd, CH_SWITCH_BACKGROUND_SCAN_START, ENUM_BGND_DFS_TYPE);
+#ifdef ONDEMAND_DFS
+	/* Move to DFS 2x2 Mode */
+	if (IS_SUPPORT_ONDEMAND_ZEROWAIT_DFS(pAd))
+		SET_ONDEMAND_DFS_MODE(pAd, ONDEMAND_2x2MODE);
+#endif
 
-	/*Start out-band radar detection*/
+	BgndScanCfg.ControlChannel = OutBandCh;
+	BgndScanCfg.CentralChannel = DfsPrimToCent(OutBandCh, OutBandBw);
+	BgndScanCfg.Bw = OutBandBw;
+	BgndScanCfg.TxStream = 2;
+	BgndScanCfg.RxPath = 0x0c;
+	BgndScanCfg.Reason = CH_SWITCH_BACKGROUND_SCAN_START;
+	BgndScanCfg.BandIdx = 1;
+
+	MTWF_LOG(DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_OFF, ("\x1b[1;33m [%s]  Bandidx=%d, BW=%d, CtrlCh=%d, CenCh=%d, Reason=%d, RxPath=%d \x1b[m \n",
+			__FUNCTION__, BgndScanCfg.BandIdx, BgndScanCfg.Bw, BgndScanCfg.ControlChannel,
+			BgndScanCfg.CentralChannel, BgndScanCfg.Reason, BgndScanCfg.RxPath));
+
+	MtCmdBgndScan(pAd, BgndScanCfg);
+
+	BgndScanCfg.ControlChannel = InBandCh;
+	BgndScanCfg.CentralChannel = CurrentSwChCfg->CentralChannel;
+	BgndScanCfg.Bw = InBandBw;
+	BgndScanCfg.TxStream = 2;
+	BgndScanCfg.RxPath = 0x03;
+	BgndScanCfg.Reason = CH_SWITCH_BACKGROUND_SCAN_START;
+	BgndScanCfg.BandIdx = 0;
+
+
+	MTWF_LOG(DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_OFF, ("\x1b[1;33m [%s]  Bandidx=%d, BW=%d, CtrlCh=%d, CenCh=%d, Reason=%d, RxPath=%d \x1b[m \n",
+			__FUNCTION__, BgndScanCfg.BandIdx, BgndScanCfg.Bw, BgndScanCfg.ControlChannel,
+			BgndScanCfg.CentralChannel, BgndScanCfg.Reason, BgndScanCfg.RxPath));
+
+	MtCmdBgndScan(pAd, BgndScanCfg);
+
+	/*Start Band1 radar detection*/
 	DfsDedicatedOutBandRDDStart(pAd);
-
-#if (DFS_ZEROWAIT_DEFAULT_FLOW == 1)
-	*ch_stat = DFS_OUTB_CH_CAC;
-#endif
 }
-
 VOID DedicatedZeroWaitRunningAction(
-	IN RTMP_ADAPTER * pAd,
-	IN MLME_QUEUE_ELEM * Elem)
+		IN RTMP_ADAPTER * pAd,
+		IN MLME_QUEUE_ELEM * Elem)
 {
-	struct _RTMP_CHIP_OP *ops = hc_get_chip_ops(pAd->hdev_ctrl);
+	MT_BGND_SCAN_CFG BgndScanCfg;
 	CHAR OutBandCh;
-#if (DFS_ZEROWAIT_DEFAULT_FLOW == 1)
-	P_ENUM_DFS_INB_CH_SWITCH_STAT_T ch_stat = &pAd->CommonCfg.DfsParameter.inband_ch_stat;
+	CHAR OutBandBw;
 
-	MTWF_DBG(pAd, DBG_CAT_CHN, CATCHN_SCAN, DBG_LVL_INFO, "ch_stat %d\n", *ch_stat);
-#endif
-	MTWF_DBG(pAd, DBG_CAT_CHN, CATCHN_SCAN, DBG_LVL_INFO, "Get new outband DFS channel\n");
 	DfsDedicatedOutBandRDDRunning(pAd);
 
 	OutBandCh = GET_BGND_PARAM(pAd, OUTBAND_CH);
+	OutBandBw = GET_BGND_PARAM(pAd, OUTBAND_BW);
+
+	/* Switch to 4x4 on Detection of Non-Zero DFS Channel */
 	if (OutBandCh == 0) {
-		MTWF_DBG(pAd, DBG_CAT_CHN, CATCHN_SCAN, DBG_LVL_ERROR, "No available outband Channel\n");
+		MTWF_LOG(DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_OFF,
+			("\x1b[1;33m [%s] No available outband Channel \x1b[m \n",
+			__func__));
 		DedicatedZeroWaitStop(pAd, FALSE);
 		return;
 	}
 
-	pAd->BgndScanCtrl.BgndScanStatMachine.CurrState = BGND_RDD_DETEC;
-	if (ops->set_off_ch_scan)
-		ops->set_off_ch_scan(pAd, CH_SWITCH_BACKGROUND_SCAN_RUNNING, ENUM_BGND_DFS_TYPE);
 
-	/* Start out-band radar detection */
-	DfsDedicatedOutBandRDDStart(pAd);
+#ifdef ONDEMAND_DFS
+	if ((IS_SUPPORT_ONDEMAND_ZEROWAIT_DFS(pAd)) && (!RadarChannelCheck(pAd, OutBandCh))) {
+		struct wifi_dev *wdev = NULL;
 
-#if (DFS_ZEROWAIT_DEFAULT_FLOW == 1)
-	/* Change channel state */
-	switch (*ch_stat) {
-	case DFS_INB_CH_SWITCH_CH:
-	case DFS_INB_DFS_OUTB_CH_CAC:
-	case DFS_INB_DFS_OUTB_CH_CAC_DONE:
-		/* set new outband DFS channel stat */
-		*ch_stat = DFS_INB_DFS_OUTB_CH_CAC;
-		break;
-
-	default:
-		break;
+		wdev = pAd->wdev_list[0];
+		MTWF_LOG(DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_OFF,
+			("\x1b[1;33m [%s] Non-DFS Channel Selected Move to 4x4 \x1b[m \n", __func__));
+		DedicatedZeroWaitStop(pAd, TRUE);
+		rtmp_set_channel(pAd, wdev, OutBandCh);
+		return;
 	}
-	MTWF_DBG(pAd, DBG_CAT_CHN, CATCHN_SCAN, DBG_LVL_INFO, "ch_stat %d\n", *ch_stat);
 #endif
-
+	pAd->BgndScanCtrl.BgndScanStatMachine.CurrState = BGND_RDD_DETEC;
+	os_zero_mem(&BgndScanCfg, sizeof(MT_BGND_SCAN_CFG));
+	BgndScanCfg.ControlChannel = OutBandCh;
+	BgndScanCfg.CentralChannel = DfsPrimToCent(OutBandCh, OutBandBw);
+	BgndScanCfg.Bw = OutBandBw;
+	BgndScanCfg.TxStream = 2;
+	BgndScanCfg.RxPath = 0x0c;
+	BgndScanCfg.Reason = CH_SWITCH_BACKGROUND_SCAN_RUNNING;
+	BgndScanCfg.BandIdx = 1;
+	MTWF_LOG(DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_OFF,
+			("\x1b[1;33m [%s] Bandidx=%d, BW=%d, CtrlCh=%d, CenCh=%d, Reason=%d, RxPath=%d \x1b[m \n",
+			__FUNCTION__, BgndScanCfg.BandIdx, BgndScanCfg.Bw, BgndScanCfg.ControlChannel,
+			BgndScanCfg.CentralChannel, BgndScanCfg.Reason, BgndScanCfg.RxPath));
+	MtCmdBgndScan(pAd, BgndScanCfg);
+	/*Start Band1 radar detection*/
+	DfsDedicatedOutBandRDDStart(pAd);
 }
 
 VOID DedicatedZeroWaitStop(
-	IN RTMP_ADAPTER * pAd, BOOLEAN apply_cur_ch)
+		IN RTMP_ADAPTER * pAd, BOOLEAN bApplyCurrentCh)
 {
-#if (RDD_2_SUPPORTED == 0)
-	CHAR in_band_ch = 0;
-#endif /* RDD_2_SUPPORTED */
+	MT_BGND_SCAN_CFG BgndScanCfg;
+	MT_BGND_SCAN_NOTIFY BgScNotify;
+	MT_SWITCH_CHANNEL_CFG *CurrentSwChCfg;
+	UCHAR	RxStreamNums = 0;
+	UCHAR	RxPath = 0;
+	UCHAR	i;
+	CHAR InBandCh;
+	CHAR InBandBw;
 	BACKGROUND_SCAN_CTRL *BgndScanCtrl = &pAd->BgndScanCtrl;
-	struct _RTMP_CHIP_OP *ops = hc_get_chip_ops(pAd->hdev_ctrl);
 
-	MTWF_DBG(pAd, DBG_CAT_CHN, CATCHN_SCAN, DBG_LVL_INFO, "start.\n");
-#if (RDD_2_SUPPORTED == 0)
-	if (apply_cur_ch == TRUE) {
-		in_band_ch = GET_BGND_PARAM(pAd, INBAND_CH);
+	if (bApplyCurrentCh == TRUE) {
+		InBandCh = GET_BGND_PARAM(pAd, INBAND_CH);
+		InBandBw = GET_BGND_PARAM(pAd, INBAND_BW);
 	} else {
-		in_band_ch = GET_BGND_PARAM(pAd, ORI_INBAND_CH);
+		InBandCh = GET_BGND_PARAM(pAd, ORI_INBAND_CH);
+		InBandBw = GET_BGND_PARAM(pAd, ORI_INBAND_BW);
 	}
 
-	if (in_band_ch == 0)
-		return;
-#endif /* RDD_2_SUPPORTED */
+	CurrentSwChCfg = &(BgndScanCtrl->CurrentSwChCfg[0]);
 
-	if (!IS_SUPPORT_DEDICATED_ZEROWAIT_DFS(pAd))
+
+	if ((!IS_SUPPORT_DEDICATED_ZEROWAIT_DFS(pAd))
+#ifdef ONDEMAND_DFS
+		&& (!IS_SUPPORT_ONDEMAND_ZEROWAIT_DFS(pAd))
+#endif
+	)
 		return;
 
 	if (!GET_BGND_STATE(pAd, BGND_RDD_DETEC))
 		return;
 
-	BgndScanCtrl->BgndScanStatMachine.CurrState = BGND_SCAN_IDLE;
+	if (InBandCh == 0)
+		return;
 
+#ifdef ONDEMAND_DFS
+	if (IS_SUPPORT_ONDEMAND_ZEROWAIT_DFS(pAd))
+		BgndScanCtrl->BgndScanStatMachine.CurrState = BGND_ONDMND_CNLSWITCH_ON;
+	else
+#endif
+		BgndScanCtrl->BgndScanStatMachine.CurrState = BGND_SCAN_IDLE;
 	DfsDedicatedOutBandRDDStop(pAd);
+	/* RxStream to RxPath */
+	RxStreamNums = CurrentSwChCfg->RxStream;
+	if (RxStreamNums > 4) {
+#ifdef DFS_DBG_LOG_0
+		MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
+			("\x1b[1;33m %s():illegal RxStreamNums(%d) \x1b[m \n",
+			__func__, RxStreamNums));
+#endif
+		RxStreamNums = 4;
+	}
 
-	/* return to SynA only */
-	if (ops->set_off_ch_scan)
-		ops->set_off_ch_scan(pAd, CH_SWITCH_BACKGROUND_SCAN_STOP, ENUM_BGND_DFS_TYPE);
-
-#if (RDD_2_SUPPORTED == 0)
+	for (i = 0; i < RxStreamNums; i++)
+		RxPath |= 1 << i;
+	BgndScanCfg.BandIdx = 0;
+	BgndScanCfg.Bw = InBandBw;
+	BgndScanCfg.ControlChannel = InBandCh;
+	BgndScanCfg.CentralChannel = DfsPrimToCent(InBandCh, InBandBw);
+	BgndScanCfg.Reason = CH_SWITCH_BACKGROUND_SCAN_STOP;
+	BgndScanCfg.RxPath = RxPath; /* return to 4 Rx */
+	BgndScanCfg.TxStream = CurrentSwChCfg->TxStream;
+	MTWF_LOG(DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_OFF,
+			("[%s] Bandidx=%d, BW=%d, CtrlCh=%d, CenCh=%d, Reason=%d, RxPath=%d\n",
+			__func__, BgndScanCfg.BandIdx, BgndScanCfg.Bw, BgndScanCfg.ControlChannel,
+			BgndScanCfg.CentralChannel, BgndScanCfg.Reason, BgndScanCfg.RxPath));
+	MtCmdBgndScan(pAd, BgndScanCfg);
+	BgScNotify.NotifyFunc =  (BgndScanCfg.TxStream << 5 | 0xf);
+	BgScNotify.BgndScanStatus = 0;/*stop*/
+	MtCmdBgndScanNotify(pAd, BgScNotify);
 	/*Enable BF, MU*/
-#if defined(MT_MAC) && defined(TXBF_SUPPORT)
+#if defined(MT_MAC) && (!defined(MT7636)) && defined(TXBF_SUPPORT)
 	/*BfSwitch(pAd, 1);*/
 	DynamicTxBfDisable(pAd, FALSE);
 #endif
-
 #ifdef CFG_SUPPORT_MU_MIMO
 	MuSwitch(pAd, 1);
 #endif /* CFG_SUPPORT_MU_MIMO */
-
-#endif /* RDD_2_SUPPORTED */
-
-	MTWF_DBG(pAd, DBG_CAT_CHN, CATCHN_SCAN, DBG_LVL_INFO, "end.\n");
-
 }
-
-#if (DFS_ZEROWAIT_DEFAULT_FLOW == 1)
-VOID dfs_zero_wait_ch_init_timeout(
-	IN PVOID SystemSpecific1,
-	IN PVOID FunctionContext,
-	IN PVOID SystemSpecific2,
-	IN PVOID SystemSpecific3)
-{
-	PRTMP_ADAPTER pAd = (PRTMP_ADAPTER)FunctionContext;
-	PUCHAR ch_outband = &pAd->CommonCfg.DfsParameter.OutBandCh;
-	PUCHAR phy_bw_outband = &pAd->CommonCfg.DfsParameter.OutBandBw;
-	P_ENUM_DFS_INB_CH_SWITCH_STAT_T ch_stat = &pAd->CommonCfg.DfsParameter.inband_ch_stat;
-	UCHAR band_idx = 0;
-	PDFS_PARAM pDfsParam = &pAd->CommonCfg.DfsParameter;
-#if (DFS_ZEROWAIT_SUPPORT_8080 == 1)
-	struct wifi_dev *wdev = NULL;
-	UINT_8 BssIdx = 0;
-#endif
-
-	BOOLEAN Cancelled;
-
-	MTWF_DBG(pAd, DBG_CAT_CHN, CATCHN_SCAN, DBG_LVL_INFO, "ch_stat %d\n", *ch_stat);
-	/* Stop timer */
-	RTMPCancelTimer(&pAd->BgndScanCtrl.DfsZeroWaitTimer, &Cancelled);
-
-	switch (*ch_stat) {
-	case DFS_OUTB_CH_CAC:
-		DfsDedicatedOutBandSetChannel(pAd, *ch_outband, *phy_bw_outband, RDD_DEDICATED_RX);
-		break;
-
-	case DFS_INB_DFS_RADAR_OUTB_CAC_DONE:
-		/* Assign DFS outband Channel to inband Channel */
-		/* use channel to find band index */
-		band_idx = dfs_get_band_by_ch(pAd, pDfsParam->OutBandCh);
-
-		MTWF_DBG(pAd, DBG_CAT_CHN, CATCHN_SCAN, DBG_LVL_INFO, "New inband channel %d bandidx %d\n",
-					pDfsParam->OutBandCh, band_idx);
-
-		/* Assign DFS outband Channel to inband Channel */
-		*ch_stat = DFS_INB_CH_SWITCH_CH;
-#if (DFS_ZEROWAIT_SUPPORT_8080 == 1)
-		if ((pDfsParam->DFSChHitBand == DBDC_BAND0) || (pAd->CommonCfg.dbdc_mode)) {
-			DfsDedicatedInBandSetChannel(
-				pAd,
-				pDfsParam->OutBandCh,
-				pDfsParam->OutBandBw,
-				FALSE,
-				pDfsParam->DFSChHitBand);
-		} else {
-			for (BssIdx = 0; BssIdx < pAd->ApCfg.BssidNum; BssIdx++) {
-				wdev = &pAd->ApCfg.MBSSID[BssIdx].wdev;
-				wdev->vht_sec_80_channel = pDfsParam->OutBandCh;
-				wlan_config_set_cen_ch_2(wdev, DfsPrimToCent(pDfsParam->OutBandCh, BW_80));
-			}
-			DfsDedicatedInBandSetChannel(
-				pAd,
-				pDfsParam->band_ch[RDD_BAND0],
-				pDfsParam->OutBandBw,
-				FALSE,
-				DBDC_BAND0);
-		}
-#else
-		DfsDedicatedInBandSetChannel(pAd, pDfsParam->OutBandCh, pDfsParam->OutBandBw, FALSE, band_idx);
-#endif
-		break;
-
-	default:
-		break;
-	}
-}
-#endif /* DFS_ZEROWAIT_DEFAULT_FLOW */
 #endif
 
 VOID BackgroundScanTest(
@@ -1663,9 +1331,8 @@ VOID ChannelQualityDetection(
 	UINT32 MyTxAirTime = 0;
 	UINT32 MyRxAirTime = 0;
 	UCHAR BandIdx = 0;
-	UINT32 lv0 = 0, lv1 = 0, lv2 = 0, lv3 = 0, lv4 = 0, lv5 = 0;
-	UINT32 lv6 = 0, lv7 = 0, lv8 = 0, lv9 = 0, lv10 = 0, CrValue = 0;
-	UINT32 Noisy = 0;
+	UINT32      lv0, lv1, lv2, lv3, lv4, lv5, lv6, lv7, lv8, lv9, lv10, CrValue;
+	UCHAR Noisy = 0;
 	UINT32 TotalIPI = 0;
 	/* RTMP_REG_PAIR Reg[11]; */
 	/* Phase 1: No traffic stat */
@@ -1675,17 +1342,17 @@ VOID ChannelQualityDetection(
 	MyTxAirTime = pAd->OneSecMibBucket.MyTxAirtime[BandIdx];
 	MyRxAirTime = pAd->OneSecMibBucket.MyRxAirtime[BandIdx];
 	/* 1. Check Open enviroment via IPI (Band0) */
-	HW_IO_READ32(pAd->hdev_ctrl, 0x12250, &lv0);
-	HW_IO_READ32(pAd->hdev_ctrl, 0x12254, &lv1);
-	HW_IO_READ32(pAd->hdev_ctrl, 0x12258, &lv2);
-	HW_IO_READ32(pAd->hdev_ctrl, 0x1225c, &lv3);
-	HW_IO_READ32(pAd->hdev_ctrl, 0x12260, &lv4);
-	HW_IO_READ32(pAd->hdev_ctrl, 0x12264, &lv5);
-	HW_IO_READ32(pAd->hdev_ctrl, 0x12268, &lv6);
-	HW_IO_READ32(pAd->hdev_ctrl, 0x1226c, &lv7);
-	HW_IO_READ32(pAd->hdev_ctrl, 0x12270, &lv8);
-	HW_IO_READ32(pAd->hdev_ctrl, 0x12274, &lv9);
-	HW_IO_READ32(pAd->hdev_ctrl, 0x12278, &lv10);
+	HW_IO_READ32(pAd, 0x12250, &lv0);
+	HW_IO_READ32(pAd, 0x12254, &lv1);
+	HW_IO_READ32(pAd, 0x12258, &lv2);
+	HW_IO_READ32(pAd, 0x1225c, &lv3);
+	HW_IO_READ32(pAd, 0x12260, &lv4);
+	HW_IO_READ32(pAd, 0x12264, &lv5);
+	HW_IO_READ32(pAd, 0x12268, &lv6);
+	HW_IO_READ32(pAd, 0x1226c, &lv7);
+	HW_IO_READ32(pAd, 0x12270, &lv8);
+	HW_IO_READ32(pAd, 0x12274, &lv9);
+	HW_IO_READ32(pAd, 0x12278, &lv10);
 	TotalIPI = lv0 + lv1 + lv2 + lv3 + lv4 + lv5 + lv6 + lv7 + lv8 + lv9 + lv10;
 
 	if (TotalIPI != 0)
@@ -1693,18 +1360,18 @@ VOID ChannelQualityDetection(
 
 	pAd->BgndScanCtrl.Noisy = Noisy;
 	pAd->BgndScanCtrl.IPIIdleTime = TotalIPI;
-	/* MTWF_DBG(pAd, DBG_CAT_HW, DBG_SUBCAT_ALL, DBG_LVL_INFO, */
-	/* "Band0:lv0~5 %d, %d, %d, %d, %d, %d  lv6~10 %d, %d, %d, %d, %d tatol=%d, Noisy=%d, BusyTime=%d, MyTxAir=%d, MyRxAir=%d\n", */
-	/* lv0, lv1, lv2, lv3, lv4, lv5, lv6, lv7, lv8, lv9, lv10, TotalIPI, Noisy, ChBusyTime, MyTxAirTime, MyRxAirTime); */
-	HW_IO_READ32(pAd->hdev_ctrl, PHY_RXTD_12, &CrValue);
+	/* MTWF_LOG(DBG_CAT_HW, DBG_SUBCAT_ALL, DBG_LVL_TRACE, */
+	/* ("%s Band0:lv0~5 %d, %d, %d, %d, %d, %d  lv6~10 %d, %d, %d, %d, %d tatol=%d, Noisy=%d, BusyTime=%d, MyTxAir=%d, MyRxAir=%d\n", */
+	/* __func__, lv0, lv1, lv2, lv3, lv4, lv5, lv6, lv7, lv8, lv9, lv10, TotalIPI, Noisy, ChBusyTime, MyTxAirTime, MyRxAirTime)); */
+	HW_IO_READ32(pAd, PHY_RXTD_12, &CrValue);
 	CrValue |= (1 << B0IrpiSwCtrlOnlyOffset); /*29*/
-	HW_IO_WRITE32(pAd->hdev_ctrl, PHY_RXTD_12, CrValue);/* Cleaer */
-	HW_IO_WRITE32(pAd->hdev_ctrl, PHY_RXTD_12, CrValue);/* Trigger again */
+	HW_IO_WRITE32(pAd, PHY_RXTD_12, CrValue);/* Cleaer */
+	HW_IO_WRITE32(pAd, PHY_RXTD_12, CrValue);/* Trigger again */
 
 	if (BgndScanCtrl->BgndScanStatMachine.CurrState == BGND_SCAN_LISTEN)
 		return;
 
-	/* MTWF_DBG(pAd, DBG_CAT_HW, DBG_SUBCAT_ALL, DBG_LVL_INFO,"Noise =%d, ChBusy=%d, MyTxAirTime=%d, MyRxAirTime=%d\n", Noisy, ChBusyTime, MyTxAirTime, MyRxAirTime); */
+	/* MTWF_LOG(DBG_CAT_HW, DBG_SUBCAT_ALL, DBG_LVL_TRACE,("Noise =%d, ChBusy=%d, MyTxAirTime=%d, MyRxAirTime=%d\n", Noisy, ChBusyTime, MyTxAirTime, MyRxAirTime)); */
 	if ((pAd->BgndScanCtrl.DriverTrigger) && ((Noisy > pAd->BgndScanCtrl.NoisyTH) && (TotalIPI > pAd->BgndScanCtrl.IPIIdleTimeTH))) {
 		if (BgndScanCtrl->BgndScanStatMachine.CurrState == BGND_SCAN_IDLE) {
 			pAd->BgndScanCtrl.IsSwitchChannel = TRUE;
@@ -1732,392 +1399,7 @@ VOID ChannelQualityDetection(
 	}
 }
 
-
-#if OFF_CH_SCAN_SUPPORT
-VOID mt_off_ch_scan(
-	IN PRTMP_ADAPTER pAd,
-	IN UCHAR reason,
-	IN UCHAR bgnd_scan_type)
-{
-#if (RDD_2_SUPPORTED == 0)
-	EXT_CMD_OFF_CH_SCAN_CTRL_T offch_cmd_cfg;
-	MT_BGND_SCAN_NOTIFY bgnd_scan_notify;
-	MT_SWITCH_CHANNEL_CFG *curnt_swchcfg;
-	UCHAR rx_stream_num = 0;
-	UCHAR rx_path = 0;
-	UCHAR rx_idx = 0;
-	UCHAR control_ch_inband = 0, central_ch_inband = 0, bw_inband = 0;
-	UCHAR control_ch_outband = 0, central_ch_outband = 0, bw_outband = 0;
-#ifdef MT_DFS_SUPPORT
-	CHAR out_band_ch = GET_BGND_PARAM(pAd, OUTBAND_CH);
-	CHAR out_band_bw = GET_BGND_PARAM(pAd, OUTBAND_BW);
-	CHAR in_band_ch = GET_BGND_PARAM(pAd, INBAND_CH);
-	CHAR in_band_bw = GET_BGND_PARAM(pAd, INBAND_BW);
-#endif
-
-	/* Initialize */
-	os_zero_mem(&offch_cmd_cfg, sizeof(EXT_CMD_OFF_CH_SCAN_CTRL_T));
-	os_zero_mem(&bgnd_scan_notify, sizeof(MT_BGND_SCAN_NOTIFY));
-
-	/* Restore switch channel configuration */
-	curnt_swchcfg = &(pAd->BgndScanCtrl.CurrentSwChCfg[0]);
-
-	if (bgnd_scan_type == ENUM_BGND_BGND_TYPE) {
-		/* SynA */
-		control_ch_inband = curnt_swchcfg->ControlChannel;
-		central_ch_inband = curnt_swchcfg->CentralChannel;
-		bw_inband = curnt_swchcfg->Bw;
-
-		/* SynB */
-		control_ch_outband = pAd->BgndScanCtrl.ScanChannel;
-		central_ch_outband = pAd->BgndScanCtrl.ScanCenChannel;
-		bw_outband = pAd->BgndScanCtrl.ScanBW;
-	}
-#ifdef MT_DFS_SUPPORT
-	else if (bgnd_scan_type == ENUM_BGND_DFS_TYPE) {
-		/* SynA */
-		control_ch_inband = in_band_ch;
-		central_ch_inband = DfsPrimToCent(in_band_ch, in_band_bw);
-		bw_inband = in_band_bw;
-
-		/* SynB */
-		control_ch_outband = out_band_ch;
-		central_ch_outband = DfsPrimToCent(out_band_ch, out_band_bw);
-		bw_outband = out_band_bw;
-	}
-#endif
-
-	switch (reason) {
-	case CH_SWITCH_BACKGROUND_SCAN_STOP:
-		/* Return to SynA (3x3) only */
-		/* RxStream to RxPath */
-		rx_stream_num = curnt_swchcfg->RxStream;
-
-		if (rx_stream_num > 3) {
-			MTWF_DBG(pAd, DBG_CAT_CHN, CATCHN_SCAN, DBG_LVL_ERROR,
-					 "illegal RxStreamNums(%d)\n", rx_stream_num);
-			rx_stream_num = 3;
-		}
-
-		for (rx_idx = 0; rx_idx < rx_stream_num; rx_idx++)
-			rx_path |= 1 << rx_idx;
-
-		/* Fill synA offch_cmd_cfg */
-		offch_cmd_cfg.work_prim_ch = control_ch_inband;
-		offch_cmd_cfg.work_cntrl_ch = central_ch_inband;
-		offch_cmd_cfg.work_bw = bw_inband;
-		offch_cmd_cfg.work_tx_strm_pth = curnt_swchcfg->TxStream;
-		offch_cmd_cfg.work_rx_strm_pth = rx_path;
-		offch_cmd_cfg.dbdc_idx = 1;
-
-		offch_cmd_cfg.scan_mode = off_ch_scan_mode_stop;
-		offch_cmd_cfg.is_aband = 1;
-		offch_cmd_cfg.off_ch_scn_type = off_ch_scan_simple_rx;
-
-		MTWF_DBG(pAd, DBG_CAT_CHN, CATCHN_SCAN, DBG_LVL_INFO,
-				 "work_prim_ch:%d work_bw:%d work_central_ch:%d\n",
-				 offch_cmd_cfg.work_prim_ch, offch_cmd_cfg.work_bw, offch_cmd_cfg.work_cntrl_ch);
-
-		mt_cmd_off_ch_scan(pAd, &offch_cmd_cfg);
-
-		/* Notify RA background scan stop */
-		bgnd_scan_notify.NotifyFunc = (curnt_swchcfg->TxStream << 5 | 0xf);
-		bgnd_scan_notify.BgndScanStatus = 0; /* stop */
-		MTWF_DBG(pAd, DBG_CAT_CHN, CATCHN_SCAN, DBG_LVL_INFO,
-				 "Background scan Notify NotifyFunc=%x, Status=%d\n",
-				 bgnd_scan_notify.NotifyFunc, bgnd_scan_notify.BgndScanStatus);
-
-		MtCmdBgndScanNotify(pAd, bgnd_scan_notify);
-
-		/* Enable BF, MU */
-#if defined(MT_MAC) && defined(TXBF_SUPPORT)
-		BfSwitch(pAd, 1);
-#endif
-#ifdef CFG_SUPPORT_MU_MIMO
-		MuSwitch(pAd, 1);
-#endif /* CFG_SUPPORT_MU_MIMO */
-		break;
-
-	case CH_SWITCH_BACKGROUND_SCAN_START:
-		bgnd_scan_notify.NotifyFunc =  (0x2 << 5 | 0xf);
-		bgnd_scan_notify.BgndScanStatus = 1;/* start */
-		MTWF_DBG(pAd, DBG_CAT_CHN, CATCHN_SCAN, DBG_LVL_INFO,
-				"Background scan Notify NotifyFunc=%x, Status=%d\n",
-				bgnd_scan_notify.NotifyFunc, bgnd_scan_notify.BgndScanStatus);
-
-		MtCmdBgndScanNotify(pAd, bgnd_scan_notify);
-
-		/* Disable BF, MU */
-#if defined(MT_MAC) && defined(TXBF_SUPPORT)
-		BfSwitch(pAd, 0);
-#endif
-
-#ifdef CFG_SUPPORT_MU_MIMO
-		MuSwitch(pAd, 0);
-#endif /* CFG_SUPPORT_MU_MIMO */
-
-		/* Split into synA + synB */
-		/* Fill in ext_cmd_param */
-		offch_cmd_cfg.mntr_prim_ch = control_ch_outband;
-		offch_cmd_cfg.mntr_cntrl_ch = central_ch_outband;
-		offch_cmd_cfg.mntr_bw = bw_outband;
-		offch_cmd_cfg.mntr_tx_strm_pth = 1;
-		offch_cmd_cfg.mntr_rx_strm_pth = 0x4; /* WF2 only */
-
-		offch_cmd_cfg.work_prim_ch = control_ch_inband;
-		offch_cmd_cfg.work_cntrl_ch = central_ch_inband;
-		offch_cmd_cfg.work_bw = bw_inband;
-		offch_cmd_cfg.work_tx_strm_pth = 2;
-		offch_cmd_cfg.work_rx_strm_pth = 0x3; /* WF0 and WF1 */
-
-		offch_cmd_cfg.dbdc_idx = 1;
-
-		offch_cmd_cfg.scan_mode = off_ch_scan_mode_start;
-		offch_cmd_cfg.is_aband = 1;
-		offch_cmd_cfg.off_ch_scn_type = off_ch_scan_simple_rx;
-
-		MTWF_DBG(pAd, DBG_CAT_CHN, CATCHN_SCAN, DBG_LVL_INFO,
-				 "mntr_ch:%d mntr_bw:%d mntr_central_ch:%d\n",
-				 offch_cmd_cfg.mntr_prim_ch, offch_cmd_cfg.mntr_bw, offch_cmd_cfg.mntr_cntrl_ch);
-		MTWF_DBG(pAd, DBG_CAT_CHN, CATCHN_SCAN, DBG_LVL_INFO,
-				 "work_prim_ch:%d work_bw:%d work_central_ch:%d\n",
-				 offch_cmd_cfg.work_prim_ch, offch_cmd_cfg.work_bw, offch_cmd_cfg.work_cntrl_ch);
-		MTWF_DBG(pAd, DBG_CAT_CHN, CATCHN_SCAN, DBG_LVL_INFO,
-				 "dbdc_idx:%d scan_mode:%d is_aband:%d\n",
-				 offch_cmd_cfg.dbdc_idx, offch_cmd_cfg.scan_mode, offch_cmd_cfg.is_aband);
-
-		mt_cmd_off_ch_scan(pAd, &offch_cmd_cfg);
-
-		break;
-
-	case CH_SWITCH_BACKGROUND_SCAN_RUNNING:
-		/* Switch channel of synB */
-		/* Fill in ext_cmd_param */
-		offch_cmd_cfg.mntr_prim_ch = control_ch_outband;
-		offch_cmd_cfg.mntr_cntrl_ch = central_ch_outband;
-		offch_cmd_cfg.mntr_bw = bw_outband;
-		offch_cmd_cfg.mntr_tx_strm_pth = 1;
-		offch_cmd_cfg.mntr_rx_strm_pth = 0x4; /* WF2 only */
-
-		offch_cmd_cfg.dbdc_idx = 1;
-
-		offch_cmd_cfg.scan_mode = off_ch_scan_mode_running;
-		offch_cmd_cfg.is_aband = 1;
-		offch_cmd_cfg.off_ch_scn_type = off_ch_scan_simple_rx;
-
-		MTWF_DBG(pAd, DBG_CAT_CHN, CATCHN_SCAN, DBG_LVL_INFO,
-				 "mntr_ch:%d mntr_bw:%d mntr_central_ch:%d\n",
-				 offch_cmd_cfg.mntr_prim_ch, offch_cmd_cfg.mntr_bw, offch_cmd_cfg.mntr_cntrl_ch);
-		MTWF_DBG(pAd, DBG_CAT_CHN, CATCHN_SCAN, DBG_LVL_INFO,
-				 "dbdc_idx:%d scan_mode:%d is_aband:%d\n",
-				 offch_cmd_cfg.dbdc_idx, offch_cmd_cfg.scan_mode, offch_cmd_cfg.is_aband);
-
-		mt_cmd_off_ch_scan(pAd, &offch_cmd_cfg);
-
-		break;
-
-	default:
-		MTWF_DBG(pAd, DBG_CAT_CHN, CATCHN_SCAN, DBG_LVL_ERROR,
-				 "ERROR reason=%d\n", reason);
-		break;
-	}
-#endif
-
-}
-#endif
-
-#if (RDD_2_SUPPORTED == 1)
-VOID mt_off_ch_scan_dedicated(
-	IN PRTMP_ADAPTER pAd,
-	IN UCHAR reason,
-	IN UCHAR bgnd_scan_type)
-{
-	EXT_CMD_OFF_CH_SCAN_CTRL_T offch_cmd_cfg;
-	MT_SWITCH_CHANNEL_CFG *curnt_swchcfg;
-	UCHAR rx_stream_num = 0;
-	UCHAR rx_path = 0;
-	UCHAR rx_idx = 0;
-	UCHAR control_ch_inband = 0, central_ch_inband = 0, bw_inband = 0;
-	UCHAR control_ch_outband = 0, central_ch_outband = 0, bw_outband = 0;
-    BOOLEAN is_aband = FALSE;
-	UCHAR bgnd_band_scan_info = pAd->BgndScanCtrl.ScanType;
-	UINT8 band_idx = 0;
-	USHORT PhyMode = 0;
-#ifdef MT_DFS_SUPPORT
-	CHAR out_band_ch = GET_BGND_PARAM(pAd, OUTBAND_CH);
-	CHAR out_band_bw = GET_BGND_PARAM(pAd, OUTBAND_BW);
-	CHAR in_band_ch = 0;
-	CHAR in_band_bw = 0;
-
-	band_idx = ((bgnd_band_scan_info & BGND_BAND_IDX_MASK) >> BGND_BAND_IDX_SHFT);
-
-	if (band_idx == BAND0) {
-		in_band_ch = GET_BGND_PARAM(pAd, INBAND_CH_BAND0);
-		in_band_bw = GET_BGND_PARAM(pAd, INBAND_BW_BAND0);
-	} else if (band_idx == BAND1) {
-		in_band_ch = GET_BGND_PARAM(pAd, INBAND_CH_BAND1);
-		in_band_bw = GET_BGND_PARAM(pAd, INBAND_BW_BAND1);
-	}
-
-#endif
-
-#ifdef ZWDFS_AX7800
-#ifdef MULTI_INF_SUPPORT
-	struct wifi_dev *temp_wdev;
-	POS_COOKIE pObj = (POS_COOKIE) pAd->OS_Cookie;
-	PRTMP_ADAPTER pOpposAd = NULL;
-	struct wifi_dev *wdev = get_wdev_by_ioctl_idx_and_iftype(pAd, pObj->ioctl_if, pObj->ioctl_if_type);
-	UINT opposBandIdx = !multi_inf_get_idx(pAd);
-
-	if (WMODE_CAP_5G(wdev->PhyMode)) {
-		pOpposAd = (PRTMP_ADAPTER)adapt_list[opposBandIdx];
-		pAd = pOpposAd;
-			if (pOpposAd != NULL) {
-				MTWF_PRINT("%s Now: %s, Oppos: %s\n",
-				 __func__, pAd->net_dev->name, pOpposAd->net_dev->name);
-			} else
-				MTWF_PRINT("%s Now: %s\n", __func__, pAd->net_dev->name);
-		}
-#endif
-#endif
-	/* Initialize */
-	os_zero_mem(&offch_cmd_cfg, sizeof(EXT_CMD_OFF_CH_SCAN_CTRL_T));
-
-	/* Restore switch channel configuration */
-	curnt_swchcfg = &(pAd->BgndScanCtrl.CurrentSwChCfg[band_idx]);
-	PhyMode = HcGetRadioPhyModeByBandIdx(pAd, band_idx);
-
-	if (bgnd_scan_type == ENUM_BGND_BGND_TYPE) {
-		/* SynA */
-		control_ch_inband = curnt_swchcfg->ControlChannel;
-		central_ch_inband = curnt_swchcfg->CentralChannel;
-		bw_inband = curnt_swchcfg->Bw;
-
-		/* Dedicated RX */
-		control_ch_outband = pAd->BgndScanCtrl.ScanChannel;
-		central_ch_outband = pAd->BgndScanCtrl.ScanCenChannel;
-		bw_outband = pAd->BgndScanCtrl.ScanBW;
-	}
-#ifdef MT_DFS_SUPPORT
-	else if (bgnd_scan_type == ENUM_BGND_DFS_TYPE) {
-		/* SynA */
-		control_ch_inband = in_band_ch;
-		central_ch_inband = DfsPrimToCent(in_band_ch, in_band_bw);
-		bw_inband = in_band_bw;
-
-		/* Dedicated RX */
-		control_ch_outband = out_band_ch;
-		central_ch_outband = DfsPrimToCent(out_band_ch, out_band_bw);
-		bw_outband = out_band_bw;
-	}
-#endif
-
-    is_aband = (IsChABand(PhyMode, control_ch_outband) ? TRUE : FALSE);
-
-	switch (reason) {
-	case CH_SWITCH_BACKGROUND_SCAN_STOP:
-		rx_stream_num = curnt_swchcfg->RxStream;
-
-		for (rx_idx = 0; rx_idx < rx_stream_num; rx_idx++)
-			rx_path |= 1 << rx_idx;
-
-		/* Fill synA offch_cmd_cfg */
-		offch_cmd_cfg.work_prim_ch = control_ch_inband;
-		offch_cmd_cfg.work_cntrl_ch = central_ch_inband;
-		offch_cmd_cfg.work_bw = bw_inband;
-		offch_cmd_cfg.work_tx_strm_pth = curnt_swchcfg->TxStream;
-		offch_cmd_cfg.work_rx_strm_pth = rx_path;
-
-		offch_cmd_cfg.scan_mode = off_ch_scan_mode_stop;
-		offch_cmd_cfg.is_aband = is_aband;
-		offch_cmd_cfg.off_ch_scn_type = off_ch_scan_simple_rx;
-
-		MTWF_DBG(pAd, DBG_CAT_CHN, CATCHN_SCAN, DBG_LVL_INFO,
-				 "work_prim_ch:%d work_bw:%d work_central_ch:%d\n",
-				 offch_cmd_cfg.work_prim_ch, offch_cmd_cfg.work_bw, offch_cmd_cfg.work_cntrl_ch);
-
-		mt_cmd_off_ch_scan(pAd, &offch_cmd_cfg);
-		break;
-
-	case CH_SWITCH_BACKGROUND_SCAN_START:
-		/* Dedicated RX */
-		/* Fill in ext_cmd_param */
-		offch_cmd_cfg.mntr_prim_ch = control_ch_outband;
-		offch_cmd_cfg.mntr_cntrl_ch = central_ch_outband;
-		offch_cmd_cfg.mntr_bw = bw_outband;
-
-		offch_cmd_cfg.work_prim_ch = control_ch_inband;
-		offch_cmd_cfg.work_cntrl_ch = central_ch_inband;
-		offch_cmd_cfg.work_bw = bw_inband;
-
-		offch_cmd_cfg.scan_mode = off_ch_scan_mode_start;
-		offch_cmd_cfg.is_aband = is_aband;
-		offch_cmd_cfg.off_ch_scn_type = off_ch_scan_simple_rx;
-		offch_cmd_cfg.dbdc_idx = band_idx;
-
-		MTWF_DBG(pAd, DBG_CAT_CHN, CATCHN_SCAN, DBG_LVL_INFO,
-				 "mntr_ch:%d mntr_bw:%d mntr_central_ch:%d\n",
-				 offch_cmd_cfg.mntr_prim_ch, offch_cmd_cfg.mntr_bw, offch_cmd_cfg.mntr_cntrl_ch);
-		MTWF_DBG(pAd, DBG_CAT_CHN, CATCHN_SCAN, DBG_LVL_INFO,
-				 "work_prim_ch:%d work_bw:%d work_central_ch:%d\n",
-				 offch_cmd_cfg.work_prim_ch, offch_cmd_cfg.work_bw, offch_cmd_cfg.work_cntrl_ch);
-		MTWF_DBG(pAd, DBG_CAT_CHN, CATCHN_SCAN, DBG_LVL_INFO,
-				 "dbdc_idx:%d scan_mode:%d is_aband:%d\n",
-				 offch_cmd_cfg.dbdc_idx, offch_cmd_cfg.scan_mode, offch_cmd_cfg.is_aband);
-
-		mt_cmd_off_ch_scan(pAd, &offch_cmd_cfg);
-
-		break;
-
-	case CH_SWITCH_BACKGROUND_SCAN_RUNNING:
-		/* Switch channel of dedicated RX */
-		/* Fill in ext_cmd_param */
-		offch_cmd_cfg.mntr_prim_ch = control_ch_outband;
-		offch_cmd_cfg.mntr_cntrl_ch = central_ch_outband;
-		offch_cmd_cfg.mntr_bw = bw_outband;
-
-		offch_cmd_cfg.scan_mode = off_ch_scan_mode_running;
-		offch_cmd_cfg.is_aband = is_aband;
-		offch_cmd_cfg.off_ch_scn_type = off_ch_scan_simple_rx;
-		offch_cmd_cfg.dbdc_idx = band_idx;
-
-		MTWF_DBG(pAd, DBG_CAT_CHN, CATCHN_SCAN, DBG_LVL_INFO,
-				 "mntr_ch:%d mntr_bw:%d mntr_central_ch:%d\n",
-				 offch_cmd_cfg.mntr_prim_ch, offch_cmd_cfg.mntr_bw, offch_cmd_cfg.mntr_cntrl_ch);
-		MTWF_DBG(pAd, DBG_CAT_CHN, CATCHN_SCAN, DBG_LVL_INFO,
-				 "dbdc_idx:%d scan_mode:%d is_aband:%d\n",
-				 offch_cmd_cfg.dbdc_idx, offch_cmd_cfg.scan_mode, offch_cmd_cfg.is_aband);
-
-		mt_cmd_off_ch_scan(pAd, &offch_cmd_cfg);
-
-		break;
-
-	default:
-		MTWF_DBG(pAd, DBG_CAT_CHN, CATCHN_SCAN, DBG_LVL_ERROR,
-				 "ERROR reason=%d\n", reason);
-		break;
-	}
-
-}
-
-VOID bgnd_scan_ipi_cr_init(
-	IN PRTMP_ADAPTER pAd)
-{
-	INT32 ret = 0;
-	EXT_CMD_RDD_IPI_HIST_T cmd_rdd_ipi_hist;
-
-	os_zero_mem(&cmd_rdd_ipi_hist, sizeof(EXT_CMD_RDD_IPI_HIST_T));
-
-	/* clear histogram CR */
-	cmd_rdd_ipi_hist.ipi_hist_idx = RDD_SET_IPI_CR_INIT;
-	cmd_rdd_ipi_hist.set_val = GET_BGND_PARAM(pAd, OUTBAND_BW);
-	ret = mt_cmd_set_rdd_ipi_hist(pAd, &cmd_rdd_ipi_hist);
-	MTWF_DBG(pAd, DBG_CAT_CHN, CATCHN_SCAN, DBG_LVL_INFO,
-			"BW: %d, ret = %d\n", cmd_rdd_ipi_hist.set_val, ret);
-}
-#endif
-
-#if defined(MT_MAC) && defined(TXBF_SUPPORT)
+#if defined(MT_MAC) && (!defined(MT7636)) && defined(TXBF_SUPPORT)
 VOID BfSwitch(
 	IN PRTMP_ADAPTER pAd,
 	IN UCHAR enabled)
@@ -2128,18 +1410,19 @@ VOID BfSwitch(
 	struct wtbl_entry wtbl_ent;
 	struct wtbl_struc *wtbl = &wtbl_ent.wtbl;
 	struct wtbl_tx_rx_cap *trx_cap = &wtbl->trx_cap;
-	/*struct _RTMP_CHIP_CAP *cap = hc_get_chip_cap(pAd->hdev_ctrl);*/
+	struct _RTMP_CHIP_CAP *cap = hc_get_chip_cap(pAd->hdev_ctrl);
 	/* Search BF STA and record it. */
 	start_idx = 1;
-	end_idx = WTBL_MAX_NUM(pAd) - 1;
+	end_idx = (cap->WtblHwNum - 1);
 
 	if (enabled == 0) { /* Disable */
 		wtbl_len = sizeof(WTBL_STRUC);
 		os_alloc_mem(pAd, (UCHAR **)&wtbl_raw_dw, wtbl_len);
 
 		if (!wtbl_raw_dw) {
-			MTWF_DBG(pAd, DBG_CAT_CHN, CATCHN_SCAN, DBG_LVL_ERROR,
-					 "AllocMem fail!\n");
+			MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
+					 ("%s():AllocMem fail!\n",
+					  __func__));
 			return;
 		}
 
@@ -2150,7 +1433,7 @@ VOID BfSwitch(
 			/* Read WTBL Entries */
 			for (wtbl_offset = 0; wtbl_offset <= wtbl_len; wtbl_offset += 4) {
 				addr = wtbl_ent.wtbl_addr + wtbl_offset;
-				HW_IO_READ32(pAd->hdev_ctrl, addr, (UINT32 *)(&wtbl_raw_dw[wtbl_offset]));
+				HW_IO_READ32(pAd, addr, (UINT32 *)(&wtbl_raw_dw[wtbl_offset]));
 			}
 
 			NdisCopyMemory((UCHAR *)wtbl, &wtbl_raw_dw[0], sizeof(struct wtbl_struc));
@@ -2163,8 +1446,9 @@ VOID BfSwitch(
 				pAd->BgndScanCtrl.BFSTARecord[idx] = 0; /* No BF */
 
 			if (pAd->BgndScanCtrl.BFSTARecord[idx] != 0) {
-				MTWF_DBG(pAd, DBG_CAT_CHN, CATCHN_SCAN, DBG_LVL_INFO,
-						 "Disable wcid %d BF!\n", idx);
+				MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
+						 ("%s():Disable wcid %d BF!\n",
+						  __func__, idx));
 				CmdTxBfTxApplyCtrl(pAd, idx, 0, 0, 0, 0); /* Disable BF */
 			}
 		}
@@ -2173,12 +1457,12 @@ VOID BfSwitch(
 	} else {/* enable */
 		for (idx = start_idx; idx <= end_idx; idx++) {
 			if (pAd->BgndScanCtrl.BFSTARecord[idx] == 1) {/* iBF */
-				MTWF_DBG(pAd, DBG_CAT_CHN, CATCHN_SCAN, DBG_LVL_INFO,
-						 "Enable wcid %d iBF!\n", idx);
+				MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
+						 ("%s():Enable wcid %d iBF!\n", __func__, idx));
 				CmdTxBfTxApplyCtrl(pAd, idx, 0, 1, 0, 0); /* enable iBF */
 			} else if (pAd->BgndScanCtrl.BFSTARecord[idx] == 2) { /* eBF */
-				MTWF_DBG(pAd, DBG_CAT_CHN, CATCHN_SCAN, DBG_LVL_INFO,
-						 "Enable wcid %d eBF!\n", idx);
+				MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
+						 ("%s():Enable wcid %d eBF!\n", __func__, idx));
 				CmdTxBfTxApplyCtrl(pAd, idx, 1, 0, 0, 0); /* enable eBF */
 			}
 		}
@@ -2196,4 +1480,3 @@ VOID MuSwitch(
 		SetMuEnableProc(pAd, "1");
 }
 #endif /* CFG_SUPPORT_MU_MIMO */
-#endif /* CONFIG_AP_SUPPORT */

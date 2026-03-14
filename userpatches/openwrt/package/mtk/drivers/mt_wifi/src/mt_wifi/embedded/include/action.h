@@ -1,17 +1,18 @@
 /*
- * Copyright (c) [2020], MediaTek Inc. All rights reserved.
- *
- * This software/firmware and related documentation ("MediaTek Software") are
- * protected under relevant copyright laws.
- * The information contained herein is confidential and proprietary to
- * MediaTek Inc. and/or its licensors.
- * Except as otherwise provided in the applicable licensing terms with
- * MediaTek Inc. and/or its licensors, any reproduction, modification, use or
- * disclosure of MediaTek Software, and information contained herein, in whole
- * or in part, shall be strictly prohibited.
-*/
-/*
  ***************************************************************************
+ * Ralink Tech Inc.
+ * 4F, No. 2 Technology	5th	Rd.
+ * Science-based Industrial	Park
+ * Hsin-chu, Taiwan, R.O.C.
+ *
+ * (c) Copyright 2002-2004, Ralink Technology, Inc.
+ *
+ * All rights reserved.	Ralink's source	code is	an unpublished work	and	the
+ * use of a	copyright notice does not imply	otherwise. This	source code
+ * contains	confidential trade secret material of Ralink Tech. Any attemp
+ * or participation	in deciphering,	decoding, reverse engineering or in	any
+ * way altering	the	source code	is stricitly prohibited, unless	the	prior
+ * written consent of Ralink Technology, Inc. is obtained.
  ***************************************************************************
 
 	Module Name:
@@ -83,27 +84,11 @@ VOID PeerPublicAction(
 	IN PRTMP_ADAPTER pAd,
 	IN MLME_QUEUE_ELEM *Elem);
 
-#ifdef CONFIG_STA_SUPPORT
-VOID StaPublicAction(
-	IN PRTMP_ADAPTER pAd,
-	IN BSS_2040_COEXIST_IE * pBss2040CoexIE,
-	IN struct wifi_dev *wdev);
-#endif /* CONFIG_STA_SUPPORT */
 
 #ifdef CONFIG_AP_SUPPORT
 VOID ApPublicAction(
 	IN PRTMP_ADAPTER pAd,
 	IN MLME_QUEUE_ELEM *Elem);
 #endif /* CONFIG_AP_SUPPORT */
-
-#ifdef DOT11_HE_AX
-void sta_send_event_report(
-	IN struct _RTMP_ADAPTER *pad,
-	IN struct _MLME_QUEUE_ELEM *elem);
-#endif
-
-#ifdef CONFIG_6G_SUPPORT
-ULONG build_fils_discovery_action(struct wifi_dev *wdev, UCHAR *frm_buf);
-#endif
 
 #endif /* __ACTION_H__ */

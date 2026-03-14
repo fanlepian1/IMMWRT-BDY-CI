@@ -15,14 +15,15 @@
 #define RTMP_MODULE_OS
 #define RTMP_MODULE_OS_UTIL
 
-#include "rt_config.h"
+/*#include "rt_config.h"
+*/
 #include "rtmp_comm.h"
 #include "rt_os_util.h"
 #include "rtmp_osabl.h"
 #include "oid.h"
 #include "oid_struct.h"
 #include "rtmp_iface.h"
-
+#include <linux/random.h>
 
 extern INT32 getLegacyOFDMMCSIndex(UINT8 MCS);
 
@@ -55,7 +56,7 @@ VOID RtmpDrvMaxRateGet(
 	IN	UINT8					BW,
 	IN	UINT8					MCS,
 	IN	UINT8					Antenna,
-	OUT	UINT64					*pRate)
+	OUT	UINT32					*pRate)
 {
 	int rate_index = 0;
 #ifdef DOT11_VHT_AC
@@ -102,36 +103,19 @@ VOID RtmpDrvMaxRateGet(
 	if (rate_index > 255)
 		rate_index = 255;
 
-	*pRate = (UINT64)RalinkRate[rate_index] * 500000;
+	*pRate = RalinkRate[rate_index] * 500000;
 #if defined(DOT11_VHT_AC) || defined(DOT11_N_SUPPORT)
 
 	if (MODE >= MODE_HTMIX)
 		*pRate *= Antenna;
 
 #endif /* DOT11_VHT_AC */
-
-#ifdef DOT11_HE_AX
-	if (MODE >= MODE_HE) {
-		/*ax tx */
-		ULONG DataRate = 0;
-
-		get_rate_he(MCS, BW, Antenna, 0, &DataRate);
-		if (ShortGI == FIXED_GI_16_US)
-			DataRate = (DataRate * 967) >> 10;
-		if (ShortGI == FIXED_GI_32_US)
-			DataRate = (DataRate * 870) >> 10;
-		*pRate = DataRate;
-		*pRate = *pRate * 1000000;
-	}
-#endif /*DOT11_HE_AX*/
-
-	MTWF_DBG(NULL, DBG_CAT_MLME, DBG_SUBCAT_ALL, DBG_LVL_DEBUG,
-			"%s - MODE: %d shortGI: %d BW: %d MCS: %d Antenna num: %d  Rate = %llu\n",
-			 __func__, MODE, ShortGI, BW, MCS, Antenna, *pRate);
+	MTWF_LOG(DBG_CAT_MLME, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("%s - MODE: %d shortGI: %d BW: %d MCS: %d Antenna num: %d  Rate = %d\n"
+			 , __func__, MODE, ShortGI, BW, MCS, Antenna, *pRate));
 }
 
 
-char *rtstrchr(char *s, int c)
+char *rtstrchr(const char *s, int c)
 {
 	for (; *s != (char) c; ++s)
 		if (*s == '\0')
@@ -149,13 +133,6 @@ VOID RtmpMeshDown(
 }
 
 
-#ifdef ETH_CONVERT_SUPPORT
-USHORT RtmpOsNetPrivGet(
-	IN PNET_DEV pDev)
-{
-	return RT_DEV_PRIV_FLAGS_GET(pDev);
-}
-#endif /* ETH_CONVERT_SUPPORT */
 
 
 BOOLEAN RtmpOsCmdDisplayLenCheck(
@@ -169,88 +146,10 @@ BOOLEAN RtmpOsCmdDisplayLenCheck(
 }
 
 
-#ifdef WPA_SUPPLICANT_SUPPORT
-VOID WpaSendMicFailureToWpaSupplicant(
-	IN PNET_DEV pNetDev,
-	IN const PUCHAR src_addr,
-	IN BOOLEAN bUnicast,
-	IN INT key_id,
-	IN const PUCHAR tsc)
-{
-#ifdef RT_CFG80211_SUPPORT
-	CFG80211OS_MICFailReport(pNetDev, src_addr, bUnicast, key_id, tsc);
-#else
-	char custom[IW_CUSTOM_MAX] = {0};
-	snprintf(custom, sizeof(custom), "MLME-MICHAELMICFAILURE.indication");
-
-	if (bUnicast)
-		sprintf(custom, "%s unicast", custom);
-
-	RtmpOSWrielessEventSend(pNetDev, RT_WLAN_EVENT_CUSTOM, -1, NULL, (PUCHAR)custom, strlen(custom));
-#endif /* RT_CFG80211_SUPPORT */
-	return;
-}
-#endif /* WPA_SUPPLICANT_SUPPORT */
 
 
-#ifdef NATIVE_WPA_SUPPLICANT_SUPPORT
-int wext_notify_event_assoc(
-	IN PNET_DEV pNetDev,
-	IN UCHAR * ReqVarIEs,
-	IN UINT32 ReqVarIELen)
-{
-	char custom[IW_CUSTOM_MAX] = {0};
-#if WIRELESS_EXT > 17
-
-	if (ReqVarIELen <= IW_CUSTOM_MAX) {
-		NdisMoveMemory(custom, ReqVarIEs, ReqVarIELen);
-		RtmpOSWrielessEventSend(pNetDev, RT_WLAN_EVENT_ASSOC_REQ_IE, -1, NULL,
-								(UCHAR *)custom, ReqVarIELen);
-	} else
-		MTWF_DBG(pAd, DBG_CAT_MLME, DBG_SUBCAT_ALL, DBG_LVL_INFO, "pAd->StaCfg[0].ReqVarIELen > MAX_CUSTOM_LEN\n");
-
-#else
-	int len;
-	len = (ReqVarIELen * 2) + 17;
-
-	if (len <= IW_CUSTOM_MAX) {
-		UCHAR   idx;
-		snprintf(custom, sizeof(custom), "ASSOCINFO(ReqIEs=");
-
-		for (idx = 0; idx < ReqVarIELen; idx++)
-			sprintf(custom, "%s%02x", custom, ReqVarIEs[idx]);
-
-		RtmpOSWrielessEventSend(pNetDev, RT_WLAN_EVENT_CUSTOM, -1, NULL, custom, len);
-	} else
-		MTWF_DBG(pAd, DBG_CAT_MLME, DBG_SUBCAT_ALL, DBG_LVL_INFO, "len(%d) > MAX_CUSTOM_LEN\n", len);
-
-#endif
-	return 0;
-}
-#endif /* NATIVE_WPA_SUPPLICANT_SUPPORT */
 
 
-#ifdef WPA_SUPPLICANT_SUPPORT
-#ifndef NATIVE_WPA_SUPPLICANT_SUPPORT
-VOID SendAssocIEsToWpaSupplicant(
-	IN PNET_DEV pNetDev,
-	IN UCHAR *ReqVarIEs,
-	IN UINT32 ReqVarIELen)
-{
-	RTMP_STRING custom[IW_CUSTOM_MAX] = {0};
-
-	if ((ReqVarIELen + 17) <= IW_CUSTOM_MAX) {
-		snprintf(custom, sizeof(custom), "ASSOCINFO_ReqIEs=");
-		NdisMoveMemory(custom + 17, ReqVarIEs, ReqVarIELen);
-		RtmpOSWrielessEventSend(pNetDev, RT_WLAN_EVENT_CUSTOM, RT_REQIE_EVENT_FLAG, NULL, (PUCHAR)custom, ReqVarIELen + 17);
-		RtmpOSWrielessEventSend(pNetDev, RT_WLAN_EVENT_CUSTOM, RT_ASSOCINFO_EVENT_FLAG, NULL, NULL, 0);
-	} else
-		MTWF_DBG(pAd, DBG_CAT_MLME, DBG_SUBCAT_ALL, DBG_LVL_INFO, "pAd->StaCfg[0].ReqVarIELen + 17 > MAX_CUSTOM_LEN\n");
-
-	return;
-}
-#endif /* NATIVE_WPA_SUPPLICANT_SUPPORT */
-#endif /* WPA_SUPPLICANT_SUPPORT */
 
 
 INT32  RtPrivIoctlSetVal(VOID)
@@ -304,7 +203,6 @@ INT os_file_close(
 	return ret;
 }
 
-
 VOID os_file_seek(
 	RTMP_OS_FD_EXT osfd,
 	INT32 offset)
@@ -340,7 +238,6 @@ VOID os_usec_delay(UINT usec)
 }
 
 #ifndef LINUX
-
 static void os_kref_set(os_kref *kref, int num)
 {
 	RTMP_SPIN_LOCK_IRQ(&kref->lock);

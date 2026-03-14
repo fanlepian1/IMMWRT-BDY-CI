@@ -105,18 +105,6 @@ char const *pWirelessWscEventText[IW_WSC_EVENT_TYPE_NUM] = {
 };
 #endif /* WSC_INCLUDED */
 
-#ifdef CONFIG_STA_SUPPORT
-#ifdef IWSC_SUPPORT
-/* for IWSC wireless event messagechar */
-const *pWirelessIWscEventText[IW_IWSC_EVENT_TYPE_NUM] = {
-	"IWSC - T1 mins time out!",									/* IW_IWSC_T1_TIMER_TIMEOUT */
-	"IWSC - T2 mins time out!",									/* IW_IWSC_T2_TIMER_TIMEOUT */
-	"IWSC - Become Registrar",									/* IW_IWSC_BECOME_REGISTRAR */
-	"IWSC - Become Enrollee",									/* IW_IWSC_BECOME_ENROLLEE */
-	"IWSC - Entry time out",									/* IW_IWSC_ENTRY_TIMER_TIMEOUT */
-};
-#endif /* IWSC_SUPPORT */
-#endif /* CONFIG_STA_SUPPORT */
 
 
 
@@ -159,13 +147,13 @@ VOID RtmpDrvSendWirelessEvent(
 	ASSERT(wdev_idx < WDEV_NUM_MAX);
 
 	if (wdev_idx >= WDEV_NUM_MAX) {
-		MTWF_DBG(pAd, DBG_CAT_MLME, DBG_SUBCAT_ALL, DBG_LVL_ERROR, "Invalid wdev_idx(%d)\n", wdev_idx);
+		MTWF_LOG(DBG_CAT_MLME, DBG_SUBCAT_ALL, DBG_LVL_ERROR, ("%s():Invalid wdev_idx(%d)\n", __func__, wdev_idx));
 		return;
 	}
 
 	wdev = pAd->wdev_list[wdev_idx];
 	if (!wdev) {
-		MTWF_DBG(pAd, DBG_CAT_MLME, DBG_SUBCAT_ALL, DBG_LVL_ERROR, "Invalid wdev\n");
+		MTWF_LOG(DBG_CAT_MLME, DBG_SUBCAT_ALL, DBG_LVL_ERROR, ("%s():Invalid wdev\n", __func__));
 		return;
 	}
 
@@ -192,23 +180,15 @@ VOID RtmpDrvSendWirelessEvent(
 		event_table_len = IW_WSC_EVENT_TYPE_NUM;
 		break;
 #endif /* WSC_INCLUDED */
-#ifdef CONFIG_STA_SUPPORT
-#ifdef IWSC_SUPPORT
-
-	case IW_IWSC_EVENT_FLAG_START:
-		event_table_len = IW_IWSC_EVENT_TYPE_NUM;
-		break;
-#endif /* IWSC_SUPPORT */
-#endif /* CONFIG_STA_SUPPORT */
 	}
 
 	if (event_table_len == 0) {
-		MTWF_DBG(pAd, DBG_CAT_MLME, DBG_SUBCAT_ALL, DBG_LVL_ERROR, "The type(%0x02x) is not valid.\n", type);
+		MTWF_LOG(DBG_CAT_MLME, DBG_SUBCAT_ALL, DBG_LVL_ERROR, ("%s : The type(%0x02x) is not valid.\n", __func__, type));
 		return;
 	}
 
 	if (event >= event_table_len) {
-		MTWF_DBG(pAd, DBG_CAT_MLME, DBG_SUBCAT_ALL, DBG_LVL_ERROR, "The event(%0x02x) is not valid.\n", event);
+		MTWF_LOG(DBG_CAT_MLME, DBG_SUBCAT_ALL, DBG_LVL_ERROR, ("%s : The event(%0x02x) is not valid.\n", __func__, event));
 		return;
 	}
 
@@ -220,12 +200,19 @@ VOID RtmpDrvSendWirelessEvent(
 		memset(pBuf, 0, IW_CUSTOM_MAX_LEN);
 		pBufPtr = pBuf;
 
+#ifdef VENDOR_FEATURE7_SUPPORT
+		if (pAddr && (type != IW_WSC_EVENT_FLAG_START)) {
+			pBufPtr += sprintf(pBufPtr, "%02x:%02x:%02x:%02x:%02x:%02x BSS(%d) ",
+			PRINT_MAC(pAddr), wdev_idx+8);
+		}
+#else
 		if (pAddr)
 			pBufPtr += sprintf(pBufPtr, "STA(%02x:%02x:%02x:%02x:%02x:%02x) ", PRINT_MAC(pAddr));
 		else if ((wdev->wdev_type == WDEV_TYPE_AP || wdev->wdev_type == WDEV_TYPE_GO) && (wdev->func_idx < MAX_MBSSID_NUM(pAd)))
 			pBufPtr += sprintf(pBufPtr, "BSS(ra%d) ", wdev->func_idx);
 		else
 			pBufPtr += sprintf(pBufPtr, " ");
+#endif
 
 		if (type == IW_SYS_EVENT_FLAG_START) {
 			pBufPtr += sprintf(pBufPtr, "%s", pWirelessSysEventText[event]);
@@ -243,26 +230,26 @@ VOID RtmpDrvSendWirelessEvent(
 #endif /* IDS_SUPPORT */
 #ifdef WSC_INCLUDED
 		else if (type == IW_WSC_EVENT_FLAG_START)
+#ifdef VENDOR_FEATURE7_SUPPORT
+			if (!pAddr) {
+#endif
 			pBufPtr += sprintf(pBufPtr, "%s", pWirelessWscEventText[event]);
-
+#ifdef VENDOR_FEATURE7_SUPPORT
+			} else {
+				pBufPtr += sprintf(pBufPtr, "%s\n%s", pWirelessWscEventText[event], pAddr);
+			}
+#endif
 #endif /* WSC_INCLUDED */
-#ifdef CONFIG_STA_SUPPORT
-#ifdef IWSC_SUPPORT
-		else if (type == IW_IWSC_EVENT_FLAG_START)
-			pBufPtr += sprintf(pBufPtr, "%s", pWirelessIWscEventText[event]);
-
-#endif /* IWSC_SUPPORT */
-#endif /* CONFIG_STA_SUPPORT */
 		else
 			pBufPtr += sprintf(pBufPtr, "%s", "unknown event");
 
 		pBufPtr[pBufPtr - pBuf] = '\0';
 		BufLen = pBufPtr - pBuf;
 			RtmpOSWrielessEventSend(pAd->net_dev, RT_WLAN_EVENT_CUSTOM, Event_flag, NULL, (PUCHAR)pBuf, BufLen);
-		/*MTWF_DBG(pAd, DBG_CAT_MLME, DBG_SUBCAT_ALL, DBG_LVL_INFO, "%s : %s\n", __func__, pBuf); */
+		/*MTWF_LOG(DBG_CAT_MLME, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("%s : %s\n", __func__, pBuf)); */
 		os_free_mem(pBuf);
 	} else
-		MTWF_DBG(pAd, DBG_CAT_MLME, DBG_SUBCAT_ALL, DBG_LVL_ERROR, "Can't allocate memory for wireless event.\n");
+		MTWF_LOG(DBG_CAT_MLME, DBG_SUBCAT_ALL, DBG_LVL_ERROR, ("%s : Can't allocate memory for wireless event.\n", __func__));
 }
 
 #endif /* SYSTEM_LOG_SUPPORT */

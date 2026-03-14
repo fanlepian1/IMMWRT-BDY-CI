@@ -1,17 +1,18 @@
 /*
- * Copyright (c) [2020], MediaTek Inc. All rights reserved.
- *
- * This software/firmware and related documentation ("MediaTek Software") are
- * protected under relevant copyright laws.
- * The information contained herein is confidential and proprietary to
- * MediaTek Inc. and/or its licensors.
- * Except as otherwise provided in the applicable licensing terms with
- * MediaTek Inc. and/or its licensors, any reproduction, modification, use or
- * disclosure of MediaTek Software, and information contained herein, in whole
- * or in part, shall be strictly prohibited.
-*/
-/*
  ***************************************************************************
+ * Ralink Tech Inc.
+ * 4F, No. 2 Technology	5th	Rd.
+ * Science-based Industrial	Park
+ * Hsin-chu, Taiwan, R.O.C.
+ *
+ * (c) Copyright 2002-2008, Ralink Technology, Inc.
+ *
+ * All rights reserved.	Ralink's source code is an unpublished work and	the
+ * use of a copyright notice does not imply	otherwise. This source code
+ * contains confidential trade secret material of Ralink Tech. Any attemp
+ * or participation in deciphering,	decoding, reverse engineering or in any
+ * way altering the	source code is stricitly prohibited, unless the prior
+ * written consent of Ralink Technology, Inc. is obtained.
  ***************************************************************************
 
     Module Name:
@@ -35,16 +36,12 @@ BUILD_TIMER_FUNCTION(MlmePeriodicExecTimer);
 /*BUILD_TIMER_FUNCTION(MlmeRssiReportExec);*/
 BUILD_TIMER_FUNCTION(AsicRxAntEvalTimeout);
 BUILD_TIMER_FUNCTION(APSDPeriodicExec);
-#ifdef CONFIG_STA_SUPPORT
-#ifdef ADHOC_WPA2PSK_SUPPORT
-BUILD_TIMER_FUNCTION(Adhoc_WpaRetryExec);
-#endif /* ADHOC_WPA2PSK_SUPPORT */
-#endif /* CONFIG_STA_SUPPORT */
 
 #ifdef DOT11W_PMF_SUPPORT
 BUILD_TIMER_FUNCTION(PMF_SAQueryTimeOut);
 BUILD_TIMER_FUNCTION(PMF_SAQueryConfirmTimeOut);
 #endif /* DOT11W_PMF_SUPPORT */
+
 
 #ifdef CONFIG_AP_SUPPORT
 extern VOID APDetectOverlappingExec(
@@ -60,6 +57,9 @@ BUILD_TIMER_FUNCTION(Bss2040CoexistTimeOut);
 #endif /* DOT11N_DRAFT3 */
 
 BUILD_TIMER_FUNCTION(CMTimerExec);
+#ifdef AP_SCAN_SUPPORT
+BUILD_TIMER_FUNCTION(APScanTimeout);
+#endif /* AP_SCAN_SUPPORT */
 BUILD_TIMER_FUNCTION(APQuickResponeForRateUpExec);
 #ifdef IDS_SUPPORT
 BUILD_TIMER_FUNCTION(RTMPIdsPeriodicExec);
@@ -69,37 +69,8 @@ BUILD_TIMER_FUNCTION(RTMPIdsPeriodicExec);
 BUILD_TIMER_FUNCTION(FT_KDP_InfoBroadcast);
 #endif /* DOT11R_FT_SUPPORT */
 
-#ifdef ZERO_LOSS_CSA_SUPPORT
-BUILD_TIMER_FUNCTION(CSALastBcnTxEventTimeout);
-BUILD_TIMER_FUNCTION(ChnlSwitchStaNullAckWaitTimeout);
-#endif /*ZERO_LOSS_CSA_SUPPORT*/
-
-BUILD_TIMER_FUNCTION(CSAEventTimeout);
 #endif /* CONFIG_AP_SUPPORT */
 
-#ifdef CONFIG_STA_SUPPORT
-BUILD_TIMER_FUNCTION(StaQuickResponeForRateUpExec);
-BUILD_TIMER_FUNCTION(WpaDisassocApAndBlockAssoc);
-
-#ifdef DOT11Z_TDLS_SUPPORT
-BUILD_TIMER_FUNCTION(TDLS_OffChExpired);
-BUILD_TIMER_FUNCTION(TDLS_BaseChExpired);
-BUILD_TIMER_FUNCTION(TDLS_LinkTimeoutAction);
-BUILD_TIMER_FUNCTION(TDLS_ChannelSwitchTimeAction);
-BUILD_TIMER_FUNCTION(TDLS_ChannelSwitchTimeOutAction);
-BUILD_TIMER_FUNCTION(TDLS_DisablePeriodChannelSwitchAction);
-#endif /* DOT11Z_TDLS_SUPPORT */
-#ifdef CFG_TDLS_SUPPORT
-BUILD_TIMER_FUNCTION(cfg_tdls_PTITimeoutAction);
-BUILD_TIMER_FUNCTION(cfg_tdls_BaseChannelTimeoutAction);
-#endif /* CFG_TDLS_SUPPORT */
-
-#ifdef DOT11R_FT_SUPPORT
-#endif /* DOT11R_FT_SUPPORT */
-
-
-
-#endif /* CONFIG_STA_SUPPORT */
 
 #ifdef WSC_INCLUDED
 BUILD_TIMER_FUNCTION(WscEAPOLTimeOutAction);
@@ -120,9 +91,7 @@ BUILD_TIMER_FUNCTION(WscProfileRetryTimeout);
 BUILD_TIMER_FUNCTION(WscLEDTimer);
 BUILD_TIMER_FUNCTION(WscSkipTurnOffLEDTimer);
 #endif /* WSC_LED_SUPPORT */
-#ifdef LED_CONTROL_SUPPORT
-BUILD_TIMER_FUNCTION(LEDControlTimer);
-#endif
+
 #ifdef CONFIG_AP_SUPPORT
 BUILD_TIMER_FUNCTION(WscUpdatePortCfgTimeout);
 #ifdef WSC_V2_SUPPORT
@@ -130,38 +99,31 @@ BUILD_TIMER_FUNCTION(WscSetupLockTimeout);
 #endif /* WSC_V2_SUPPORT */
 #endif /* CONFIG_AP_SUPPORT */
 
-#ifdef IWSC_SUPPORT
-BUILD_TIMER_FUNCTION(IWSC_T1TimerAction);
-BUILD_TIMER_FUNCTION(IWSC_T2TimerAction);
-BUILD_TIMER_FUNCTION(IWSC_EntryTimerAction);
-BUILD_TIMER_FUNCTION(IWSC_DevQueryAction);
-#endif /* IWSC_SUPPORT */
 
 #endif /* WSC_INCLUDED */
 
 
 
-#ifdef P2P_SUPPORT
-BUILD_TIMER_FUNCTION(P2PCTWindowTimer);
-BUILD_TIMER_FUNCTION(P2pSwNoATimeOut);
-BUILD_TIMER_FUNCTION(P2pPreAbsenTimeOut);
-BUILD_TIMER_FUNCTION(P2pWscTimeOut);
-BUILD_TIMER_FUNCTION(P2pReSendTimeOut);
-BUILD_TIMER_FUNCTION(P2pCliReConnectTimeOut);
-#endif /* P2P_SUPPORT */
+#ifdef TXBF_SUPPORT
+#ifndef MT_MAC
+BUILD_TIMER_FUNCTION(eTxBfProbeTimerExec);
+#endif /* MT_MAC */
+#endif /* TXBF_SUPPORT */
+
 
 #ifdef CONFIG_ATE
 BUILD_TIMER_FUNCTION(ATEPeriodicExec);
 #endif /* CONFIG_ATE */
 
+#ifdef FTM_SUPPORT
+BUILD_TIMER_FUNCTION(FtmTimerCallback);
+BUILD_TIMER_FUNCTION(FtmTxTimerCallback);
+BUILD_TIMER_FUNCTION(FtmReqTxTimerCallback);
+#endif /* FTM_SUPPORT */
 
 #ifdef BACKGROUND_SCAN_SUPPORT
 BUILD_TIMER_FUNCTION(BackgroundScanTimeout);
-BUILD_TIMER_FUNCTION(dedicated_rx_hist_scan_timeout);
-/*BUILD_TIMER_FUNCTION(DfsZeroWaitTimeout);*/
-#if (DFS_ZEROWAIT_DEFAULT_FLOW == 1)
-BUILD_TIMER_FUNCTION(dfs_zero_wait_ch_init_timeout);
-#endif /* DFS_ZEROWAIT_DEFAULT_FLOW */
+BUILD_TIMER_FUNCTION(DfsZeroWaitTimeout);
 #endif /* BACKGROUND_SCAN_SUPPORT */
 
 #ifdef CONFIG_AP_SUPPORT
@@ -174,16 +136,7 @@ extern VOID ch_switch_monitor_timeout(IN PVOID system_specific1, IN PVOID functi
 			IN PVOID system_specific2, IN PVOID system_specific3);
 BUILD_TIMER_FUNCTION(ch_switch_monitor_timeout);
 #endif
-BUILD_TIMER_FUNCTION(ChOpTimeout);
 
-#ifdef DOT11_HE_AX
-#ifdef CONFIG_AP_SUPPORT
-BUILD_TIMER_FUNCTION(trigger_timer_callback);
-#endif
-#ifdef CONFIG_STA_SUPPORT
-BUILD_TIMER_FUNCTION(notify_timer_callback);
-#endif
-#endif
 #ifdef RTMP_TIMER_TASK_SUPPORT
 static void RtmpTimerQHandle(RTMP_ADAPTER *pAd)
 {
@@ -192,7 +145,6 @@ static void RtmpTimerQHandle(RTMP_ADAPTER *pAd)
 	RTMP_TIMER_TASK_ENTRY *pEntry;
 	unsigned long	irqFlag;
 	RTMP_OS_TASK *pTask;
-
 	pTask = &pAd->timerTask;
 
 	while (!RTMP_OS_TASK_IS_KILLED(pTask)) {
@@ -249,18 +201,17 @@ INT RtmpTimerQThread(
 {
 	RTMP_OS_TASK	*pTask;
 	PRTMP_ADAPTER	pAd = NULL;
-
 	pTask = (RTMP_OS_TASK *)Context;
 	pAd = (PRTMP_ADAPTER)RTMP_OS_TASK_DATA_GET(pTask);
 
 	if (pAd == NULL) {
-		MTWF_DBG(pAd, DBG_CAT_MLME, DBG_SUBCAT_ALL, DBG_LVL_ERROR, "pAd is NULL!\n");
+		MTWF_LOG(DBG_CAT_MLME, DBG_SUBCAT_ALL, DBG_LVL_ERROR, ("%s:: pAd is NULL!\n", __func__));
 		return 0;
 	}
 
 	RtmpOSTaskCustomize(pTask);
 	RtmpTimerQHandle(pAd);
-	MTWF_DBG(pAd, DBG_CAT_MLME, DBG_SUBCAT_ALL, DBG_LVL_INFO, "<---%s\n", __func__);
+	MTWF_LOG(DBG_CAT_MLME, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("<---%s\n", __func__));
 	/* notify the exit routine that we're actually exiting now
 	 *
 	 * complete()/wait_for_completion() is similar to up()/down(),
@@ -287,7 +238,6 @@ RTMP_TIMER_TASK_ENTRY *RtmpTimerQInsert(
 	RTMP_TIMER_TASK_ENTRY *pQNode = NULL, *pQTail;
 	unsigned long irqFlags;
 	RTMP_OS_TASK	*pTask = &pAd->timerTask;
-
 	RTMP_INT_LOCK(&pAd->TimerQLock, irqFlags);
 
 	if (pAd->TimerQ.status & RTMP_TASK_CAN_DO_INSERT) {
@@ -323,7 +273,6 @@ BOOLEAN RtmpTimerQRemove(
 {
 	RTMP_TIMER_TASK_ENTRY *pNode, *pPrev = NULL;
 	unsigned long irqFlags;
-
 	RTMP_INT_LOCK(&pAd->TimerQLock, irqFlags);
 
 	if (pAd->TimerQ.status >= RTMP_TASK_STAT_INITED) {
@@ -363,7 +312,6 @@ void RtmpTimerQExit(RTMP_ADAPTER *pAd)
 {
 	RTMP_TIMER_TASK_ENTRY *pTimerQ;
 	unsigned long irqFlags;
-
 	RTMP_INT_LOCK(&pAd->TimerQLock, irqFlags);
 
 	while (pAd->TimerQ.pQHead) {
@@ -378,8 +326,8 @@ void RtmpTimerQExit(RTMP_ADAPTER *pAd)
 		os_free_mem(pAd->TimerQ.pTimerQPoll);
 		pAd->TimerQ.pTimerQPoll = NULL;
 	} else
-		MTWF_DBG(pAd, DBG_CAT_MLME, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-				 "null pTimerQPoll\n");
+		MTWF_LOG(DBG_CAT_MLME, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
+				 ("%s null pTimerQPoll\n", __func__));
 
 	pAd->TimerQ.pQTail = NULL;
 	pAd->TimerQ.pQHead = NULL;
@@ -396,7 +344,6 @@ void RtmpTimerQInit(RTMP_ADAPTER *pAd)
 	int	i;
 	RTMP_TIMER_TASK_ENTRY *pQNode, *pEntry;
 	unsigned long irqFlags;
-
 	NdisAllocateSpinLock(pAd, &pAd->TimerQLock);
 	NdisZeroMemory(&pAd->TimerQ, sizeof(pAd->TimerQ));
 	os_alloc_mem(pAd, &pAd->TimerQ.pTimerQPoll, sizeof(RTMP_TIMER_TASK_ENTRY) * TIMER_QUEUE_SIZE_MAX);

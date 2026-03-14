@@ -1,17 +1,18 @@
 /*
- * Copyright (c) [2020], MediaTek Inc. All rights reserved.
- *
- * This software/firmware and related documentation ("MediaTek Software") are
- * protected under relevant copyright laws.
- * The information contained herein is confidential and proprietary to
- * MediaTek Inc. and/or its licensors.
- * Except as otherwise provided in the applicable licensing terms with
- * MediaTek Inc. and/or its licensors, any reproduction, modification, use or
- * disclosure of MediaTek Software, and information contained herein, in whole
- * or in part, shall be strictly prohibited.
-*/
-/*
  ***************************************************************************
+ * Ralink Tech Inc.
+ * 4F, No. 2 Technology	5th	Rd.
+ * Science-based Industrial	Park
+ * Hsin-chu, Taiwan, R.O.C.
+ *
+ * (c) Copyright 2002-2004, Ralink Technology, Inc.
+ *
+ * All rights reserved.	Ralink's source	code is	an unpublished work	and	the
+ * use of a	copyright notice does not imply	otherwise. This	source code
+ * contains	confidential trade secret material of Ralink Tech. Any attemp
+ * or participation	in deciphering,	decoding, reverse engineering or in	any
+ * way altering	the	source code	is stricitly prohibited, unless	the	prior
+ * written consent of Ralink Technology, Inc. is obtained.
  ***************************************************************************
 
 	Module Name:
@@ -145,9 +146,9 @@
 	{																	\
 		_cipher = Ndis802_11WEPDisabled;								\
 		if ((_pAd)->OpMode == OPMODE_AP) {								\
-			if (IS_ENTRY_PEER_AP(_pEntry) &&								\
+			if (IS_ENTRY_APCLI(_pEntry) &&								\
 				((_pEntry)->wdev_idx < MAX_APCLI_NUM))			\
-				_cipher = (_pAd)->StaCfg[(_pEntry)->wdev_idx].GroupCipher;	\
+				_cipher = (_pAd)->ApCfg.ApCliTab[(_pEntry)->wdev_idx].GroupCipher;	\
 			else if ((_pEntry)->func_tb_idx < (_pAd)->ApCfg.BssidNum)			\
 				_cipher = (_pAd)->ApCfg.MBSSID[_pEntry->func_tb_idx].GroupKeyWepStatus;\
 		} else															\
@@ -157,23 +158,21 @@
 #define WPA_BSSID(_pAd, _apidx)	(((_pAd)->OpMode == OPMODE_AP) ?\
 								 (_pAd)->ApCfg.MBSSID[_apidx].Bssid :\
 								 (_pAd)->CommonCfg.Bssid)
-#else 
-#ifdef CONFIG_AP_SUPPORT
+#elif defined(CONFIG_AP_SUPPORT)
 #define WPA_GET_BSS_NUM(_pAd)		((_pAd)->ApCfg.BssidNum)
 #define WPA_GET_GROUP_CIPHER(_pAd, _pEntry, _cipher)				\
 	{																\
 		_cipher = Ndis802_11WEPDisabled;							\
-		if (IS_ENTRY_PEER_AP(_pEntry) &&								\
+		if (IS_ENTRY_APCLI(_pEntry) &&								\
 			((_pEntry)->wdev_idx < MAX_APCLI_NUM))			\
-			_cipher = (_pAd)->StaCfg[(_pEntry)->wdev_idx].GroupCipher;	\
+			_cipher = (_pAd)->ApCfg.ApCliTab[(_pEntry)->wdev_idx].GroupCipher;	\
 		else if ((_pEntry)->func_tb_idx < (_pAd)->ApCfg.BssidNum)			\
 			_cipher = (_pAd)->ApCfg.MBSSID[_pEntry->func_tb_idx].GroupKeyWepStatus;\
 	}
 
 #define WPA_BSSID(_pAd, _apidx)	((_pAd)->ApCfg.MBSSID[_apidx].Bssid)
 
-#else
-#ifdef CONFIG_STA_SUPPORT
+#elif defined(CONFIG_STA_SUPPORT)
 #define WPA_GET_BSS_NUM(_pAd)		1
 #define WPA_GET_GROUP_CIPHER(_pAd, _pEntry, _cipher)				\
 	{																\
@@ -181,8 +180,6 @@
 	}
 #define WPA_BSSID(_pAd, _apidx)	((_pAd)->CommonCfg.Bssid)
 #endif /* defined(CONFIG_STA_SUPPORT) */
-#endif /* defined(CONFIG_AP_SUPPORT) */
-#endif
 
 #define WPA_OS_MALLOC(_p, _s)		\
 	{									\
@@ -285,28 +282,21 @@ VOID WPA_ConstructKdeHdr(
 	IN UINT8 data_len,
 	OUT PUCHAR pBuf);
 
-#if defined(SOFT_ENCRYPT) || defined(ADHOC_WPA2PSK_SUPPORT) || defined(WTBL_TDD_SUPPORT) || defined(SW_CONNECT_SUPPORT)
+#if defined(SOFT_ENCRYPT) || defined(ADHOC_WPA2PSK_SUPPORT)
+PCIPHER_KEY RTMPSwCipherKeySelection(
+	IN PRTMP_ADAPTER pAd,
+	IN PUCHAR pIV,
+	IN RX_BLK * pRxBlk,
+	IN PMAC_TABLE_ENTRY pEntry);
+
 NDIS_STATUS RTMPSoftDecryptionAction(
 	IN PRTMP_ADAPTER pAd,
 	IN PUCHAR pHdr,
 	IN UCHAR UserPriority,
 	IN PCIPHER_KEY pKey,
-#ifdef CONFIG_STA_SUPPORT
-	IN UCHAR wdev_idx,
-#endif
 	INOUT PUCHAR pData,
 	INOUT UINT16 *DataByteCnt);
-#endif
 
-#if defined(SOFT_ENCRYPT) || defined(ADHOC_WPA2PSK_SUPPORT)
-PCIPHER_KEY RTMPSwCipherKeySelection(
-	IN PRTMP_ADAPTER pAd,
-	IN PUCHAR pIV,
-	IN RX_BLK *pRxBlk,
-	IN PMAC_TABLE_ENTRY pEntry);
-#endif /* SOFT_ENCRYPT || ADHOC_WPA2PSK_SUPPORT */
-
-#if defined(SOFT_ENCRYPT) || defined(ADHOC_WPA2PSK_SUPPORT) || defined(SW_CONNECT_SUPPORT)
 VOID RTMPSoftConstructIVHdr(
 	IN UCHAR CipherAlg,
 	IN UCHAR key_id,
@@ -323,7 +313,7 @@ VOID RTMPSoftEncryptionAction(
 	IN UCHAR KeyIdx,
 	IN PCIPHER_KEY pKey,
 	OUT UINT8 * ext_len);
-#endif /* SOFT_ENCRYPT || ADHOC_WPA2PSK_SUPPORT || SW_CONNECT_SUPPORT */
+#endif /* SOFT_ENCRYPT || ADHOC_WPA2PSK_SUPPORT */
 
 VOID WPAInstallPairwiseKey(
 	PRTMP_ADAPTER pAd,
@@ -336,7 +326,7 @@ VOID WPAInstallSharedKey(
 	UINT8 GroupCipher,
 	UINT8 BssIdx,
 	UINT8 KeyIdx,
-	UINT16 Wcid,
+	UINT8 Wcid,
 	BOOLEAN bAE,
 	PUINT8 pGtk,
 	UINT8 GtkLen);
@@ -346,99 +336,10 @@ VOID CalculateMIC(
 	IN UCHAR *PTK,
 	OUT PEAPOL_PACKET pMsg);
 
-#ifdef WPA_SUPPLICANT_SUPPORT
-INT WpaCheckEapCode(
-	IN  RTMP_ADAPTER * pAd,
-	IN  UCHAR *pFrame,
-	IN  USHORT FrameLen,
-	IN  USHORT OffSet);
-#endif /* WPA_SUPPLICANT_SUPPORT */
 
 
 RTMP_STRING *GetEapolMsgType(CHAR msg);
 
-#ifdef CONFIG_STA_SUPPORT
-#ifdef ADHOC_WPA2PSK_SUPPORT
-/*
- =====================================
-	function prototype in cmm_wpa_adhoc.c
- =====================================
-*/
-VOID Adhoc_WpaEAPOLStartAction(
-	IN PRTMP_ADAPTER pAd,
-	IN MLME_QUEUE_ELEM * Elem);
-
-VOID Adhoc_WpaEAPOLKeyAction(
-	IN PRTMP_ADAPTER pAd,
-	IN MLME_QUEUE_ELEM * Elem);
-
-VOID Adhoc_WpaStart4WayHS(
-	IN PRTMP_ADAPTER pAd,
-	IN MAC_TABLE_ENTRY * pEntry,
-	IN ULONG TimeInterval);
-
-VOID Adhoc_PeerPairMsg1Action(
-	IN PRTMP_ADAPTER pAd,
-	IN MAC_TABLE_ENTRY * pEntry,
-	IN MLME_QUEUE_ELEM * Elem);
-
-VOID Adhoc_PeerPairMsg2Action(
-	IN PRTMP_ADAPTER pAd,
-	IN MAC_TABLE_ENTRY * pEntry,
-	IN MLME_QUEUE_ELEM * Elem);
-
-VOID Adhoc_PeerPairMsg3Action(
-	IN PRTMP_ADAPTER pAd,
-	IN MAC_TABLE_ENTRY * pEntry,
-	IN MLME_QUEUE_ELEM * Elem);
-
-VOID Adhoc_PeerPairMsg4Action(
-	IN PRTMP_ADAPTER pAd,
-	IN MAC_TABLE_ENTRY * pEntry,
-	IN MLME_QUEUE_ELEM * Elem);
-
-VOID Adhoc_PeerGroupMsg1Action(
-	IN PRTMP_ADAPTER pAd,
-	IN MAC_TABLE_ENTRY * pEntry,
-	IN MLME_QUEUE_ELEM * Elem);
-
-VOID Adhoc_Wpa4WayComplete(
-	IN PRTMP_ADAPTER pAd,
-	IN MAC_TABLE_ENTRY * pEntry);
-
-VOID Adhoc_WpaRetryExec(
-	IN PVOID SystemSpecific1,
-	IN PVOID FunctionContext,
-	IN PVOID SystemSpecific2,
-	IN PVOID SystemSpecific3);
-
-VOID Adhoc_ConstructEapolMsg(
-	IN PMAC_TABLE_ENTRY pEntry,
-	IN UCHAR GroupKeyWepStatus,
-	IN UCHAR MsgType,
-	IN UCHAR DefaultKeyIdx,
-	IN UCHAR *KeyNonce,
-	IN UCHAR *TxRSC,
-	IN UCHAR *GTK,
-	IN UCHAR *RSNIE,
-	IN UCHAR RSNIE_Len,
-	IN PFOUR_WAY_HANDSHAKE_PROFILE p4WayProfile,
-	OUT PEAPOL_PACKET pMsg);
-
-VOID Adhoc_ConstructEapolKeyData(
-	IN PMAC_TABLE_ENTRY pEntry,
-	IN UCHAR GroupKeyWepStatus,
-	IN UCHAR keyDescVer,
-	IN UCHAR MsgType,
-	IN UCHAR DefaultKeyIdx,
-	IN UCHAR *GTK,
-	IN UCHAR *RSNIE,
-	IN UCHAR RSNIE_LEN,
-	IN PFOUR_WAY_HANDSHAKE_PROFILE p4WayProfile,
-	OUT PEAPOL_PACKET pMsg);
-
-#endif /* ADHOC_WPA2PSK_SUPPORT */
-#endif /* CONFIG_STA_SUPPORT */
 
 /*
  =====================================
@@ -478,9 +379,6 @@ BOOLEAN RTMPSoftDecryptTKIP(
 	IN PUCHAR pHdr,
 	IN UCHAR UserPriority,
 	IN PCIPHER_KEY pKey,
-#ifdef CONFIG_STA_SUPPORT
-	IN UCHAR wdev_idx,
-#endif
 	INOUT PUCHAR pData,
 	IN UINT16 *DataByteCnt);
 
@@ -558,7 +456,7 @@ VOID PRF(
 	OUT UCHAR *output,
 	IN INT len);
 
-VOID KDF_256(
+VOID KDF(
 	IN PUINT8 key,
 	IN INT key_len,
 	IN PUINT8 label,
@@ -567,30 +465,8 @@ VOID KDF_256(
 	IN INT data_len,
 	OUT PUINT8 output,
 	IN USHORT len);
-
-VOID KDF_256_bit_len(
-	IN PUINT8 key,
-	IN INT key_len,
-	IN PUINT8 label,
-	IN INT label_len,
-	IN PUINT8 data,
-	IN INT data_len,
-	OUT PUINT8 output,
-	IN USHORT len,
-	IN USHORT len_bit,
-	IN UCHAR is_leftmost);
 
 VOID KDF_384(
-	IN PUINT8 key,
-	IN INT key_len,
-	IN PUINT8 label,
-	IN INT label_len,
-	IN PUINT8 data,
-	IN INT data_len,
-	OUT PUINT8 output,
-	IN USHORT len);
-
-VOID KDF_512(
 	IN PUINT8 key,
 	IN INT key_len,
 	IN PUINT8 label,
@@ -608,13 +484,6 @@ VOID HKDF_expand_sha256(IN UCHAR *secret,
 			INT output_Len);
 
 VOID HKDF_expand_sha384(IN UCHAR *secret,
-			IN INT secret_len,
-			IN UCHAR *info,
-			IN INT info_len,
-			OUT UCHAR *output,
-			INT output_Len);
-
-VOID HKDF_expand_sha512(IN UCHAR *secret,
 			IN INT secret_len,
 			IN UCHAR *info,
 			IN INT info_len,
@@ -671,12 +540,6 @@ VOID WPAMakeRSNIE(
 	IN UINT32 wdev_type,
 	IN struct _SECURITY_CONFIG *pSecConfig,
 	IN PMAC_TABLE_ENTRY pEntry);
-
-BOOLEAN wpa_check_rsn_cap(
-	IN struct _SECURITY_CONFIG *sec_cfg_self,
-	IN struct _SECURITY_CONFIG *sec_cfg_entry,
-	IN PUINT8 rsnie_ptr,
-	IN UINT rsnie_len);
 
 BOOLEAN wpa_rsne_sanity(
 	IN PUCHAR rsnie_ptr,
@@ -744,8 +607,7 @@ BOOLEAN WpaMessageSanity(
 	IN ULONG MsgLen,
 	IN UCHAR MsgType,
 	IN struct _SECURITY_CONFIG *pSecConfig,
-	IN MAC_TABLE_ENTRY * pEntry,
-	IN UCHAR * PTK);
+	IN MAC_TABLE_ENTRY * pEntry);
 
 VOID WPABuildPairMsg1(
 	IN  RTMP_ADAPTER * pAd,
@@ -833,14 +695,6 @@ VOID WPAHandshakeMsgRetryExec(
 	IN PVOID FunctionContext,
 	IN PVOID SystemSpecific2,
 	IN PVOID SystemSpecific3);
-
-VOID group_key_install(
-	IN struct _RTMP_ADAPTER *ad,
-	IN struct wifi_dev *wdev);
-
-INT set_wpa3_test(
-	IN struct _RTMP_ADAPTER *ad,
-	IN RTMP_STRING *arg);
 
 #endif
 

@@ -1,17 +1,18 @@
 /*
- * Copyright (c) [2020], MediaTek Inc. All rights reserved.
- *
- * This software/firmware and related documentation ("MediaTek Software") are
- * protected under relevant copyright laws.
- * The information contained herein is confidential and proprietary to
- * MediaTek Inc. and/or its licensors.
- * Except as otherwise provided in the applicable licensing terms with
- * MediaTek Inc. and/or its licensors, any reproduction, modification, use or
- * disclosure of MediaTek Software, and information contained herein, in whole
- * or in part, shall be strictly prohibited.
-*/
-/*
  ***************************************************************************
+ * Ralink Tech Inc.
+ * 4F, No. 2 Technology 5th Rd.
+ * Science-based Industrial Park
+ * Hsin-chu, Taiwan, R.O.C.
+ *
+ * (c) Copyright 2002-2004, Ralink Technology, Inc.
+ *
+ * All rights reserved. Ralink's source code is an unpublished work and the
+ * use of a copyright notice does not imply otherwise. This source code
+ * contains confidential trade secret material of Ralink Tech. Any attemp
+ * or participation in deciphering, decoding, reverse engineering or in any
+ * way altering the source code is stricitly prohibited, unless the prior
+ * written consent of Ralink Technology, Inc. is obtained.
  ***************************************************************************
 
 	Module Name:
@@ -27,11 +28,28 @@
 
 #include	"rt_config.h"
 
+INT MCUBurstWrite(PRTMP_ADAPTER pAd, UINT32 Offset, UINT32 *Data, UINT32 Cnt)
+{
+	return 0;
+}
+
+
+INT MCURandomWrite(PRTMP_ADAPTER pAd, RTMP_REG_PAIR *RegPair, UINT32 Num)
+{
+	UINT32 Index;
+
+	for (Index = 0; Index < Num; Index++)
+		RTMP_IO_WRITE32(pAd, RegPair->Register, RegPair->Value);
+
+	return 0;
+}
+
+
 INT32 MCUSysPrepare(RTMP_ADAPTER *pAd)
 {
 	INT32 Ret = 0;
 
-	MTWF_DBG(pAd, DBG_CAT_FW, DBG_SUBCAT_ALL, DBG_LVL_INFO, "\n");
+	MTWF_LOG(DBG_CAT_FW, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("%s\n", __func__));
 	MCU_CTRL_INIT(pAd);
 	chip_fw_init(pAd);
 
@@ -41,78 +59,44 @@ INT32 MCUSysPrepare(RTMP_ADAPTER *pAd)
 INT32 MCUSysInit(RTMP_ADAPTER *pAd)
 {
 	INT32 Ret = 0;
-	MTWF_DBG(pAd, DBG_CAT_FW, DBG_SUBCAT_ALL, DBG_LVL_INFO, "\n");
+	MTWF_LOG(DBG_CAT_FW, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("%s\n", __func__));
 	MCU_CTRL_INIT(pAd);
 	chip_fw_init(pAd);
 	{
-		UINT32 Value = 0;
-		UINT32 Addr = 0;
-
-#ifdef MT7915_MT7916_COEXIST_COMPATIBLE
-		if (IS_MT7915(pAd)) {
-			Addr = WF_SW_DEF_CR_ICAP_SPECTRUM_MODE_ADDR_MT7915;
-		} else if (IS_MT7916(pAd)) {
-			Addr = WF_SW_DEF_CR_ICAP_SPECTRUM_MODE_ADDR_MT7916;
-		} else {
-			MTWF_DBG(pAd, DBG_CAT_FW, DBG_SUBCAT_ALL, DBG_LVL_ERROR, "Invalid chip id:0x%04x\n", pAd->ChipID);
-			return -1;
-		}
-#else
-		Addr = WF_SW_DEF_CR_ICAP_SPECTRUM_MODE_ADDR;
-#endif
-#if defined(INTERNAL_CAPTURE_SUPPORT) || defined(WIFI_SPECTRUM_SUPPORT)
+		UINT32 Value;
+#ifdef WIFI_SPECTRUM_SUPPORT
 		/* Refer to profile setting to decide the sysram partition format */
-		MTWF_DBG(pAd, DBG_CAT_FW, DBG_SUBCAT_ALL, DBG_LVL_INFO,
-				 "\x1b[42m Before NICLoadFirmware, check ICapMode = %d \x1b[m\n", pAd->ICapMode);
+		MTWF_LOG(DBG_CAT_FW, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
+				 ("%s: Before NICLoadFirmware, check ICapMode = %d\n", __func__, pAd->ICapMode));
 
-		if (pAd->ICapMode == 1) {/* ICap */
-			/* We need to set SW_DEF_CR before FW is downloaded in order */
-			/* to determine UMAC/MCU sysram statement during FW init.    */
-			HW_IO_READ32(pAd->hdev_ctrl, Addr, &Value);
-			Value = Value & (~WF_SW_DEF_CR_FWOPMODE);
-			Value = Value | (pAd->ICapMode << WF_SW_DEF_CR_FWOPMODE_SHFT);
-			HW_IO_WRITE32(pAd->hdev_ctrl, Addr, Value);
-		} else if (pAd->ICapMode == 2) { /* Wifi-spectrum */
-			/* We need to set SW_DEF_CR before FW is downloaded in order */
-			/* to determine UMAC/MCU sysram statement during FW init.    */
+		if (pAd->ICapMode == 2) { /* Wifi-spectrum */
 			if (IS_MT7615(pAd)) {
-				HW_IO_READ32(pAd->hdev_ctrl, CONFG_COM1_REG3, &Value);
+				HW_IO_READ32(pAd, CONFG_COM1_REG3, &Value);
 				Value = Value | CONFG_COM1_REG3_FWOPMODE;
-				HW_IO_WRITE32(pAd->hdev_ctrl, CONFG_COM1_REG3, Value);
+				HW_IO_WRITE32(pAd, CONFG_COM1_REG3, Value);
 			} else if (IS_MT7622(pAd)) {
-				HW_IO_READ32(pAd->hdev_ctrl, CONFG_COM2_REG3, &Value);
+				HW_IO_READ32(pAd, CONFG_COM2_REG3, &Value);
 				Value = Value | CONFG_COM2_REG3_FWOPMODE;
-				HW_IO_WRITE32(pAd->hdev_ctrl, CONFG_COM2_REG3, Value);
-			} else {
-				HW_IO_READ32(pAd->hdev_ctrl, Addr, &Value);
-				Value = Value & (~WF_SW_DEF_CR_FWOPMODE);
-				Value = Value | (pAd->ICapMode << WF_SW_DEF_CR_FWOPMODE_SHFT);
-				HW_IO_WRITE32(pAd->hdev_ctrl, Addr, Value);
+				HW_IO_WRITE32(pAd, CONFG_COM2_REG3, Value);
 			}
 		} else
-#endif /* defined(INTERNAL_CAPTURE_SUPPORT) || defined(WIFI_SPECTRUM_SUPPORT) */
+#endif /* WIFI_SPECTRUM_SUPPORT */
 		{
-			/* We need to set SW_DEF_CR before FW is downloaded in order */
-			/* to determine UMAC/MCU sysram statement during FW init.    */
-			if (IS_MT7615(pAd)) {/* Normal */
-				HW_IO_READ32(pAd->hdev_ctrl, CONFG_COM1_REG3, &Value);
+			if (IS_MT7615(pAd)) {
+				HW_IO_READ32(pAd, CONFG_COM1_REG3, &Value);
 				Value = Value & (~CONFG_COM1_REG3_FWOPMODE);
-				HW_IO_WRITE32(pAd->hdev_ctrl, CONFG_COM1_REG3, Value);
+				HW_IO_WRITE32(pAd, CONFG_COM1_REG3, Value);
 			} else if (IS_MT7622(pAd)) {
-				HW_IO_READ32(pAd->hdev_ctrl, CONFG_COM2_REG3, &Value);
+				HW_IO_READ32(pAd, CONFG_COM2_REG3, &Value);
 				Value = Value & (~CONFG_COM2_REG3_FWOPMODE);
-				HW_IO_WRITE32(pAd->hdev_ctrl, CONFG_COM2_REG3, Value);
-			} else {
-				HW_IO_READ32(pAd->hdev_ctrl, Addr, &Value);
-				Value = Value & (~WF_SW_DEF_CR_FWOPMODE);
-				HW_IO_WRITE32(pAd->hdev_ctrl, Addr, Value);
+				HW_IO_WRITE32(pAd, CONFG_COM2_REG3, Value);
 			}
 		}
 	}
 	Ret = NICLoadFirmware(pAd);
 
 	if (Ret != NDIS_STATUS_SUCCESS) {
-		MTWF_DBG(pAd, DBG_CAT_FW, DBG_SUBCAT_ALL, DBG_LVL_ERROR, "NICLoadFirmware failed, Status[=0x%08x]\n", Ret);
+		MTWF_LOG(DBG_CAT_FW, DBG_SUBCAT_ALL, DBG_LVL_ERROR, ("%s: NICLoadFirmware failed, Status[=0x%08x]\n", __func__, Ret));
 		return -1;
 	}
 
@@ -136,16 +120,29 @@ INT32 MCUSysExit(RTMP_ADAPTER *pAd)
 VOID ChipOpsMCUHook(PRTMP_ADAPTER pAd, enum MCU_TYPE MCUType)
 {
 	RTMP_CHIP_OP *pChipOps = hc_get_chip_ops(pAd->hdev_ctrl);
+	struct _RTMP_CHIP_CAP *cap = hc_get_chip_cap(pAd->hdev_ctrl);
 
 #ifdef CONFIG_ANDES_SUPPORT
 
 	if ((MCUType & ANDES) == ANDES) {
-		pChipOps->FwInit = hif_mcu_fw_init;
-		pChipOps->FwExit = hif_mcu_fw_exit;
-		pChipOps->kick_out_cmd_msg = hif_kick_out_cmd_msg;
+#ifdef MT_MAC
+		if (cap->hif_type == HIF_MT) {
+#if defined(RTMP_PCI_SUPPORT) || defined(RTMP_RBUS_SUPPORT)
+			if (IS_PCIE_INF(pAd) || IS_RBUS_INF(pAd)) {
+				pChipOps->FwInit = AndesMTPciFwInit;
+				pChipOps->FwExit = AndesMTPciFwExit;
+				pChipOps->pci_kick_out_cmd_msg = AndesMTPciKickOutCmdMsg;
+			}
+#endif /* defined(RTMP_PCI_SUPPORT) || defined(RTMP_RBUS_SUPPORT) */
+			pChipOps->andes_fill_cmd_header = AndesMTFillCmdHeaderWithTXD;
+			pChipOps->rx_event_handler = AndesMTRxEventHandler;
+		}
+#endif /* MT_MAC */
+
 		pChipOps->MtCmdTx = AndesSendCmdMsg;
 		pChipOps->MCUCtrlInit = AndesCtrlInit;
 		pChipOps->MCUCtrlExit = AndesCtrlExit;
+
 		FwdlHookInit(pAd);
 	}
 

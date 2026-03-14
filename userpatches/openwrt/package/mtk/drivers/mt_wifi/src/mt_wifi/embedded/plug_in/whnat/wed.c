@@ -1,17 +1,13 @@
 /*
- * Copyright (c) [2020], MediaTek Inc. All rights reserved.
- *
- * This software/firmware and related documentation ("MediaTek Software") are
- * protected under relevant copyright laws.
- * The information contained herein is confidential and proprietary to
- * MediaTek Inc. and/or its licensors.
- * Except as otherwise provided in the applicable licensing terms with
- * MediaTek Inc. and/or its licensors, any reproduction, modification, use or
- * disclosure of MediaTek Software, and information contained herein, in whole
- * or in part, shall be strictly prohibited.
-*/
-/*
  ***************************************************************************
+ * MediaTek Inc.
+ *
+ * All rights reserved. source code is an unpublished work and the
+ * use of a copyright notice does not imply otherwise. This source code
+ * contains confidential trade secret material of MediaTek. Any attemp
+ * or participation in deciphering, decoding, reverse engineering or in any
+ * way altering the source code is stricitly prohibited, unless the prior
+ * written consent of MediaTek, Inc. is obtained.
  ***************************************************************************
 
 	Module Name: wifi_offload
@@ -48,7 +44,7 @@ void dump_token_info(struct wed_buf_res *res, unsigned int id)
 {
 	struct wed_token_info *info;
 	struct list_head *cur;
-	unsigned int token_id = (id + res->token_start);
+	unsigned int token_id = (id + WED_TOKEN_START);
 
 	list_for_each(cur, &res->pkt_head) {
 		info = list_entry(cur, struct wed_token_info, list);
@@ -289,13 +285,13 @@ static int token_buf_init(
 	list_for_each(cur, &res->pkt_head) {
 		info = list_entry(cur, struct wed_token_info, list);
 
-		if (info->token_id > res->token_end) {
+		if (info->token_id > WED_TOKEN_END) {
 			WHNAT_DBG(WHNAT_DBG_ERR, "%s(): token id out of range (%d,%d)!\n", __func__,
-					info->token_id, res->token_end);
+					info->token_id, WED_TOKEN_END);
 			goto err;
 		}
 
-		id = info->token_id - res->token_start;
+		id = info->token_id - WED_TOKEN_START;
 
 		if (id >= sid && id < eid) {
 			/*init token entry*/
@@ -336,13 +332,13 @@ static void token_info_free(
 
 	list_for_each_safe(cur, next, &res->pkt_head) {
 		info = list_entry(cur, struct wed_token_info, list);
-		id = info->token_id - res->token_start;
+		id = info->token_id-WED_TOKEN_START;
 
 		if (id >= sid && id < eid) {
 			free_dma_tx_pkt(pdev, info->pkt, info->pkt_pa, info->len);
 			list_del(&info->list);
 			memset(info, 0, sizeof(*info));
-			kfree(info);/* Do not wrap this kfree with os_free_mem, because it's in a different module */
+			kfree(info);
 		}
 	}
 }
@@ -363,14 +359,14 @@ static int token_info_alloc(
 	/*prepare info and add to list */
 	for (i = sid; i < eid; i++) {
 		/*check token id*/
-		if (i >= res->token_num) {
+		if (i >= WED_TOKEN_CNT_MAX) {
 			WHNAT_DBG(WHNAT_DBG_ERR, "%s(): allocate wrong token id %d,sid=%d,size=%d!\n",
 					__func__, i, sid, eid);
 			goto err;
 		}
 
 		/*allocate token info*/
-		info = kmalloc(sizeof(struct wed_token_info), GFP_KERNEL);/* Do not wrap this kmalloc with os_alloc__mem, because it's in a different module */
+		info = kmalloc(sizeof(struct wed_token_info), GFP_KERNEL);
 
 		if (info == NULL) {
 			WHNAT_DBG(WHNAT_DBG_ERR, "%s(): allocate token %d info fail!\n", __func__, i);
@@ -378,7 +374,7 @@ static int token_info_alloc(
 		}
 
 		memset(info, 0, sizeof(struct wed_token_info));
-		info->token_id = (res->token_start + i);
+		info->token_id = (WED_TOKEN_START + i);
 		info->len = res->pkt_len;
 		/*allocate skb*/
 		info->pkt = alloc_dma_tx_pkt(entry->pdev, info->len, &info->pkt_va, &info->pkt_pa);
@@ -444,8 +440,7 @@ static int token_info_init(struct wed_entry *entry, struct wed_buf_res *res)
 
 		for (i = 0; i < res->token_num; i++) {
 			txd = res->des_buf.alloc_va+(i*res->dmad_len);
-			/*in some client chip this field may be used.*/
-			/*txd->rsv = i;*/
+			txd->rsv = i;
 		}
 	}
 	/*allocate wed descript buffer*/
@@ -520,7 +515,7 @@ static void token_free_task(unsigned long data)
 
 	WHNAT_DBG(WHNAT_DBG_OFF, "%s(): old packet num:%d\n", __func__, res->pkt_num);
 
-	if (size > res->wed_token_cnt) {
+	if (size > WED_TOKEN_CNT) {
 		token_buf_reduce(wed, 1);
 		whnat_hal_bfm_update(wed, TRUE);
 		eint_enable(wed, (WED_EX_INT_STA_FLD_TX_FBUF_LTH | WED_EX_INT_STA_FLD_TX_FBUF_HTH));
@@ -677,7 +672,7 @@ static void wed_tx_ring_exit(struct wed_entry *entry, struct wed_tx_ctrl *tx_ctr
 		tx_ring_exit(entry, &ring_ctrl->ring[i], &ring_ctrl->desc[i]);
 
 	/*free wed tx ring*/
-	kfree(ring_ctrl->ring);/* Do not wrap this kfree with os_free_mem, because it's in a different module */
+	kfree(ring_ctrl->ring);
 	/*free desc*/
 	kfree(ring_ctrl->desc);
 }
@@ -697,7 +692,7 @@ static int wed_tx_ring_init(struct wed_entry *entry, struct wed_tx_ctrl *tx_ctrl
 	ring_ctrl->txd_len = WIFI_PDMA_TXD_SIZE;
 	/*allocate wed descript for original chip ring*/
 	len = sizeof(struct whnat_dma_buf) * ring_ctrl->ring_num;
-	ring_ctrl->desc = kmalloc(len, GFP_KERNEL);/* Do not wrap this kmalloc with os_alloc_mem, because it's in a different module */
+	ring_ctrl->desc = kmalloc(len, GFP_KERNEL);
 	memset(ring_ctrl->desc, 0, len);
 
 	if (!ring_ctrl->desc) {
@@ -829,8 +824,8 @@ unsigned char wed_slot_map_get(unsigned int idx)
 
 	if (of_property_read_u32_index(node, "pci_slot_map", idx, &num)) {
 		WHNAT_DBG(WHNAT_DBG_OFF, "%s(): get WED slot from DTS fail!!\n", __func__);
-		WHNAT_DBG(WHNAT_DBG_OFF, "%s(): assign default value: (0->1), (1->2)!!\n", __func__);
-		num = (idx == 0) ? 1 : 2;
+		WHNAT_DBG(WHNAT_DBG_OFF, "%s(): assign default value: (slot0->devfn0), (slot1->devfn1)!!\n", __func__);
+		num = (idx==0) ? 0 : 1;
 	}
 	WHNAT_DBG(WHNAT_DBG_OFF,
 		"%s(): assign slot_id:%d for entry: %d!\n", __func__, num, idx);
@@ -895,21 +890,11 @@ void wed_token_buf_exit(struct wed_entry *entry)
 */
 int wed_token_buf_init(struct wed_entry *entry)
 {
-	struct whnat_entry *whnat = (struct whnat_entry *)entry->whnat;
 	struct wed_tx_ctrl *tx_ctrl = &entry->res_ctrl.tx_ctrl;
 	struct wed_buf_res *res = &tx_ctrl->res;
 	/*tx resource allocate*/
-	res->token_num = (whnat->wifi.tx_token_nums - whnat->wifi.sw_tx_token_nums);
-	res->token_start = 0;
-	res->token_end = (res->token_num - 1);
-
-#ifdef WED_DYNAMIC_BM_SUPPORT
-	res->wed_token_cnt = 1152;
-#else
-	res->wed_token_cnt = res->token_num;
-#endif
-
-	res->pkt_num = res->wed_token_cnt;
+	res->token_num = WED_TOKEN_CNT_MAX;
+	res->pkt_num = WED_TOKEN_CNT;
 	res->dmad_len = WIFI_PDMA_TXD_SIZE;
 	res->fd_len = WIFI_TX_1ST_BUF_SIZE;
 	res->pkt_len = WIFI_TX_BUF_SIZE;
@@ -1056,7 +1041,7 @@ void wed_eint_handle(struct wed_entry *wed, unsigned int status)
 	if (status & (1 << WED_EX_INT_STA_FLD_TX_FBUF_HTH)) {
 #ifdef WED_DYNAMIC_BM_SUPPORT
 		eint_disable(wed, WED_EX_INT_STA_FLD_TX_FBUF_HTH);
-		if ((WED_PKT_NUM_GET(wed)-WED_TOKEN_EXPEND_SIZE) >= WED_TOKEN_CNT_GET(wed)) {
+		if ((WED_PKT_NUM_GET(wed)-WED_TOKEN_EXPEND_SIZE) >= WED_TOKEN_CNT) {
 			WHNAT_DBG(WHNAT_DBG_INF, "%s(): tx buf high threshold!\n", __func__);
 			tasklet_hi_schedule(&wed->tbuf_free_task);
 		}
@@ -1066,7 +1051,7 @@ void wed_eint_handle(struct wed_entry *wed, unsigned int status)
 	if (status & (1 << WED_EX_INT_STA_FLD_TX_FBUF_LTH)) {
 #ifdef WED_DYNAMIC_BM_SUPPORT
 		eint_disable(wed, WED_EX_INT_STA_FLD_TX_FBUF_LTH);
-		if ((WED_PKT_NUM_GET(wed) + WED_TOKEN_EXPEND_SIZE) <= WED_TOKEN_NUM_GET(wed)) {
+		if ((WED_PKT_NUM_GET(wed)+WED_TOKEN_EXPEND_SIZE) <= WED_TOKEN_CNT_MAX) {
 			WHNAT_DBG(WHNAT_DBG_INF, "%s(): tx buf low threshold!\n", __func__);
 			tasklet_hi_schedule(&wed->tbuf_alloc_task);
 		}

@@ -1,17 +1,13 @@
 /*
- * Copyright (c) [2020], MediaTek Inc. All rights reserved.
- *
- * This software/firmware and related documentation ("MediaTek Software") are
- * protected under relevant copyright laws.
- * The information contained herein is confidential and proprietary to
- * MediaTek Inc. and/or its licensors.
- * Except as otherwise provided in the applicable licensing terms with
- * MediaTek Inc. and/or its licensors, any reproduction, modification, use or
- * disclosure of MediaTek Software, and information contained herein, in whole
- * or in part, shall be strictly prohibited.
-*/
-/*
  ***************************************************************************
+ * MediaTek Inc.
+ *
+ * All rights reserved. source code is an unpublished work and the
+ * use of a copyright notice does not imply otherwise. This source code
+ * contains confidential trade secret material of MediaTek. Any attemp
+ * or participation in deciphering, decoding, reverse engineering or in any
+ * way altering the source code is stricitly prohibited, unless the prior
+ * written consent of MediaTek, Inc. is obtained.
  ***************************************************************************
 
 	Module Name: wifi_offload
@@ -52,14 +48,8 @@ enum {
 	WHNAT_RESET_ALL,
 };
 
-enum wed_int_agent {
-	WPDMA_INT_AGENT,
-	WDMA_INT_AGENT,
-	ALL_INT_AGENT,
-};
 
-void whnat_hal_int_ctrl(struct whnat_entry *whnat, enum wed_int_agent int_agent,
-							unsigned char enable);
+void whnat_hal_int_ctrl(struct whnat_entry *whnat, unsigned char enable);
 void whnat_hal_eint_ctrl(struct whnat_entry *whnat, unsigned char enable);
 void whnat_hal_eint_init(struct whnat_entry *entry);
 void whnat_hal_eint_stat_get(struct whnat_entry *whnat, unsigned int *state);
@@ -79,7 +69,7 @@ void whnat_hal_hw_restore(struct whnat_entry *whnat);
 int whnat_hal_hw_reset(struct whnat_entry *whnat, unsigned int reset_type);
 void whnat_hal_wed_init(struct whnat_entry *entry);
 unsigned int whnat_wifi_cr_get(char type, unsigned int cr);
-void whnat_hal_pdma_mask_set(struct wed_entry *wed, unsigned int int_mask);
+void whnat_hal_pdma_mask_set(struct whnat_entry *whnat);
 #ifdef ERR_RECOVERY
 void whnat_hal_ser_trigger(struct whnat_entry *whnat);
 void whnat_hal_ser_update(struct wed_entry *wed, struct wed_ser_state *state);

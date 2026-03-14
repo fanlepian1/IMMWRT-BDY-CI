@@ -46,61 +46,6 @@ if [ -d wifi_driver ]; then
     RT28xx_BIN_DIR=.
     export RT28xx_DIR CHIPSET RT28xx_MODE HAS_WOW_SUPPORT HAS_FPGA_MODE HAS_RX_CUT_THROUGH RT28xx_BIN_DIR
     ./mt_wifi/embedded/tools/bin2h
-    echo "Wifi-Prebuild: build 7626 binary"
-    RT28xx_DIR=./mt_wifi
-    CHIPSET=mt7626
-    RT28xx_MODE=${wifi_mode}
-    HAS_WOW_SUPPORT=n
-    HAS_FPGA_MODE=n
-    HAS_RX_CUT_THROUGH=n
-    RT28xx_BIN_DIR=.
-    export RT28xx_DIR CHIPSET RT28xx_MODE HAS_WOW_SUPPORT HAS_FPGA_MODE HAS_RX_CUT_THROUGH RT28xx_BIN_DIR
-    ./mt_wifi/embedded/tools/bin2h
-    make -C mt_wifi/embedded build_power_limit_tables
-    ./mt_wifi/txpwr/data2h
-    echo "axe mt_wifi autobuild"
-    RT28xx_DIR=./mt_wifi
-    CHIPSET=axe
-    RT28xx_MODE=AP
-    HAS_WOW_SUPPORT=n
-    HAS_FPGA_MODE=n
-    HAS_RX_CUT_THROUGH=n
-    RT28xx_BIN_DIR=.
-    export RT28xx_DIR CHIPSET RT28xx_MODE HAS_WOW_SUPPORT HAS_FPGA_MODE HAS_RX_CUT_THROUGH RT28xx_BIN_DIR
-    make -C mt_wifi/embedded build_tools
-    ./mt_wifi/embedded/tools/bin2h
-    make -C mt_wifi/embedded build_sku_tables
-    ./mt_wifi/txpwr/data2h
-    echo "harrier mt_wifi autobuild"
-    RT28xx_DIR=./mt_wifi
-    CHIPSET=mt7915
-    RT28xx_MODE=AP
-    HAS_WOW_SUPPORT=n
-    HAS_FPGA_MODE=n
-    HAS_RX_CUT_THROUGH=n
-    RT28xx_BIN_DIR=.
-    export RT28xx_DIR CHIPSET RT28xx_MODE HAS_WOW_SUPPORT HAS_FPGA_MODE HAS_RX_CUT_THROUGH RT28xx_BIN_DIR
-    make -C mt_wifi/embedded build_tools
-    ./mt_wifi/embedded/tools/bin2h
-    echo "panther mt_wifi autobuild"
-    RT28xx_DIR=./mt_wifi
-    CHIPSET=mt7986
-    RT28xx_MODE=AP
-    HAS_WOW_SUPPORT=n
-    HAS_FPGA_MODE=n
-    HAS_RX_CUT_THROUGH=n
-    RT28xx_BIN_DIR=.
-    echo "panther mt_wifi autobuild"
-    RT28xx_DIR=./mt_wifi
-    CHIPSET=mt7916
-    RT28xx_MODE=AP
-    HAS_WOW_SUPPORT=n
-    HAS_FPGA_MODE=n
-    HAS_RX_CUT_THROUGH=n
-    RT28xx_BIN_DIR=.
-    export RT28xx_DIR CHIPSET RT28xx_MODE HAS_WOW_SUPPORT HAS_FPGA_MODE HAS_RX_CUT_THROUGH RT28xx_BIN_DIR
-    make -C mt_wifi/embedded build_tools
-    ./mt_wifi/embedded/tools/bin2h
 #Makefile modify for drivers/net/wireless/mediatek/Makefile
 if grep -q CONFIG_MT_AP_SUPPORT Makefile; then
     echo "Wifi-Prebuild: Makefile already modified. Skip."
@@ -136,30 +81,6 @@ choice\
 	select MT_MAC\
 	select CHIP_MT7622\
 \
-	config FIRST_IF_MT7626\
-	bool "MT7626"\
-	select WIFI_MT_MAC\
-	select MT_MAC\
-	select CHIP_MT7626\
-\
-	config FIRST_IF_MT7915\
-	bool "MT7915"\
-	select WIFI_MT_MAC\
-	select MT_MAC\
-	select CHIP_MT7915\
-\
-	config FIRST_IF_MT7986\
-	bool "MT7986"\
-	select WIFI_MT_MAC\
-	select MT_MAC\
-	select CHIP_MT7986\
-\
-	config FIRST_IF_MT7916\
-	bool "MT7916"\
-	select WIFI_MT_MAC\
-	select MT_MAC\
-	select CHIP_MT7916\
-\
 endchoice\
 \
 choice\
@@ -193,10 +114,6 @@ config  RT_FIRST_CARD\
         depends on ! FIRST_IF_NONE\
 	default 7615 if FIRST_IF_MT7615E\
         default 7622 if FIRST_IF_MT7622\
-        default 7622 if FIRST_IF_MT7626\
-        default 7915 if FIRST_IF_MT7915\
-        default 7986 if FIRST_IF_MT7986\
-        default 7916 if FIRST_IF_MT7916\
 \
 config  RT_SECOND_CARD\
         int\

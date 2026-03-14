@@ -1,16 +1,16 @@
-/*
- * Copyright (c) [2020], MediaTek Inc. All rights reserved.
- *
- * This software/firmware and related documentation ("MediaTek Software") are
- * protected under relevant copyright laws.
- * The information contained herein is confidential and proprietary to
- * MediaTek Inc. and/or its licensors.
- * Except as otherwise provided in the applicable licensing terms with
- * MediaTek Inc. and/or its licensors, any reproduction, modification, use or
- * disclosure of MediaTek Software, and information contained herein, in whole
- * or in part, shall be strictly prohibited.
-*/
 /****************************************************************************
+ * Ralink Tech Inc.
+ * 4F, No. 2 Technology 5th Rd.
+ * Science-based Industrial Park
+ * Hsin-chu, Taiwan, R.O.C.
+ * (c) Copyright 2002, Ralink Technology, Inc.
+ *
+ * All rights reserved. Ralink's source code is an unpublished work and the
+ * use of a copyright notice does not imply otherwise. This source code
+ * contains confidential trade secret material of Ralink Tech. Any attemp
+ * or participation in deciphering, decoding, reverse engineering or in any
+ * way altering the source code is stricitly prohibited, unless the prior
+ * written consent of Ralink Technology, Inc. is obtained.
  ****************************************************************************
 
     Abstract:
@@ -689,6 +689,7 @@ Note:
 ========================================================================
 */
 VOID FT_InsertMdIE(
+	IN PRTMP_ADAPTER pAd,
 	OUT PUCHAR pFrameBuf,
 	OUT PULONG pFrameLen,
 	IN PUINT8 pMdId,
@@ -837,9 +838,7 @@ USHORT FT_AssocReqHandler(
 	IN BOOLEAN isReassoc,
 	IN PFT_CFG pFtCfg,
 	IN PMAC_TABLE_ENTRY pEntry,
-	IN PFT_INFO pPeer_FtInfo,
-	IN UCHAR *rsnxe,
-	IN UCHAR rsnxe_len,
+	IN PFT_INFO			pPeer_FtInfo,
 	OUT PFT_INFO	pFtInfoBuf);
 
 /*
@@ -924,6 +923,7 @@ Note:
 ========================================================================
 */
 VOID FT_InsertFTIE(
+	IN PRTMP_ADAPTER pAd,
 	OUT PUCHAR pFrameBuf,
 	OUT PULONG pFrameLen,
 	IN UINT8 Length,
@@ -948,6 +948,7 @@ Note:
 ========================================================================
 */
 VOID FT_FTIE_InsertKhIdSubIE(
+	IN PRTMP_ADAPTER pAd,
 	OUT PUCHAR pFrameBuf,
 	OUT PULONG pFrameLen,
 	IN FT_SUB_ELEMENT_ID SubId,
@@ -969,10 +970,17 @@ Note:
 
 ========================================================================
 */
-VOID FT_FTIE_InsertSubIE(
+VOID FT_FTIE_InsertGTKSubIE(
+	IN PRTMP_ADAPTER pAd,
 	IN	PUCHAR	pFrameBuf,
 	OUT PULONG pFrameLen,
-	IN  UINT8  kde_id,
+	IN	PUINT8	pGtkSubIe,
+	IN	UINT8	GtkSubIe_len);
+
+VOID FT_FTIE_InsertIGTKSubIE(
+	IN PRTMP_ADAPTER pAd,
+	IN	PUCHAR	pFrameBuf,
+	OUT PULONG pFrameLen,
 	IN	PUINT8	pGtkSubIe,
 	IN	UINT8	GtkSubIe_len);
 
@@ -1096,7 +1104,7 @@ Note:
 
 ========================================================================
 */
-BOOLEAN FT_FillMdIeInfo(
+VOID FT_FillMdIeInfo(
 	PEID_STRUCT eid_ptr,
 	PFT_MDIE_INFO pMdIeInfo);
 
@@ -1112,7 +1120,7 @@ Note:
 
 ========================================================================
 */
-BOOLEAN FT_FillFtIeInfo(
+VOID FT_FillFtIeInfo(
 	PEID_STRUCT eid_ptr,
 	PFT_FTIE_INFO pFtIeInfo);
 
@@ -1230,261 +1238,20 @@ VOID FT_DerivePTK(
 	OUT	PUINT8	ptk_name);
 
 VOID	FT_CalculateMIC(
-	IN	UINT8		*sta_addr,
-	IN	UINT8		*ap_addr,
-	IN	UINT8		*kck,
+	IN	PUINT8		sta_addr,
+	IN	PUINT8		ap_addr,
+	IN	PUINT8		kck,
 	IN	UINT8		seq,
-	IN  UINT8		*rsnie,
+	IN  PUINT8		rsnie,
 	IN	UINT8		rsnie_len,
-	IN	UINT8		*mdie,
+	IN	PUINT8		mdie,
 	IN	UINT8		mdie_len,
-	IN	UINT8		*ftie,
+	IN	PUINT8		ftie,
 	IN	UINT8		ftie_len,
-	IN	UINT8		*ric,
+	IN	PUINT8		ric,
 	IN	UINT8		ric_len,
-	IN	UINT8		*rsnxe,
-	IN	UINT8		rsnxe_len,
-	OUT UINT8		*mic);
+	OUT PUINT8		mic);
 
-#ifdef CONFIG_STA_SUPPORT
-void FT_OTA_AuthStateMachineInit(
-	IN PRTMP_ADAPTER pAd,
-	IN STATE_MACHINE * Sm,
-	OUT STATE_MACHINE_FUNC Trans[]);
-
-VOID FT_OTA_MlmeAuthReqAction(
-	IN PRTMP_ADAPTER pAd,
-	IN MLME_QUEUE_ELEM * Elem);
-
-VOID FT_OTA_PeerAuthRspAction(
-	IN PRTMP_ADAPTER pAd,
-	IN MLME_QUEUE_ELEM * Elem);
-
-VOID FT_OTA_PeerAuthAckAction(
-	IN PRTMP_ADAPTER pAd,
-	IN MLME_QUEUE_ELEM * Elem);
-
-VOID FT_OTA_InvalidStateWhenAuth(
-	IN PRTMP_ADAPTER pAd,
-	IN MLME_QUEUE_ELEM * Elem);
-
-VOID FT_OTA_AuthParmFill(
-	IN PRTMP_ADAPTER pAd,
-	IN OUT MLME_FT_OTA_AUTH_REQ_STRUCT * pFtOtaAuthReq,
-	IN PUCHAR	pAddr,
-	IN USHORT	Alg,
-	IN PDOT11R_CMN_STRUC	pCmmDot11rCfg);
-
-VOID FT_FTIeParse(
-	IN		UINT8		FtIeLen,
-	IN		PFT_FTIE	pFtIe,
-	OUT		PUCHAR		pR1KH_Id,
-	OUT		UCHAR		*GTKLen,
-	OUT		PUCHAR		pGTK,
-	OUT		UCHAR		*R0KH_IdLen,
-	OUT		PUCHAR		pR0KH_Id);
-
-void FT_OTD_StateMachineInit(
-	IN PRTMP_ADAPTER pAd,
-	IN STATE_MACHINE * Sm,
-	OUT STATE_MACHINE_FUNC Trans[]);
-
-VOID FT_OTD_ReqAction(
-	IN PRTMP_ADAPTER pAd,
-	IN MLME_QUEUE_ELEM * Elem);
-
-VOID FT_OTD_PeerRspAtSeq2Action(
-	IN PRTMP_ADAPTER pAd,
-	IN MLME_QUEUE_ELEM * Elem);
-
-VOID FT_OTD_PeerAckAtSeq4Action(
-	IN PRTMP_ADAPTER pAd,
-	IN MLME_QUEUE_ELEM * Elem);
-
-VOID FT_OTD_InvalidStateWhenFt(
-	IN PRTMP_ADAPTER pAd,
-	IN MLME_QUEUE_ELEM * Elem);
-
-VOID FT_OTD_ActParmFill(
-	IN PRTMP_ADAPTER pAd,
-	IN OUT MLME_FT_REQ_STRUCT * FtReq,
-	IN PUCHAR pAddr,
-	IN NDIS_802_11_AUTHENTICATION_MODE	AuthMode,
-	IN PFT_MDIE_INFO	FtMdieInfo,
-	IN PFT_FTIE_INFO	FtFtieInfo,
-	IN UCHAR			VarIeLen,
-	IN PUCHAR			pVarIe);
-
-BOOLEAN FT_CheckForRoaming(
-	IN	PRTMP_ADAPTER	pAd,
-	IN    struct wifi_dev *wdev);
-
-BOOLEAN	FT_GetMDIE(
-	IN  PNDIS_802_11_VARIABLE_IEs	pVIE,
-	IN  USHORT		LengthVIE,
-	OUT FT_MDIE_INFO * pMdIeInfo);
-
-BOOLEAN FT_ExtractGTKSubIe(
-	IN	PRTMP_ADAPTER		pAd,
-	IN	PMAC_TABLE_ENTRY	pEntry,
-	IN	PFT_FTIE_INFO		pFtInfo);
-
-VOID FT_ConstructAuthReqInRsn(
-	IN	PRTMP_ADAPTER	pAd,
-	IN	PUCHAR			pFrameBuf,
-	OUT PULONG			pFrameLen);
-
-/*
-========================================================================
-Routine Description:
-	Start to do resource request for other APs.
-
-Arguments:
-	pAd				- WLAN control block pointer
-
-Return Value:
-	TRUE			- successfully
-	FALSE			- no any resource is needed to request
-
-Note:
-	1. After the function is called, no any new TSPEC can be issued from us.
-========================================================================
-*/
-BOOLEAN FT_RIC_ResourceRequestStart(
-	IN	PRTMP_ADAPTER			pAd);
-
-/*
-========================================================================
-Routine Description:
-	End to do resource request for other APs.
-
-Arguments:
-	pAd				- WLAN control block pointer
-	*pApMac			- the new AP MAC
-
-Return Value:
-	None
-
-Note:
-	1. After the function is called, no any new TSPEC can be issued from us.
-========================================================================
-*/
-VOID FT_RIC_ResourceRequestEnd(
-	IN	PRTMP_ADAPTER			pAd,
-	IN	UCHAR					*pApMac);
-
-/*
-========================================================================
-Routine Description:
-	Issue resource requests.
-
-Arguments:
-	pAd				- WLAN control block pointer
-	*pApMac			- the AP MAC
-	*pBufReq		- the request packet buffer
-	ReqMaxLen		- the maximum remain length of request packet buffer
-
-Return Value:
-	filled element length
-
-Note:
-	1. Same resource type for all resource descriptors in the RDIE.
-	2. Suppose RDIEs are continual.
-	3. If pDescpBlk != NULL, skip current TSPEC.
-
-	4. 11A.11.3 Creation and handling of a resource request (11r D9.0)
-		(1) In using TSPECs for requesting QoS resources, the TSPECs in the
-			request need not belong to only active Traffic Streams;
-		(2) The non-AP STA can send TSPECs for any Traffic Stream that it
-			intends to use after the transition, and request the same resources
-			that would be requested by a later ADDTS exchange.
-
-		==> We do NOT support the function.
-
-	5. Resource request usage for QSTA:
-		Case 1:
-		(1) Scan or get neighbor report of other QAPs;
-		(2) Maybe signal is bad with current AP and good for other QAPs;
-
-		-- FT_RIC_ResourceRequestStart()
-			No new TSPEC can be issued.
-
-		-- FT_RIC_ResourceRequest()
-			Build current TSPEC to the QAP1.
-
-		(3) FT confirm to QAP1;
-
-		-- FT_RIC_ResourceResponseHandle() for QAP1.
-
-		(4) Handle FT ACK from QAP1;
-
-		(6) a. Signal is still bad so determining to reassociate a QAP;
-			b. Maybe signal is good again with current QAP, no roaming is needed;
-
-		-- FT_RIC_ResourceRequestEnd(ptr to TSPEC status)
-
-		Case 2:
-		(1) Scan or get neighbor report of other QAPs;
-		(2) Maybe signal is bad with current AP and good for other QAPs;
-
-		-- FT_RIC_ResourceRequestStart()
-			No new TSPEC can be issued.
-
-		-- FT_RIC_ResourceRequest()
-			Build current TSPEC to the QAP1.
-
-		(3) FT confirm to QAP1;
-
-		-- FT_RIC_ResourceRequest()
-			Build current TSPEC to the QAP2.
-
-		(4) FT confirm to QAP2;
-
-		-- (get success percentage) FT_RIC_ResourceResponseHandle(ptr to TSPEC status) for QAP1.
-		-- (get success percentage) FT_RIC_ResourceResponseHandle(ptr to TSPEC status) for QAP2.
-
-		(5) Handle FT ACK from different QAPs;
-		(6) a. Signal is still bad so determining to reassociate a QAP;
-			b. Maybe signal is good again with current QAP, no roaming is needed;
-			c. Select the best resource allocation;
-
-		-- FT_RIC_ResourceRequestEnd(ptr to TSPEC status)
-			New TSPECs can be issued.
-========================================================================
-*/
-UINT32 FT_RIC_ResourceRequest(
-	IN	PRTMP_ADAPTER			pAd,
-	IN	UCHAR					*pApMac,
-	IN	UCHAR					*pBufReq,
-	IN	UINT32					ReqMaxLen);
-
-/*
-========================================================================
-Routine Description:
-	Handle resource responses.
-
-Arguments:
-	pAd				- WLAN control block pointer
-	*pApMac			- the AP MAC
-	*pBufRsp		- the response packet buffer
-	RspLen			- the maximum remain length of response packet buffer
-	*pRspStatus		- the status report
-
-Return Value:
-	handled length
-
-Note:
-	1. Same resource type for all resource descriptors in the RDIE.
-	2. Suppose RDIEs are continual.
-========================================================================
-*/
-UINT32 FT_RIC_ResourceResponseHandle(
-	IN	PRTMP_ADAPTER			pAd,
-	IN	UCHAR					*pApMac,
-	IN	UCHAR					*pBufRsp,
-	IN	UINT32					RspLen,
-	OUT	FT_RIC_STATUS * pRspStatus);
-#endif /* CONFIG_STA_SUPPORT */
 
 void FT_rtmp_read_parameters_from_file(
 	IN PRTMP_ADAPTER pAd,

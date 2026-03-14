@@ -1,17 +1,18 @@
 /*
- * Copyright (c) [2020], MediaTek Inc. All rights reserved.
- *
- * This software/firmware and related documentation ("MediaTek Software") are
- * protected under relevant copyright laws.
- * The information contained herein is confidential and proprietary to
- * MediaTek Inc. and/or its licensors.
- * Except as otherwise provided in the applicable licensing terms with
- * MediaTek Inc. and/or its licensors, any reproduction, modification, use or
- * disclosure of MediaTek Software, and information contained herein, in whole
- * or in part, shall be strictly prohibited.
-*/
-/*
  ***************************************************************************
+ * Ralink Tech Inc.
+ * 4F, No. 2 Technology 5th Rd.
+ * Science-based Industrial Park
+ * Hsin-chu, Taiwan, R.O.C.
+ *
+ * (c) Copyright 2002-2007, Ralink Technology, Inc.
+ *
+ * All rights reserved.	Ralink's source	code is	an unpublished work	and	the
+ * use of a	copyright notice does not imply	otherwise. This	source code
+ * contains	confidential trade secret material of Ralink Tech. Any attemp
+ * or participation	in deciphering,	decoding, reverse engineering or in	any
+ * way altering	the	source code	is stricitly prohibited, unless	the	prior
+ * written consent of Ralink Technology, Inc. is obtained.
  ***************************************************************************
 
 	Module Name:
@@ -70,8 +71,6 @@ static inline BOOLEAN needUpdateIPv6MacTB(
 	RT_IPV6_ADDR	*pIPv6Addr)
 {
 	ASSERT(pIPv6Addr);
-	if (pIPv6Addr == NULL)
-		return FALSE;
 
 	if (isMcastEtherAddr(pMac) || isZeroEtherAddr(pMac))
 		return FALSE;
@@ -143,7 +142,7 @@ NDIS_STATUS  dumpIPv6MacTb(
 	pIPv6MacTable = (IPv6MacMappingTable *)pMatCfg->MatTableSet.IPv6MacTable;
 
 	if ((!pIPv6MacTable) || (!pIPv6MacTable->valid)) {
-		MTWF_DBG(NULL, DBG_CAT_PROTO, CATPROTO_MAT, DBG_LVL_ERROR, "IPv6MacTable not init yet, so cannot do dump!\n");
+		MTWF_LOG(DBG_CAT_PROTO, CATPROTO_MAT, DBG_LVL_OFF, ("%s():IPv6MacTable not init yet, so cannot do dump!\n", __func__));
 		return FALSE;
 	}
 
@@ -156,14 +155,14 @@ NDIS_STATUS  dumpIPv6MacTb(
 		startIdx = endIdx = index;
 	}
 
-	MTWF_PRINT("%s():\n", __func__);
+	MTWF_LOG(DBG_CAT_PROTO, CATPROTO_MAT, DBG_LVL_OFF, ("%s():\n", __func__));
 
 	for (; startIdx <= endIdx; startIdx++) {
 		pHead = pIPv6MacTable->hash[startIdx];
 
 		while (pHead) {
-			MTWF_PRINT("IPv6Mac[%d]:\n", startIdx);
-			MTWF_PRINT("\t:IPv6=%04x:%04x:%04x:%04x:%04x:%04x:%04x:%04x,Mac="MACSTR", lastTime=0x%lx, next=%p\n"
+			MTWF_LOG(DBG_CAT_PROTO, CATPROTO_MAT, DBG_LVL_OFF, ("IPv6Mac[%d]:\n", startIdx));
+			MTWF_LOG(DBG_CAT_PROTO, CATPROTO_MAT, DBG_LVL_OFF, ("\t:IPv6=%04x:%04x:%04x:%04x:%04x:%04x:%04x:%04x,Mac=%02x:%02x:%02x:%02x:%02x:%02x, lastTime=0x%lx, next=%p\n"
 					, OS_NTOHS((*((RT_IPV6_ADDR *)(&pHead->ipv6Addr[0]))).ipv6_addr16[0])
 					, OS_NTOHS((*((RT_IPV6_ADDR *)(&pHead->ipv6Addr[0]))).ipv6_addr16[1])
 					, OS_NTOHS((*((RT_IPV6_ADDR *)(&pHead->ipv6Addr[0]))).ipv6_addr16[2])
@@ -172,12 +171,13 @@ NDIS_STATUS  dumpIPv6MacTb(
 					, OS_NTOHS((*((RT_IPV6_ADDR *)(&pHead->ipv6Addr[0]))).ipv6_addr16[5])
 					, OS_NTOHS((*((RT_IPV6_ADDR *)(&pHead->ipv6Addr[0]))).ipv6_addr16[6])
 					, OS_NTOHS((*((RT_IPV6_ADDR *)(&pHead->ipv6Addr[0]))).ipv6_addr16[7])
-					, MAC2STR(pHead->macAddr), pHead->lastTime, pHead->pNext);
+					, pHead->macAddr[0], pHead->macAddr[1], pHead->macAddr[2]
+					, pHead->macAddr[3], pHead->macAddr[4], pHead->macAddr[5], pHead->lastTime, pHead->pNext));
 			pHead = pHead->pNext;
 		}
 	}
 
-	MTWF_PRINT("\t----EndOfDump!\n");
+	MTWF_LOG(DBG_CAT_PROTO, CATPROTO_MAT, DBG_LVL_OFF, ("\t----EndOfDump!\n"));
 	return TRUE;
 }
 
@@ -221,13 +221,8 @@ static NDIS_STATUS IPv6MacTableUpdate(
 					pPrev->pNext = pEntry->pNext;
 
 				MATDBEntryFree(pMatCfg, (PUCHAR)pEntry);
-				if (pEntry == pPrev) {
-					pEntry = NULL;
-					pPrev = NULL;
-				}
 				pEntry = (pPrev == NULL ? NULL : pPrev->pNext);
-				if (pMatCfg->nodeCount > 0)
-					pMatCfg->nodeCount--;
+				pMatCfg->nodeCount--;
 			} else {
 				pPrev = pEntry;
 				pEntry = pEntry->pNext;
@@ -235,12 +230,6 @@ static NDIS_STATUS IPv6MacTableUpdate(
 		}
 	}
 
-#ifdef ETH_CONVERT_SUPPORT
-
-	if (pMatCfg->nodeCount >= ETH_CONVERT_NODE_MAX)
-		return FALSE;
-
-#endif /* ETH_CONVERT_SUPPORT */
 	/* Allocate a new IPv6MacMapping entry and insert into the hash */
 	pNewEntry = (IPv6MacMappingEntry *)MATDBEntryAlloc(pMatCfg, sizeof(IPv6MacMappingEntry));
 
@@ -398,12 +387,8 @@ static PNDIS_PACKET ICMPv6_Handle_Tx(
 
 	pIPv6Hdr = (RT_IPV6_HDR *)pLayerHdr;
 	payloadLen = OS_NTOHS(pIPv6Hdr->payload_len);
-	if (payloadLen > (1500 - IPV6_HDR_LEN))
-		return newSkb;
 	pICMPv6Hdr = (RT_ICMPV6_HDR *)(pLayerHdr + offset);
 	ICMPOffset = offset;
-	if (ICMPOffset > IPV6_HDR_LEN)
-		ICMPOffset = IPV6_HDR_LEN;
 	ICMPMsgLen = payloadLen + IPV6_HDR_LEN - ICMPOffset;
 	leftLen = ICMPMsgLen;
 
@@ -411,6 +396,7 @@ static PNDIS_PACKET ICMPv6_Handle_Tx(
 	case ICMPV6_MSG_TYPE_ROUTER_SOLICITATION:
 		offset += ROUTER_SOLICITATION_FIXED_LEN;
 		leftLen -= ROUTER_SOLICITATION_FIXED_LEN;
+
 		/* for unspecified source address, it should not include the option about link-layer address. */
 		if (!(IS_UNSPECIFIED_IPV6_ADDR(pIPv6Hdr->srcAddr)) &&
 			(ICMPMsgLen > ROUTER_SOLICITATION_FIXED_LEN)) {
@@ -437,6 +423,7 @@ static PNDIS_PACKET ICMPv6_Handle_Tx(
 	case ICMPV6_MSG_TYPE_ROUTER_ADVERTISEMENT:
 		offset += ROUTER_ADVERTISEMENT_FIXED_LEN;
 		leftLen -= ROUTER_ADVERTISEMENT_FIXED_LEN;
+
 		/* for unspecified source address, it should not include the option about link-layer address. */
 		if (!(IS_UNSPECIFIED_IPV6_ADDR(pIPv6Hdr->srcAddr)) &&
 			(ICMPMsgLen > ROUTER_ADVERTISEMENT_FIXED_LEN)) {
@@ -463,6 +450,7 @@ static PNDIS_PACKET ICMPv6_Handle_Tx(
 	case ICMPV6_MSG_TYPE_NEIGHBOR_SOLICITATION:
 		offset += NEIGHBOR_SOLICITATION_FIXED_LEN;
 		leftLen -= NEIGHBOR_SOLICITATION_FIXED_LEN;
+
 		/* for unspecified source address, it should not include the option about link-layer address. */
 		if (!(IS_UNSPECIFIED_IPV6_ADDR(pIPv6Hdr->srcAddr)) &&
 			(ICMPMsgLen > NEIGHBOR_SOLICITATION_FIXED_LEN)) {
@@ -489,6 +477,7 @@ static PNDIS_PACKET ICMPv6_Handle_Tx(
 	case ICMPV6_MSG_TYPE_NEIGHBOR_ADVERTISEMENT:
 		offset += NEIGHBOR_ADVERTISEMENT_FIXED_LEN;
 		leftLen -= NEIGHBOR_ADVERTISEMENT_FIXED_LEN;
+
 		/* for unspecified source address, it should not include the option about link-layer address. */
 		if (!(IS_UNSPECIFIED_IPV6_ADDR(pIPv6Hdr->srcAddr)) &&
 			(ICMPMsgLen > NEIGHBOR_ADVERTISEMENT_FIXED_LEN)) {
@@ -515,8 +504,9 @@ static PNDIS_PACKET ICMPv6_Handle_Tx(
 	case ICMPV6_MSG_TYPE_REDIRECT:
 		offset += REDIRECT_FIXED_LEN;
 		leftLen -= REDIRECT_FIXED_LEN;
+
 		/* for unspecified source address, it should not include the options about link-layer address. */
-		if (!(IS_UNSPECIFIED_IPV6_ADDR(pIPv6Hdr->srcAddr))  &&
+		if (!(IS_UNSPECIFIED_IPV6_ADDR(pIPv6Hdr->srcAddr)) &&
 			(ICMPMsgLen > REDIRECT_FIXED_LEN)) {
 			while (leftLen > sizeof(RT_ICMPV6_OPTION_HDR)) {
 				pOptHdr = (RT_ICMPV6_OPTION_HDR *)(pLayerHdr + offset);
@@ -540,7 +530,7 @@ static PNDIS_PACKET ICMPv6_Handle_Tx(
 		break;
 
 	default:
-		MTWF_DBG(NULL, DBG_CAT_PROTO, CATPROTO_MAT, DBG_LVL_INFO, "Un-supported ICMPv6 msg type(0x%x)! Ignore it\n", pICMPv6Hdr->type);
+		MTWF_LOG(DBG_CAT_PROTO, CATPROTO_MAT, DBG_LVL_TRACE, ("Un-supported ICMPv6 msg type(0x%x)! Ignore it\n", pICMPv6Hdr->type));
 		break;
 	}
 
@@ -597,13 +587,13 @@ static PUCHAR MATProto_IPv6_Tx(
 	nextProtocol = pIPv6Hdr->nextHdr;
 	offset = IPV6_HDR_LEN;
 
-	/*MTWF_DBG(NULL, DBG_CAT_PROTO, CATPROTO_MAT, DBG_LVL_DEBUG, "NextProtocol=0x%x! payloadLen=%d! offset=%d!\n", nextProtocol, payloadLen, offset); */
+	/*MTWF_LOG(DBG_CAT_PROTO, CATPROTO_MAT, DBG_LVL_INFO, ("NextProtocol=0x%x! payloadLen=%d! offset=%d!\n", nextProtocol, payloadLen, offset)); */
 	while (nextProtocol != IPV6_NEXT_HEADER_ICMPV6 &&
 		   nextProtocol != IPV6_NEXT_HEADER_UDP &&
 		   nextProtocol != IPV6_NEXT_HEADER_TCP &&
 		   nextProtocol != IPV6_NEXT_HEADER_NONE) {
 		if (IPv6ExtHdrHandle((RT_IPV6_EXT_HDR *)(pLayerHdr + offset), &nextProtocol, &offset) == FALSE) {
-			MTWF_DBG(NULL, DBG_CAT_PROTO, CATPROTO_MAT, DBG_LVL_INFO, "IPv6ExtHdrHandle failed!\n");
+			MTWF_LOG(DBG_CAT_PROTO, CATPROTO_MAT, DBG_LVL_TRACE, ("IPv6ExtHdrHandle failed!\n"));
 			break;
 		}
 	}
@@ -692,7 +682,7 @@ static NDIS_STATUS IPv6MacTable_init(
 		pIPv6MacTable->hash[IPV6MAC_TB_HASH_INDEX_OF_BCAST] = pEntry;
 		pIPv6MacTable->valid = TRUE;
 	} else
-		MTWF_DBG(NULL, DBG_CAT_PROTO, CATPROTO_MAT, DBG_LVL_INFO, "IPv6MacTable already inited!\n");
+		MTWF_LOG(DBG_CAT_PROTO, CATPROTO_MAT, DBG_LVL_TRACE, ("%s(): IPv6MacTable already inited!\n", __func__));
 
 	return TRUE;
 }
@@ -728,30 +718,19 @@ VOID getIPv6MacTbInfo(
 	IPv6MacMappingEntry *pHead;
 	int startIdx, endIdx;
 	char Ipv6str[40] = {0};
-	int ret;
-	ULONG str_tmp_len;
 
 	pIPv6MacTable = (IPv6MacMappingTable *)pMatCfg->MatTableSet.IPv6MacTable;
 
 	if ((!pIPv6MacTable) || (!pIPv6MacTable->valid)) {
-		MTWF_DBG(NULL, DBG_CAT_PROTO, CATPROTO_MAT, DBG_LVL_INFO, "IPv6MacTable not init yet!\n");
+		MTWF_LOG(DBG_CAT_PROTO, CATPROTO_MAT, DBG_LVL_TRACE, ("%s():IPv6MacTable not init yet!\n", __func__));
 		return;
 	}
 
 	/* dump all. */
 	startIdx = 0;
 	endIdx = MAT_MAX_HASH_ENTRY_SUPPORT;
-	ret = snprintf(pOutBuf, BufLen, "\n");
-	if (os_snprintf_error(BufLen, ret)) {
-		MTWF_PRINT("%s: snprintf error!\n", __func__);
-		return;
-	}
-	str_tmp_len = BufLen - strlen(pOutBuf);
-	ret = snprintf(pOutBuf + strlen(pOutBuf), str_tmp_len, "%-40s%-20s\n", "IP", "MAC");
-	if (os_snprintf_error(str_tmp_len, ret)) {
-		MTWF_PRINT("%s: snprintf error!\n", __func__);
-		return;
-	}
+	sprintf(pOutBuf, "\n");
+	sprintf(pOutBuf + strlen(pOutBuf), "%-40s%-20s\n", "IP", "MAC");
 
 	for (; startIdx < endIdx; startIdx++) {
 		pHead = pIPv6MacTable->hash[startIdx];
@@ -762,7 +741,7 @@ VOID getIPv6MacTbInfo(
 				break;
 
 			NdisZeroMemory(Ipv6str, 40);
-			ret = snprintf(Ipv6str, 40, "%04x:%04x:%04x:%04x:%04x:%04x:%04x:%04x"
+			sprintf(Ipv6str, "%04x:%04x:%04x:%04x:%04x:%04x:%04x:%04x"
 					, OS_NTOHS((*((RT_IPV6_ADDR *)(&pHead->ipv6Addr[0]))).ipv6_addr16[0])
 					, OS_NTOHS((*((RT_IPV6_ADDR *)(&pHead->ipv6Addr[0]))).ipv6_addr16[1])
 					, OS_NTOHS((*((RT_IPV6_ADDR *)(&pHead->ipv6Addr[0]))).ipv6_addr16[2])
@@ -771,19 +750,9 @@ VOID getIPv6MacTbInfo(
 					, OS_NTOHS((*((RT_IPV6_ADDR *)(&pHead->ipv6Addr[0]))).ipv6_addr16[5])
 					, OS_NTOHS((*((RT_IPV6_ADDR *)(&pHead->ipv6Addr[0]))).ipv6_addr16[6])
 					, OS_NTOHS((*((RT_IPV6_ADDR *)(&pHead->ipv6Addr[0]))).ipv6_addr16[7]));
-			if (os_snprintf_error(40, ret)) {
-				MTWF_PRINT("%s: snprintf error!\n", __func__);
-				return;
-			}
-			str_tmp_len = BufLen - strlen(pOutBuf);
-			ret = snprintf(pOutBuf + strlen(pOutBuf),
-					str_tmp_len, "%-40s%02x:%02x:%02x:%02x:%02x:%02x\n",
+			sprintf(pOutBuf + strlen(pOutBuf), "%-40s%02x:%02x:%02x:%02x:%02x:%02x\n",
 					Ipv6str, pHead->macAddr[0], pHead->macAddr[1], pHead->macAddr[2],
 					pHead->macAddr[3], pHead->macAddr[4], pHead->macAddr[5]);
-			if (os_snprintf_error(str_tmp_len, ret)) {
-				MTWF_PRINT("%s: snprintf error!\n", __func__);
-				return;
-			}
 			pHead = pHead->pNext;
 		}
 	}

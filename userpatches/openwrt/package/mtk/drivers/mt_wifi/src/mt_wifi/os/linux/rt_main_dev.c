@@ -1,16 +1,18 @@
 /*
- * Copyright (c) [2020], MediaTek Inc. All rights reserved.
+ ***************************************************************************
+ * Ralink Tech Inc.
+ * 4F, No. 2 Technology 5th Rd.
+ * Science-based Industrial Park
+ * Hsin-chu, Taiwan, R.O.C.
  *
- * This software/firmware and related documentation ("MediaTek Software") are
- * protected under relevant copyright laws.
- * The information contained herein is confidential and proprietary to
- * MediaTek Inc. and/or its licensors.
- * Except as otherwise provided in the applicable licensing terms with
- * MediaTek Inc. and/or its licensors, any reproduction, modification, use or
- * disclosure of MediaTek Software, and information contained herein, in whole
- * or in part, shall be strictly prohibited.
-*/
-/****************************************************************************
+ * (c) Copyright 2002, Ralink Technology, Inc.
+ *
+ * All rights reserved. Ralink's source code is an unpublished work and the
+ * use of a copyright notice does not imply otherwise. This source code
+ * contains confidential trade secret material of Ralink Tech. Any attemp
+ * or participation in deciphering, decoding, reverse engineering or in any
+ * way altering the source code is stricitly prohibited, unless the prior
+ * written consent of Ralink Technology, Inc. is obtained.
  ***************************************************************************
 
     Module Name:
@@ -31,7 +33,16 @@
 #include "rtmp_comm.h"
 #include "rt_os_util.h"
 #include "rt_os_net.h"
-#include <linux/ethtool.h>
+#ifdef RTMP_UDMA_SUPPORT
+#include "rt_udma.h"
+#endif/*RTMP_UDMA_SUPPORT*/
+
+#if (KERNEL_VERSION(2, 6, 24) <= LINUX_VERSION_CODE)
+#ifndef SA_SHIRQ
+#define SA_SHIRQ IRQF_SHARED
+#endif
+#endif
+
 /*---------------------------------------------------------------------*/
 /* Private Variables Used                                              */
 /*---------------------------------------------------------------------*/
@@ -50,8 +61,11 @@ module_param(mode, charp, 0);
 MODULE_PARM_DESC(mac, "rt_wifi: wireless mac addr");
 MODULE_PARM_DESC(mode, "rt_wifi: wireless operation mode");
 
+#if !defined(CONFIG_PROPRIETARY_DRIVER) || defined(CONFIG_DBG_OOM)
 MODULE_LICENSE("GPL");
-
+#else
+MODULE_LICENSE("GPL");
+#endif
 
 #ifdef OS_ABL_SUPPORT
 RTMP_DRV_ABL_OPS RtmpDrvOps, *pRtmpDrvOps = &RtmpDrvOps;
@@ -74,22 +88,6 @@ INT rt28xx_send_packets(IN struct sk_buff *skb_p, IN struct net_device *net_dev)
 
 struct net_device_stats *RT28xx_get_ether_stats(struct net_device *net_dev);
 
-#if ((KERNEL_VERSION(2, 4, 23) <= LINUX_VERSION_CODE) && (KERNEL_VERSION(4, 20, 0) > LINUX_VERSION_CODE))
-static int rt_get_settings(struct net_device *dev, struct ethtool_cmd *cmd)
-{
-	struct iwreq req;
-
-	NdisZeroMemory(&req, sizeof(req));
-	rt28xx_ioctl(dev, (struct ifreq *)&req, SIOCGIWRATE);
-	cmd->speed = req.u.bitrate.value/1000000; /* The speed is Mbit/s */
-	printk("DBG2:: SIOCGIWRATE called, Rate = %lu",req.u.bitrate.value);
-	return 0;
-}
-
-static const struct ethtool_ops rt_ethtool_ops = {
-	.get_settings = rt_get_settings,
-};
-#endif
 
 /*
  * ========================================================================
@@ -115,14 +113,16 @@ int main_virtual_if_close(IN struct net_device *net_dev)
 {
 	VOID *pAd = NULL;
 
-	MTWF_DBG(NULL, DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_INFO, "===> %s\n",
-		RTMP_OS_NETDEV_GET_DEVNAME(net_dev));
+	MTWF_LOG(DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_OFF, ("%s: ===> %s\n",
+		RTMP_OS_NETDEV_GET_DEVNAME(net_dev), __func__));
 
 	pAd = RTMP_OS_NETDEV_GET_PRIV(net_dev);
 
 	if (pAd == NULL)
 		return 0;
-
+#ifdef CONFIG_LED_ACTIVITY_ON_MAIN_MBSS
+	RTMPSetLED(pAd, LED_RADIO_OFF);
+#endif
 	RTMP_OS_NETDEV_CARRIER_OFF(net_dev);
 	RTMP_OS_NETDEV_STOP_QUEUE(net_dev);
 
@@ -162,8 +162,8 @@ int main_virtual_if_open(struct net_device *net_dev)
 {
 	VOID *pAd = NULL;
 
-	MTWF_DBG(NULL, DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_INFO, "===> %s\n",
-		RTMP_OS_NETDEV_GET_DEVNAME(net_dev));
+	MTWF_LOG(DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_OFF, ("%s: ===> %s\n",
+		RTMP_OS_NETDEV_GET_DEVNAME(net_dev), __func__));
 
 	GET_PAD_FROM_NET_DEV(pAd, net_dev);
 
@@ -174,7 +174,7 @@ int main_virtual_if_open(struct net_device *net_dev)
 
 	while (RTMP_DRIVER_IOCTL_SANITY_CHECK(pAd, NULL) != NDIS_STATUS_SUCCESS) {
 		OS_WAIT(10);
-		MTWF_DBG(pAd, DBG_CAT_INIT, DBG_SUBCAT_ALL, DBG_LVL_INFO, "Card not ready, NDIS_STATUS_SUCCESS!\n");
+		MTWF_LOG(DBG_CAT_INIT, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("Card not ready, NDIS_STATUS_SUCCESS!\n"));
 	}
 
 #else
@@ -191,6 +191,11 @@ int main_virtual_if_open(struct net_device *net_dev)
 		return -1;
 
 #endif /* IFUP_IN_PROBE */
+#ifdef CONFIG_AP_SUPPORT
+#ifdef CONFIG_LED_ACTIVITY_ON_MAIN_MBSS
+	RTMPSetLED(pAd, LED_LINK_DOWN); 	/* Set solid led on */
+#endif /* CONFIG_LED_ACTIVITY_ON_MAIN_MBSS */
+#endif /* CONFIG_AP_SUPPORT */
 	RT_MOD_INC_USE_COUNT();
 	RT_MOD_HNAT_REG(net_dev);
 	netif_start_queue(net_dev);
@@ -225,45 +230,28 @@ int mt_wifi_close(VOID *dev)
 	struct net_device *net_dev = (struct net_device *)dev;
 	VOID	*pAd = NULL;
 
-	MTWF_DBG(pAd, DBG_CAT_INIT, DBG_SUBCAT_ALL, DBG_LVL_INFO, "===> mt_wifi_close\n");
+	MTWF_LOG(DBG_CAT_INIT, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("===> mt_wifi_close\n"));
 	GET_PAD_FROM_NET_DEV(pAd, net_dev);
 
 	if (pAd == NULL)
 		return 0;
-
-#ifdef WIFI_MD_COEX_SUPPORT
-	/* step1: notify coex module wifi down */
-	send_wifi_info_to_wifi_coex(pAd, FALSE);
-#endif /* WIFI_MD_COEX_SUPPORT */
-
-#ifdef CFG_SUPPORT_CSI
-	csi_support_deinit(pAd);
+#ifdef CONFIG_INIT_RADIO_ONOFF
+	if(!((PRTMP_ADAPTER)pAd)->ApCfg.bRadioOn)
+		RTMP_CLEAR_FLAG(((PRTMP_ADAPTER)pAd), fRTMP_ADAPTER_DISABLE_DEQUEUEPACKET);
 #endif
-
 
 	RTMPDrvClose(pAd, net_dev);
-
-#ifdef CONFIG_WLAN_SERVICE
-	mt_service_close(pAd);
-#endif /* CONFIG_WLAN_SERVICE */
-
-#ifdef WIFI_MD_COEX_SUPPORT
-	deinit_wifi_md_coex(pAd);
-#endif /* WIFI_MD_COEX_SUPPORT */
-
+#ifdef RTMP_UDMA_SUPPORT
+	mt_udma_unregister(pAd);
+#endif/*RTMP_UDMA_SUPPORT*/
 	/*system down hook point*/
 	WLAN_HOOK_CALL(WLAN_HOOK_SYS_DOWN, pAd, NULL);
-
-	MTWF_DBG(pAd, DBG_CAT_INIT, DBG_SUBCAT_ALL, DBG_LVL_INFO, "<=== mt_wifi_close\n");
+#ifdef WIFI_DIAG
+	DiagProcExit(pAd);
+#endif
+	MTWF_LOG(DBG_CAT_INIT, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("<=== mt_wifi_close\n"));
 	return 0;
 }
-
-#ifdef BB_SOC
-#ifdef TCSUPPORT_WLAN_SW_RPS
-extern int (*ecnt_wifi_rx_rps_hook)(struct sk_buff *skb);
-extern int ecnt_wifi_rx_rps(struct sk_buff *skb);
-#endif
-#endif
 
 
 /*
@@ -284,15 +272,10 @@ int mt_wifi_open(VOID *dev)
 	struct net_device *net_dev = (struct net_device *)dev;
 	VOID *pAd = NULL;
 	int retval = 0;
-	UINT32 OpMode;
-#ifdef WARP_512_SUPPORT
-#ifdef WHNAT_SUPPORT
-	UINT8 Enable;
-#endif
-#endif
+	ULONG OpMode;
 
 	if (sizeof(ra_dma_addr_t) < sizeof(dma_addr_t))
-		MTWF_DBG(pAd, DBG_CAT_INIT, DBG_SUBCAT_ALL, DBG_LVL_ERROR, "Fatal error for DMA address size!!!\n");
+		MTWF_LOG(DBG_CAT_INIT, DBG_SUBCAT_ALL, DBG_LVL_ERROR, ("Fatal error for DMA address size!!!\n"));
 
 	GET_PAD_FROM_NET_DEV(pAd, net_dev);
 
@@ -309,57 +292,39 @@ int mt_wifi_open(VOID *dev)
 	/*	if (RT_DEV_PRIV_FLAGS_GET(net_dev) == INT_MAIN) */
 	if (RTMP_DRIVER_MAIN_INF_CHECK(pAd, RT_DEV_PRIV_FLAGS_GET(net_dev)) == NDIS_STATUS_SUCCESS) {
 #ifdef CONFIG_APSTA_MIXED_SUPPORT
-#ifdef CONFIG_WIRELESS_EXT
+
 		if (OpMode == OPMODE_AP)
 			net_dev->wireless_handlers = (struct iw_handler_def *) &rt28xx_ap_iw_handler_def;
-#endif /* CONFIG_WIRELESS_EXT */
 
 #endif /* CONFIG_APSTA_MIXED_SUPPORT */
-#ifdef CONFIG_STA_SUPPORT
-#ifdef CONFIG_WIRELESS_EXT
-
-		if (OpMode == OPMODE_STA)
-			net_dev->wireless_handlers = (struct iw_handler_def *) &rt28xx_iw_handler_def;
-#endif /* CONFIG_WIRELESS_EXT */
-#endif /* CONFIG_STA_SUPPORT */
 	}
 
 #endif /* WIRELESS_EXT >= 12 */
 	/* load_dev_l1profile should prior to RTMPPreReadProfile, for get_l2_profile() access data updated */
 	if (load_dev_l1profile(pAd) == NDIS_STATUS_SUCCESS)
-		MTWF_DBG(pAd, DBG_CAT_CFG, DBG_SUBCAT_ALL, DBG_LVL_INFO, "load l1profile succeed!\n");
-	else {
-		MTWF_DBG(pAd, DBG_CAT_CFG, DBG_SUBCAT_ALL, DBG_LVL_ERROR, "load l1profile failed!\n");
-		return -1;
-	}
+		MTWF_LOG(DBG_CAT_CFG, DBG_SUBCAT_ALL, DBG_LVL_OFF, ("load l1profile succeed!\n"));
+	else
+		MTWF_LOG(DBG_CAT_CFG, DBG_SUBCAT_ALL, DBG_LVL_OFF, ("load l1profile failed!\n"));
 	/*system up hook point should before interrupt register*/
-#if defined(WHNAT_SUPPORT) || defined(MT7986) || defined(MT7916) || defined(MT7981)
-	RTMPPreReadProfile(pAd);
-#endif /* defined(WHNAT_SUPPORT) || defined(MT7986) || defined(MT7916) || defined(MT7981) */
-	WLAN_HOOK_CALL(WLAN_HOOK_SYS_UP, pAd, NULL);
-#ifdef WARP_512_SUPPORT
 #ifdef WHNAT_SUPPORT
-	MTWF_DBG(pAd, DBG_CAT_INIT, DBG_SUBCAT_ALL, DBG_LVL_NOTICE, "whnat_en=%u\n", (((RTMP_ADAPTER *)pAd)->CommonCfg.whnat_en));
-	Enable = TRUE;
-	WLAN_HOOK_CALL(WLAN_HOOK_WARP_512_SUPPORT, pAd, &Enable);
-	if (((RTMP_ADAPTER *)pAd)->CommonCfg.whnat_en) {
-		if (Enable)
-			((RTMP_ADAPTER *)pAd)->Warp512Support = TRUE;
-		else
-			((RTMP_ADAPTER *)pAd)->Warp512Support = FALSE;
-	}
-#else
-	((RTMP_ADAPTER *)pAd)->Warp512Support = FALSE;
-#endif
-#endif
+	RTMPPreReadProfile(pAd);
+#endif /*WHNAT_SUPPORT*/
+	WLAN_HOOK_CALL(WLAN_HOOK_SYS_UP, pAd, NULL);
+	/*
+	 *	Request interrupt service routine for PCI device
+	 *	register the interrupt routine with the os
+	 *
+	 *	AP Channel auto-selection will be run in mt_wifi_init(),
+	 *	so we must reqister IRQ hander here.
+	 */
+	RtmpOSIRQRequest(net_dev);
+	/* Init IRQ parameters stored in pAd */
+	/*	rtmp_irq_init(pAd); */
+	RTMP_DRIVER_IRQ_INIT(pAd);
 
 	/* Chip & other init */
 	if (mt_wifi_init(pAd, mac, hostname) == FALSE)
 		goto err;
-
-#ifdef CONFIG_WLAN_SERVICE
-	mt_service_open(pAd);
-#endif /* CONFIG_WLAN_SERVICE */
 
 #ifdef MBSS_SUPPORT
 	/*
@@ -369,70 +334,54 @@ int mt_wifi_open(VOID *dev)
 	 */
 #if defined(P2P_APCLI_SUPPORT) || defined(RT_CFG80211_P2P_SUPPORT) || defined(CFG80211_MULTI_STA)
 #else
-	RT_CONFIG_IF_OPMODE_ON_AP(GET_OPMODE_FROM_PAD(pAd))
-	{
-	RT28xx_MBSS_Init(pAd, net_dev);
-	}
+#ifndef CREATE_ALL_INTERFACE_AT_INIT
+		RT28xx_MBSS_Init(pAd, net_dev);
+#endif
 #endif /* P2P_APCLI_SUPPORT || RT_CFG80211_P2P_SUPPORT || CFG80211_MULTI_STA */
 #endif /* MBSS_SUPPORT */
-
-#ifdef CONFIG_STA_SUPPORT
-	{
-	RT28xx_MSTA_Init(pAd, net_dev);
-	}
-#endif /* CONFIG_STA_SUPPORT */
+#ifdef WDS_SUPPORT
+	RT28xx_WDS_Init(pAd, net_dev);
+#endif /* WDS_SUPPORT */
+#ifdef APCLI_SUPPORT
+#if defined(RT_CFG80211_P2P_CONCURRENT_DEVICE) ||  defined(P2P_APCLI_SUPPORT) || defined(CFG80211_MULTI_STA)
+#else
+	RT28xx_ApCli_Init(pAd, net_dev);
+#endif /* RT_CFG80211_P2P_CONCURRENT_DEVICE || P2P_APCLI_SUPPORT || CFG80211_MULTI_STA */
+#endif /* APCLI_SUPPORT */
 #ifdef SNIFFER_SUPPORT
 	RT28xx_Monitor_Init(pAd, net_dev);
 #endif /* SNIFFER_SUPPORT */
 #ifdef RT_CFG80211_SUPPORT
-#ifdef RT_CFG80211_P2P_CONCURRENT_DEVICE
-	RTMP_CFG80211_DummyP2pIf_Init(pAd);
-#endif /* RT_CFG80211_P2P_CONCURRENT_DEVICE */
 #ifdef CFG80211_MULTI_STA
 	RTMP_CFG80211_MutliStaIf_Init(pAd);
 #endif /* CFG80211_MULTI_STA */
 #else
-#ifdef P2P_SUPPORT
-	RTMP_P2P_Init(pAd, net_dev);
-#endif /* P2P_SUPPORT */
 #endif /* RT_CFG80211_SUPPORT */
 #ifdef LINUX
 #ifdef RT_CFG80211_SUPPORT
 	RTMP_DRIVER_CFG80211_START(pAd);
 #endif /* RT_CFG80211_SUPPORT */
 #endif /* LINUX */
-
-#ifdef CONFIG_WLAN_SERVICE
-	mt_service_init(pAd);
-#endif /* CONFIG_WLAN_SERVICE */
-
 	RTMPDrvOpen(pAd);
 #ifdef VENDOR_FEATURE2_SUPPORT
-	MTWF_DBG(pAd, DBG_CAT_INIT, DBG_SUBCAT_ALL, DBG_LVL_DEBUG,
-			 "Number of Packet Allocated in open = %lu\n", OS_NumOfPktAlloc);
-	MTWF_DBG(pAd, DBG_CAT_INIT, DBG_SUBCAT_ALL, DBG_LVL_DEBUG,
-			 "Number of Packet Freed in open = %lu\n", OS_NumOfPktFree);
+	MTWF_LOG(DBG_CAT_INIT, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
+			 ("Number of Packet Allocated in open = %lu\n", OS_NumOfPktAlloc));
+	MTWF_LOG(DBG_CAT_INIT, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
+			 ("Number of Packet Freed in open = %lu\n", OS_NumOfPktFree));
 #endif /* VENDOR_FEATURE2_SUPPORT */
+#ifdef RTMP_UDMA_SUPPORT
+	retval = mt_udma_register(pAd, net_dev);
+	MTWF_LOG(DBG_CAT_INIT, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
+		("Udma Registration %s\n", (retval == 0) ? "Success" : "Failed"));
+#endif/*RTMP_UDMA_SUPPORT*/
 
-#ifdef BB_SOC
-#ifdef TCSUPPORT_WLAN_SW_RPS
-	if (sizeof(RX_BLK) > 150) {
-		printk("!!!rx_blk size = %d ,is larger than 150 in skb!!!\n", sizeof(RX_BLK));
-				goto err;
-		}
-
-	printk("\n==ecnt_wifi_rx_rps_hook===\n");
-	rcu_assign_pointer(ecnt_wifi_rx_rps_hook, ecnt_wifi_rx_rps);
+#ifdef WIFI_DIAG
+	DiagProcInit(pAd);
 #endif
-#endif
-
-
-#ifdef WIFI_MD_COEX_SUPPORT
-	init_wifi_md_coex(pAd);
-#endif /* WIFI_MD_COEX_SUPPORT */
 
 	return retval;
 err:
+	RTMP_DRIVER_IRQ_RELEASE(pAd);
 	return -1;
 }
 
@@ -442,9 +391,6 @@ int virtual_if_up_handler(VOID *dev)
 	struct _RTMP_ADAPTER *pAd = NULL;
 	int retval = 0;
 	struct wifi_dev *wdev = NULL;
-#ifdef OFFCHANNEL_SCAN_FEATURE
-	UINT8 u1EDCCAStd;
-#endif
 
 	GET_PAD_FROM_NET_DEV(pAd, net_dev);
 
@@ -455,53 +401,19 @@ int virtual_if_up_handler(VOID *dev)
 
 	wdev = wdev_search_by_netdev(pAd, net_dev);
 	if (wdev == NULL) {
-		MTWF_DBG(pAd, DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_ERROR, "wdev fail!!!\n");
+		MTWF_LOG(DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_ERROR, ("%s() wdev fail!!!\n", __func__));
 		retval = -1;
 		return retval;
 	}
 
-#ifdef GREENAP_SUPPORT
-		/* This function will check and update allow status */
-		if (greenap_check_when_if_down_up(pAd) == FALSE)
-			return retval;
-#endif /* GREENAP_SUPPORT */
+	wdev_if_up_down(pAd, wdev, TRUE);
 
 	if (VIRTUAL_IF_NUM(pAd) != 0) {
 		if (wdev_do_open(wdev) != TRUE) {
-			MTWF_DBG(pAd, DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_INFO, "%s() inf_up (idx %d) fail!!!\n",
-				__func__, wdev->wdev_idx);
+			MTWF_LOG(DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("%s() inf_up (idx %d) fail!!!\n",
+				__func__, wdev->wdev_idx));
 		}
 	}
-	wdev->open_state = TRUE;
-
-#ifdef WDS_SUPPORT
-	if (wdev->wdev_type == WDEV_TYPE_AP) {
-		if (wdev->func_idx == pAd->ApCfg.BssidNumPerBand[DBDC_BAND0])
-			RT28xx_WDS_Init(pAd, DBDC_BAND1, dev);
-		else if (wdev->func_idx == MAIN_MBSSID)
-			RT28xx_WDS_Init(pAd, DBDC_BAND0, dev);
-		else
-			MTWF_DBG(NULL, DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_DEBUG,
-				 "%s() wds_if bound to main dev!\n", __func__);
-	}
-#endif	/* WDS_SUPPORT */
-#ifdef DFS_VENDOR10_CUSTOM_FEATURE
-	if (IS_SUPPORT_V10_DFS(pAd)
-		&& (IS_V10_APINTF_DOWN(pAd) == FALSE)) {
-		MTWF_DBG(pAd, DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_INFO, "pAd->CommonCfg.v10_bw = %d, IS_V10_W56_VHT80_SWITCHED(pAd)=%d\n", pAd->CommonCfg.v10_bw, IS_V10_W56_VHT80_SWITCHED(pAd));
-		if (pAd->CommonCfg.v10_bw || IS_V10_W56_VHT80_SWITCHED(pAd)) {
-			pAd->CommonCfg.bBwSyncQueued = TRUE;
-			pAd->CommonCfg.bwsync_count = 5;
-		}
-	}
-#endif	/* DFS_VENDOR10_CUSTOM_FEATURE */
-	wdev_if_up_down(pAd, wdev, TRUE);
-
-#ifdef OFFCHANNEL_SCAN_FEATURE
-	u1EDCCAStd = GetEDCCAStd(pAd->CommonCfg.CountryCode, wdev->PhyMode);
-	if (u1EDCCAStd == EDCCA_Country_FCC6G && wdev->wdev_type == WDEV_TYPE_AP)
-		EDCCAScanForCompensation(pAd, wdev);
-#endif
 
 	return retval;
 }
@@ -522,36 +434,21 @@ int virtual_if_down_handler(VOID *dev)
 
 	wdev = wdev_search_by_netdev(pAd, net_dev);
 	if (wdev == NULL) {
-		MTWF_DBG(pAd, DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_ERROR, "wdev fail!!!\n");
+		MTWF_LOG(DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_ERROR, ("%s() wdev fail!!!\n", __func__));
 		retval = -1;
 		return retval;
 	}
 
-	wdev->open_state = FALSE;
-	if (wdev->start_stop_running) {
-		MTWF_DBG(pAd, DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_ERROR, "wdev idx %d wait to complete start stop op\n", wdev->wdev_idx);
-		RTMP_OS_INIT_COMPLETION(&wdev->start_stop_complete);
-		if (!RTMP_OS_WAIT_FOR_COMPLETION_TIMEOUT(&wdev->start_stop_complete, 500))
-			MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_ERROR, "() wait cmd timeout!\n");
-	}
-/*wdev->if_up_down_state should be mark false after wdev_do_close*/
-	if (wdev_do_close(wdev) != TRUE) {
-		MTWF_DBG(pAd, DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_INFO, "%s() inf_down (idx %d) fail!!!\n",
-			__func__, wdev->wdev_idx);
-	}
 	wdev_if_up_down(pAd, wdev, FALSE);
 
-#ifdef GREENAP_SUPPORT
-	greenap_check_when_if_down_up(pAd);
-#endif /* GREENAP_SUPPORT */
+	if (wdev_do_close(wdev) != TRUE) {
+		MTWF_LOG(DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("%s() inf_down (idx %d) fail!!!\n",
+			__func__, wdev->wdev_idx));
+	}
 
 #ifdef RT_CFG80211_SUPPORT
-	pAd->cfg80211_ctrl.beaconIsSetFromHostapd = FALSE;
+		pAd->cfg80211_ctrl.beaconIsSetFromHostapd = FALSE;
 #endif
-
-#ifdef LED_CONTROL_SUPPORT
-	RTMPSetLED(pAd, LED_RADIO_OFF, HcGetBandByWdev(wdev));
-#endif /* LED_CONTROL_SUPPORT */
 
 	return retval;
 }
@@ -569,9 +466,6 @@ INT virtual_if_init_handler(VOID *dev)
 		retval = -1;
 		return retval;
 	}
-#if ((KERNEL_VERSION(2, 4, 23) <= LINUX_VERSION_CODE) && (KERNEL_VERSION(4, 20, 0) > LINUX_VERSION_CODE))
-	net_dev->ethtool_ops = &rt_ethtool_ops;
-#endif
 
 	if (VIRTUAL_IF_NUM(pAd) == 0) {
 		VIRTUAL_IF_INC(pAd);
@@ -584,8 +478,8 @@ INT virtual_if_init_handler(VOID *dev)
 		/* must use main net_dev */
 		if (mt_wifi_open(pAd->net_dev) != 0) {
 			VIRTUAL_IF_DEC(pAd);
-			MTWF_DBG(pAd, DBG_CAT_CFG, DBG_SUBCAT_ALL, DBG_LVL_INFO,
-					 "mt_wifi_open return fail!\n");
+			MTWF_LOG(DBG_CAT_CFG, DBG_SUBCAT_ALL, DBG_LVL_TRACE,
+					 ("mt_wifi_open return fail!\n"));
 			return NDIS_STATUS_FAILURE;
 		}
 	} else
@@ -607,9 +501,8 @@ INT virtual_if_deinit_handler(VOID *dev)
 		return retval;
 	}
 
-	if (VIRTUAL_IF_NUM(pAd) == 0) {
+	if (VIRTUAL_IF_NUM(pAd) == 0)
 		mt_wifi_close(pAd->net_dev);
-	}
 
 	return retval;
 }
@@ -617,8 +510,7 @@ INT virtual_if_deinit_handler(VOID *dev)
 PNET_DEV RtmpPhyNetDevInit(VOID *pAd, RTMP_OS_NETDEV_OP_HOOK *pNetDevHook)
 {
 	struct net_device *net_dev = NULL;
-	ULONG InfId = 0;
-	UINT32 OpMode;
+	ULONG InfId, OpMode;
 #if defined(CONFIG_CSO_SUPPORT) || defined(CONFIG_TSO_SUPPORT)
 	UCHAR flg;
 #endif /* defined(CONFIG_CSO_SUPPORT) || defined(CONFIG_TSO_SUPPORT) */
@@ -627,8 +519,8 @@ PNET_DEV RtmpPhyNetDevInit(VOID *pAd, RTMP_OS_NETDEV_OP_HOOK *pNetDevHook)
 	RTMP_DRIVER_MAIN_INF_CREATE(pAd, &net_dev);
 
 	if (net_dev == NULL) {
-		MTWF_DBG(pAd, DBG_CAT_INIT, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-				 "main physical net device creation failed!\n");
+		MTWF_LOG(DBG_CAT_INIT, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
+				 ("%s(): main physical net device creation failed!\n", __func__));
 		return NULL;
 	}
 
@@ -732,19 +624,11 @@ int rt28xx_packet_xmit(void *pkt)
 	struct net_device *net_dev = skb->dev;
 	struct wifi_dev *wdev;
 	PNDIS_PACKET pPacket = (PNDIS_PACKET)skb;
-	int status = 0;
 
 	wdev = RTMP_OS_NETDEV_GET_WDEV(net_dev);
-	if (wdev == NULL) {
-		MTWF_DBG(NULL, DBG_CAT_INIT, DBG_SUBCAT_ALL, DBG_LVL_ERROR, "wdev is NULL!\n");
-		ASSERT(wdev);
-		return status;
-	}
-
-
-	status = RTMPSendPackets((NDIS_HANDLE)wdev, (PPNDIS_PACKET) & pPacket, 1,
+	ASSERT(wdev);
+	return RTMPSendPackets((NDIS_HANDLE)wdev, (PPNDIS_PACKET) & pPacket, 1,
 						   skb->len, RtmpNetEthConvertDevSearch);
-	return status;
 }
 
 
@@ -783,13 +667,11 @@ struct iw_statistics *rt28xx_get_wireless_stats(struct net_device *net_dev)
 	VOID *pAd = NULL;
 	struct iw_statistics *pStats;
 	RT_CMD_IW_STATS DrvIwStats, *pDrvIwStats = &DrvIwStats;
-	os_zero_mem((unsigned char *)pDrvIwStats, sizeof(RT_CMD_IW_STATS));
 
 	GET_PAD_FROM_NET_DEV(pAd, net_dev);
-	MTWF_DBG(pAd, DBG_CAT_INIT, DBG_SUBCAT_ALL, DBG_LVL_DEBUG, "rt28xx_get_wireless_stats --->\n");
+	MTWF_LOG(DBG_CAT_INIT, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("rt28xx_get_wireless_stats --->\n"));
 	pDrvIwStats->priv_flags = RT_DEV_PRIV_FLAGS_GET(net_dev);
 	pDrvIwStats->dev_addr = (PUCHAR)net_dev->dev_addr;
-	pDrvIwStats->pStats = &((RTMP_ADAPTER *)pAd)->iw_stats;
 
 	if (RTMP_DRIVER_IW_STATS_GET(pAd, pDrvIwStats) != NDIS_STATUS_SUCCESS)
 		return NULL;
@@ -805,7 +687,7 @@ struct iw_statistics *rt28xx_get_wireless_stats(struct net_device *net_dev)
 	pStats->qual.noise = pDrvIwStats->noise;
 	pStats->discard.nwid = 0;     /* Rx : Wrong nwid/essid */
 	pStats->miss.beacon = 0;      /* Missed beacons/superframe */
-	MTWF_DBG(pAd, DBG_CAT_INIT, DBG_SUBCAT_ALL, DBG_LVL_DEBUG, "<--- rt28xx_get_wireless_stats\n");
+	MTWF_LOG(DBG_CAT_INIT, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("<--- rt28xx_get_wireless_stats\n"));
 	return pStats;
 }
 #endif /* WIRELESS_EXT */
@@ -813,29 +695,25 @@ struct iw_statistics *rt28xx_get_wireless_stats(struct net_device *net_dev)
 
 INT rt28xx_ioctl(PNET_DEV net_dev, struct ifreq *rq, INT cmd)
 {
-	INT ret = 0;
-	struct wifi_dev *wdev;
-	struct wifi_dev_ops *ops;
 	VOID *pAd = NULL;
+	INT ret = 0;
+	ULONG OpMode;
 
 	GET_PAD_FROM_NET_DEV(pAd, net_dev);
-	if (pAd == NULL)
-		return -ENETDOWN;
 
-	GET_WDEV_FROM_NET_DEV(wdev, net_dev);
-	if (wdev == NULL)
+	if (pAd == NULL) {
+		/* if 1st open fail, pAd will be free; */
+		/* So the net_dev->priv will be NULL in 2rd open */
 		return -ENETDOWN;
-	ops = wdev->wdev_ops;
+	}
 
-	if (!ops)
-		return -ENETDOWN;
-
-	ASSERT(ops->ioctl);
-
-	if (ops->ioctl)
-		ret = ops->ioctl(net_dev, rq, cmd);
-	else
-		return -ENETDOWN;
+	RTMP_DRIVER_OP_MODE_GET(pAd, &OpMode);
+#ifdef CONFIG_AP_SUPPORT
+	/*	IF_DEV_CONFIG_OPMODE_ON_AP(pAd) */
+	RT_CONFIG_IF_OPMODE_ON_AP(OpMode) {
+		ret = rt28xx_ap_ioctl(net_dev, rq, cmd);
+	}
+#endif /* CONFIG_AP_SUPPORT */
 	return ret;
 }
 
@@ -863,7 +741,6 @@ struct net_device_stats *RT28xx_get_ether_stats(struct net_device *net_dev)
 
 	if (pAd) {
 		RT_CMD_STATS DrvStats, *pDrvStats = &DrvStats;
-		os_zero_mem((unsigned char *)pDrvStats, sizeof(RT_CMD_STATS));
 		/* assign net device for RTMP_DRIVER_INF_STATS_GET() */
 		pDrvStats->pNetDev = net_dev;
 		RTMP_DRIVER_INF_STATS_GET(pAd, pDrvStats);
@@ -901,13 +778,16 @@ struct net_device_stats *RT28xx_get_ether_stats(struct net_device *net_dev)
 
 BOOLEAN RtmpPhyNetDevExit(VOID *pAd, PNET_DEV net_dev)
 {
-#ifdef DBDC_ONE_BAND1_SUPPORT
-	struct _RTMP_ADAPTER *ad = (struct _RTMP_ADAPTER *)pAd;
-	struct _RTMP_CHIP_CAP *cap = hc_get_chip_cap(ad->hdev_ctrl);
-#endif
 	/*remove cfg */
 	wpf_exit(pAd);
 #ifdef CONFIG_AP_SUPPORT
+#ifdef APCLI_SUPPORT
+#if defined(P2P_APCLI_SUPPORT) || defined(RT_CFG80211_P2P_CONCURRENT_DEVICE) || defined(CFG80211_MULTI_STA)
+#else
+	/* remove all AP-client virtual interfaces. */
+	RT28xx_ApCli_Remove(pAd);
+#endif /* P2P_APCLI_SUPPORT */
+#endif /* APCLI_SUPPORT */
 #ifdef WDS_SUPPORT
 	/* remove all WDS virtual interfaces. */
 	RT28xx_WDS_Remove(pAd);
@@ -922,33 +802,20 @@ BOOLEAN RtmpPhyNetDevExit(VOID *pAd, PNET_DEV net_dev)
 #endif /* P2P_APCLI_SUPPORT */
 #endif /* MBSS_SUPPORT */
 #endif /* CONFIG_AP_SUPPORT */
-#ifdef CONFIG_STA_SUPPORT
-	RT28xx_MSTA_Remove(pAd);
-#endif
 #ifdef RT_CFG80211_SUPPORT
-#ifdef RT_CFG80211_P2P_CONCURRENT_DEVICE
-	RTMP_CFG80211_AllVirtualIF_Remove(pAd);
-	RTMP_CFG80211_DummyP2pIf_Remove(pAd);
-#endif /* RT_CFG80211_P2P_CONCURRENT_DEVICE */
 #ifdef CFG80211_MULTI_STA
 	RTMP_CFG80211_MutliStaIf_Remove(pAd);
 #endif /* CFG80211_MULTI_STA */
 #else
-#ifdef P2P_SUPPORT
-	RTMP_P2P_Remove(pAd);
-#endif /* P2P_SUPPORT */
 #endif /* RT_CFG80211_SUPPORT */
 #ifdef INF_PPA_SUPPORT
 	RTMP_DRIVER_INF_PPA_EXIT(pAd);
 #endif /* INF_PPA_SUPPORT */
-#ifdef DBDC_ONE_BAND1_SUPPORT
-	/*main netdev freed in MBSS_REMOVE */
-	if (!cap->DbdcOneBand1Support)
-#endif
+
 	/* Unregister network device */
 	if (net_dev != NULL) {
-		MTWF_DBG(pAd, DBG_CAT_INIT, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-				 "RtmpOSNetDevDetach(): RtmpOSNetDeviceDetach(), dev->name=%s!\n", net_dev->name);
+		MTWF_LOG(DBG_CAT_INIT, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
+				 ("RtmpOSNetDevDetach(): RtmpOSNetDeviceDetach(), dev->name=%s!\n", net_dev->name));
 		RtmpOSNetDevProtect(1);
 		RtmpOSNetDevDetach(net_dev);
 		RtmpOSNetDevProtect(0);
@@ -958,6 +825,57 @@ BOOLEAN RtmpPhyNetDevExit(VOID *pAd, PNET_DEV net_dev)
 	}
 
 	return TRUE;
+}
+
+
+/* Device IRQ related functions. */
+int RtmpOSIRQRequest(IN PNET_DEV pNetDev)
+{
+#if defined(RTMP_PCI_SUPPORT) || defined(RTMP_RBUS_SUPPORT)
+	struct net_device *net_dev = pNetDev;
+#endif
+	ULONG infType;
+	VOID *pAd = NULL;
+	int retval = 0;
+
+	GET_PAD_FROM_NET_DEV(pAd, pNetDev);
+	ASSERT(pAd);
+	RTMP_DRIVER_INF_TYPE_GET(pAd, &infType);
+#ifdef RTMP_PCI_SUPPORT
+	if (infType == RTMP_DEV_INF_PCI || infType == RTMP_DEV_INF_PCIE) {
+#if defined(CONFIG_ARCH_MT7623) || defined(CONFIG_ARCH_MT7622)
+		retval = request_irq(net_dev->irq,  rt2860_interrupt, SA_SHIRQ | IRQF_TRIGGER_LOW, (net_dev)->name, (net_dev));
+#else
+		retval = request_irq(net_dev->irq,  rt2860_interrupt, SA_SHIRQ, (net_dev)->name, (net_dev));
+#endif
+
+		if (retval != 0)
+			MTWF_LOG(DBG_CAT_INIT, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
+					 ("RT2860: request_irq  ERROR(%d)\n", retval));
+	}
+
+#endif /* RTMP_PCI_SUPPORT */
+#ifdef RTMP_RBUS_SUPPORT
+
+	if (infType == RTMP_DEV_INF_RBUS) {
+#if (KERNEL_VERSION(2, 6, 22) <= LINUX_VERSION_CODE)
+#if defined(MT7622) || defined(P18) || defined(MT7663)
+		retval = request_irq(net_dev->irq, rt2860_interrupt, IRQF_SHARED | IRQF_TRIGGER_LOW, net_dev->name, net_dev);
+#else
+		retval = request_irq(net_dev->irq, rt2860_interrupt, IRQF_SHARED, net_dev->name, net_dev);
+#endif /* defined(MT7622) || defined(P18) || defined(MT7663) */
+#else
+		retval = request_irq(net_dev->irq, rt2860_interrupt, SA_INTERRUPT, net_dev->name, net_dev);
+#endif
+
+		if (retval) {
+			MTWF_LOG(DBG_CAT_INIT, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
+					 ("RT2860: request_irq  ERROR(%d)\n", retval));
+		}
+	}
+
+#endif /* RTMP_RBUS_SUPPORT */
+	return retval;
 }
 
 

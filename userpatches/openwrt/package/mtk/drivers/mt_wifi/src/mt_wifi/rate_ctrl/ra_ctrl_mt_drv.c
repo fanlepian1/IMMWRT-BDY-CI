@@ -1,39 +1,44 @@
-/* Copyright Statement:
- *
- * This software/firmware and related documentation ("MediaTek Software") are
- * protected under relevant copyright laws. The information contained herein is
- * confidential and proprietary to MediaTek Inc. and/or its licensors. Without
- * the prior written permission of MediaTek inc. and/or its licensors, any
- * reproduction, modification, use or disclosure of MediaTek Software, and
- * information contained herein, in whole or in part, shall be strictly
- * prohibited.
- *
- * Copyright  (C) [2020]  MediaTek Inc. All rights reserved.
- *
- * BY OPENING THIS FILE, RECEIVER HEREBY UNEQUIVOCALLY ACKNOWLEDGES AND AGREES
- * THAT THE SOFTWARE/FIRMWARE AND ITS DOCUMENTATIONS ("MEDIATEK SOFTWARE")
- * RECEIVED FROM MEDIATEK AND/OR ITS REPRESENTATIVES ARE PROVIDED TO RECEIVER
- * ON AN "AS-IS" BASIS ONLY. MEDIATEK EXPRESSLY DISCLAIMS ANY AND ALL
- * WARRANTIES, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE IMPLIED
- * WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE OR
- * NONINFRINGEMENT. NEITHER DOES MEDIATEK PROVIDE ANY WARRANTY WHATSOEVER WITH
- * RESPECT TO THE SOFTWARE OF ANY THIRD PARTY WHICH MAY BE USED BY,
- * INCORPORATED IN, OR SUPPLIED WITH THE MEDIATEK SOFTWARE, AND RECEIVER AGREES
- * TO LOOK ONLY TO SUCH THIRD PARTY FOR ANY WARRANTY CLAIM RELATING THERETO.
- * RECEIVER EXPRESSLY ACKNOWLEDGES THAT IT IS RECEIVER'S SOLE RESPONSIBILITY TO
- * OBTAIN FROM ANY THIRD PARTY ALL PROPER LICENSES CONTAINED IN MEDIATEK
- * SOFTWARE. MEDIATEK SHALL ALSO NOT BE RESPONSIBLE FOR ANY MEDIATEK SOFTWARE
- * RELEASES MADE TO RECEIVER'S SPECIFICATION OR TO CONFORM TO A PARTICULAR
- * STANDARD OR OPEN FORUM. RECEIVER'S SOLE AND EXCLUSIVE REMEDY AND MEDIATEK'S
- * ENTIRE AND CUMULATIVE LIABILITY WITH RESPECT TO THE MEDIATEK SOFTWARE
- * RELEASED HEREUNDER WILL BE, AT MEDIATEK'S OPTION, TO REVISE OR REPLACE THE
- * MEDIATEK SOFTWARE AT ISSUE, OR REFUND ANY SOFTWARE LICENSE FEES OR SERVICE
- * CHARGE PAID BY RECEIVER TO MEDIATEK FOR SUCH MEDIATEK SOFTWARE AT ISSUE.
- *
- * The following software/firmware and/or related documentation ("MediaTek
- * Software") have been modified by MediaTek Inc. All revisions are subject to
- * any receiver's applicable license agreements with MediaTek Inc.
- */
+/*******************************************************************************
+* Copyright (c) 2014 MediaTek Inc.
+*
+* All rights reserved. Copying, compilation, modification, distribution
+* or any other use whatsoever of this material is strictly prohibited
+* except in accordance with a Software License Agreement with
+* MediaTek Inc.
+********************************************************************************
+*/
+
+/*******************************************************************************
+* LEGAL DISCLAIMER
+*
+* BY OPENING THIS FILE, BUYER HEREBY UNEQUIVOCALLY ACKNOWLEDGES AND
+* AGREES THAT THE SOFTWARE/FIRMWARE AND ITS DOCUMENTATIONS ("MEDIATEK
+* SOFTWARE") RECEIVED FROM MEDIATEK AND/OR ITS REPRESENTATIVES ARE
+* PROVIDED TO BUYER ON AN "AS-IS" BASIS ONLY. MEDIATEK EXPRESSLY
+* DISCLAIMS ANY AND ALL WARRANTIES, EXPRESS OR IMPLIED, INCLUDING BUT NOT
+* LIMITED TO THE IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS FOR A
+* PARTICULAR PURPOSE OR NONINFRINGEMENT. NEITHER DOES MEDIATEK PROVIDE
+* ANY WARRANTY WHATSOEVER WITH RESPECT TO THE SOFTWARE OF ANY THIRD PARTY
+* WHICH MAY BE USED BY, INCORPORATED IN, OR SUPPLIED WITH THE MEDIATEK
+* SOFTWARE, AND BUYER AGREES TO LOOK ONLY TO SUCH THIRD PARTY FOR ANY
+* WARRANTY CLAIM RELATING THERETO. MEDIATEK SHALL ALSO NOT BE RESPONSIBLE
+* FOR ANY MEDIATEK SOFTWARE RELEASES MADE TO BUYER'S SPECIFICATION OR TO
+* CONFORM TO A PARTICULAR STANDARD OR OPEN FORUM.
+*
+* BUYER'S SOLE AND EXCLUSIVE REMEDY AND MEDIATEK'S ENTIRE AND CUMULATIVE
+* LIABILITY WITH RESPECT TO THE MEDIATEK SOFTWARE RELEASED HEREUNDER WILL
+* BE, AT MEDIATEK'S OPTION, TO REVISE OR REPLACE THE MEDIATEK SOFTWARE AT
+* ISSUE, OR REFUND ANY SOFTWARE LICENSE FEES OR SERVICE CHARGE PAID BY
+* BUYER TO MEDIATEK FOR SUCH MEDIATEK SOFTWARE AT ISSUE.
+*
+* THE TRANSACTION CONTEMPLATED HEREUNDER SHALL BE CONSTRUED IN ACCORDANCE
+* WITH THE LAWS OF THE STATE OF CALIFORNIA, USA, EXCLUDING ITS CONFLICT
+* OF LAWS PRINCIPLES.  ANY DISPUTES, CONTROVERSIES OR CLAIMS ARISING
+* THEREOF AND RELATED THERETO SHALL BE SETTLED BY ARBITRATION IN SAN
+* FRANCISCO, CA, UNDER THE RULES OF THE INTERNATIONAL CHAMBER OF COMMERCE
+* (ICC).
+********************************************************************************
+*/
 
 
 /*******************************************************************************
@@ -105,6 +110,7 @@ RAInit(
 	struct _RTMP_CHIP_CAP *cap;
 
 	cap = hc_get_chip_cap(pAd->hdev_ctrl);
+	MTWF_LOG(DBG_CAT_RA, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("%s\n", __func__));
 	pRaEntry = &pEntry->RaEntry;
 	pRaInternal = &pEntry->RaInternal;
 	pRaCfg = &RaCfg;
@@ -112,10 +118,6 @@ RAInit(
 	os_zero_mem(pRaInternal, sizeof(RA_INTERNAL_INFO_T));
 	os_zero_mem(&RaCfg, sizeof(RaCfg));
 	raWrapperEntrySet(pAd, pEntry, pRaEntry);
-#ifdef CONFIG_RA_PHY_RATE_SUPPORT
-	eaprawrapperentryset(pAd, pEntry, pRaEntry);
-#endif /* CONFIG_RA_PHY_RATE_SUPPORT */
-
 	raWrapperConfigSet(pAd, pEntry->wdev, pRaCfg);
 	pRaInternal->ucLastRateIdx = 0xFF;
 	pRaInternal->ucLowTrafficCount = 0;
@@ -206,11 +208,8 @@ RAParamUpdate(
 		return;
 
 	cap = hc_get_chip_cap(pAd->hdev_ctrl);
+	MTWF_LOG(DBG_CAT_RA, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("%s, Field=%d\n", __func__, prParam->u4Field));
 	raWrapperEntrySet(pAd, pEntry, pRaEntry);
-#ifdef CONFIG_RA_PHY_RATE_SUPPORT
-	eaprawrapperentryset(pAd, pEntry, pRaEntry);
-#endif /* CONFIG_RA_PHY_RATE_SUPPORT */
-
 #ifdef RACTRL_FW_OFFLOAD_SUPPORT
 
 	if (cap->fgRateAdaptFWOffload == TRUE)
@@ -247,9 +246,7 @@ RAParamUpdate(
 }
 
 
-#if defined(MT7615) || defined(MT7622) || defined(P18) || defined(MT7663) || \
-	defined(AXE) || defined(MT7626) || defined(MT7915) || defined(MT7986) || \
-	defined(MT7916) || defined(MT7981)
+#if defined(MT7615) || defined(MT7622) || defined(P18) || defined(MT7663)
 /*----------------------------------------------------------------------------*/
 /*!
 * \brief     set RA Common config to FW ( Driver API)
@@ -296,53 +293,49 @@ BssInfoRACommCfgSet(
 	pCmdBssInfoAutoRateCfg->TrainUpHighThrd = cpu2le16(pRaCfg->TrainUpHighThrd);
 	pCmdBssInfoAutoRateCfg->TrainUpRuleRSSI = cpu2le16(pRaCfg->TrainUpRuleRSSI);
 	pCmdBssInfoAutoRateCfg->lowTrafficThrd = cpu2le16(pRaCfg->lowTrafficThrd);
-#if defined(MT7615) || defined(MT7622) || defined(P18) || defined(MT7663) || \
-	defined(AXE) || defined(MT7626) || defined(MT7915) || defined(MT7986) || \
-	defined(MT7916) || defined(MT7981)
+#if defined(MT7615) || defined(MT7622) || defined(P18) || defined(MT7663)
 	pCmdBssInfoAutoRateCfg->u2MaxPhyRate = cpu2le16(pRaCfg->u2MaxPhyRate);
-#endif
+#endif /* defined(MT7615) || defined(MT7622) || defined(P18) || defined(MT7663) */
 	pCmdBssInfoAutoRateCfg->PhyCaps = cpu2le32(pRaCfg->PhyCaps);
 	pCmdBssInfoAutoRateCfg->u4RaInterval = cpu2le32(pRaCfg->u4RaInterval);
 	pCmdBssInfoAutoRateCfg->u4RaFastInterval = cpu2le32(pRaCfg->u4RaFastInterval);
 
 #ifdef CFG_RATE_ADJUST_PARAM_DEBUG
-	MTWF_DBG(NULL, DBG_CAT_RA, DBG_SUBCAT_ALL, DBG_LVL_INFO, "%s: sizeof CMD_BSSINFO_AUTO_RATE_CFG_T = %d\n", __func__, (UINT_32)sizeof(CMD_BSSINFO_AUTO_RATE_CFG_T));
-	MTWF_DBG(NULL, DBG_CAT_RA, DBG_SUBCAT_ALL, DBG_LVL_INFO, "OpMode=%d\n", pCmdBssInfoAutoRateCfg->OpMode);
-	MTWF_DBG(NULL, DBG_CAT_RA, DBG_SUBCAT_ALL, DBG_LVL_INFO, "fgAdHocOn=%d\n", pCmdBssInfoAutoRateCfg->fgAdHocOn);
-	MTWF_DBG(NULL, DBG_CAT_RA, DBG_SUBCAT_ALL, DBG_LVL_INFO, "fgShortPreamble=%d\n", pCmdBssInfoAutoRateCfg->fgShortPreamble);
-	MTWF_DBG(NULL, DBG_CAT_RA, DBG_SUBCAT_ALL, DBG_LVL_INFO, "TxStream=%d\n", pCmdBssInfoAutoRateCfg->TxStream);
-	MTWF_DBG(NULL, DBG_CAT_RA, DBG_SUBCAT_ALL, DBG_LVL_INFO, "RxStream=%d\n", pCmdBssInfoAutoRateCfg->RxStream);
-	MTWF_DBG(NULL, DBG_CAT_RA, DBG_SUBCAT_ALL, DBG_LVL_INFO, "ucRateAlg=%d\n", pCmdBssInfoAutoRateCfg->ucRateAlg);
-	MTWF_DBG(NULL, DBG_CAT_RA, DBG_SUBCAT_ALL, DBG_LVL_INFO, "TestbedForceShortGI=%d\n", pCmdBssInfoAutoRateCfg->TestbedForceShortGI);
-	MTWF_DBG(NULL, DBG_CAT_RA, DBG_SUBCAT_ALL, DBG_LVL_INFO, "TestbedForceGreenField=%d\n", pCmdBssInfoAutoRateCfg->TestbedForceGreenField);
+	MTWF_LOG(DBG_CAT_RA, DBG_SUBCAT_ALL, DBG_LVL_OFF, ("%s: sizeof CMD_BSSINFO_AUTO_RATE_CFG_T = %zu\n", __func__, sizeof(CMD_BSSINFO_AUTO_RATE_CFG_T)));
+	MTWF_LOG(DBG_CAT_RA, DBG_SUBCAT_ALL, DBG_LVL_OFF, ("OpMode=%d\n", pCmdBssInfoAutoRateCfg->OpMode));
+	MTWF_LOG(DBG_CAT_RA, DBG_SUBCAT_ALL, DBG_LVL_OFF, ("fgAdHocOn=%d\n", pCmdBssInfoAutoRateCfg->fgAdHocOn));
+	MTWF_LOG(DBG_CAT_RA, DBG_SUBCAT_ALL, DBG_LVL_OFF, ("fgShortPreamble=%d\n", pCmdBssInfoAutoRateCfg->fgShortPreamble));
+	MTWF_LOG(DBG_CAT_RA, DBG_SUBCAT_ALL, DBG_LVL_OFF, ("TxStream=%d\n", pCmdBssInfoAutoRateCfg->TxStream));
+	MTWF_LOG(DBG_CAT_RA, DBG_SUBCAT_ALL, DBG_LVL_OFF, ("RxStream=%d\n", pCmdBssInfoAutoRateCfg->RxStream));
+	MTWF_LOG(DBG_CAT_RA, DBG_SUBCAT_ALL, DBG_LVL_OFF, ("ucRateAlg=%d\n", pCmdBssInfoAutoRateCfg->ucRateAlg));
+	MTWF_LOG(DBG_CAT_RA, DBG_SUBCAT_ALL, DBG_LVL_OFF, ("TestbedForceShortGI=%d\n", pCmdBssInfoAutoRateCfg->TestbedForceShortGI));
+	MTWF_LOG(DBG_CAT_RA, DBG_SUBCAT_ALL, DBG_LVL_OFF, ("TestbedForceGreenField=%d\n", pCmdBssInfoAutoRateCfg->TestbedForceGreenField));
 #ifdef DOT11_N_SUPPORT
-	MTWF_DBG(NULL, DBG_CAT_RA, DBG_SUBCAT_ALL, DBG_LVL_INFO, "HtMode=%d\n", pCmdBssInfoAutoRateCfg->HtMode);
-	MTWF_DBG(NULL, DBG_CAT_RA, DBG_SUBCAT_ALL, DBG_LVL_INFO, "fAnyStation20Only=%d\n", pCmdBssInfoAutoRateCfg->fAnyStation20Only);
-	MTWF_DBG(NULL, DBG_CAT_RA, DBG_SUBCAT_ALL, DBG_LVL_INFO, "bRcvBSSWidthTriggerEvents=%d\n", pCmdBssInfoAutoRateCfg->bRcvBSSWidthTriggerEvents);
+	MTWF_LOG(DBG_CAT_RA, DBG_SUBCAT_ALL, DBG_LVL_OFF, ("HtMode=%d\n", pCmdBssInfoAutoRateCfg->HtMode));
+	MTWF_LOG(DBG_CAT_RA, DBG_SUBCAT_ALL, DBG_LVL_OFF, ("fAnyStation20Only=%d\n", pCmdBssInfoAutoRateCfg->fAnyStation20Only));
+	MTWF_LOG(DBG_CAT_RA, DBG_SUBCAT_ALL, DBG_LVL_OFF, ("bRcvBSSWidthTriggerEvents=%d\n", pCmdBssInfoAutoRateCfg->bRcvBSSWidthTriggerEvents));
 #ifdef DOT11_VHT_AC
-	MTWF_DBG(NULL, DBG_CAT_RA, DBG_SUBCAT_ALL, DBG_LVL_INFO, "vht_nss_cap=%d\n", pCmdBssInfoAutoRateCfg->vht_nss_cap);
+	MTWF_LOG(DBG_CAT_RA, DBG_SUBCAT_ALL, DBG_LVL_OFF, ("vht_nss_cap=%d\n", pCmdBssInfoAutoRateCfg->vht_nss_cap));
 #endif /* DOT11_VHT_AC */
 #endif /* DOT11_N_SUPPORT */
-	MTWF_DBG(NULL, DBG_CAT_RA, DBG_SUBCAT_ALL, DBG_LVL_INFO, "fgSeOff=%d\n", pCmdBssInfoAutoRateCfg->fgSeOff);
-	MTWF_DBG(NULL, DBG_CAT_RA, DBG_SUBCAT_ALL, DBG_LVL_INFO, "ucAntennaIndex=%d\n", pCmdBssInfoAutoRateCfg->ucAntennaIndex);
-	MTWF_DBG(NULL, DBG_CAT_RA, DBG_SUBCAT_ALL, DBG_LVL_INFO, "TrainUpRule=%d\n", pCmdBssInfoAutoRateCfg->TrainUpRule);
-	MTWF_DBG(NULL, DBG_CAT_RA, DBG_SUBCAT_ALL, DBG_LVL_INFO, "TrainUpHighThrd=%d\n", pCmdBssInfoAutoRateCfg->TrainUpHighThrd);
-	MTWF_DBG(NULL, DBG_CAT_RA, DBG_SUBCAT_ALL, DBG_LVL_INFO, "TrainUpRuleRSSI=%d\n", pCmdBssInfoAutoRateCfg->TrainUpRuleRSSI);
-	MTWF_DBG(NULL, DBG_CAT_RA, DBG_SUBCAT_ALL, DBG_LVL_INFO, "lowTrafficThrd=%d\n", pCmdBssInfoAutoRateCfg->lowTrafficThrd);
-	MTWF_DBG(NULL, DBG_CAT_RA, DBG_SUBCAT_ALL, DBG_LVL_INFO, "u2MaxPhyRate=%d\n", pCmdBssInfoAutoRateCfg->u2MaxPhyRate);
-	MTWF_DBG(NULL, DBG_CAT_RA, DBG_SUBCAT_ALL, DBG_LVL_INFO, "PhyCaps=%d\n", pCmdBssInfoAutoRateCfg->PhyCaps);
-	MTWF_DBG(NULL, DBG_CAT_RA, DBG_SUBCAT_ALL, DBG_LVL_INFO, "u4RaInterval=%d\n", pCmdBssInfoAutoRateCfg->u4RaInterval);
-	MTWF_DBG(NULL, DBG_CAT_RA, DBG_SUBCAT_ALL, DBG_LVL_INFO, "u4RaFastInterval=%d\n", pCmdBssInfoAutoRateCfg->u4RaFastInterval);
+	MTWF_LOG(DBG_CAT_RA, DBG_SUBCAT_ALL, DBG_LVL_OFF, ("fgSeOff=%d\n", pCmdBssInfoAutoRateCfg->fgSeOff));
+	MTWF_LOG(DBG_CAT_RA, DBG_SUBCAT_ALL, DBG_LVL_OFF, ("ucAntennaIndex=%d\n", pCmdBssInfoAutoRateCfg->ucAntennaIndex));
+	MTWF_LOG(DBG_CAT_RA, DBG_SUBCAT_ALL, DBG_LVL_OFF, ("TrainUpRule=%d\n", pCmdBssInfoAutoRateCfg->TrainUpRule));
+	MTWF_LOG(DBG_CAT_RA, DBG_SUBCAT_ALL, DBG_LVL_OFF, ("TrainUpHighThrd=%d\n", pCmdBssInfoAutoRateCfg->TrainUpHighThrd));
+	MTWF_LOG(DBG_CAT_RA, DBG_SUBCAT_ALL, DBG_LVL_OFF, ("TrainUpRuleRSSI=%d\n", pCmdBssInfoAutoRateCfg->TrainUpRuleRSSI));
+	MTWF_LOG(DBG_CAT_RA, DBG_SUBCAT_ALL, DBG_LVL_OFF, ("lowTrafficThrd=%d\n", pCmdBssInfoAutoRateCfg->lowTrafficThrd));
+	MTWF_LOG(DBG_CAT_RA, DBG_SUBCAT_ALL, DBG_LVL_OFF, ("u2MaxPhyRate=%d\n", pCmdBssInfoAutoRateCfg->u2MaxPhyRate));
+	MTWF_LOG(DBG_CAT_RA, DBG_SUBCAT_ALL, DBG_LVL_OFF, ("PhyCaps=%d\n", pCmdBssInfoAutoRateCfg->PhyCaps));
+	MTWF_LOG(DBG_CAT_RA, DBG_SUBCAT_ALL, DBG_LVL_OFF, ("u4RaInterval=%d\n", pCmdBssInfoAutoRateCfg->u4RaInterval));
+	MTWF_LOG(DBG_CAT_RA, DBG_SUBCAT_ALL, DBG_LVL_OFF, ("u4RaFastInterval=%d\n", pCmdBssInfoAutoRateCfg->u4RaFastInterval));
 #endif
 
 	return NDIS_STATUS_SUCCESS;
 }
-#endif
+#endif /* defined(MT7615) || defined(MT7622) || defined(P18) || defined(MT7663) */
 
 
-#if defined(MT7636) || defined(MT7615) || defined(MT7637) || defined(MT7622) || \
-	defined(P18) || defined(MT7663) || defined(AXE) || defined(MT7626) || \
-	defined(MT7915) || defined(MT7986) || defined(MT7916) || defined(MT7981)
+#if defined(MT7636) || defined(MT7615) || defined(MT7637) || defined(MT7622) || defined(P18) || defined(MT7663)
 /*----------------------------------------------------------------------------*/
 /*!
 * \brief     Set rate entry info to FW ( Driver API)
@@ -416,55 +409,55 @@ StaRecAutoRateParamSet(
 		if (CLIENT_STATUS_TEST_FLAG(pRaEntry, fCLIENT_STATUS_HT_RX_LDPC_CAPABLE))
 			pCmdStaRecAutoRate->MaxPhyCfg.ldpc |= HT_LDPC;
 
-		if ((pRaEntry->MaxPhyCfg.MODE >= MODE_VHT) &&
+		if ((pRaEntry->MaxPhyCfg.MODE == MODE_VHT) &&
 				CLIENT_STATUS_TEST_FLAG(pRaEntry, fCLIENT_STATUS_VHT_RXSTBC_CAPABLE))
 			pCmdStaRecAutoRate->MaxPhyCfg.STBC = STBC_USE;
 	}
 
 #ifdef CFG_RATE_ADJUST_PARAM_DEBUG
-	MTWF_DBG(NULL, DBG_CAT_RA, DBG_SUBCAT_ALL, DBG_LVL_INFO, "%s: sizeof CMD_STAREC_AUTO_RATE_T = %d\n", __func__, (UINT_32)sizeof(CMD_STAREC_AUTO_RATE_T));
-	MTWF_DBG(NULL, DBG_CAT_RA, DBG_SUBCAT_ALL, DBG_LVL_INFO, "fgRaValid=%d\n", pCmdStaRecAutoRate->fgRaValid);
-	MTWF_DBG(NULL, DBG_CAT_RA, DBG_SUBCAT_ALL, DBG_LVL_INFO, "fgAutoTxRateSwitch=%d\n", pCmdStaRecAutoRate->fgAutoTxRateSwitch);
-	MTWF_DBG(NULL, DBG_CAT_RA, DBG_SUBCAT_ALL, DBG_LVL_INFO, "ucPhyMode=%d\n", pCmdStaRecAutoRate->ucPhyMode);
-	MTWF_DBG(NULL, DBG_CAT_RA, DBG_SUBCAT_ALL, DBG_LVL_INFO, "ucChannel=%d\n", pCmdStaRecAutoRate->ucChannel);
-	MTWF_DBG(NULL, DBG_CAT_RA, DBG_SUBCAT_ALL, DBG_LVL_INFO, "ucBBPCurrentBW=%d\n", pCmdStaRecAutoRate->ucBBPCurrentBW);
-	MTWF_DBG(NULL, DBG_CAT_RA, DBG_SUBCAT_ALL, DBG_LVL_INFO, "fgDisableCCK=%d\n", pCmdStaRecAutoRate->fgDisableCCK);
-	MTWF_DBG(NULL, DBG_CAT_RA, DBG_SUBCAT_ALL, DBG_LVL_INFO, "fgHtCapMcs32=%d\n", pCmdStaRecAutoRate->fgHtCapMcs32);
-	MTWF_DBG(NULL, DBG_CAT_RA, DBG_SUBCAT_ALL, DBG_LVL_INFO, "fgHtCapInfoGF=%d\n", pCmdStaRecAutoRate->fgHtCapInfoGF);
+	MTWF_LOG(DBG_CAT_RA, DBG_SUBCAT_ALL, DBG_LVL_OFF, ("%s: sizeof CMD_STAREC_AUTO_RATE_T = %zu\n", __func__, sizeof(CMD_STAREC_AUTO_RATE_T)));
+	MTWF_LOG(DBG_CAT_RA, DBG_SUBCAT_ALL, DBG_LVL_OFF, ("fgRaValid=%d\n", pCmdStaRecAutoRate->fgRaValid));
+	MTWF_LOG(DBG_CAT_RA, DBG_SUBCAT_ALL, DBG_LVL_OFF, ("fgAutoTxRateSwitch=%d\n", pCmdStaRecAutoRate->fgAutoTxRateSwitch));
+	MTWF_LOG(DBG_CAT_RA, DBG_SUBCAT_ALL, DBG_LVL_OFF, ("ucPhyMode=%d\n", pCmdStaRecAutoRate->ucPhyMode));
+	MTWF_LOG(DBG_CAT_RA, DBG_SUBCAT_ALL, DBG_LVL_OFF, ("ucChannel=%d\n", pCmdStaRecAutoRate->ucChannel));
+	MTWF_LOG(DBG_CAT_RA, DBG_SUBCAT_ALL, DBG_LVL_OFF, ("ucBBPCurrentBW=%d\n", pCmdStaRecAutoRate->ucBBPCurrentBW));
+	MTWF_LOG(DBG_CAT_RA, DBG_SUBCAT_ALL, DBG_LVL_OFF, ("fgDisableCCK=%d\n", pCmdStaRecAutoRate->fgDisableCCK));
+	MTWF_LOG(DBG_CAT_RA, DBG_SUBCAT_ALL, DBG_LVL_OFF, ("fgHtCapMcs32=%d\n", pCmdStaRecAutoRate->fgHtCapMcs32));
+	MTWF_LOG(DBG_CAT_RA, DBG_SUBCAT_ALL, DBG_LVL_OFF, ("fgHtCapInfoGF=%d\n", pCmdStaRecAutoRate->fgHtCapInfoGF));
 
 	for (ucIdx = 0; ucIdx < 4; ucIdx++)
-		MTWF_DBG(NULL, DBG_CAT_RA, DBG_SUBCAT_ALL, DBG_LVL_INFO, "aucHtCapMCSSet[%d]=%d\n", ucIdx, pCmdStaRecAutoRate->aucHtCapMCSSet[ucIdx]);
+		MTWF_LOG(DBG_CAT_RA, DBG_SUBCAT_ALL, DBG_LVL_OFF, ("aucHtCapMCSSet[%d]=%d\n", ucIdx, pCmdStaRecAutoRate->aucHtCapMCSSet[ucIdx]));
 
-	MTWF_DBG(NULL, DBG_CAT_RA, DBG_SUBCAT_ALL, DBG_LVL_INFO, "ucMmpsMode=%d\n", pCmdStaRecAutoRate->ucMmpsMode);
-	MTWF_DBG(NULL, DBG_CAT_RA, DBG_SUBCAT_ALL, DBG_LVL_INFO, "ucGband256QAMSupport=%d\n", pCmdStaRecAutoRate->ucGband256QAMSupport);
-	MTWF_DBG(NULL, DBG_CAT_RA, DBG_SUBCAT_ALL, DBG_LVL_INFO, "ucMaxAmpduFactor=%d\n", pCmdStaRecAutoRate->ucMaxAmpduFactor);
-	MTWF_DBG(NULL, DBG_CAT_RA, DBG_SUBCAT_ALL, DBG_LVL_INFO, "fgAuthWapiMode=%d\n", pCmdStaRecAutoRate->fgAuthWapiMode);
-	MTWF_DBG(NULL, DBG_CAT_RA, DBG_SUBCAT_ALL, DBG_LVL_INFO, "RateLen=%d\n", pCmdStaRecAutoRate->RateLen);
-	MTWF_DBG(NULL, DBG_CAT_RA, DBG_SUBCAT_ALL, DBG_LVL_INFO, "ucSupportRateMode=%x\n", pCmdStaRecAutoRate->ucSupportRateMode);
-	MTWF_DBG(NULL, DBG_CAT_RA, DBG_SUBCAT_ALL, DBG_LVL_INFO, "ucSupportCCKMCS=%x\n", pCmdStaRecAutoRate->ucSupportCCKMCS);
-	MTWF_DBG(NULL, DBG_CAT_RA, DBG_SUBCAT_ALL, DBG_LVL_INFO, "ucSupportOFDMMCS=%x\n", pCmdStaRecAutoRate->ucSupportOFDMMCS);
+	MTWF_LOG(DBG_CAT_RA, DBG_SUBCAT_ALL, DBG_LVL_OFF, ("ucMmpsMode=%d\n", pCmdStaRecAutoRate->ucMmpsMode));
+	MTWF_LOG(DBG_CAT_RA, DBG_SUBCAT_ALL, DBG_LVL_OFF, ("ucGband256QAMSupport=%d\n", pCmdStaRecAutoRate->ucGband256QAMSupport));
+	MTWF_LOG(DBG_CAT_RA, DBG_SUBCAT_ALL, DBG_LVL_OFF, ("ucMaxAmpduFactor=%d\n", pCmdStaRecAutoRate->ucMaxAmpduFactor));
+	MTWF_LOG(DBG_CAT_RA, DBG_SUBCAT_ALL, DBG_LVL_OFF, ("fgAuthWapiMode=%d\n", pCmdStaRecAutoRate->fgAuthWapiMode));
+	MTWF_LOG(DBG_CAT_RA, DBG_SUBCAT_ALL, DBG_LVL_OFF, ("RateLen=%d\n", pCmdStaRecAutoRate->RateLen));
+	MTWF_LOG(DBG_CAT_RA, DBG_SUBCAT_ALL, DBG_LVL_OFF, ("ucSupportRateMode=%x\n", pCmdStaRecAutoRate->ucSupportRateMode));
+	MTWF_LOG(DBG_CAT_RA, DBG_SUBCAT_ALL, DBG_LVL_OFF, ("ucSupportCCKMCS=%x\n", pCmdStaRecAutoRate->ucSupportCCKMCS));
+	MTWF_LOG(DBG_CAT_RA, DBG_SUBCAT_ALL, DBG_LVL_OFF, ("ucSupportOFDMMCS=%x\n", pCmdStaRecAutoRate->ucSupportOFDMMCS));
 #ifdef DOT11_N_SUPPORT
-	MTWF_DBG(NULL, DBG_CAT_RA, DBG_SUBCAT_ALL, DBG_LVL_INFO, "u4SupportHTMCS=%x\n", pCmdStaRecAutoRate->u4SupportHTMCS);
+	MTWF_LOG(DBG_CAT_RA, DBG_SUBCAT_ALL, DBG_LVL_OFF, ("u4SupportHTMCS=%x\n", pCmdStaRecAutoRate->u4SupportHTMCS));
 #ifdef DOT11_VHT_AC
-	MTWF_DBG(NULL, DBG_CAT_RA, DBG_SUBCAT_ALL, DBG_LVL_INFO, "u2SupportVHTMCS1SS=%x\n", pCmdStaRecAutoRate->u2SupportVHTMCS1SS);
-	MTWF_DBG(NULL, DBG_CAT_RA, DBG_SUBCAT_ALL, DBG_LVL_INFO, "u2SupportVHTMCS2SS=%x\n", pCmdStaRecAutoRate->u2SupportVHTMCS2SS);
-	MTWF_DBG(NULL, DBG_CAT_RA, DBG_SUBCAT_ALL, DBG_LVL_INFO, "u2SupportVHTMCS3SS=%x\n", pCmdStaRecAutoRate->u2SupportVHTMCS3SS);
-	MTWF_DBG(NULL, DBG_CAT_RA, DBG_SUBCAT_ALL, DBG_LVL_INFO, "u2SupportVHTMCS4SS=%x\n", pCmdStaRecAutoRate->u2SupportVHTMCS4SS);
-	MTWF_DBG(NULL, DBG_CAT_RA, DBG_SUBCAT_ALL, DBG_LVL_INFO, "force_op_mode=%d\n", pCmdStaRecAutoRate->force_op_mode);
-	MTWF_DBG(NULL, DBG_CAT_RA, DBG_SUBCAT_ALL, DBG_LVL_INFO, "vhtOpModeChWidth=%d\n", pCmdStaRecAutoRate->vhtOpModeChWidth);
-	MTWF_DBG(NULL, DBG_CAT_RA, DBG_SUBCAT_ALL, DBG_LVL_INFO, "vhtOpModeRxNss=%d\n", pCmdStaRecAutoRate->vhtOpModeRxNss);
-	MTWF_DBG(NULL, DBG_CAT_RA, DBG_SUBCAT_ALL, DBG_LVL_INFO, "vhtOpModeRxNssType=%x\n", pCmdStaRecAutoRate->vhtOpModeRxNssType);
+	MTWF_LOG(DBG_CAT_RA, DBG_SUBCAT_ALL, DBG_LVL_OFF, ("u2SupportVHTMCS1SS=%x\n", pCmdStaRecAutoRate->u2SupportVHTMCS1SS));
+	MTWF_LOG(DBG_CAT_RA, DBG_SUBCAT_ALL, DBG_LVL_OFF, ("u2SupportVHTMCS2SS=%x\n", pCmdStaRecAutoRate->u2SupportVHTMCS2SS));
+	MTWF_LOG(DBG_CAT_RA, DBG_SUBCAT_ALL, DBG_LVL_OFF, ("u2SupportVHTMCS3SS=%x\n", pCmdStaRecAutoRate->u2SupportVHTMCS3SS));
+	MTWF_LOG(DBG_CAT_RA, DBG_SUBCAT_ALL, DBG_LVL_OFF, ("u2SupportVHTMCS4SS=%x\n", pCmdStaRecAutoRate->u2SupportVHTMCS4SS));
+	MTWF_LOG(DBG_CAT_RA, DBG_SUBCAT_ALL, DBG_LVL_OFF, ("force_op_mode=%d\n", pCmdStaRecAutoRate->force_op_mode));
+	MTWF_LOG(DBG_CAT_RA, DBG_SUBCAT_ALL, DBG_LVL_OFF, ("vhtOpModeChWidth=%d\n", pCmdStaRecAutoRate->vhtOpModeChWidth));
+	MTWF_LOG(DBG_CAT_RA, DBG_SUBCAT_ALL, DBG_LVL_OFF, ("vhtOpModeRxNss=%d\n", pCmdStaRecAutoRate->vhtOpModeRxNss));
+	MTWF_LOG(DBG_CAT_RA, DBG_SUBCAT_ALL, DBG_LVL_OFF, ("vhtOpModeRxNssType=%x\n", pCmdStaRecAutoRate->vhtOpModeRxNssType));
 #endif /* DOT11_VHT_AC */
 #endif /* DOT11_N_SUPPORT */
-	MTWF_DBG(NULL, DBG_CAT_RA, DBG_SUBCAT_ALL, DBG_LVL_INFO, "ClientStatusFlags=%x\n", pCmdStaRecAutoRate->ClientStatusFlags);
-	MTWF_DBG(NULL, DBG_CAT_RA, DBG_SUBCAT_ALL, DBG_LVL_INFO, "MaxPhyCfg.MODE=%d\n", pCmdStaRecAutoRate->MaxPhyCfg.MODE);
-	MTWF_DBG(NULL, DBG_CAT_RA, DBG_SUBCAT_ALL, DBG_LVL_INFO, "MaxPhyCfg.Flags=%d\n", pCmdStaRecAutoRate->MaxPhyCfg.Flags);
-	MTWF_DBG(NULL, DBG_CAT_RA, DBG_SUBCAT_ALL, DBG_LVL_INFO, "MaxPhyCfg.STBC=%d\n", pCmdStaRecAutoRate->MaxPhyCfg.STBC);
-	MTWF_DBG(NULL, DBG_CAT_RA, DBG_SUBCAT_ALL, DBG_LVL_INFO, "MaxPhyCfg.ShortGI=%d\n", pCmdStaRecAutoRate->MaxPhyCfg.ShortGI);
-	MTWF_DBG(NULL, DBG_CAT_RA, DBG_SUBCAT_ALL, DBG_LVL_INFO, "MaxPhyCfg.BW=%d\n", pCmdStaRecAutoRate->MaxPhyCfg.BW);
-	MTWF_DBG(NULL, DBG_CAT_RA, DBG_SUBCAT_ALL, DBG_LVL_INFO, "MaxPhyCfg.ldpc=%d\n", pCmdStaRecAutoRate->MaxPhyCfg.ldpc);
-	MTWF_DBG(NULL, DBG_CAT_RA, DBG_SUBCAT_ALL, DBG_LVL_INFO, "MaxPhyCfg.MCS=%d\n", pCmdStaRecAutoRate->MaxPhyCfg.MCS);
-	MTWF_DBG(NULL, DBG_CAT_RA, DBG_SUBCAT_ALL, DBG_LVL_INFO, "MaxPhyCfg.VhtNss=%d\n", pCmdStaRecAutoRate->MaxPhyCfg.VhtNss);
+	MTWF_LOG(DBG_CAT_RA, DBG_SUBCAT_ALL, DBG_LVL_OFF, ("ClientStatusFlags=%x\n", pCmdStaRecAutoRate->ClientStatusFlags));
+	MTWF_LOG(DBG_CAT_RA, DBG_SUBCAT_ALL, DBG_LVL_OFF, ("MaxPhyCfg.MODE=%d\n", pCmdStaRecAutoRate->MaxPhyCfg.MODE));
+	MTWF_LOG(DBG_CAT_RA, DBG_SUBCAT_ALL, DBG_LVL_OFF, ("MaxPhyCfg.Flags=%d\n", pCmdStaRecAutoRate->MaxPhyCfg.Flags));
+	MTWF_LOG(DBG_CAT_RA, DBG_SUBCAT_ALL, DBG_LVL_OFF, ("MaxPhyCfg.STBC=%d\n", pCmdStaRecAutoRate->MaxPhyCfg.STBC));
+	MTWF_LOG(DBG_CAT_RA, DBG_SUBCAT_ALL, DBG_LVL_OFF, ("MaxPhyCfg.ShortGI=%d\n", pCmdStaRecAutoRate->MaxPhyCfg.ShortGI));
+	MTWF_LOG(DBG_CAT_RA, DBG_SUBCAT_ALL, DBG_LVL_OFF, ("MaxPhyCfg.BW=%d\n", pCmdStaRecAutoRate->MaxPhyCfg.BW));
+	MTWF_LOG(DBG_CAT_RA, DBG_SUBCAT_ALL, DBG_LVL_OFF, ("MaxPhyCfg.ldpc=%d\n", pCmdStaRecAutoRate->MaxPhyCfg.ldpc));
+	MTWF_LOG(DBG_CAT_RA, DBG_SUBCAT_ALL, DBG_LVL_OFF, ("MaxPhyCfg.MCS=%d\n", pCmdStaRecAutoRate->MaxPhyCfg.MCS));
+	MTWF_LOG(DBG_CAT_RA, DBG_SUBCAT_ALL, DBG_LVL_OFF, ("MaxPhyCfg.VhtNss=%d\n", pCmdStaRecAutoRate->MaxPhyCfg.VhtNss));
 #endif
 	return NDIS_STATUS_SUCCESS;
 }
@@ -520,7 +513,6 @@ StaRecAutoRateUpdate(
 			pCmdStaRecAutoRateUpdate->FixedRateCfg.ShortGI = pRaParam->FixedRateCfg.ShortGI;
 			pCmdStaRecAutoRateUpdate->FixedRateCfg.BW = pRaParam->FixedRateCfg.BW;
 			pCmdStaRecAutoRateUpdate->FixedRateCfg.ldpc = pRaParam->FixedRateCfg.ldpc;
-			pCmdStaRecAutoRateUpdate->FixedRateCfg.he_ltf = pRaParam->FixedRateCfg.he_ltf;
 			pCmdStaRecAutoRateUpdate->FixedRateCfg.MCS = pRaParam->FixedRateCfg.MCS;
 			pCmdStaRecAutoRateUpdate->FixedRateCfg.VhtNss = pRaParam->FixedRateCfg.VhtNss;
 			pCmdStaRecAutoRateUpdate->ucShortPreamble = pRaParam->ucShortPreamble;
@@ -537,52 +529,6 @@ StaRecAutoRateUpdate(
 			pCmdStaRecAutoRateUpdate->ucShortPreamble = pRaParam->ucShortPreamble;
 			pCmdStaRecAutoRateUpdate->ucSpeEn = pRaParam->ucSpeEn;
 			pCmdStaRecAutoRateUpdate->fgIs5G = pRaParam->fgIs5G;
-		} else if (pRaParam->u4Field == RA_PARAM_HELTF_UPDATE) {
-			pCmdStaRecAutoRateUpdate->u4Field = RA_PARAM_HELTF_UPDATE;
-			pCmdStaRecAutoRateUpdate->FixedRateCfg.he_ltf = pRaParam->FixedRateCfg.he_ltf;
-		} else if (pRaParam->u4Field == RA_PARAM_MCS_UPDATE) {
-			pCmdStaRecAutoRateUpdate->u4Field = RA_PARAM_MCS_UPDATE;
-			pCmdStaRecAutoRateUpdate->FixedRateCfg.MCS = pRaParam->FixedRateCfg.MCS;
-		} else if (pRaParam->u4Field == RA_PARAM_VHTNSS_UPDATE) {
-			pCmdStaRecAutoRateUpdate->u4Field = RA_PARAM_VHTNSS_UPDATE;
-			pCmdStaRecAutoRateUpdate->FixedRateCfg.VhtNss = pRaParam->FixedRateCfg.VhtNss;
-		} else if (pRaParam->u4Field == RA_PARAM_BW_UPDATE) {
-			pCmdStaRecAutoRateUpdate->u4Field = RA_PARAM_BW_UPDATE;
-			pCmdStaRecAutoRateUpdate->FixedRateCfg.BW = pRaParam->FixedRateCfg.BW;
-		} else if (pRaParam->u4Field == RA_PARAM_GI_UPDATE) {
-			pCmdStaRecAutoRateUpdate->u4Field = RA_PARAM_GI_UPDATE;
-			pCmdStaRecAutoRateUpdate->FixedRateCfg.ShortGI = pRaParam->FixedRateCfg.ShortGI;
-		} else if (pRaParam->u4Field == RA_PARAM_ECC_UPDATE) {
-			pCmdStaRecAutoRateUpdate->u4Field = RA_PARAM_ECC_UPDATE;
-			pCmdStaRecAutoRateUpdate->FixedRateCfg.ldpc = pRaParam->FixedRateCfg.ldpc;
-		} else if (pRaParam->u4Field == RA_PARAM_STBC_UPDATE) {
-			pCmdStaRecAutoRateUpdate->u4Field = RA_PARAM_STBC_UPDATE;
-			pCmdStaRecAutoRateUpdate->FixedRateCfg.STBC = pRaParam->FixedRateCfg.STBC;
-		} else if (pRaParam->u4Field == RA_PARAM_UL_HELTF_UPDATE) {
-			pCmdStaRecAutoRateUpdate->u4Field = RA_PARAM_UL_HELTF_UPDATE;
-			pCmdStaRecAutoRateUpdate->FixedRateCfg.he_ltf = pRaParam->FixedRateCfg.he_ltf;
-		} else if (pRaParam->u4Field == RA_PARAM_UL_MCS_UPDATE) {
-			pCmdStaRecAutoRateUpdate->u4Field = RA_PARAM_UL_MCS_UPDATE;
-			pCmdStaRecAutoRateUpdate->FixedRateCfg.MCS = pRaParam->FixedRateCfg.MCS;
-		} else if (pRaParam->u4Field == RA_PARAM_UL_VHTNSS_UPDATE) {
-			pCmdStaRecAutoRateUpdate->u4Field = RA_PARAM_UL_VHTNSS_UPDATE;
-			pCmdStaRecAutoRateUpdate->FixedRateCfg.VhtNss = pRaParam->FixedRateCfg.VhtNss;
-		} else if (pRaParam->u4Field == RA_PARAM_UL_GI_UPDATE) {
-			pCmdStaRecAutoRateUpdate->u4Field = RA_PARAM_UL_GI_UPDATE;
-			pCmdStaRecAutoRateUpdate->FixedRateCfg.ShortGI = pRaParam->FixedRateCfg.ShortGI;
-		} else if (pRaParam->u4Field == RA_PARAM_UL_ECC_UPDATE) {
-			pCmdStaRecAutoRateUpdate->u4Field = RA_PARAM_UL_ECC_UPDATE;
-			pCmdStaRecAutoRateUpdate->FixedRateCfg.ldpc = pRaParam->FixedRateCfg.ldpc;
-		} else if (pRaParam->u4Field == RA_PARAM_UL_STBC_UPDATE) {
-			pCmdStaRecAutoRateUpdate->u4Field = RA_PARAM_UL_STBC_UPDATE;
-			pCmdStaRecAutoRateUpdate->FixedRateCfg.STBC = pRaParam->FixedRateCfg.STBC;
-		} else if (pRaParam->u4Field == RA_PARAM_AUTO_RATE) {
-			pCmdStaRecAutoRateUpdate->u4Field = RA_PARAM_AUTO_RATE;
-		} else if (pRaParam->u4Field == RA_PARAM_UL_AUTO_RATE) {
-			pCmdStaRecAutoRateUpdate->u4Field = RA_PARAM_UL_AUTO_RATE;
-		} else if (pRaParam->u4Field == RA_PARAM_SPE_UPDATE) {
-			pCmdStaRecAutoRateUpdate->u4Field = RA_PARAM_SPE_UPDATE;
-			pCmdStaRecAutoRateUpdate->ucSpeEn = pRaParam->ucSpeEn;
 		} else if (pRaParam->u4Field > RA_PARAM_MAX) {
 			pCmdStaRecAutoRateUpdate->u4Field = pRaParam->u4Field;
 		}
@@ -594,50 +540,9 @@ StaRecAutoRateUpdate(
 #endif
 	return NDIS_STATUS_SUCCESS;
 }
-#endif
+#endif /* defined(MT7636) || defined(MT7615) || defined(MT7637) || defined(MT7622) || defined(P18) || defined(MT7663) */
 
 
-
-INT32 CmdRaFixRateUpdateWoSta(
-	RTMP_ADAPTER *pAd,
-	UINT16 u2Wcid,
-	RA_PHY_CFG_T *pFixedRateCfg,
-	UINT8 u1SpeEn,
-	UINT8 u1ShortPreamble)
-{
-	INT32 ret = 0;
-	struct cmd_msg *msg = NULL;
-	struct _CMD_ATTRIBUTE attr = {0};
-	CMD_FIX_RATE_WO_STA_UPDATE_T param;
-
-	os_move_mem(&param.FixedRateCfg, pFixedRateCfg, sizeof(*pFixedRateCfg));
-	param.u1ShortPreamble = u1ShortPreamble;
-	param.u1SpeEn = u1SpeEn;
-	WCID_SET_H_L(param.u1WcidL, param.u1WcidHnVer, u2Wcid);
-
-	msg = AndesAllocCmdMsg(pAd, sizeof(param));
-	if (!msg) {
-		ret = -1;
-		goto error;
-	}
-
-	SET_CMD_ATTR_MCU_DEST(attr, HOST2N9);
-	SET_CMD_ATTR_TYPE(attr, EXT_CID);
-	SET_CMD_ATTR_EXT_TYPE(attr, EXT_CMD_ID_FIX_RATE_WO_STA);
-	SET_CMD_ATTR_CTRL_FLAGS(attr, INIT_CMD_SET);
-	SET_CMD_ATTR_RSP_EXPECT_SIZE(attr, MT_IGNORE_PAYLOAD_LEN_CHECK);
-	SET_CMD_ATTR_RSP_WB_BUF_IN_CALBK(attr, NULL);
-	SET_CMD_ATTR_RSP_HANDLER(attr, NULL);
-	AndesInitCmdMsg(msg, attr);
-	AndesAppendCmdMsg(msg, (char *)&param, sizeof(param));
-
-	ret = chip_cmd_tx(pAd, msg);
-error:
-
-	MTWF_PRINT("%s:(ret = %d)\n", __func__, ret);
-
-	return ret;
-}
 
 #endif /* MT_MAC */
 

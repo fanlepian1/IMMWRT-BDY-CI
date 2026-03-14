@@ -1,17 +1,13 @@
 /*
- * Copyright (c) [2020], MediaTek Inc. All rights reserved.
- *
- * This software/firmware and related documentation ("MediaTek Software") are
- * protected under relevant copyright laws.
- * The information contained herein is confidential and proprietary to
- * MediaTek Inc. and/or its licensors.
- * Except as otherwise provided in the applicable licensing terms with
- * MediaTek Inc. and/or its licensors, any reproduction, modification, use or
- * disclosure of MediaTek Software, and information contained herein, in whole
- * or in part, shall be strictly prohibited.
-*/
-/*
  ***************************************************************************
+ * MediaTek Inc.
+ *
+ * All rights reserved. source code is an unpublished work and the
+ * use of a copyright notice does not imply otherwise. This source code
+ * contains confidential trade secret material of MediaTek. Any attemp
+ * or participation in deciphering, decoding, reverse engineering or in any
+ * way altering the source code is stricitly prohibited, unless the prior
+ * written consent of MediaTek, Inc. is obtained.
  ***************************************************************************
 
 	Module Name:
@@ -53,7 +49,7 @@ static ssize_t fwdumpread(struct file *fp, char __user *buf, size_t cnt, loff_t 
 		len = (pAd->fw_dump_size - pAd->fw_dump_read);
 
 	MTWF_LOG(DBG_CAT_FW, DBG_SUBCAT_ALL, DBG_LVL_OFF,
-			 ("cnt=%d len=%d fw_dump_read=%d\n", cnt, len, pAd->fw_dump_read));
+			 ("cnt=%zu len=%d fw_dump_read=%d\n", (unsigned long) cnt, len, pAd->fw_dump_read));
 	os_move_mem(buf, pAd->fw_dump_buffer + pAd->fw_dump_read, len);
 	pAd->fw_dump_read += len;
 	return len;
@@ -93,11 +89,11 @@ BOOLEAN FWDumpProcCreate(VOID *ptr, PCHAR suffix)
 		pCookie->proc_fwdump_dir = proc_mkdir(pCookie->fwdump_dir_name, NULL);
 
 		if (pCookie->proc_fwdump_dir)
-			MTWF_DBG(pAd, DBG_CAT_FW, DBG_SUBCAT_ALL, DBG_LVL_INFO,
-					 "Create dir /proc/%s successfully\n", FW_DUMP_DIR);
+			MTWF_LOG(DBG_CAT_FW, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
+					 ("%s: Create dir /proc/%s successfully\n", __func__, FW_DUMP_DIR));
 		else {
-			MTWF_DBG(pAd, DBG_CAT_FW, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-					 "Create %s fail\n", FW_DUMP_DIR);
+			MTWF_LOG(DBG_CAT_FW, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
+					 ("%s: Create %s fail\n", __func__, FW_DUMP_DIR));
 			return FALSE;
 		}
 	}
@@ -109,11 +105,11 @@ BOOLEAN FWDumpProcCreate(VOID *ptr, PCHAR suffix)
 		pCookie->proc_fwdump_file = proc_create_data(fwdump_file_name, 0644, pCookie->proc_fwdump_dir, &fops_dump, (VOID *)pAd);
 
 		if (pCookie->proc_fwdump_file)
-			MTWF_DBG(pAd, DBG_CAT_FW, DBG_SUBCAT_ALL, DBG_LVL_INFO,
-					 "Create file /proc/%s/%s successfully\n", pCookie->fwdump_dir_name, fwdump_file_name);
+			MTWF_LOG(DBG_CAT_FW, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
+					 ("%s: Create file /proc/%s/%s successfully\n", __func__, pCookie->fwdump_dir_name, fwdump_file_name));
 		else {
-			MTWF_DBG(pAd, DBG_CAT_FW, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-					 "Create %s fail\n", fwdump_file_name);
+			MTWF_LOG(DBG_CAT_FW, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
+					 ("%s: Create %s fail\n", __func__, fwdump_file_name));
 			return FALSE;
 		}
 	}

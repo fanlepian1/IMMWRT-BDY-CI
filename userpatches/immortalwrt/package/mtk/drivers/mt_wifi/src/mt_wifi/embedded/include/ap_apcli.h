@@ -1,17 +1,18 @@
 /*
- * Copyright (c) [2020], MediaTek Inc. All rights reserved.
- *
- * This software/firmware and related documentation ("MediaTek Software") are
- * protected under relevant copyright laws.
- * The information contained herein is confidential and proprietary to
- * MediaTek Inc. and/or its licensors.
- * Except as otherwise provided in the applicable licensing terms with
- * MediaTek Inc. and/or its licensors, any reproduction, modification, use or
- * disclosure of MediaTek Software, and information contained herein, in whole
- * or in part, shall be strictly prohibited.
-*/
-/*
  ***************************************************************************
+ * Ralink Tech Inc.
+ * 4F, No. 2 Technology 5th Rd.
+ * Science-based Industrial Park
+ * Hsin-chu, Taiwan, R.O.C.
+ *
+ * (c) Copyright 2002, Ralink Technology, Inc.
+ *
+ * All rights reserved. Ralink's source code is an unpublished work and the
+ * use of a copyright notice does not imply otherwise. This source code
+ * contains confidential trade secret material of Ralink Tech. Any attemp
+ * or participation in deciphering, decoding, reverse engineering or in any
+ * way altering the source code is stricitly prohibited, unless the prior
+ * written consent of Ralink Technology, Inc. is obtained.
  ***************************************************************************
 
     Module Name:
@@ -55,8 +56,7 @@
 	{ \
 		if ((idx) >= MAX_APCLI_NUM) {	\
 			(idx) = 0; \
-			MTWF_DBG(NULL, DBG_CAT_CLIENT, CATCLIENT_APCLI, DBG_LVL_ERROR, \
-				"Error! apcli-idx > MAX_APCLI_NUM!\n"); \
+			MTWF_LOG(DBG_CAT_CLIENT, CATCLIENT_APCLI, DBG_LVL_ERROR, ("%s> Error! apcli-idx > MAX_APCLI_NUM!\n", __func__)); \
 		} \
 	}
 
@@ -110,8 +110,15 @@ VOID ApCliAssocStateMachineInit(
 
 MAC_TABLE_ENTRY *ApCliTableLookUpByWcid(
 	IN RTMP_ADAPTER * pAd,
-	IN UINT16 wcid,
+	IN UCHAR wcid,
 	IN UCHAR *pAddrs);
+
+BOOLEAN ApCliValidateRSNIE(
+	IN RTMP_ADAPTER * pAd,
+	IN PEID_STRUCT pEid_ptr,
+	IN USHORT eid_len,
+	IN USHORT idx,
+	IN UCHAR Privacy);
 
 VOID ApCli_Remove(
 	IN PRTMP_ADAPTER	pAd);
@@ -140,6 +147,17 @@ BOOLEAN ApCliCheckHt(
 	IN OUT	ADD_HT_INFO_IE * pAddHtInfo);
 #endif /* DOT11_N_SUPPORT */
 
+#ifdef APCLI_CERT_SUPPORT
+void ApCliCertEDCAAdjust(
+	IN PRTMP_ADAPTER pAd,
+	IN struct wifi_dev *wdev,
+	IN PEDCA_PARM pEdcaParm);
+#endif
+
+#ifdef CONVERTER_MODE_SWITCH_SUPPORT
+void V10ConverterModeStartStop(RTMP_ADAPTER *pAd, BOOLEAN BeaconStart);
+#endif /*CONVERTER_MODE_SWITCH_SUPPORT*/
+
 BOOLEAN ApCliLinkUp(
 	IN PRTMP_ADAPTER pAd,
 	IN UCHAR ifIndex);
@@ -156,6 +174,11 @@ VOID ApCliIfDown(
 
 VOID ApCliIfMonitor(
 	IN PRTMP_ADAPTER pAd);
+
+VOID APCLIerr_Action(
+	IN RTMP_ADAPTER *pAd,
+	IN	RX_BLK *pRxBlk,
+	IN UCHAR Idx);
 
 BOOLEAN ApCliMsgTypeSubst(
 	IN PRTMP_ADAPTER  pAd,
@@ -177,10 +200,6 @@ BOOLEAN ApCliPeerAssocRspSanity(
 	OUT USHORT *pCapabilityInfo,
 	OUT USHORT *pStatus,
 	OUT USHORT *pAid,
-#ifdef P2P_SUPPORT
-	OUT ULONG * P2PSubelementLen,
-	OUT PUCHAR pP2pSubelement,
-#endif /* P2P_SUPPORT */
 	OUT UCHAR SupRate[],
 	OUT UCHAR *pSupRateLen,
 	OUT UCHAR ExtRate[],
@@ -245,7 +264,8 @@ VOID ApCliCheckPeerExistence(
 #endif
 	IN UCHAR Channel);
 
-VOID ApCliCheckConConnectivity(RTMP_ADAPTER *pAd, PSTA_ADMIN_CONFIG pApCliEntry, BCN_IE_LIST *ie_list);
+VOID ApCliCheckConConnectivity(RTMP_ADAPTER *pAd, APCLI_STRUCT *pApCliEntry, BCN_IE_LIST *ie_list);
+
 VOID ApCliPeerCsaAction(RTMP_ADAPTER *pAd, struct wifi_dev *wdev, BCN_IE_LIST *ie_list);
 
 VOID APCli_Init(
@@ -258,12 +278,11 @@ BOOLEAN ApCli_Close(RTMP_ADAPTER *pAd, PNET_DEV dev_p);
 BOOLEAN ApCliWaitProbRsp(RTMP_ADAPTER *pAd, USHORT ifIndex);
 VOID ApCliSimulateRecvBeacon(RTMP_ADAPTER *pAd);
 
-#if defined(APCLI_AUTO_CONNECT_SUPPORT) || defined(APCLI_SUPPORT) || defined(CONFIG_STA_SUPPORT)
+#ifdef APCLI_AUTO_CONNECT_SUPPORT
 extern INT Set_ApCli_Enable_Proc(
 	IN  PRTMP_ADAPTER pAd,
 	IN	RTMP_STRING * arg);
-#endif
-#ifdef APCLI_AUTO_CONNECT_SUPPORT
+
 extern INT Set_ApCli_Bssid_Proc(
 	IN  PRTMP_ADAPTER pAd,
 	IN	RTMP_STRING * arg);
@@ -298,10 +317,16 @@ INT Set_ApCliPMFSHA256_Proc(
 	IN	RTMP_STRING * arg);
 #endif /* DOT11W_PMF_SUPPORT */
 
-#ifdef DOT11_SAE_SUPPORT
-INT Set_ApCliSAEGroup_Proc(
+#ifdef APCLI_SAE_SUPPORT
+INT set_apcli_sae_group_proc(
 	IN PRTMP_ADAPTER pAd,
-	IN RTMP_STRING *arg);
+	IN RTMP_STRING * arg);
+#endif
+
+#ifdef APCLI_OWE_SUPPORT
+INT set_apcli_owe_group_proc(
+	IN PRTMP_ADAPTER pAd,
+	IN RTMP_STRING * arg);
 #endif
 
 
@@ -316,38 +341,55 @@ VOID apcli_dync_txop_alg(
 	UINT tx_tp,
 	UINT rx_tp);
 
-enum {
-AUTO_BW_PARAM_ERROR,
-AUTO_BW_NO_NEED_TO_ADJUST,
-AUTO_BW_NEED_TO_ADJUST,
-};
+INT apcli_phy_rrm_init_byRf(RTMP_ADAPTER *pAd, UCHAR RfIC);
+INT apcli_link_up(struct wifi_dev *wdev, struct _MAC_TABLE_ENTRY *entry);
+INT apcli_inf_open(struct wifi_dev *wdev);
+INT apcli_inf_close(struct wifi_dev *wdev);
 
 
 VOID ApCliMlmeDeauthReqAction(
 	IN PRTMP_ADAPTER pAd,
-	IN MLME_QUEUE_ELEM *Elem);
+	IN MLME_QUEUE_ELEM *Elem); 
 
-#if defined(DOT11_SAE_SUPPORT) || defined(CONFIG_OWE_SUPPORT)
-INT ApCliAddPMKIDCache(
+#if defined(APCLI_SAE_SUPPORT) || defined(APCLI_OWE_SUPPORT)
+
+INT apcli_add_pmkid_cache(
 	IN	PRTMP_ADAPTER	pAd,
-	IN UCHAR *pAddr,
-	IN UCHAR *PMKID,
-	IN UCHAR *PMK,
+	IN UCHAR *paddr,
+	IN UCHAR *pmkid,
+	IN UCHAR *pmk,
 	IN UINT8 pmk_len,
-	IN UINT8 ifIndex,
-	IN UINT8 CliIdx);
+	IN UINT8 if_index,
+	IN UINT8 cli_idx);
 
-INT ApCliSearchPMKIDCache(
-	IN	PRTMP_ADAPTER	pAd,
-	IN UCHAR *pAddr,
-	IN UCHAR ifIndex,
-	IN UCHAR CliIdx);
 
-VOID ApCliDeletePMKIDCache(
+INT apcli_search_pmkid_cache(
 	IN	PRTMP_ADAPTER	pAd,
-	IN UCHAR *pAddr,
-	IN UCHAR ifIndex,
-	IN UCHAR CliIdx);
+	IN UCHAR *paddr,
+	IN UCHAR if_index,
+	IN UCHAR cli_idx);
+
+
+VOID apcli_delete_pmkid_cache(
+	IN	PRTMP_ADAPTER	pAd,
+	IN UCHAR *paddr,
+	IN UCHAR if_index,
+	IN UCHAR cli_idx);
+
+VOID apcli_delete_pmkid_cache_all(
+	IN	PRTMP_ADAPTER	pAd,
+	IN UCHAR if_index);
+
+INT set_apcli_del_pmkid_list(
+	IN PRTMP_ADAPTER pAd,
+	IN RTMP_STRING * arg);
+#endif
+
+#ifdef APCLI_OWE_SUPPORT
+
+VOID apcli_reset_owe_parameters(
+		IN	PRTMP_ADAPTER	pAd,
+		IN UCHAR if_index);
 
 #endif
 

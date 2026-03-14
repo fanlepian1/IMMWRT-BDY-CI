@@ -7,7 +7,6 @@
  * bit(0)  : encrypt or not.
  * bit(1,2): encrypt key index.
  * bit(3)  : compressed image or not. (added in CONNAC)
- * bit(4)  : encrypt mode, 1 for scramble, 0 for AES.
  * bit(5)  : replace RAM code starting address with image destination address or not. (added in CONNAC)
  * bit(7)  : download to EMI or not. (added in CONNAC)
  */
@@ -15,71 +14,34 @@
 #define FW_FEATURE_SET_KEY_MASK (0x3 << 1)
 #define GET_FW_FEATURE_SET_KEY(p) (((p) & FW_FEATURE_SET_KEY_MASK) >> 1)
 #define FW_FEATURE_COMPRESS_IMG (1 << 3)
-#define FW_FEATURE_ENCRY_MODE (1 << 4)
 #define FW_FEATURE_OVERRIDE_RAM_ADDR (1 << 5)
 #define FW_FEATURE_DL_TO_EMI (1 << 7)
 
 #define WAIT_LOOP 1500
 
 #define PATCH_V1_INFO_SIZE 30
-
 #define FW_V2_INFO_SIZE 36
-
 /* CONNAC */
 #define FW_V3_COMMON_TAILER_SIZE 36
 #define FW_V3_REGION_TAILER_SIZE 40
-#define FW_V3_FORMAT_VER_CONNAC_V1	2
-#define FW_V3_FORMAT_FLAG_RELEASE_INFO	(1 << 0)
-
-/* multi-addr patch format */
-struct patch_glo_desc {
-	UINT32 patch_ver;
-	UINT32 subsys;
-	UINT32 feature;
-	UINT32 section_num;
-	UINT32 crc;
-	UINT32 reserved[11];
-};
-
-#define PATCH_SEC_TYPE_MASK		0x0000ffff
-#define PATCH_SEC_TYPE_BIN_INFO	0x2
-
-struct patch_sec_map {
-	UINT32 section_type;
-	UINT32 section_offset;
-	UINT32 section_size;
-	union {
-		UINT32 section_spec[13];
-		struct {
-			UINT32 dl_addr;
-			UINT32 dl_size;
-			UINT32 sec_key_idx;
-			UINT32 align_len;
-			UINT32 reserved[9];
-		} bin_info_spec;
-	};
-};
 
 #define FWDL_PRINT_CHAR(src, cnt, info)	\
 	do {	\
 		UINT32 loop;	\
-		MTWF_PRINT(info);	\
-		for (loop = 0; loop < cnt; loop++) {	\
-			if (*(src + loop) == '\0')	\
-				break;	\
-			MTWF_PRINT("%c", *(src + loop));	\
-		}	\
-		MTWF_PRINT("\n");	\
+		MTWF_LOG(DBG_CAT_FW, DBG_SUBCAT_ALL, DBG_LVL_OFF, info);	\
+		for (loop = 0; loop < cnt; loop++)	\
+			MTWF_LOG(DBG_CAT_FW, DBG_SUBCAT_ALL, DBG_LVL_OFF, ("%c", *(src + loop)));	\
+		MTWF_LOG(DBG_CAT_FW, DBG_SUBCAT_ALL, DBG_LVL_OFF, ("\n"));	\
 	} while (0)
 
 #define FWDL_PRINT_HEX(src, cnt, info)	\
 			do {	\
 				UINT32 loop;	\
-				MTWF_PRINT(info);	\
-				MTWF_PRINT("0x");	\
+				MTWF_LOG(DBG_CAT_FW, DBG_SUBCAT_ALL, DBG_LVL_OFF, info);	\
+				MTWF_LOG(DBG_CAT_FW, DBG_SUBCAT_ALL, DBG_LVL_OFF, ("0x"));	\
 				for (loop = 0; loop < cnt; loop++)	\
-					MTWF_PRINT("%02x", *(src + loop));	\
-				MTWF_PRINT("\n");	\
+					MTWF_LOG(DBG_CAT_FW, DBG_SUBCAT_ALL, DBG_LVL_OFF, ("%02x", *(src + loop)));	\
+				MTWF_LOG(DBG_CAT_FW, DBG_SUBCAT_ALL, DBG_LVL_OFF, ("\n"));	\
 			} while (0)
 
 enum fwdl_stage {
@@ -113,7 +75,7 @@ enum load_code_method {
 
 /*
  * fw download cmd/event:
- * FW_FLOW_V1 support 7603, 7628, 7636, 7637, 7615, 7622, CONNAC (p18, 7663, 7626)
+ * FW_FLOW_V1 support 7603, 7628, 7636, 7637, 7615, 7622, CONNAC (p18, 7663)
  */
 enum load_fw_flow {
 	FW_FLOW_V1,
@@ -122,7 +84,7 @@ enum load_fw_flow {
 
 /*
  * patch download cmd/event:
- * PATCH_FLOW_V1 support 7636, 7637, 7615, 7622, CONNAC (p18, 7663, 7626)
+ * PATCH_FLOW_V1 support 7636, 7637, 7615, 7622, CONNAC (p18, 7663)
  */
 enum load_patch_flow {
 	PATCH_FLOW_V1
@@ -132,7 +94,7 @@ enum load_patch_flow {
  * fw format:
  * FW_FORMAT_V1 support 7603, 7628 (all von-neumann architecture)
  * FW_FORMAT_V2 support 7636, 7637, 7615, 7622 (all harvard architecture)
- * FW_FORMAT_V3 support CONNAC architecture (p18, mt7663, mt7626 and so on.)
+ * FW_FORMAT_V3 support CONNAC architecture (p18, mt7663 and so on.)
  */
 enum fw_format {
 	FW_FORMAT_V1,
@@ -142,12 +104,10 @@ enum fw_format {
 
 /*
  * patch format:
- * PATCH_FORMAT_V1 support 7636, 7637, 7615, 7622, CONNAC (p18, 7663, 7626)
- * PATCH_FORMAT_V2 support CONNANC2.0 (7915, 7986)
+ * PATCH_FORMAT_V1 support 7636, 7637, 7615, 7622, CONNAC (p18, 7663)
  */
 enum patch_format {
-	PATCH_FORMAT_V1,
-	PATCH_FORMAT_V2
+	PATCH_FORMAT_V1
 };
 
 enum sem_status {
@@ -171,7 +131,6 @@ struct fw_info {
 	UINT8 eco_ver;
 	UINT8 num_of_region;
 	UINT8 format_ver;
-	UINT8 format_flag;
 	UINT8 ram_ver[10];
 	UINT8 ram_built_date[15];
 	UINT32 crc;
@@ -229,9 +188,6 @@ struct fwdl_op {
 	NDIS_STATUS (*parse_fw)(struct _RTMP_ADAPTER *pAd, enum target_cpu cpu, struct fw_dl_target *target);
 	NDIS_STATUS (*parse_patch)(struct _RTMP_ADAPTER *pAd, enum target_cpu cpu, struct patch_dl_target *target);
 	NDIS_STATUS (*ctrl_fw_state)(struct _RTMP_ADAPTER *pAd, enum fwdl_stage target_stage);
-#ifdef WIFI_RAM_EMI_SUPPORT
-	NDIS_STATUS (*load_emi_fw)(struct _RTMP_ADAPTER *pAd, enum target_cpu cpu, struct fw_dl_target *target);
-#endif /* WIFI_RAM_EMI_SUPPORT */
 };
 
 struct fwdl_ctrl {

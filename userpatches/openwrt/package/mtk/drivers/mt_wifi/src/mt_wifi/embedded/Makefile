@@ -9,13 +9,14 @@ TARGET = LINUX
 endif
 
 # CHIPSET
-# mt7603e, mt7603u, mt7615, mt7622, axe
-
 ifeq ($(CHIPSET),)
-CHIPSET = mt7986 mt7981 mt7916
+CHIPSET = mt7622 mt7615
 endif
 
 MODULE = $(word 1, $(CHIPSET))
+
+#OS ABL - YES or NO
+OSABL = NO
 
 ifneq ($(TARGET),THREADX)
 #RT28xx_DIR = home directory of RT28xx source code
@@ -26,11 +27,7 @@ RT28xx_BIN_DIR = $(shell cd ../..;pwd)
 RT28xx_OS_DIR = $(RT28xx_DIR)/os
 endif
 
-ifeq ($(TARGET),VXWORKS)
-include $(RT28xx_OS_DIR)/vxworks/config.mk
-else
 include $(RT28xx_OS_DIR)/linux/config.mk
-endif
 
 RTMP_SRC_DIR = $(RT28xx_DIR)/RT$(MODULE)
 
@@ -74,17 +71,91 @@ PLATFORM = PC
 #PLATFORM = MT7622
 endif
 
+ifeq ($(PLATFORM),INTELP6)
+ifndef TARG_ARCH
+    export 	TARG_ARCH=intel_gen3-linux
+endif
+ifndef BUILD_ROOT
+    export BUILD_ROOT=$(PWD)/../../..
+endif
+ifndef BUILD_DEST
+    export BUILD_DEST=$(BUILD_ROOT)/$(BUILD_DIR)/
+endif
+ifndef HOST_CC
+    export HOST_CC=gcc
+endif
+
+ifeq ($(TARG_ARCH),intel_gen3-linux)
+    BUILD_DIR=build_i686/staging_dir
+    HOST=LINUX
+    TARGET=LINUX
+    BUILD=LINUX
+    CROSS_COMPILE=$(BUILD_DEST)/bin/i686-cm-linux-
+endif
+export HOST
+export TARGET
+export BUILD
+export CROSS_COMPILE
+ifdef TARGETCC
+    export CC=$(TARGETCC)
+    export LD=$(TARGETLD)
+    export AR=$(TARGETAR)
+    export AR_RC=$(TARGETAR) rc
+    export STRIP=$(TARGETSTRIP)
+    export CXX=$(TARGETCXX)
+    export RANLIB=$(TARGETRANLIB)
+    export STRINGS=$(TARGETSTRINGS)
+    export M4=$(TARGETM4)
+    export BISON=$(TARGETBISON)
+    export YACC=$(TARGETYACC)
+else
+    export CC=$(CROSS_COMPILE)gcc
+    export LD=$(CROSS_COMPILE)ld
+    export AR=$(CROSS_COMPILE)ar
+    export AR_RC=$(CROSS_COMPILE)ar rc
+    export STRIP=$(CROSS_COMPILE)strip
+    export CXX=$(CROSS_COMPILE)g++
+    export RANLIB=$(CROSS_COMPILE)ranlib
+    export STRINGS=$(CROSS_COMPILE)strings
+    export M4=$(CROSS_COMPILE)m4
+    export BISON=$(CROSS_COMPILE)bison
+    export YACC=$(CROSS_COMPILE)yacc
+endif
+ifndef TARGETDEST
+        export TARGETDEST = $(BUILD_ROOT)/project_build_i686/IntelCE/
+endif
+ifndef FSROOT
+        export FSROOT = $(TARGETDEST)/root/
+endif
+ifndef KERNEL_VER
+    export KERNEL_VER=linux-2.6.28
+endif
+ifndef KERNEL_DIR
+    export KERNEL_DIR=$(BUILD_DEST)/kernel/$(KERNEL_VER)
+endif
+endif
+
 #APSOC
 ifeq ($(CHIPSET),mt7628)
 PLATFORM = MT7628
 endif
 
+#RELEASE Package
+RELEASE = FormalRelease
+
+ifeq ($(TARGET),LINUX)
 MAKE = make
+endif
+
+ifeq ($(TARGET), UCOS)
+MAKE = make
+endif
 ifeq ($(TARGET),THREADX)
 MAKE = gmake
 endif
 
 ifeq ($(TARGET), ECOS)
+MAKE = make
 MODULE = $(shell pwd | sed "s/.*\///" ).o
 export MODULE
 endif
@@ -157,6 +228,7 @@ ARCH:=mips
 export $ARCH
 endif
 
+
 ifeq ($(PLATFORM),BLUBB)
 LINUX_SRC = /home/sample/Customers/BroadLight/UBB/gmp20/linux-2.6.21-small
 CROSS_COMPILE = mips-wrs-linux-gnu-
@@ -169,16 +241,16 @@ endif
 
 ifeq ($(PLATFORM),PC)
 # Linux 2.6
-#LINUX_SRC = /lib/modules/$(shell uname -r)/build
-#LINUX_SRC_MODULE = /lib/modules/$(shell uname -r)/kernel/drivers/net/wireless/
-LINUX_SRC = /lib/modules/3.16.0-30-generic/build
-LINUX_SRC_MODULE = /lib/modules/3.16.0-30-generic/kernel/drivers/net/wireless/
+LINUX_SRC = /lib/modules/$(shell uname -r)/build
+# Linux 2.4 Change to your local setting
+#LINUX_SRC = /usr/src/linux-2.4
+LINUX_SRC_MODULE = /lib/modules/$(shell uname -r)/kernel/drivers/net/wireless/
 CROSS_COMPILE = 
 endif
 
 ifeq ($(PLATFORM),INTELP6)
-LINUX_SRC = /tftpboot/IntelCE-20.0.11052.243193/project_build_i686/IntelCE/kernel-20.0.11024.238456/linux-2.6.35
-CROSS_COMPILE = /tftpboot/IntelCE-20.0.11052.243193/build_i686/i686-linux-elf/bin/i686-cm-linux-
+LINUX_SRC = $(KERNEL_DIR)
+CROSS_COMPILE =
 endif
 
 ifeq ($(PLATFORM),IXP)
@@ -321,18 +393,13 @@ ARCH = arm64
 export $ARCH
 endif
 
-ifeq ($(CCACHE),1)
-BIN_CCACHE=$(shell which ccache)
-CROSS_COMPILE := $(BIN_CCACHE) $(CROSS_COMPILE)
-endif
-
-export RT28xx_DIR RT28xx_BIN_DIR RT28xx_OS_DIR RT28xx_EMBEDDED_DIR RT28xx_MODE LINUX_SRC CROSS_COMPILE CROSS_COMPILE_INCLUDE PLATFORM RELEASE CHIPSET MODULE RTMP_SRC_DIR LINUX_SRC_MODULE TARGET HAS_WOW_SUPPORT HAS_FPGA_MODE HAS_RX_CUT_THROUGH
+export OSABL RT28xx_DIR RT28xx_BIN_DIR RT28xx_OS_DIR RT28xx_EMBEDDED_DIR RT28xx_MODE LINUX_SRC CROSS_COMPILE CROSS_COMPILE_INCLUDE PLATFORM RELEASE CHIPSET MODULE RTMP_SRC_DIR LINUX_SRC_MODULE TARGET HAS_WOW_SUPPORT HAS_FPGA_MODE HAS_RX_CUT_THROUGH
 
 # The targets that may be used.
-PHONY += all build_tools test UCOS THREADX LINUX release prerelease clean uninstall install libwapi sdk_build_tools
+PHONY += all build_tools test UCOS THREADX LINUX release prerelease clean uninstall install libwapi osabl sdk_build_tools
 
 ifeq ($(TARGET),LINUX)
-all: build_tools build_sku_tables build_power_limit_tables $(TARGET) plug_in
+all: build_tools $(TARGET) plug_in
 else
 all: $(TARGET)
 endif 
@@ -340,10 +407,6 @@ endif
 build_sku_tables:
 	$(MAKE) -C $(RT28xx_DIR)/txpwr
 	$(RT28xx_DIR)/txpwr/dat2h
-
-build_power_limit_tables:
-	$(MAKE) -C $(RT28xx_DIR)/txpwr
-	$(RT28xx_DIR)/txpwr/data2h
 
 build_tools:
 	$(MAKE) -C tools
@@ -363,6 +426,7 @@ sdk_build_tools:
 	fi
 	$(MAKE) -C tools
 	$(RT28xx_EMBEDDED_DIR)/tools/bin2h
+#	rm -f $(RT28xx_DIR)/eeprom/SA/MT7603E_EEPROM.bin
 
 test:
 	$(MAKE) -C tools test
@@ -379,39 +443,87 @@ THREADX:
 	$(MAKE) -C $(RT28xx_OS_DIR)/Threadx -f $(RT28xx_OS_DIR)/ThreadX/Makefile
 
 LINUX:
+ifneq (,$(findstring 2.4,$(LINUX_SRC)))
+
+ifeq ($(OSABL),YES)
+	cp -f $(RT28xx_OS_DIR)/linux/Makefile.4.util $(RT28xx_OS_DIR)/linux/Makefile
+	$(MAKE) -C $(RT28xx_OS_DIR)/linux/
+endif
+
+	cp -f $(RT28xx_OS_DIR)/linux/Makefile.4 $(RT28xx_OS_DIR)/linux/Makefile
+	$(MAKE) -C $(RT28xx_OS_DIR)/linux/
+
+ifeq ($(OSABL),YES)
+	cp -f $(RT28xx_OS_DIR)/linux/Makefile.4.netif $(RT28xx_OS_DIR)/linux/Makefile
+	$(MAKE) -C $(RT28xx_OS_DIR)/linux/
+endif
+
+else
+
+ifeq ($(OSABL),YES)
+	cp -f $(RT28xx_OS_DIR)/linux/Makefile.6.util $(RT28xx_OS_DIR)/linux/Makefile
+	$(MAKE) -C $(LINUX_SRC) SUBDIRS=$(RT28xx_OS_DIR)/linux modules
+endif
+
 	cp -f $(RT28xx_OS_DIR)/linux/Makefile.6 $(RT28xx_OS_DIR)/linux/Makefile
 ifeq ($(PLATFORM),DM6446)
 	$(MAKE)  ARCH=arm CROSS_COMPILE=arm_v5t_le- -C  $(LINUX_SRC) SUBDIRS=$(RT28xx_OS_DIR)/linux modules
 else ifeq ($(PLATFORM),FREESCALE8377)
 	$(MAKE) ARCH=powerpc CROSS_COMPILE=$(CROSS_COMPILE) -C  $(LINUX_SRC) SUBDIRS=$(RT28xx_OS_DIR)/linux modules
 else ifeq ($(PLATFORM), $(filter $(PLATFORM), MT7622 MT7621))
-	$(MAKE) ARCH=$(ARCH) CROSS_COMPILE="$(CROSS_COMPILE)" -C $(LINUX_SRC) SUBDIRS=$(RT28xx_OS_DIR)/linux modules
+	$(MAKE) ARCH=$(ARCH) CROSS_COMPILE=$(CROSS_COMPILE) -C $(LINUX_SRC) SUBDIRS=$(RT28xx_OS_DIR)/linux modules
 else
 	$(MAKE) -C $(LINUX_SRC) SUBDIRS=$(RT28xx_OS_DIR)/linux modules
 endif
-ifeq ($(RT28xx_MODE),AP)
-	cp -f $(RT28xx_OS_DIR)/linux/$(MODULE)_ap.ko $(RT28xx_OS_DIR)/linux/mt_single_driver_ap.ko
+
+ifeq ($(OSABL),YES)
+	cp -f $(RT28xx_OS_DIR)/linux/Makefile.6.netif $(RT28xx_OS_DIR)/linux/Makefile
+	$(MAKE) -C $(LINUX_SRC) SUBDIRS=$(RT28xx_OS_DIR)/linux modules
 endif
-ifeq ($(RT28xx_MODE),STA)
-	cp -f $(RT28xx_OS_DIR)/linux/$(MODULE)_sta.ko $(RT28xx_OS_DIR)/linux/mt_single_driver_sta.ko
+
 endif
 
 check_build:
 	$(RT28xx_EMBEDDED_DIR)/tools/check_build_script.sh
 
 plug_in:
-	$(MAKE) -C $(LINUX_SRC) SUBDIRS=$(RT28xx_EMBEDDED_DIR)/plug_in MODULE_FLAGS="$(WFLAGS)"
+	$(MAKE) -C $(LINUX_SRC) SUBDIRS=$(RT28xx_EMBEDDED_DIR)/tools/plug_in MODULE_FLAGS="$(WFLAGS)"
 
-release: build_tools build_power_limit_tables
+release: build_tools
 	$(MAKE) -C $(RT28xx_EMBEDDED_DIR)/striptool -f Makefile.release clean
 	$(MAKE) -C $(RT28xx_EMBEDDED_DIR)/striptool -f Makefile.release
 	striptool/striptool.out
+ifeq ($(RELEASE), DPO)
+	gcc -o embedded/striptool/banner striptool/banner.c
+	./embedded/striptool/banner -b embedded/striptool/copyright.gpl -s DPO/ -d DPO_GPL -R
+	./embedded/striptool/banner -b embedded/striptool/copyright.frm -s DPO_GPL/include/firmware.h
+endif
+
+prerelease:
+ifeq ($(MODULE), 2880)
+	$(MAKE) -C $(RT28xx_OS_DIR)/linux -f Makefile.release.2880 prerelease
+else
+	$(MAKE) -C $(RT28xx_OS_DIR)/linux -f Makefile.release prerelease
+endif
+	cp $(RT28xx_OS_DIR)/linux/Makefile.DPB $(RTMP_SRC_DIR)/os/linux/.
+	cp $(RT28xx_OS_DIR)/linux/Makefile.DPA $(RTMP_SRC_DIR)/os/linux/.
+	cp $(RT28xx_OS_DIR)/linux/Makefile.DPC $(RTMP_SRC_DIR)/os/linux/.
+ifeq ($(RT28xx_MODE),STA)
+	cp $(RT28xx_OS_DIR)/linux/Makefile.DPD $(RTMP_SRC_DIR)/os/linux/.
+	cp $(RT28xx_OS_DIR)/linux/Makefile.DPO $(RTMP_SRC_DIR)/os/linux/.
+endif	
 
 clean:
 ifeq ($(TARGET), LINUX)
 	cp -f $(RT28xx_OS_DIR)/linux/Makefile.clean $(RT28xx_OS_DIR)/linux/Makefile
 	$(MAKE) -C $(RT28xx_OS_DIR)/linux clean
 	rm -rf $(RT28xx_OS_DIR)/linux/Makefile
+ifeq ($(PLATFORM),INTELP6)
+	rm -rf $(BUILD_DEST)/etc/Wireless/7615AP/
+	rm -rf $(FSROOT)/etc/Wireless/7615AP/
+	rm -rf $(BUILD_DEST)/lib/modules/wifi/mt7615e_ap.ko
+	rm -rf $(FSROOT)/lib/modules/wifi/mt7615e_ap.ko
+endif
 endif	
 ifeq ($(TARGET), UCOS)
 	$(MAKE) -C $(RT28xx_OS_DIR)/ucos clean MODE=$(RT28xx_MODE)
@@ -420,9 +532,63 @@ ifeq ($(TARGET), ECOS)
 	$(MAKE) -C $(RT28xx_OS_DIR)/ecos clean MODE=$(RT28xx_MODE)
 endif
 
+uninstall:
+ifeq ($(TARGET), LINUX)
+ifneq (,$(findstring 2.4,$(LINUX_SRC)))
+	$(MAKE) -C $(RT28xx_OS_DIR)/linux -f Makefile.4 uninstall
+else
+	$(MAKE) -C $(RT28xx_OS_DIR)/linux -f Makefile.6 uninstall
+endif
+endif
+
+install:
+ifeq ($(TARGET), LINUX)
+ifneq (,$(findstring 2.4,$(LINUX_SRC)))
+	$(MAKE) -C $(RT28xx_OS_DIR)/linux -f Makefile.4 install
+else
+	$(MAKE) -C $(RT28xx_OS_DIR)/linux -f Makefile.6 install
+endif
+endif
+
 libwapi:
+ifneq (,$(findstring 2.4,$(LINUX_SRC)))
+	cp -f embedded/os/linux/Makefile.libwapi.4 $(RT28xx_OS_DIR)/linux/Makefile
+	$(MAKE) -C $(RT28xx_OS_DIR)/linux/
+else
 	cp -f embedded/os/linux/Makefile.libwapi.6 $(RT28xx_OS_DIR)/linux/Makefile	
 	$(MAKE) -C  $(LINUX_SRC) SUBDIRS=$(RT28xx_OS_DIR)/linux modules	
+endif	
+
+osutil:
+ifeq ($(OSABL),YES)
+ifneq (,$(findstring 2.4,$(LINUX_SRC)))
+	cp -f os/linux/Makefile.4.util $(RT28xx_OS_DIR)/linux/Makefile
+	$(MAKE) -C $(RT28xx_DIR)/os/linux/
+else
+	cp -f os/linux/Makefile.6.util $(RT28xx_OS_DIR)/linux/Makefile
+	$(MAKE) -C $(LINUX_SRC) SUBDIRS=$(RT28xx_DIR)/os/linux modules
+endif
+endif
+
+osnet:
+ifeq ($(OSABL),YES)
+ifneq (,$(findstring 2.4,$(LINUX_SRC)))
+	cp -f os/linux/Makefile.4.netif $(RT28xx_DIR)/os/linux/Makefile
+	$(MAKE) -C $(RT28xx_DIR)/os/linux/
+else
+	cp -f os/linux/Makefile.6.netif $(RT28xx_DIR)/os/linux/Makefile
+	$(MAKE) -C $(LINUX_SRC) SUBDIRS=$(RT28xx_DIR)/os/linux modules
+endif
+endif
+
+osdrv:
+ifneq (,$(findstring 2.4,$(LINUX_SRC)))
+	cp -f os/linux/Makefile.4 $(RT28xx_DIR)/os/linux/Makefile
+	$(MAKE) -C $(RT28xx_DIR)/os/linux/
+else
+	cp -f os/linux/Makefile.6 $(RT28xx_DIR)/os/linux/Makefile
+	$(MAKE) -C $(LINUX_SRC) SUBDIRS=$(RT28xx_DIR)/os/linux modules
+endif
 
 # Declare the contents of the .PHONY variable as phony.  We keep that information in a variable
 .PHONY: $(PHONY)

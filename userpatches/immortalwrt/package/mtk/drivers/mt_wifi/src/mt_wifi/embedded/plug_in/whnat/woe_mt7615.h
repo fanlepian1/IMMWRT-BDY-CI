@@ -1,17 +1,13 @@
 /*
- * Copyright (c) [2020], MediaTek Inc. All rights reserved.
- *
- * This software/firmware and related documentation ("MediaTek Software") are
- * protected under relevant copyright laws.
- * The information contained herein is confidential and proprietary to
- * MediaTek Inc. and/or its licensors.
- * Except as otherwise provided in the applicable licensing terms with
- * MediaTek Inc. and/or its licensors, any reproduction, modification, use or
- * disclosure of MediaTek Software, and information contained herein, in whole
- * or in part, shall be strictly prohibited.
-*/
-/*
  ***************************************************************************
+ * MediaTek Inc.
+ *
+ * All rights reserved. source code is an unpublished work and the
+ * use of a copyright notice does not imply otherwise. This source code
+ * contains confidential trade secret material of MediaTek. Any attemp
+ * or participation in deciphering, decoding, reverse engineering or in any
+ * way altering the source code is stricitly prohibited, unless the prior
+ * written consent of MediaTek, Inc. is obtained.
  ***************************************************************************
 
 	Module Name: wifi_offload
@@ -22,12 +18,27 @@
 #ifndef _WOE_MT7615_H_
 #define _WOE_MT7615_H_
 
+#include "rt_config.h"
+#include "rtmp_comm.h"
+#include "rt_os_util.h"
+#include "rt_os_net.h"
+#include <os/rt_linux_txrx_hook.h>
 
-#include "chip/mt7615_cr.h"
-#include "token.h"
-#include "mac/mac_mt/dmac/mt_dmac.h"
+extern int (*ra_sw_nat_hook_tx)(struct sk_buff *skb, int gmac_no);
+extern struct _RTMP_CHIP_CAP *hc_get_chip_cap(void *hdev_ctrl);
+#ifdef MULTI_INF_SUPPORT
+/*EXPORT symbol from wifi drvier*/
+extern int multi_inf_get_idx(VOID *pAd);
+#endif /*MULTI_INF_SUPPORT*/
 
-#define WPDMA_OFFSET 0x4000
+#define WIFI_RING_OFFSET		0x10
+#define WIFI_TX_RING_SIZE		(1024)
+#define WIFI_PDMA_TXD_SIZE		(TXD_SIZE)
+#define WIFI_TX_TOKEN_CNT		(DEFAUT_WHNAT_PKT_TX_TOKEN_ID_MAX+1)
+#define WIFI_TX_1ST_BUF_SIZE	128
+#define WIFI_RX1_RING_SIZE		(512)
+#define WIFI_TX_BUF_SIZE		1900
+#define WIFI_IMR_VAL			0xfff000e3
 
 /*CR usage remapping*/
 #define WIFI_TX_RING0_BASE	MT_WPDMA_TX_RING0_CTRL0
@@ -59,46 +70,14 @@
 
 #ifdef ERR_RECOVERY
 #define WIFI_MCU_INT_EVENT MT_MCU_INT_EVENT
-#define WIFI_ERR_RECOV_STOP_IDLE	ERR_RECOV_STAGE_STOP_IDLE
-#define WIFI_ERR_RECOV_STOP_PDMA0	ERR_RECOV_STAGE_STOP_PDMA0
-#define WIFI_ERR_RECOV_RESET_PDMA0	ERR_RECOV_STAGE_RESET_PDMA0
-#define WIFI_ERR_RECOV_STOP_IDLE_DONE ERR_RECOV_STAGE_STOP_IDLE_DONE
+#define WIFI_ERR_RECOV_STOP_IDLE	ERR_RECOV_STOP_IDLE
+#define WIFI_ERR_RECOV_STOP_PDMA0	ERR_RECOV_STOP_PDMA0
+#define WIFI_ERR_RECOV_RESET_PDMA0	ERR_RECOV_RESET_PDMA0
+#define WIFI_ERR_RECOV_STOP_IDLE_DONE ERR_RECOV_STOP_IDLE_DONE
 #define WIFI_TRIGGER_SER			MCU_INT_SER_TRIGGER_FROM_HOST
 #endif
 
-/*
-*
-*/
-static inline void wifi_card_fbuf_init(unsigned char *fbuf, unsigned int pkt_pa, unsigned int tkid)
-{
-	TMAC_TXD_L *txd;
-	TMAC_TXD_0 *txd0;
-	TMAC_TXD_1 *txd1;
-	CR4_TXP_MSDU_INFO *txp;
+#define WIFI_TXD_INIT(_txd) (((struct _TXD_STRUC *) _txd)->DMADONE = DMADONE_DONE)
 
-	txd = (TMAC_TXD_L *)fbuf;
-	txp = (CR4_TXP_MSDU_INFO *)(fbuf+sizeof(TMAC_TXD_L));
-	memset(txd, 0, sizeof(*txd));
-	memset(txp, 0, sizeof(*txp));
-	/*initial txd*/
-	txd0 = &txd->TxD0;
-	txd0->TxByteCount = sizeof(*txd);
-	txd0->p_idx = P_IDX_LMAC;
-	txd0->q_idx = 0;
-	txd1 = &txd->TxD1;
-	txd1->ft = TMI_FT_LONG;
-	txd1->txd_len = 0;
-	txd1->pkt_ft = TMI_PKT_FT_HIF_CT;
-	txd1->hdr_format = TMI_HDR_FT_NON_80211;
-	TMI_HDR_INFO_VAL(TMI_HDR_FT_NON_80211, 0, 0, 0, 0, 0, 0, 0, txd1->hdr_info);
-	txd1->hdr_pad = (TMI_HDR_PAD_MODE_HEAD << TMI_HDR_PAD_BIT_MODE) | 0x1;
-	/*init txp*/
-	txp->msdu_token = tkid;
-	/*without TXD, CR4 will take care it*/
-	txp->type_and_flags = 0;
-	txp->buf_num = 1;
-	txp->buf_ptr[0] = pkt_pa;
-	txp->buf_len[0] = 0;
-}
 
 #endif /*_WOE_MT7615_H_*/

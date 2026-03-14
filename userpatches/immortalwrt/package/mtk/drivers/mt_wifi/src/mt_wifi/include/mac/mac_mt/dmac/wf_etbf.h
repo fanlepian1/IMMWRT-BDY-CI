@@ -1,17 +1,13 @@
 /*
- * Copyright (c) [2020], MediaTek Inc. All rights reserved.
- *
- * This software/firmware and related documentation ("MediaTek Software") are
- * protected under relevant copyright laws.
- * The information contained herein is confidential and proprietary to
- * MediaTek Inc. and/or its licensors.
- * Except as otherwise provided in the applicable licensing terms with
- * MediaTek Inc. and/or its licensors, any reproduction, modification, use or
- * disclosure of MediaTek Software, and information contained herein, in whole
- * or in part, shall be strictly prohibited.
-*/
-/*
 ***************************************************************************
+* MediaTek Inc.
+*
+* All rights reserved. source code is an unpublished work and the
+* use of a copyright notice does not imply otherwise. This source code
+* contains confidential trade secret material of MediaTek. Any attemp
+* or participation in deciphering, decoding, reverse engineering or in any
+* way altering the source code is stricitly prohibited, unless the prior
+* written consent of MediaTek, Inc. is obtained.
 ***************************************************************************
 
 	Module Name:
@@ -30,6 +26,11 @@
 #ifndef __WF_ETBF_H__
 #define __WF_ETBF_H__
 
+#if defined(MT7615) || defined(MT7622) || defined(P18) || defined(MT7663)
 #define WF_ETBF_BASE		0x24000
+#else
+#define WF_ETBF_BASE		0x24000
+#endif /* defined(MT7615) || defined(MT7622) */
+
 
 #endif /* __WF_ETBF_H__ */

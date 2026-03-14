@@ -141,87 +141,6 @@ typedef struct _TXDPD_CAL_INFO_T
     UINT32 au4Data[SCN_NUM_MT7622* TXDPD_ADDR_NUM];
 } TXDPD_CAL_INFO_T, *P_TXDPD_CAL_INFO_T;
 #endif /*PRE_CAL_MT7622_SUPPORT*/
-
-#ifdef PRE_CAL_MT7626_SUPPORT
-typedef struct _PRE_CAL_INFO_MT7626_T
-{
-    UINT8  ucDataToFromFlash;
-    UINT8  ucDataValid;
-    UINT16 u2BitMap;
-    INT8   cPreCalTemp;
-    UINT8  ucReserved[3];
-    UINT8  ucBand;
-    UINT8  ucIndex;
-    UINT32 u4Length;
-    UINT32 au4Data[PRE_CAL_SET_MAX_CR_NUM];
-} PRE_CAL_INFO_MT7626_T, *P_PRE_CAL_INFO_MT7626_T;
-#endif /* PRE_CAL_MT7626_SUPPORT */
-
-#ifdef PRE_CAL_MT7915_SUPPORT
-typedef struct _PRE_CAL_INFO_MT7915_T
-{
-    UINT8  ucDataToFromFlash;
-    UINT8  ucDataValid;
-    UINT16 u2BitMap;
-    INT8   cPreCalTemp;
-    UINT8  ucAction;
-    UINT8  ucBand;
-    UINT8  ucIndex;
-    UINT8  ucSecBw80;
-    UINT8  ucReserved[3];
-    UINT32 u4Length;
-    UINT32 au4Data[0];
-} PRE_CAL_INFO_MT7915_T, *P_PRE_CAL_INFO_MT7915_T;
-#endif /* PRE_CAL_MT7915_SUPPORT */
-
-#ifdef PRE_CAL_MT7986_SUPPORT
-typedef struct _PRE_CAL_INFO_MT7986_T
-{
-    UINT8  ucDataToFromFlash;
-    UINT8  ucDataValid;
-    UINT16 u2BitMap;
-    INT8   cPreCalTemp;
-    UINT8  ucAction;
-    UINT8  ucBand;
-    UINT8  ucIndex;
-    UINT8  ucReserved[4];
-    UINT32 u4Length;
-    UINT32 au4Data[0];
-} PRE_CAL_INFO_MT7986_T, *P_PRE_CAL_INFO_MT7986_T;
-#endif /* PRE_CAL_MT7986_SUPPORT */
-
-#ifdef PRE_CAL_MT7916_SUPPORT
-typedef struct _PRE_CAL_INFO_MT7916_T
-{
-    UINT8  ucDataToFromFlash;
-    UINT8  ucDataValid;
-    UINT16 u2BitMap;
-    INT8   cPreCalTemp;
-    UINT8  ucAction;
-    UINT8  ucBand;
-    UINT8  ucIndex;
-    UINT8  ucReserved[4];
-    UINT32 u4Length;
-    UINT32 au4Data[0];
-} PRE_CAL_INFO_MT7916_T, *P_PRE_CAL_INFO_MT7916_T;
-#endif /* PRE_CAL_MT7916_SUPPORT */
-
-#ifdef PRE_CAL_MT7981_SUPPORT
-typedef struct _PRE_CAL_INFO_MT7981_T
-{
-    UINT8  ucDataToFromFlash;
-    UINT8  ucDataValid;
-    UINT16 u2BitMap;
-    INT8   cPreCalTemp;
-    UINT8  ucAction;
-    UINT8  ucBand;
-    UINT8  ucIndex;
-    UINT8  ucReserved[4];
-    UINT32 u4Length;
-    UINT32 au4Data[0];
-} PRE_CAL_INFO_MT7981_T, *P_PRE_CAL_INFO_MT7981_T;
-#endif /* PRE_CAL_MT7981_SUPPORT */
-
 typedef struct _TXIQ_CAL_INFO_T
 {
     UINT8  ucDataToFromFlash;
@@ -306,31 +225,6 @@ INT TxLpfCalInfoAlloc_7622(struct _RTMP_ADAPTER *pAd, VOID **pptr);
 INT TxDcIqCalInfoAlloc_7622(struct _RTMP_ADAPTER *pAd, VOID **pptr);
 INT TxDpdCalInfoAlloc_7622(RTMP_ADAPTER *pAd, VOID **pptr, UINT32 chan);
 #endif /* PRE_CAL_MT7622_SUPPORT */
-
-#ifdef PRE_CAL_MT7626_SUPPORT
-INT GroupPreCalInfoAlloc_7626(struct _RTMP_ADAPTER *pAd, VOID **pptr, UINT16 idx, UINT32 length);
-INT DpdFlatnessCalInfoAlloc_7626(RTMP_ADAPTER *pAd, VOID **pptr, UINT16 idx, UINT32 length);
-#endif /* PRE_CAL_MT7626_SUPPORT */
-
-#ifdef PRE_CAL_MT7915_SUPPORT
-INT GroupPreCalInfoAlloc_7915(struct _RTMP_ADAPTER *pAd, VOID **pptr, UINT16 idx, UINT32 length);
-INT DpdFlatnessCalInfoAlloc_7915(RTMP_ADAPTER *pAd, VOID **pptr, UINT16 idx, UINT32 length, BOOLEAN bSecBw80);
-#endif /* PRE_CAL_MT7915_SUPPORT */
-
-#ifdef PRE_CAL_MT7986_SUPPORT
-INT GroupPreCalInfoAlloc_7986(struct _RTMP_ADAPTER *pAd, VOID **pptr, UINT16 idx, UINT32 length);
-INT DpdFlatnessCalInfoAlloc_7986(RTMP_ADAPTER *pAd, VOID **pptr, UINT16 idx, UINT32 length, UINT32 eeprom_offset);
-#endif /* PRE_CAL_MT7986_SUPPORT */
-
-#ifdef PRE_CAL_MT7916_SUPPORT
-INT GroupPreCalInfoAlloc_7916(struct _RTMP_ADAPTER *pAd, VOID **pptr, UINT16 idx, UINT32 length);
-INT DpdFlatnessCalInfoAlloc_7916(RTMP_ADAPTER *pAd, VOID **pptr, UINT16 idx, UINT32 length, UINT32 eeprom_offset);
-#endif /* PRE_CAL_MT7916_SUPPORT */
-
-#ifdef PRE_CAL_MT7981_SUPPORT
-INT GroupPreCalInfoAlloc_7981(struct _RTMP_ADAPTER *pAd, VOID **pptr, UINT16 idx, UINT32 length);
-INT DpdFlatnessCalInfoAlloc_7981(RTMP_ADAPTER *pAd, VOID **pptr, UINT16 idx, UINT32 length, UINT32 eeprom_offset);
-#endif /* PRE_CAL_MT7981_SUPPORT */
 
 #endif /* __RLM_CAL_CACHE_H__ */
 

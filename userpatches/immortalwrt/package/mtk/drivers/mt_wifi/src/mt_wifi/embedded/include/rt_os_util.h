@@ -92,11 +92,9 @@ void RTMP_QueryPacketInfo(
 	OUT PUCHAR * pSrcBufVA,
 	OUT	UINT *pSrcBufLen);
 
-PNDIS_PACKET ClonePacket(BOOLEAN MonitorOn, PNET_DEV ndev, PNDIS_PACKET pkt, UCHAR *buf, ULONG sz);
+
+PNDIS_PACKET ClonePacket(BOOLEAN moniflag, PNET_DEV ndev, PNDIS_PACKET pkt, UCHAR *buf, ULONG sz);
 PNDIS_PACKET DuplicatePacket(PNET_DEV pNetDev, PNDIS_PACKET pPacket);
-#ifdef MAP_TS_TRAFFIC_SUPPORT
-PNDIS_PACKET CopyPacket(IN PNET_DEV if_dev, IN PNDIS_PACKET pkt);
-#endif
 
 PNDIS_PACKET duplicate_pkt_with_TKIP_MIC(
 	IN VOID *pReserved,
@@ -216,12 +214,6 @@ UCHAR VLAN_8023_Header_Copy(
 VOID *RtmpOsVLANInsertTag(PNDIS_PACKET pPacket, UINT16 tci);
 #endif /*VLAN_SUPPORT*/
 
-VOID RtmpOsSkbPullRcsum(struct sk_buff *skb, unsigned int len);
-VOID RtmpOsSkbResetMacHeader(struct sk_buff *skb);
-VOID RtmpOsSkbResetNetworkHeader(struct sk_buff *skb);
-VOID RtmpOsSkbResetTransportHeader(struct sk_buff *skb);
-VOID RtmpOsSkbResetMacLen(struct sk_buff *skb);
-
 VOID RtmpOsPktBodyCopy(
 	IN	PNET_DEV				pNetDev,
 	IN	PNDIS_PACKET			pNetPkt,
@@ -243,13 +235,10 @@ VOID RtmpOsPktReserve(PNDIS_PACKET pNetPkt, UINT len);
 
 VOID RtmpOsPktProtocolAssign(PNDIS_PACKET pNetPkt);
 VOID RtmpOsPktInfPpaSend(PNDIS_PACKET pNetPkt);
-VOID RtmpOsPktRcvHandle(PNDIS_PACKET pNetPkt, VOID *napi);
+VOID RtmpOsPktRcvHandle(PNDIS_PACKET pNetPkt);
 #ifdef CONFIG_FAST_NAT_SUPPORT
 VOID RtmpOsPktNatMagicTag(PNDIS_PACKET pNetPkt);
 #endif /*CONFIG_FAST_NAT_SUPPORT*/
-#ifdef WHNAT_SUPPORT
-VOID RtmpOsPktNatMagicTagInvalid(PNDIS_PACKET pNetPkt);
-#endif
 VOID RtmpOsPktInit(PNDIS_PACKET pNetPkt, PNET_DEV pNetDev, UCHAR *buf, USHORT len);
 
 PNDIS_PACKET RtmpOsPktIappMakeUp(PNET_DEV pNetDev, UINT8 *pMac);
@@ -285,13 +274,6 @@ INT RtmpOSNetDevAlloc(PNET_DEV *new_dev_p, UINT32 privDataSize);
 INT RtmpOSNetDevOpsAlloc(PVOID *pNetDevOps);
 
 
-#ifdef CONFIG_STA_SUPPORT
-INT RtmpOSNotifyRawData(PNET_DEV pNetDev, UCHAR *buf, INT len, ULONG type, USHORT proto, VOID *napi);
-
-#ifdef WIDI_SUPPORT
-INT RtmpOSWidiNotify(PNET_DEV pNetDev, UCHAR *buf, INT len, ULONG type);
-#endif /* WIDI_SUPPORT */
-#endif /* CONFIG_STA_SUPPORT */
 
 PNET_DEV RtmpOSNetDevGetByName(PNET_DEV pNetDev, RTMP_STRING *pDevName);
 
@@ -315,6 +297,7 @@ PNET_DEV RtmpOSNetDevCreate(
 	IN	INT						privMemSize,
 	IN	char *pNamePrefix,
 	IN	BOOLEAN	autoSuffix);
+
 BOOLEAN RtmpOSNetDevIsUp(VOID *pDev);
 
 unsigned char *RtmpOsNetDevGetPhyAddr(VOID *pDev);
@@ -335,7 +318,6 @@ char *RtmpOsGetNetDevName(VOID *pDev);
 
 UINT32 RtmpOsGetNetIfIndex(IN VOID *pDev);
 
-
 VOID RtmpOsSetNetDevPriv(VOID *pDev, VOID *pPriv);
 VOID *RtmpOsGetNetDevPriv(VOID *pDev);
 
@@ -350,8 +332,9 @@ VOID RtmpOsSetNetDevTypeMonitor(VOID *pDev);
 UCHAR get_sniffer_mode(VOID *pDev);
 VOID set_sniffer_mode(VOID *pDev, UCHAR mode);
 
-/* OS Semaphore */
 VOID RtmpOsCmdUp(RTMP_OS_TASK *pCmdQTask);
+BOOLEAN RtmpOsIsCmdThreadRunning(RTMP_OS_TASK *pCmdQTask);
+/* OS Semaphore */
 BOOLEAN RtmpOsSemaInitLocked(RTMP_OS_SEM *pSemOrg, LIST_HEADER *pSemList);
 BOOLEAN RtmpOsSemaInit(RTMP_OS_SEM *pSemOrg, LIST_HEADER *pSemList);
 BOOLEAN RtmpOsSemaDestory(RTMP_OS_SEM *pSemOrg);
@@ -557,12 +540,11 @@ VOID RtmpDrvAllRFPrint(
 	IN UCHAR *pBuf,
 	IN UINT32 BufLen);
 
-int RtmpOSIRQRequest(UINT32 irq, const CHAR *name, VOID *func, VOID *data);
-
 int RtmpOSIRQRelease(
-	UINT32 irq,
-	VOID *data
-);
+	IN	PNET_DEV				pNetDev,
+	IN	UINT32					infType,
+	IN	PPCI_DEV				pci_dev,
+	IN	BOOLEAN					*pHaveMsi);
 
 VOID RtmpOsWlanEventSet(
 	IN	VOID					*pReserved,
@@ -590,9 +572,9 @@ VOID RtmpDrvMaxRateGet(
 	IN UINT8 BW,
 	IN UINT8 MCS,
 	IN UINT8 Antenna,
-	OUT UINT64 *pRate);
+	OUT UINT32 *pRate);
 
-char *rtstrchr(char *s, int c);
+char *rtstrchr(const char *s, int c);
 
 RTMP_STRING *WscGetAuthTypeStr(USHORT authFlag);
 
@@ -660,43 +642,20 @@ void RTMP_FreeFirstTxBuffer(
 	IN	PVOID					VirtualAddress,
 	IN	NDIS_PHYSICAL_ADDRESS	PhysicalAddress);
 
-enum buf_alloc_flags {
-	BUF_DEFAULT = (1 << 0),
-	BUF_ZERO = (1 << 1),
-	BUF_DEBUG = (1 << 2),
-};
-
-enum buf_alloc_debug {
-	BUF_RX_RXD = (1 << 0),
-	BUF_RX_ADDR = (1 << 1),
-	BUF_RX_PAYLOAD = (1 << 2),
-	BUF_RX_HW_PAYLOAD = (1 << 3),
+enum MEM_ALLOC_TYPE {
+	DYNAMIC_PAGE_ALLOC,
+	DYNAMIC_SLAB_ALLOC,
+	PRE_SLAB_ALLOC,
 };
 
 PNDIS_PACKET RTMP_AllocateRxPacketBuffer(
 	VOID *pReserved,
 	VOID *pDev,
+	enum  MEM_ALLOC_TYPE type,
 	ULONG Length,
 	PVOID *VirtualAddress,
 	PNDIS_PHYSICAL_ADDRESS PhysicalAddress);
 
-void rx_page_frag_cache_drain(struct page *page, unsigned int count);
-
-#ifdef CONFIG_STA_SUPPORT
-#ifdef CONFIG_PM
-#ifdef USB_SUPPORT_SELECTIVE_SUSPEND
-
-int RTMP_Usb_AutoPM_Put_Interface(
-	IN	VOID			*pUsb_Dev,
-	IN	VOID			*intf);
-
-int  RTMP_Usb_AutoPM_Get_Interface(
-	IN	VOID			*pUsb_Dev,
-	IN	VOID			*intf);
-
-#endif /* USB_SUPPORT_SELECTIVE_SUSPEND */
-#endif /* CONFIG_PM */
-#endif /* CONFIG_STA_SUPPORT */
 
 
 
@@ -794,8 +753,7 @@ BOOLEAN CFG80211OS_ChanInfoInit(
 	IN UCHAR					ChanId,
 	IN UCHAR					MaxTxPwr,
 	IN BOOLEAN					FlgIsNMode,
-	IN BOOLEAN					FlgIsBW20M,
-	IN USHORT					PhyMode);
+	IN BOOLEAN					FlgIsBW20M);
 
 VOID CFG80211OS_Scaning(
 	IN VOID						*pCB,
@@ -847,8 +805,6 @@ VOID CFG80211OS_PutBss(IN VOID *pWiphyOrg, IN VOID *pCfg80211Bss);
 
 /* ================================ MACRO =================================== */
 #define RTMP_UTIL_DCACHE_FLUSH(__AddrStart, __Size)
-#define RTMP_GET_PKT_SRC_VA(pPacket) GET_OS_PKT_DATAPTR(pPacket)
-#define RTMP_GET_PKT_LEN(pPacket) GET_OS_PKT_LEN(pPacket)
 
 /* ================================ EXTERN ================================== */
 extern UCHAR SNAP_802_1H[6];
@@ -873,8 +829,6 @@ INT32  RtPrivIoctlSetVal(VOID);
 
 void OS_SPIN_LOCK(NDIS_SPIN_LOCK *lock);
 void OS_SPIN_UNLOCK(NDIS_SPIN_LOCK *lock);
-void OS_SPIN_LOCK_BH(NDIS_SPIN_LOCK *lock);
-void OS_SPIN_UNLOCK_BH(NDIS_SPIN_LOCK *lock);
 void OS_SPIN_LOCK_IRQSAVE(NDIS_SPIN_LOCK *lock, unsigned long *flags);
 void OS_SPIN_UNLOCK_IRQRESTORE(NDIS_SPIN_LOCK *lock, unsigned long *flags);
 void OS_SPIN_LOCK_IRQ(NDIS_SPIN_LOCK *lock);
@@ -884,12 +838,13 @@ void RtmpOsSpinUnlockIrqRestore(NDIS_SPIN_LOCK *lock, unsigned long *flags);
 void RtmpOsSpinLockIrq(NDIS_SPIN_LOCK *lock);
 void RtmpOsSpinUnlockIrq(NDIS_SPIN_LOCK *lock);
 int OS_TEST_BIT(int bit, ULONG *flags);
-void OS_SET_BIT(unsigned int bit, ULONG *flags);
-void OS_CLEAR_BIT(unsigned int bit, ULONG *flags);
+void OS_SET_BIT(int bit, ULONG *flags);
+void OS_CLEAR_BIT(int bit, ULONG *flags);
 void OS_LOAD_CODE_FROM_BIN(unsigned char **image, char *bin_name, void *inf_dev, UINT32 *code_len);
 #ifdef MEM_ALLOC_INFO_SUPPORT
-UINT32 ShowMemAllocInfo(UINT show, UINT64 pCaller);
-UINT32 ShowPktAllocInfo(UINT show, UINT64 pCaller);
+VOID MemInfoListInital(VOID);
+UINT32 ShowMemAllocInfo(VOID);
+UINT32 ShowPktAllocInfo(VOID);
 #endif /* MEM_ALLOC_INFO_SUPPORT */
 
 #ifdef CONFIG_AP_SUPPORT
@@ -909,8 +864,7 @@ VOID wifi_dump_info(VOID);
 #define WLAN_HOOK_INIT()
 #endif
 
-INT32 CFG80211OS_UpdateRegRuleByRegionIdx(
-	IN VOID *pCB, IN VOID *pChDesc2G, IN VOID *pChDesc5G, IN VOID *pChDesc6G);
+INT32 CFG80211OS_UpdateRegRuleByRegionIdx(IN VOID *pCB, IN VOID *pChDesc2G, IN VOID *pChDesc5G);
 
 #endif /* __RT_OS_UTIL_H__ */
 

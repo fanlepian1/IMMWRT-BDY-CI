@@ -1,17 +1,18 @@
 /*
- * Copyright (c) [2020], MediaTek Inc. All rights reserved.
- *
- * This software/firmware and related documentation ("MediaTek Software") are
- * protected under relevant copyright laws.
- * The information contained herein is confidential and proprietary to
- * MediaTek Inc. and/or its licensors.
- * Except as otherwise provided in the applicable licensing terms with
- * MediaTek Inc. and/or its licensors, any reproduction, modification, use or
- * disclosure of MediaTek Software, and information contained herein, in whole
- * or in part, shall be strictly prohibited.
-*/
-/*
  ***************************************************************************
+ * Ralink Tech Inc.
+ * 4F, No. 2 Technology 5th Rd.
+ * Science-based Industrial Park
+ * Hsin-chu, Taiwan, R.O.C.
+ *
+ * (c) Copyright 2002-2004, Ralink Technology, Inc.
+ *
+ * All rights reserved. Ralink's source code is an unpublished work and the
+ * use of a copyright notice does not imply otherwise. This source code
+ * contains confidential trade secret material of Ralink Tech. Any attemp
+ * or participation in deciphering, decoding, reverse engineering or in any
+ * way altering the source code is stricitly prohibited, unless the prior
+ * written consent of Ralink Technology, Inc. is obtained.
  ***************************************************************************
 
 	Module Name:
@@ -41,14 +42,7 @@
 #include "mcu/mt_cmd.h"
 #include "mcu/fwdl.h"
 
-#ifdef WIFI_UNIFIED_COMMAND
-#include "hw_ctrl/cmm_fw_uni_cmd.h"
-#include "hw_ctrl/cmm_fw_uni_event.h"
-#endif /* WIFI_UNIFIED_COMMAND */
-
 #include "common/link_list.h"
-#include "wifi_sys_notify.h"
-
 
 struct _RTMP_ADAPTER;
 struct _RXFCE_INFO;
@@ -107,22 +101,8 @@ struct MCU_CTRL {
 #ifdef DBG_STARVATION
 	struct starv_dbg_block block;
 #endif /*DBG_STARVATION*/
-	struct notify_head fw_cmd_notify_head;
 	struct _RTMP_ADAPTER *ad;
 };
-
-struct fw_cmd_notify_info {
-	void *msg;
-	UINT32 msg_len;
-	struct _RTMP_ADAPTER *ad;
-};
-
-enum {
-	FW_CMD_NOTIFY_PRIORITY_DEFAULT = 0,
-	FW_CMD_NOTIFY_PRIORITY_PROXY,
-};
-
-
 
 struct cmd_msg;
 typedef VOID(*MSG_EVENT_HANDLER)(struct _RTMP_ADAPTER *ad, char *payload, UINT16 payload_len);
@@ -134,10 +114,7 @@ struct cmd_msg_cb {
 #define CMD_MSG_CB(pkt) ((struct cmd_msg_cb *)(GET_OS_PKT_CB(pkt)))
 #define CMD_MSG_RETRANSMIT_TIMES 3
 #define CMD_MSG_TIMEOUT 3000
-#if defined(MT7626) && defined(RTMP_RBUS_SUPPORT)
-#undef CMD_MSG_TIMEOUT
-#define CMD_MSG_TIMEOUT 6000
-#endif
+
 #define MT_CMD_TX_HOOK AndesSendCmdMsg
 
 enum BW_SETTING {
@@ -157,6 +134,8 @@ enum mcu_skb_state {
 	UNLINK_START,
 };
 
+
+#define USB_END_PADDING 4
 #define SDIO_END_PADDING 4
 
 struct mcu_skb_data {
@@ -169,7 +148,12 @@ typedef union _LED_ENHANCE {
 	struct {
 		UINT32 tx_over_blink:1;
 		UINT32 reverse_polarity:1;
+#if defined(MT7615) || defined(MT7622)
+		UINT32 band_select:1;
+		UINT32 rsv:3;
+#else
 		UINT32 rsv:4;
+#endif
 		UINT32 tx_blink:2;
 		UINT32 on_time:8;
 		UINT32 off_time:8;
@@ -184,7 +168,12 @@ typedef union _LED_ENHANCE {
 		UINT32 off_time:8;
 		UINT32 on_time:8;
 		UINT32 tx_blink:2;
+#if defined(MT7615) || defined(MT7622)
+		UINT32 rsv:3;
+		UINT32 band_select:1;
+#else
 		UINT32 rsv:4;
+#endif
 		UINT32 reverse_polarity:1;
 		UINT32 tx_over_blink:1;
 	} field;
@@ -198,9 +187,12 @@ VOID AndesCtrlExit(struct _RTMP_ADAPTER *pAd);
 INT32 AndesSendCmdMsg(struct _RTMP_ADAPTER *pAd, struct cmd_msg *msg);
 BOOLEAN IsInbandCmdProcessing(struct _RTMP_ADAPTER *pAd);
 VOID AndesCmdMsgBh(unsigned long param);
+INT32 UsbRxCmdMsgSubmit(struct _RTMP_ADAPTER *pAd);
+INT32 UsbRxCmdMsgsReceive(struct _RTMP_ADAPTER *pAd);
 VOID AndesBhSchedule(struct _RTMP_ADAPTER *pAd);
 
 struct cmd_msg *AndesAllocCmdMsg(struct _RTMP_ADAPTER *pAd, unsigned int length);
+
 VOID AndesInitCmdMsg(struct cmd_msg *msg, CMD_ATTRIBUTE attr);
 
 VOID AndesAppendCmdMsg(struct cmd_msg *msg, char *data, unsigned int len);
@@ -217,17 +209,13 @@ VOID AndesQueueHeadCmdMsg(DL_LIST *list, struct cmd_msg *msg,
 VOID AndesQueueHeadCmdMsg(DL_LIST *list, struct cmd_msg *msg,
 						  enum cmd_msg_state state);
 UINT32 AndesQueueLen(struct MCU_CTRL *ctl, DL_LIST *list);
-NDIS_SPIN_LOCK *AndesGetSpinLock(struct MCU_CTRL *ctl, DL_LIST *list);
-UCHAR AndesGetCmdMsgSeq(struct _RTMP_ADAPTER *ad);
-VOID _AndesQueueTailCmdMsg(DL_LIST *list, struct cmd_msg *msg, enum cmd_msg_state state);
+
+#ifdef RTMP_PCI_SUPPORT
+VOID PciKickOutCmdMsgComplete(PNDIS_PACKET net_pkt);
+#endif
+
+
 VOID AndesRxProcessCmdMsg(struct _RTMP_ADAPTER *pAd, struct cmd_msg *rx_msg);
-struct cmd_msg *AndesAllocCmdMsgGe(struct _RTMP_ADAPTER *ad, unsigned int length, BOOLEAN bOldCmdFmt);
-
-INT register_fw_cmd_notifier(struct _RTMP_ADAPTER *ad, struct notify_entry *ne);
-
-INT unregister_fw_cmd_notifier(struct _RTMP_ADAPTER *ad, struct notify_entry *ne);
-
-INT call_fw_cmd_notifieriers(INT val, struct _RTMP_ADAPTER *ad, void *msg);
 
 #endif /* __ANDES_CORE_H__ */
 

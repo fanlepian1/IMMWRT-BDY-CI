@@ -1,17 +1,18 @@
 /*
- * Copyright (c) [2020], MediaTek Inc. All rights reserved.
- *
- * This software/firmware and related documentation ("MediaTek Software") are
- * protected under relevant copyright laws.
- * The information contained herein is confidential and proprietary to
- * MediaTek Inc. and/or its licensors.
- * Except as otherwise provided in the applicable licensing terms with
- * MediaTek Inc. and/or its licensors, any reproduction, modification, use or
- * disclosure of MediaTek Software, and information contained herein, in whole
- * or in part, shall be strictly prohibited.
-*/
-/*
  ***************************************************************************
+ * Ralink Tech Inc.
+ * 4F, No. 2 Technology	5th Rd.
+ * Science-based Industrial Park
+ * Hsin-chu, Taiwan, R.O.C.
+ *
+ * (c) Copyright 2002-2004, Ralink Technology, Inc.
+ *
+ * All rights reserved.	Ralink's source	code is	an unpublished work and the
+ * use of a copyright notice does not imply otherwise. This source code
+ * contains confidential trade secret material of Ralink Tech. Any attemp
+ * or participation in deciphering, decoding, reverse engineering or in any
+ * way altering	the source code	is stricitly prohibited, unless	the prior
+ * written consent of Ralink Technology, Inc. is obtained.
  ***************************************************************************
 
 	Module Name:
@@ -34,24 +35,6 @@
 #include "mac/mac_mt/mt_mac_ctrl.h"
 #endif /* MT_MAC */
 
-#define VENDOR_OUI_MTK  {0x00, 0x0C, 0xE7}
-
-/* 7.3.2.2 Data Rate Value */
-#define RATE_1M                             2	/* 1M in unit of 500kb/s */
-#define RATE_2M                             4	/* 2M */
-#define RATE_5_5M                           11	/* 5.5M */
-#define RATE_11M                            22	/* 11M */
-#define RATE_22M                            44	/* 22M */
-#define RATE_33M                            66	/* 33M */
-#define RATE_6M                             12	/* 6M */
-#define RATE_9M                             18	/* 9M */
-#define RATE_12M                            24	/* 12M */
-#define RATE_18M                            36	/* 18M */
-#define RATE_24M                            48	/* 24M */
-#define RATE_36M                            72	/* 36M */
-#define RATE_48M                            96	/* 48M */
-#define RATE_54M                            108	/* 54M */
-
 #define WMM_QUE_NUM 4
 
 enum {
@@ -67,9 +50,6 @@ enum {
 	QID_BCN = 17,
 };
 
-#define NUM_OF_TX_RING		4
-#define NUM_OF_WMM1_TX_RING	1
-
 #define ETH_TYPE_VLAN	0x8100
 #define ETH_TYPE_IPv4	0x0800
 #define ETH_TYPE_IPv6	0x86dd
@@ -78,13 +58,13 @@ enum {
 #define ETH_TYPE_WAI	0x88b4
 #define ETHER_TYPE_TDLS_MMPDU 0x890d
 #define ETH_TYPE_FASTROAMING	0x890d
-#define ETH_TYPE_1905  0x893A
+#define ETH_TYPE_1905	0x893A
 
 #define IP_VER_CODE_V4	0x40
 #define IP_VER_CODE_V6	0x60
 #define IP_PROTOCOL_ICMP 0x01
 #define IP_PROTOCOL_TCP 0x06
-#define IP_PROTO_UDP	0x11
+#define IP_PROTO_UDP	0x11 
 #define IP_HDR_LEN		20
 #define ETH_HDR_LEN		14
 
@@ -175,29 +155,9 @@ typedef	struct GNU_PACKED _RXINFO_STRUC {
 } RXINFO_STRUC;
 #endif
 
-struct phy_params {
-	UINT8 phy_mode;
-	UINT8 prim_ch;
-	UINT8 bw;
-	UINT8 ldpc;
-	BOOLEAN stbc;
-	UINT8 gi_type;
-	UINT8 ltf_type;
-	UINT8 tx_ibf;
-	UINT8 tx_ebf;
-	UINT8 vht_nss;
-	UINT32 rate;
-	BOOLEAN dcm;
-	BOOLEAN su_ext_tone;
-	CHAR  pwr_offset;
-	CHAR ant_pri;
-	CHAR spe_idx;
-	UINT16 type;
-	UINT16 subtype;
-};
 
 typedef struct _MAC_TX_INFO {
-	UINT16 WCID;
+	UCHAR WCID;
 	BOOLEAN FRAG;
 	BOOLEAN InsTimestamp;
 	BOOLEAN NSeq;
@@ -205,12 +165,9 @@ typedef struct _MAC_TX_INFO {
 	BOOLEAN BM;
 	BOOLEAN CFACK;
 	BOOLEAN AMPDU;
-	BOOLEAN sw_duration;
-	BOOLEAN htc;
 	UCHAR BASize;
 	UCHAR PID;
 	UCHAR TID;
-	USHORT assigned_seq;
 	UCHAR TxRate;
 	UCHAR Txopmode;
 	ULONG Length;
@@ -232,16 +189,11 @@ typedef struct _MAC_TX_INFO {
 	UINT8 wmm_set; /* TODO: shiang-MT7615, replace band by bss_idx? */
 	BOOLEAN IsTmr;
 	BOOLEAN IsOffloadPkt;/* host gen pkt template, make pkt enqued by fw. */
-	BOOLEAN txs2h;
-	BOOLEAN txs2m;
-	BOOLEAN addba;
-	UCHAR txpwr_offset;
+#ifdef FTM_SUPPORT
+	BOOLEAN ftm_bw;
+#endif /* FTM_SUPPORT */
 #endif /* MT_MAC */
 	BOOLEAN IsAutoRate;
-	UCHAR tx_lifetime;
-#ifdef DPP_SUPPORT
-	UINT16 seq_no;
-#endif /* DPP_SUPPORT */
 } MAC_TX_INFO;
 
 enum {
@@ -256,21 +208,32 @@ enum {
 	PID_P2P_ACTION,
 	PID_NULL_FRAME_PWR_ACTIVE,
 	PID_NULL_FRAME_PWR_SAVE,
-	PID_MGMT_DPP_FRAME,
-	PID_EAPOL_FRAME = 0x18,
 	PID_BEACON = 0x20,
+#ifdef FTM_SUPPORT
 	PID_FTM_MIN = 0x21,
 	PID_FTM_MAX = 0x40,
-	PID_FD_FRAME = 0x41,
-	PID_MAX = 0x42,
+#endif /* FTM_SUPPORT */
+	PID_MAX = 0x40,
 };
 
 struct _RTMP_ADAPTER;
 struct _TXD_STRUC;
 struct _RXD_STRUC;
 
+
+
 VOID dump_txinfo(struct _RTMP_ADAPTER *pAd, TXINFO_STRUC *pTxInfo);
+VOID dump_rxinfo(struct _RTMP_ADAPTER *pAd, RXINFO_STRUC *pRxInfo);
+
+VOID dump_tmac_info(struct _RTMP_ADAPTER *pAd, UCHAR *tmac_info);
 VOID dump_rmac_info(struct _RTMP_ADAPTER *pAd, UCHAR *rmac_info);
+VOID dump_rmac_info_rxv(struct _RTMP_ADAPTER *pAd, UCHAR *Data);
+VOID dump_rmac_info_for_ICVERR(struct _RTMP_ADAPTER *pAd, UCHAR *rmac_info);
+
+
+#ifdef MT_MAC
+VOID DumpTxSFormat(struct _RTMP_ADAPTER *pAd, UINT8 Format, CHAR *Data);
+#endif /* MT_MAC */
 
 #if defined(RTMP_PCI_SUPPORT) || defined(RTMP_RBUS_SUPPORT)
 VOID dump_txd(struct _RTMP_ADAPTER *pAd, struct _TXD_STRUC *pTxD);

@@ -1,16 +1,16 @@
-/*
- * Copyright (c) [2020], MediaTek Inc. All rights reserved.
- *
- * This software/firmware and related documentation ("MediaTek Software") are
- * protected under relevant copyright laws.
- * The information contained herein is confidential and proprietary to
- * MediaTek Inc. and/or its licensors.
- * Except as otherwise provided in the applicable licensing terms with
- * MediaTek Inc. and/or its licensors, any reproduction, modification, use or
- * disclosure of MediaTek Software, and information contained herein, in whole
- * or in part, shall be strictly prohibited.
-*/
 /****************************************************************************
+ * Ralink Tech Inc.
+ * 4F, No. 2 Technology 5th Rd.
+ * Science-based Industrial Park
+ * Hsin-chu, Taiwan, R.O.C.
+ * (c) Copyright 2002, Ralink Technology, Inc.
+ *
+ * All rights reserved. Ralink's source code is an unpublished work and the
+ * use of a copyright notice does not imply otherwise. This source code
+ * contains confidential trade secret material of Ralink Tech. Any attemp
+ * or participation in deciphering, decoding, reverse engineering or in any
+ * way altering the source code is stricitly prohibited, unless the prior
+ * written consent of Ralink Technology, Inc. is obtained.
  ****************************************************************************
 
     Module Name:
@@ -114,11 +114,9 @@ typedef union GNU_PACKED _FT_MIC_CTR_FIELD {
 	struct GNU_PACKED {
 #ifdef RT_BIG_ENDIAN
 		UINT16 IECnt:8;
-		UINT16 Reserved:7;
-		UINT16 rsnxe_used:1;
+		UINT16 Reserved:8;
 #else
-		UINT16 rsnxe_used:1;
-		UINT16 Reserved:7;
+		UINT16 Reserved:8;
 		UINT16 IECnt:8;
 #endif
 	} field;
@@ -143,9 +141,9 @@ typedef enum _FT_SUB_ELEMENT_ID {
 	FT_R1KH_ID = 1,
 	FT_GTK,
 	FT_R0KH_ID,
+#ifdef DOT11W_PMF_SUPPORT
 	FT_IGTK_ID,
-	FT_OCI_ID,
-	FT_BIGTK_ID,
+#endif /* DOT11W_PMF_SUPPORT */
 	FT_RESERVED_ID
 } FT_SUB_ELEMENT_ID, *PFT_SUB_ELEMENT_ID;
 

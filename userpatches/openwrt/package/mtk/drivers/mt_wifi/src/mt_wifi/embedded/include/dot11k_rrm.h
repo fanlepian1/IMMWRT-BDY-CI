@@ -1,17 +1,18 @@
 /*
- * Copyright (c) [2020], MediaTek Inc. All rights reserved.
- *
- * This software/firmware and related documentation ("MediaTek Software") are
- * protected under relevant copyright laws.
- * The information contained herein is confidential and proprietary to
- * MediaTek Inc. and/or its licensors.
- * Except as otherwise provided in the applicable licensing terms with
- * MediaTek Inc. and/or its licensors, any reproduction, modification, use or
- * disclosure of MediaTek Software, and information contained herein, in whole
- * or in part, shall be strictly prohibited.
-*/
-/*
  ***************************************************************************
+ * Ralink Tech Inc.
+ * 4F, No. 2 Technology 5th Rd.
+ * Science-based Industrial Park
+ * Hsin-chu, Taiwan, R.O.C.
+ *
+ * (c) Copyright 2002-2006, Ralink Technology, Inc.
+ *
+ * All rights reserved.	Ralink's source	code is	an unpublished work	and	the
+ * use of a	copyright notice does not imply	otherwise. This	source code
+ * contains	confidential trade secret material of Ralink Tech. Any attemp
+ * or participation	in deciphering,	decoding, reverse engineering or in	any
+ * way altering	the	source code	is stricitly prohibited, unless	the	prior
+ * written consent of Ralink Technology, Inc. is obtained.
  ***************************************************************************/
 
 /****************************************************************************
@@ -90,20 +91,6 @@
 #define RRM_TX_STREAM_SUBID_TRIGGER_REPORT		1
 #define RRM_TX_STREAM_SUBID_VENDOR				221
 
-/*
- * IEEE Std 802.11-2016, Table 9-90 - Reporting Detail values
- */
-enum beacon_report_detail {
-	/* No fixed-length fields or elements */
-	BEACON_REPORT_DETAIL_NONE = 0,
-	/* All fixed-length fields and any requested elements in the Request
-	 * element if present */
-	BEACON_REPORT_DETAIL_REQUESTED_ONLY = 1,
-	/* All fixed-length fields and elements (default, used when Reporting
-	 * Detail subelement is not included in a Beacon request) */
-	BEACON_REPORT_DETAIL_ALL_FIELDS_AND_ELEMENTS = 2,
-};
-
 typedef struct GNU_PACKED _RRM_SUBFRAME_INFO {
 	UINT8 SubId;
 	UINT8 Length;
@@ -146,15 +133,11 @@ typedef struct GNU_PACKED _RRM_BEACON_REP_INFO {
 	UINT32 ParentTSF;
 	UINT8 Option[0];
 } RRM_BEACON_REP_INFO, *PRRM_BEACON_REP_INFO;
-#ifndef WAPP_SUPPORT
+
 typedef union GNU_PACKED _RRM_BSSID_INFO {
 	struct GNU_PACKED {
 #ifdef RT_BIG_ENDIAN
-		UINT32 Reserved:14;
-		UINT32 _20_TU_ProbeRspActive:1;
-		UINT32 CO_locatedAP:1;
-		UINT32 HE_ER_BSS:1;
-		UINT32 HE:1;
+		UINT32 Reserved:18;
 		UINT32 FTM:1;
 		UINT32 VHT:1;
 		UINT32 HT:1;
@@ -164,7 +147,7 @@ typedef union GNU_PACKED _RRM_BSSID_INFO {
 		UINT32 RRM:1;
 		UINT32 APSD:1;
 		UINT32 Qos:1;
-		UINT32 SpectrumMng:1;
+		UINT32 SepctrumMng:1;
 		UINT32 KeyScope:1;
 		UINT32 Security:1;
 		UINT32 APReachAble:2;
@@ -172,7 +155,7 @@ typedef union GNU_PACKED _RRM_BSSID_INFO {
 		UINT32 APReachAble:2;
 		UINT32 Security:1;
 		UINT32 KeyScope:1;
-		UINT32 SpectrumMng:1;
+		UINT32 SepctrumMng:1;
 		UINT32 Qos:1;
 		UINT32 APSD:1;
 		UINT32 RRM:1;
@@ -182,16 +165,12 @@ typedef union GNU_PACKED _RRM_BSSID_INFO {
 		UINT32 HT:1;
 		UINT32 VHT:1;
 		UINT32 FTM:1;
-		UINT32 HE:1;
-		UINT32 HE_ER_BSS:1;
-		UINT32 CO_locatedAP:1;
-		UINT32 _20_TU_ProbeRspActive:1;
-		UINT32 Reserved:14;
+		UINT32 Reserved:18;
 #endif
 	} field;
 	UINT32 word;
 } RRM_BSSID_INFO, *PRRM_BSSID_INFO;
-#endif
+
 typedef struct GNU_PACKED _RRM_NEIGHBOR_REP_INFO {
 	UINT8 Bssid[MAC_ADDR_LEN];
 	UINT32 BssidInfo;
@@ -379,30 +358,6 @@ typedef struct GNU_PACKED _RRM_TRANSMIT_MEASURE_INFO {
 	UINT8 Bin0Range;
 	UINT8 Oct[0];
 } RRM_TRANSMIT_MEASURE_INFO, *PRRM_TRANSMIT_MEASURE_INFO;
-
-typedef union GNU_PACKED _RRM_MEASURE_REPORT_MODE {
-	struct GNU_PACKED {
-#ifdef RT_BIG_ENDIAN
-		UINT8 Rev:5;
-		UINT8 Refused:1;
-		UINT8 Incapable:1;
-		UINT8 Late:1;
-#else
-		UINT8 Late:1;
-		UINT8 Incapable:1;
-		UINT8 Refused:1;
-		UINT8 Rev:5;
-#endif /* RT_BIG_ENDIAN */
-	} field;
-	UINT8 word;
-} RRM_MEASURE_REPORT_MODE, *PRRM_MEASURE_REPORT_MODE;
-
-typedef struct GNU_PACKED _RRM_MEASURE_REP_INFO {
-	UINT8 Token;
-	RRM_MEASURE_REPORT_MODE ReportMode;
-	UINT8 ReportType;
-	UINT8 Octect[0];
-} RRM_MEASURE_REP_INFO, *PRRM_MEASURE_REP_INFO;
 
 #endif /* DOT11K_RRM_SUPPORT */
 

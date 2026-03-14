@@ -168,17 +168,6 @@ VOID Bignum_Print (
 	return;
 }
 
-VOID Bignum_Print_with_cat_and_lvl(
-	IN BIGNUM *pBI,
-	IN INT dbgcat,
-	IN INT dbg_sub_cat,
-	IN INT dbglvl)
-{
-	if (!((dbg_sub_cat) & (DebugSubCategory[dbglvl][dbgcat])))
-		return;
-
-	Bignum_Print(pBI);
-}
 
 
 VOID Bignum_Init(
@@ -200,10 +189,7 @@ VOID Bignum_Free(
 UINT32 Bignum_getlen(
 	IN BIGNUM *pBI)
 {
-	if (pBI != NULL)
-		return pBI->top * 4;
-	else
-		return 0;
+	return pBI->top * 4;
 }
 
 INT Bignum_Get_rand_range(IN BIGNUM * range, INOUT BIGNUM * r)
@@ -289,9 +275,7 @@ VOID Bignum_Sub(
 {
 	if (*pBI_Result == NULL)
 		*pBI_Result = BN_new();
-	if (!BN_sub(*pBI_Result, pFirstOperand, pSecondOperand))
-		MTWF_DBG(NULL, DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-		"BN_sub error!!!\n");
+	BN_sub(*pBI_Result, pFirstOperand, pSecondOperand);
 } /* End of Bignum_Sub */
 
 VOID Bignum_Mod(
@@ -299,21 +283,13 @@ VOID Bignum_Mod(
 	IN BIGNUM *pSecondOperand,
 	OUT BIGNUM **pBI_Remainder)
 {
-	BN_CTX *bnctx = NULL;
+	BN_CTX *bnctx;
 
 	bnctx = BN_CTX_new();
-	if (!bnctx) {
-		MTWF_DBG(NULL, DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-				 "bnctx allocate failed!\n");
-		return;
-	}
-
 	if (*pBI_Remainder == NULL)
 		*pBI_Remainder = BN_new();
 
-	if (!BN_mod(*pBI_Remainder, pFirstOperand, pSecondOperand, bnctx))
-		MTWF_DBG(NULL, DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-		"BN_mod, error!\n");
+	BN_mod(*pBI_Remainder, pFirstOperand, pSecondOperand, bnctx);
 
 	BN_CTX_free(bnctx);
 }
@@ -324,21 +300,13 @@ VOID Bignum_Mod_Mul(
 	IN BIGNUM *pBI_P,
 	OUT BIGNUM **pBI_Result)
 {
-	BN_CTX *bnctx = NULL;
+	BN_CTX *bnctx;
 
 	bnctx = BN_CTX_new();
-	if (!bnctx) {
-		MTWF_DBG(NULL, DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-				 "bnctx allocate failed!\n");
-		return;
-	}
-
 	if (*pBI_Result == NULL)
 		*pBI_Result = BN_new();
 
-	if (!BN_mod_mul(*pBI_Result, pFirstOperand, pSecondOperand, pBI_P, bnctx))
-		MTWF_DBG(NULL, DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-		"BN_mod_mul, error!\n");
+	BN_mod_mul(*pBI_Result, pFirstOperand, pSecondOperand, pBI_P, bnctx);
 
 	BN_CTX_free(bnctx);
 }
@@ -368,21 +336,13 @@ VOID Bignum_Mod_Square(
 	IN BIGNUM *pBI_P,
 	OUT BIGNUM **pBI_Result)
 {
-	BN_CTX *bnctx = NULL;
+	BN_CTX *bnctx;
 
 	bnctx = BN_CTX_new();
-	if (!bnctx) {
-		MTWF_DBG(NULL, DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-				 "bnctx allocate failed!\n");
-		return;
-	}
-
 	if (*pBI_Result == NULL)
 		*pBI_Result = BN_new();
 
-	if (!BN_mod_sqr(*pBI_Result, pFirstOperand, pBI_P, bnctx))
-		MTWF_DBG(NULL, DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-		"BN_mod_sqr error!!\n");
+	BN_mod_sqr(*pBI_Result, pFirstOperand, pBI_P, bnctx);
 	BN_CTX_free(bnctx);
 }
 
@@ -392,23 +352,13 @@ VOID Bignum_Mod_Add(
 	IN BIGNUM *pBI_P,
 	OUT BIGNUM **pBI_Result)
 {
-	BN_CTX *bnctx = NULL;
-	int ret;
+	BN_CTX *bnctx;
 
 	bnctx = BN_CTX_new();
-	if (!bnctx) {
-		MTWF_DBG(NULL, DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-				 "bnctx allocate failed!\n");
-		return;
-	}
-
 	if (*pBI_Result == NULL)
 		*pBI_Result = BN_new();
 
-	ret = BN_mod_add(*pBI_Result, pFirstOperand, pSecondOperand, pBI_P, bnctx);
-	if (ret == 0)
-		MTWF_DBG(NULL, DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_DEBUG,
-				 "BN_mod_add retrun 0!\n");
+	BN_mod_add(*pBI_Result, pFirstOperand, pSecondOperand, pBI_P, bnctx);
 	BN_CTX_free(bnctx);
 }
 
@@ -419,15 +369,9 @@ VOID Bignum_Mod_Sub(
 	IN BIGNUM *pBI_P,
 	OUT BIGNUM **pBI_Result)
 {
-	BN_CTX *bnctx = NULL;
+	BN_CTX *bnctx;
 
 	bnctx = BN_CTX_new();
-	if (!bnctx) {
-		MTWF_DBG(NULL, DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-				 "bnctx allocate failed!\n");
-		return;
-	}
-
 	if (*pBI_Result == NULL)
 		*pBI_Result = BN_new();
 
@@ -468,30 +412,22 @@ VOID Bignum_Mod_Div(
 	OUT BIGNUM **pBI_Result)
 {
 	BIGNUM *tmp = NULL;
-	BN_CTX *bnctx = NULL;
+	BN_CTX *bnctx;
 
 	bnctx = BN_CTX_new();
-	if (!bnctx) {
-		MTWF_DBG(NULL, DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-				 "bnctx allocate failed!\n");
-		return;
-	}
 
 	tmp = BN_CTX_get(bnctx);
 
-	if (tmp) {
-		BN_mod_inverse(tmp, pSecondOperand, pBI_P, bnctx);
-		Bignum_Mod_Mul(pFirstOperand, tmp, pBI_P, pBI_Result);
-	} else
-		MTWF_DBG(NULL, DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-		"BN_CTX_get return NULL ==> failed!\n");
+	BN_mod_inverse(tmp, pSecondOperand, pBI_P, bnctx);
+
+	Bignum_Mod_Mul(pFirstOperand, tmp, pBI_P, pBI_Result);
 
 	BN_CTX_free(bnctx);
 }
 
 
 
-/* Tonelli Shanks algorithm*/
+/* Tonelli¡VShanks algorithm*/
 /* reference: https://en.wikipedia.org/wiki/Tonelli%E2%80%93Shanks_algorithm */
 /* pBI_P must be prime */
 VOID Bignum_Mod_Sqrt(
@@ -499,15 +435,9 @@ VOID Bignum_Mod_Sqrt(
 	IN BIGNUM *pBI_P,
 	OUT BIGNUM **pBI_Result)
 {
-	BN_CTX *bnctx = NULL;
+	BN_CTX *bnctx;
 
 	bnctx = BN_CTX_new();
-	if (!bnctx) {
-		MTWF_DBG(NULL, DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-				 "bnctx allocate failed!\n");
-		return;
-	}
-
 	if (*pBI_Result == NULL)
 		*pBI_Result = BN_new();
 
@@ -548,27 +478,17 @@ UCHAR Bignum_is_quadratic_residue(
 {
 	BIGNUM *p = NULL;
 	BIGNUM *res = NULL;
-	UCHAR ret = 0;
-	BN_CTX *bnctx = NULL;
+	UCHAR ret;
+	BN_CTX *bnctx;
 
 	bnctx = BN_CTX_new();
-	if (!bnctx) {
-		MTWF_DBG(NULL, DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-				 "bnctx allocate failed!\n");
-		return ret;
-	}
-
 	res = BN_CTX_get(bnctx);
 
 	Bignum_Copy(prime, &p);
 	BN_sub_word(p, 1);
 	Bignum_Shift_Right1(p, &p);
-	if (res) {
-		BN_mod_exp_mont(res, q, p, prime, bnctx, NULL);
-		ret = Bignum_is_one(res);
-	} else
-		MTWF_DBG(NULL, DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-			"BN_CTX_get return NULL ==> error!\n");
+	BN_mod_exp_mont(res, q, p, prime, bnctx, NULL);
+	ret = Bignum_is_one(res);
 
 	BN_CTX_free(bnctx);
 	BN_free(p);
@@ -597,14 +517,9 @@ VOID Bignum_Montgomery_ExpMod(
 	IN BIGNUM *pBI_P,
 	OUT BIGNUM **pBI_Result)
 {
-	BN_CTX *bnctx = NULL;
+	BN_CTX *bnctx;
 
 	bnctx = BN_CTX_new();
-	if (!bnctx) {
-		MTWF_DBG(NULL, DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-				 "bnctx allocate failed!\n");
-		return;
-	}
 
 	if (*pBI_Result == NULL)
 		*pBI_Result = BN_new();
@@ -619,22 +534,14 @@ VOID Bignum_Mod_Mul_Inverse(
 	IN BIGNUM *pBI_P,
 	OUT BIGNUM **pBI_Result)
 {
-	BN_CTX *bnctx = NULL;
+	BN_CTX *bnctx;
 
 	bnctx = BN_CTX_new();
-	if (!bnctx) {
-		MTWF_DBG(NULL, DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-				 "bnctx allocate failed!\n");
-		return;
-	}
 
 	if (*pBI_Result == NULL)
 		*pBI_Result = BN_new();
 
-	if (BN_mod_inverse(*pBI_Result, pBI, pBI_P, bnctx) == NULL) {
-		MTWF_DBG(NULL, DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_DEBUG,
-				 "BN_mod_inverse return null !\n");
-	}
+	BN_mod_inverse(*pBI_Result, pBI, pBI_P, bnctx);
 
 	BN_CTX_free(bnctx);
 }

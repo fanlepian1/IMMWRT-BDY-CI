@@ -5,18 +5,30 @@
 EC_POINT_OP_TIME_RECORD ec_op_ti_rec;
 
 static EC_GROUP_INFO ec_groups[] = {
-	EC_GROUP(19, EC_GROUP19_BITS),
-	EC_GROUP(20, EC_GROUP20_BITS),
-	EC_GROUP(21, EC_GROUP21_BITS),
+	EC_GROUP(19, EC_GROUP19_BITS_OF_R),
+	EC_GROUP(20, EC_GROUP20_BITS_OF_R),
+	EC_GROUP(21, EC_GROUP21_BITS_OF_R),
+	EC_GROUP(25, EC_GROUP25_BITS_OF_R),
+	EC_GROUP(26, EC_GROUP26_BITS_OF_R),
+	EC_GROUP(27, EC_GROUP27_BITS_OF_R),
+	EC_GROUP(28, EC_GROUP28_BITS_OF_R),
+	EC_GROUP(29, EC_GROUP29_BITS_OF_R),
+	EC_GROUP(30, EC_GROUP30_BITS_OF_R),
 };
 
 static EC_GROUP_INFO_BI ec_groups_bi[] = {
 	EC_GROUP_BI(19),
 	EC_GROUP_BI(20),
 	EC_GROUP_BI(21),
+	EC_GROUP_BI(25),
+	EC_GROUP_BI(26),
+	EC_GROUP_BI(27),
+	EC_GROUP_BI(28),
+	EC_GROUP_BI(29),
+	EC_GROUP_BI(30),
 };
 
-UINT8 ECC_COST_TIME_DBG_LVL = DBG_LVL_DEBUG;
+int ECC_COST_TIME_DBG_LVL = DBG_LVL_INFO;
 
 
 EC_GROUP_INFO *get_ecc_group_info(
@@ -57,8 +69,6 @@ EC_GROUP_INFO_BI *get_ecc_group_info_bi(
 		SAE_BN *pthree = NULL;
 		UCHAR three[] = {0x3};
 
-		ec_group_bi->ec_group = ec_group;
-
 		SAE_BN_BIN2BI((UINT8 *)ec_group->prime,
 						  ec_group->prime_len,
 						  &ec_group_bi->prime);
@@ -71,9 +81,6 @@ EC_GROUP_INFO_BI *get_ecc_group_info_bi(
 		SAE_BN_BIN2BI((UINT8 *)ec_group->b,
 						  ec_group->b_len,
 						  &ec_group_bi->b);
-		SAE_BN_BIN2BI((UINT8 *)ec_group->z,
-						  ec_group->z_len,
-						  &ec_group_bi->z);
 
 		if (group == 19) {
 			gx = ec_group19_gx;
@@ -95,11 +102,6 @@ EC_GROUP_INFO_BI *get_ecc_group_info_bi(
 		if ((gx != NULL) && (gy != NULL)) {
 			SAE_BN_BIN2BI((UINT8 *)gx, gx_len, &ec_group_bi->gx);
 			SAE_BN_BIN2BI((UINT8 *)gy, gy_len, &ec_group_bi->gy);
-
-			ecc_point_init(&ec_group_bi->generator);
-			SAE_BN_COPY(ec_group_bi->gx, &ec_group_bi->generator->x);
-			SAE_BN_COPY(ec_group_bi->gy, &ec_group_bi->generator->y);
-			SAE_ECC_SET_Z_TO_1(ec_group_bi->generator);
 		}
 
 		ec_group_bi->is_init = TRUE;
@@ -118,7 +120,7 @@ EC_GROUP_INFO_BI *get_ecc_group_info_bi(
 		if (ec_group_bi->mont == NULL)
 			return NULL;
 
-		ec_group_bi->mont->Bits_Of_R = ec_group->prime_len_bit + 1;
+		ec_group_bi->mont->Bits_Of_R = ec_group->bits_of_R;
 		ec_group_bi->mont->pBI_X = NULL;
 		ec_group_bi->mont->pBI_R = NULL;
 		ec_group_bi->mont->pBI_PInverse = NULL;
@@ -154,8 +156,6 @@ VOID group_info_bi_deinit(
 			SAE_BN_FREE(&ec_group_bi->b);
 			SAE_BN_FREE(&ec_group_bi->gx);
 			SAE_BN_FREE(&ec_group_bi->gy);
-			ecc_point_free(&ec_group_bi->generator);
-			SAE_BN_FREE(&ec_group_bi->z);
 			ec_group_bi->cofactor = NULL;
 
 			if (ec_group_bi->mont != NULL) {
@@ -183,8 +183,8 @@ BIG_INTEGER_EC_POINT *ecc_point_add_cmm(
 	SAE_BN *tmp2 = NULL;
 	SAE_BN *prime = ec_group_bi->prime;
 
-	MTWF_DBG(NULL, DBG_CAT_SEC, CATSEC_SAE, DBG_LVL_DEBUG,
-			 "==> %s()\n", __func__);
+	MTWF_LOG(DBG_CAT_SEC, CATSEC_SAE, DBG_LVL_TRACE,
+			 ("==> %s()\n", __func__));
 	ecc_point_init(&res);
 
 	if (res == NULL)
@@ -280,8 +280,8 @@ VOID ecc_point_add(
 	SAE_BN *tmp2 = NULL;
 	SAE_BN *lamda = NULL;
 
-	MTWF_DBG(NULL, DBG_CAT_SEC, CATSEC_SAE, DBG_LVL_DEBUG,
-			 "==> %s()\n", __func__);
+	MTWF_LOG(DBG_CAT_SEC, CATSEC_SAE, DBG_LVL_INFO,
+			 ("==> %s()\n", __func__));
 	SAE_LOG_TIME_BEGIN(&ec_op_ti_rec.add_op);
 
 	/* if point1 + point2 and point1 is infinity => result is point2 */
@@ -349,8 +349,8 @@ VOID ecc_point_double(
 	SAE_BN *tmp2 = NULL;
 	SAE_BN *lamda = NULL;
 
-	MTWF_DBG(NULL, DBG_CAT_SEC, CATSEC_SAE, DBG_LVL_DEBUG,
-			 "==> %s()\n", __func__);
+	MTWF_LOG(DBG_CAT_SEC, CATSEC_SAE, DBG_LVL_INFO,
+			 ("==> %s()\n", __func__));
 	SAE_LOG_TIME_BEGIN(&ec_op_ti_rec.dbl_op);
 
 	if (point == NULL) {
@@ -431,10 +431,10 @@ VOID ecc_point_add_3d(
 	SAE_BN_INIT(&n6);
 
 	if (n6 == NULL) {
-		MTWF_DBG(NULL, DBG_CAT_SEC, CATSEC_SAE, DBG_LVL_INFO,
-			"%s: allocate fail\n", __func__);
+		MTWF_LOG(DBG_CAT_SEC, CATSEC_SAE, DBG_LVL_TRACE,
+			("%s: allocate fail\n", __func__));
 		ecc_point_free(ec_point_res);
-		goto freeBN;
+		return;
 	}
 
 	/* n1, n2 */
@@ -481,7 +481,7 @@ VOID ecc_point_add_3d(
 			/* a is the inverse of b */
 			ecc_point_free(ec_point_res);
 		}
-		goto freeBN;
+		return;
 	}
 	/* 'n7', 'n8' */
 	SAE_BN_MOD_ADD_QUICK(n1, n3, ec_group_bi->prime, &n1);
@@ -492,10 +492,10 @@ VOID ecc_point_add_3d(
 	ecc_point_init(&res);
 
 	if (res == NULL) {
-		MTWF_DBG(NULL, DBG_CAT_SEC, CATSEC_SAE, DBG_LVL_ERROR,
-			"ecc allocate fail\n");
+		MTWF_LOG(DBG_CAT_SEC, CATSEC_SAE, DBG_LVL_ERROR,
+			("%s: ecc allocate fail\n", __func__));
 		ecc_point_free(ec_point_res);
-		goto freeBN;
+		return;
 	}
 
 	SAE_BN_INIT(&res->x);
@@ -542,10 +542,6 @@ VOID ecc_point_add_3d(
 	SAE_BN_RSHIFT1(n0, &res->y);
 	/* Y_r = (n6 * 'n9' - 'n8' * 'n5^3') / 2 */
 
-	ecc_point_copy(res, ec_point_res);
-
-	ecc_point_free(&res);
-freeBN:
 	SAE_BN_FREE(&n0);
 	SAE_BN_FREE(&n1);
 	SAE_BN_FREE(&n2);
@@ -553,6 +549,10 @@ freeBN:
 	SAE_BN_FREE(&n4);
 	SAE_BN_FREE(&n5);
 	SAE_BN_FREE(&n6);
+
+	ecc_point_copy(res, ec_point_res);
+
+	ecc_point_free(&res);
 }
 
 VOID ecc_point_double_3d(
@@ -578,17 +578,17 @@ VOID ecc_point_double_3d(
 	SAE_BN_INIT(&n3);
 
 	if (n3 == NULL) {
-		MTWF_DBG(NULL, DBG_CAT_SEC, CATSEC_SAE, DBG_LVL_INFO,
-			"%s: allocate fail\n", __func__);
+		MTWF_LOG(DBG_CAT_SEC, CATSEC_SAE, DBG_LVL_TRACE,
+			("%s: allocate fail\n", __func__));
 		ecc_point_free(ec_point_res);
-		goto freeBN;
+		return;
 	}
 
 	ecc_point_init(&res);
 
 	if (res == NULL) {
-		MTWF_DBG(NULL, DBG_CAT_SEC, CATSEC_SAE, DBG_LVL_ERROR,
-			"ecc allocate fail\n");
+		MTWF_LOG(DBG_CAT_SEC, CATSEC_SAE, DBG_LVL_ERROR,
+			("%s: ecc allocate fail\n", __func__));
 		ecc_point_free(ec_point_res);
 		return;
 	}
@@ -658,15 +658,14 @@ VOID ecc_point_double_3d(
 	SAE_BN_MOD_SUB_QUICK(n0, n3, ec_group_bi->prime, &res->y);
 	/* Y_r = n1 * (n2 - X_r) - n3 */
 
-	ecc_point_copy(res, ec_point_res);
-
-	ecc_point_free(&res);
-
-freeBN:
 	SAE_BN_FREE(&n0);
 	SAE_BN_FREE(&n1);
 	SAE_BN_FREE(&n2);
 	SAE_BN_FREE(&n3);
+
+	ecc_point_copy(res, ec_point_res);
+
+	ecc_point_free(&res);
 }
 
 
@@ -677,7 +676,7 @@ VOID ecc_point_3d_to_2d(
 	SAE_BN *Z_1 = NULL;
 	SAE_BN *Z_2 = NULL;
 	SAE_BN *Z_3 = NULL;
-	SAE_BN *Z = NULL;
+	SAE_BN *Z = ec_point_res->z;
 	SAE_BN *res_x = NULL;
 	SAE_BN *res_y = NULL;
 	SAE_BN *res_z = NULL;
@@ -689,11 +688,10 @@ VOID ecc_point_3d_to_2d(
 		return;
 
 	if (ec_point_res->z == NULL) {
-		MTWF_DBG(NULL, DBG_CAT_SEC, CATSEC_SAE, DBG_LVL_INFO,
-			"%s: z is null\n", __func__);
+		MTWF_LOG(DBG_CAT_SEC, CATSEC_SAE, DBG_LVL_TRACE,
+			("%s: z is null\n", __func__));
 		return;
 	}
-	Z = ec_point_res->z;
 
 	SAE_BN_INIT(&Z_1);
 	SAE_BN_INIT(&Z_2);
@@ -805,7 +803,7 @@ VOID ecc_point_mul_wNAF(
 		ecc_point_free(&p[i]);
 	ecc_point_free(&res);
 	SAE_LOG_TIME_END(&ec_op_ti_rec.mul_op);
-	MTWF_DBG(NULL, DBG_CAT_SEC, CATSEC_SAE, DBG_LVL_INFO, "total cnt = %d!!!!!!\n", record + W_POW / 2);
+	MTWF_LOG(DBG_CAT_SEC, CATSEC_SAE, DBG_LVL_OFF, ("total cnt = %d!!!!!!\n", record + W_POW / 2));
 }
 
 /* https://en.wikipedia.org/wiki/Elliptic_curve_point_multiplication */
@@ -824,8 +822,8 @@ VOID ecc_point_mul_windowed(
 
 	SAE_LOG_TIME_BEGIN(&ec_op_ti_rec.mul_op);
 
-	MTWF_DBG(NULL, DBG_CAT_SEC, CATSEC_SAE, DBG_LVL_DEBUG,
-			 "==> %s()\n", __func__);
+	MTWF_LOG(DBG_CAT_SEC, CATSEC_SAE, DBG_LVL_INFO,
+			 ("==> %s()\n", __func__));
 
 	POOL_COUNTER_CHECK_BEGIN(sae_expected_cnt[11]);
 	GET_BI_INS_FROM_POOL(scalar_copy);
@@ -883,8 +881,8 @@ VOID ecc_point_inverse(
 {
 	BIG_INTEGER_EC_POINT *res = NULL;
 
-	MTWF_DBG(NULL, DBG_CAT_SEC, CATSEC_SAE, DBG_LVL_INFO,
-			 "==> %s()\n", __func__);
+	MTWF_LOG(DBG_CAT_SEC, CATSEC_SAE, DBG_LVL_TRACE,
+			 ("==> %s()\n", __func__));
 
 	if (point == NULL) {
 		ecc_point_free(point_res);
@@ -907,8 +905,8 @@ UCHAR ecc_point_is_on_curve(
 	SAE_BN *left2 = NULL;
 	UCHAR res;
 
-	MTWF_DBG(NULL, DBG_CAT_SEC, CATSEC_SAE, DBG_LVL_INFO,
-			 "==> %s()\n", __func__);
+	MTWF_LOG(DBG_CAT_SEC, CATSEC_SAE, DBG_LVL_TRACE,
+			 ("==> %s()\n", __func__));
 
 	POOL_COUNTER_CHECK_BEGIN(sae_expected_cnt[12]);
 	GET_BI_INS_FROM_POOL(right);
@@ -938,8 +936,8 @@ UCHAR ecc_point_is_on_curve(
 	SAE_BN_RELEASE_BACK_TO_POOL(&left2);
 	POOL_COUNTER_CHECK_END(sae_expected_cnt[12]);
 	SAE_LOG_TIME_END(&ec_op_ti_rec.on_curve_check_op);
-	MTWF_DBG(NULL, DBG_CAT_SEC, CATSEC_SAE, DBG_LVL_INFO,
-			 "%s(): res = %d\n", __func__, res);
+	MTWF_LOG(DBG_CAT_SEC, CATSEC_SAE, DBG_LVL_TRACE,
+			 ("%s(): res = %d\n", __func__, res));
 	return res;
 }
 
@@ -955,12 +953,12 @@ UCHAR ecc_point_is_on_curve_3d(
 	SAE_BN *Z4 = NULL;
 	UCHAR res;
 
-	MTWF_DBG(NULL, DBG_CAT_SEC, CATSEC_SAE, DBG_LVL_INFO,
-			 "==> %s()\n", __func__);
+	MTWF_LOG(DBG_CAT_SEC, CATSEC_SAE, DBG_LVL_TRACE,
+			 ("==> %s()\n", __func__));
 
 	if (point->z == NULL) {
-		MTWF_DBG(NULL, DBG_CAT_SEC, CATSEC_SAE, DBG_LVL_ERROR,
-			"ecc_point_is_on_curve_3d: z is NULL\n");
+		MTWF_LOG(DBG_CAT_SEC, CATSEC_SAE, DBG_LVL_ERROR,
+			("ecc_point_is_on_curve_3d: z is NULL\n"));
 		return FALSE;
 	}
 
@@ -1001,8 +999,8 @@ UCHAR ecc_point_is_on_curve_3d(
 	SAE_BN_RELEASE_BACK_TO_POOL(&left2);
 	SAE_BN_RELEASE_BACK_TO_POOL(&tmp);
 	SAE_BN_RELEASE_BACK_TO_POOL(&Z4);
-	MTWF_DBG(NULL, DBG_CAT_SEC, CATSEC_SAE, DBG_LVL_INFO,
-			 "%s(): res = %d\n", __func__, res);
+	MTWF_LOG(DBG_CAT_SEC, CATSEC_SAE, DBG_LVL_TRACE,
+			 ("%s(): res = %d\n", __func__, res));
 	return res;
 }
 #ifdef DOT11_SAE_OPENSSL_BN
@@ -1020,8 +1018,8 @@ UCHAR ecc_point_find_by_x(
 	SAE_BN *res = NULL;
 	UCHAR has_y;
 
-	MTWF_DBG(NULL, DBG_CAT_SEC, CATSEC_SAE, DBG_LVL_DEBUG,
-			 "==> %s()\n", __func__);
+	MTWF_LOG(DBG_CAT_SEC, CATSEC_SAE, DBG_LVL_INFO,
+			 ("==> %s()\n", __func__));
 
 	SAE_LOG_TIME_BEGIN(&ec_op_ti_rec.find_y_op);
 	SAE_BN_MOD_SQR(x, ec_group_bi->prime, &res); /* x^2 */
@@ -1132,9 +1130,10 @@ VOID ecc_point_dump_time(
 	}
 }
 
-INT ecc_gen_key(
-		IN EC_GROUP_INFO_BI *ec_group_bi,
+INT ecc_gen_key(EC_GROUP_INFO *ec_group,
+		EC_GROUP_INFO_BI *ec_group_bi,
 		INOUT SAE_BN **priv_key,
+		BIG_INTEGER_EC_POINT *generator,
 		INOUT VOID **pub_key)
 {
 	SAE_BN *priv = NULL;
@@ -1143,8 +1142,8 @@ INT ecc_gen_key(
 	if (*priv_key == NULL) {
 		SAE_BN_INIT(&priv);
 		if (priv == NULL) {
-			MTWF_DBG(NULL, DBG_CAT_SEC, CATSEC_ECC, DBG_LVL_ERROR,
-				"cannot alloc BN for priv\n");
+			MTWF_LOG(DBG_CAT_SEC, CATSEC_ECC, DBG_LVL_OFF,
+				("%s, cannot alloc BN for priv\n", __func__));
 			return 0;
 		}
 		*priv_key = priv;
@@ -1153,8 +1152,8 @@ INT ecc_gen_key(
 
 	do {
 		if (!SAE_GET_RAND_RANGE(priv, ec_group_bi->order)) {
-			MTWF_DBG(NULL, DBG_CAT_SEC, CATSEC_ECC, DBG_LVL_ERROR,
-				"derive priv_key failed\n");
+			MTWF_LOG(DBG_CAT_SEC, CATSEC_ECC, DBG_LVL_OFF,
+				("%s, derive priv_key failed\n", __func__));
 			return 0;
 		}
 	} while (SAE_BN_IS_ZERO(priv));
@@ -1162,445 +1161,17 @@ INT ecc_gen_key(
 	if (*pub_key == NULL) {
 		ecc_point_init(&pub);
 		if (pub == NULL) {
-			MTWF_DBG(NULL, DBG_CAT_SEC, CATSEC_ECC, DBG_LVL_ERROR,
-				"cannot alloc POINT for pub\n");
+			MTWF_LOG(DBG_CAT_SEC, CATSEC_ECC, DBG_LVL_OFF,
+				("%s, cannot alloc POINT for pub\n", __func__));
 			return 0;
 		}
 		*pub_key = pub;
 	} else
 		pub = *pub_key;
 
-	ECC_POINT_MUL(ec_group_bi->generator, priv, ec_group_bi, &pub);
+	ECC_POINT_MUL(generator, priv, ec_group_bi, &pub);
 	SAE_ECC_3D_to_2D(ec_group_bi, pub);
 
-	/* todo: remove or change to trace */
-	MTWF_DBG(NULL, DBG_CAT_SEC, CATSEC_ECC, DBG_LVL_DEBUG, "private key\n");
-	SAE_BN_PRINT(*priv_key);
-	MTWF_DBG(NULL, DBG_CAT_SEC, CATSEC_ECC, DBG_LVL_DEBUG, "public key x\n");
-	SAE_BN_PRINT(pub->x);
-	MTWF_DBG(NULL, DBG_CAT_SEC, CATSEC_ECC, DBG_LVL_DEBUG, "public key y\n");
-	SAE_BN_PRINT(pub->y);
-
 	return 1;
-}
-
-/* asn1 */
-/* asn1_secp384r1_oid = (1) identified-organization(3) certicom(132) curve(0) 34 */
-/* asn1_secp521r1_oid = o(1) identified-organization(3) certicom(132) curve(0) 35 */
-/* OID VALUE="1.2.840.10045.2.1": ecPublicKey/Unrestricted Algorithm Identifier */
-/* oid(0x6) len(0x7) 1.2(1*40+2=0x2a)  .840(0x86, 0x48) .10045(0xce, 0x3d) .2.1(0x2, 0x1) */
-UCHAR asn1_ecpublickey_oid[] = {0x06, 0x07, 0x2a, 0x86, 0x48, 0xce, 0x3d, 0x02, 0x01};
-
-/* OID VALUE="1.2.840.10045.3.1.7": Secp256r1/prime256v1 */
-/* oid(0x6) len(0x8) 1.2(1*40+2=0x2a)  .840(0x86, 0x48) .10045(0xce, 0x3d) 3.1.7(0x3, 0x1, 0x7) */
-UCHAR asn1_secp256r1_oid[] = {0x06, 0x08, 0x2a, 0x86, 0x48, 0xce, 0x3d, 0x03, 0x01, 0x07};
-
-UCHAR asn1_secp384r1_oid[] = {0x06, 0x05, 0x2b, 0x81, 0x04, 0x00, 0x22};
-UCHAR asn1_secp521r1_oid[] = {0x06, 0x05, 0x2b, 0x81, 0x04, 0x00, 0x23};
-
-#define ASN1_TAG_BOOLEAN_ENCODING	    0x01 /* tag num = 1 */
-#define ASN1_TAG_INTEGER_ENCODING	    0x02 /* tag num = 2 */
-#define ASN1_TAG_BITSTRING_ENCODING	    0x03 /* tag num = 3 */
-#define ASN1_TAG_OCTETSTRING_ENCODING	0x04 /* tag num = 4 */
-#define ASN1_TAG_NULL_ENCODING		    0x05 /* tag num = 5 */
-#define ASN1_TAG_OID_ENCODING		    0x06 /* tag num = 6 */
-#define ASN1_TAG_SEQUENCE_ENCODING	    0x30 /* should be constructed, tag num = 16 */
-
-/* if more module need asn1, it can be seprated to a new file */
-UCHAR asn1_get_sub_pub_key_info(
-	IN EC_GROUP_INFO_BI *ec_group_bi,
-	IN BIG_INTEGER_EC_POINT *pub_key,
-	IN UCHAR is_compressed,
-	OUT UCHAR *asn1_out,
-	OUT UINT32 *asn1_len)
-{
-	UINT32 len = 4;
-	UCHAR *asn1_secp_oid;
-	UINT32 asn1_secp_oid_size;
-	UCHAR x[SAE_MAX_ECC_PRIME_LEN];
-	UINT32 x_len = ec_group_bi->ec_group->prime_len;
-	UCHAR y[SAE_MAX_ECC_PRIME_LEN];
-	UINT32 y_len = ec_group_bi->ec_group->prime_len;
-
-	if (asn1_out == NULL)
-		return FALSE;
-
-	if (ec_group_bi->group_id == 19) {
-		asn1_secp_oid = asn1_secp256r1_oid;
-		asn1_secp_oid_size = sizeof(asn1_secp256r1_oid);
-	} else if (ec_group_bi->group_id == 20) {
-		asn1_secp_oid = asn1_secp384r1_oid;
-		asn1_secp_oid_size = sizeof(asn1_secp384r1_oid);
-	} else if (ec_group_bi->group_id == 21) {
-		asn1_secp_oid = asn1_secp521r1_oid;
-		asn1_secp_oid_size = sizeof(asn1_secp521r1_oid);
-	} else
-		return FALSE;
-
-	asn1_out[0] = ASN1_TAG_SEQUENCE_ENCODING;
-	asn1_out[2] = ASN1_TAG_SEQUENCE_ENCODING;
-	asn1_out[3] = sizeof(asn1_ecpublickey_oid) + asn1_secp_oid_size;
-	os_move_mem(asn1_out + len, asn1_ecpublickey_oid, sizeof(asn1_ecpublickey_oid));
-	len += sizeof(asn1_ecpublickey_oid);
-	os_move_mem(asn1_out + len, asn1_secp_oid, asn1_secp_oid_size);
-	len += asn1_secp_oid_size;
-
-	SAE_BN_BI2BIN_WITH_PAD(pub_key->x, x, &x_len, ec_group_bi->ec_group->prime_len);
-	SAE_BN_BI2BIN_WITH_PAD(pub_key->y, y, &y_len, ec_group_bi->ec_group->prime_len);
-	asn1_out[len++] = ASN1_TAG_BITSTRING_ENCODING;
-	asn1_out[len++] = (is_compressed) ? x_len + 2 : x_len + y_len + 2;
-	asn1_out[len++] = 0x0; /* padding bit is zero(bit string rule) */
-	if (is_compressed && SAE_BN_IS_ODD(pub_key->y))
-		asn1_out[len++] = 0x3; /* compressed ECPoint with noneven y*/
-	else if (is_compressed)
-		asn1_out[len++] = 0x2; /* compressed ECPoint with even y*/
-	else
-		asn1_out[len++] = 0x4; /* uncompressed ECPoint  */
-	os_move_mem(asn1_out + len, x, x_len);
-	len += x_len;
-	if (!is_compressed) {
-		os_move_mem(asn1_out + len, y, y_len);
-		len += y_len;
-	}
-	asn1_out[1] = len - 2;
-	*asn1_len = len;
-
-	/* todo: remove or change to trace */
-	hex_dump_with_cat_and_lvl("asn1 of sub_pub_key_info", asn1_out, len,
-		DBG_CAT_SEC, CATSEC_ECC, DBG_LVL_INFO);
-
-	return TRUE;
-}
-
-UCHAR asn1_get_pub_key_from_sub_pub_key_info(
-	IN UCHAR *asn1,
-	IN UINT32 asn1_len,
-	OUT UCHAR *group_id,
-	OUT VOID **group_bi,
-	OUT BIG_INTEGER_EC_POINT **pub_key)
-{
-	UCHAR c_idx = 0;
-	UCHAR fail_reason = 0;
-	UINT32 len;
-	EC_GROUP_INFO_BI *ec_group_bi;
-
-	if (asn1[0] != ASN1_TAG_SEQUENCE_ENCODING) {
-		fail_reason = 1;
-		goto Fail;
-	}
-
-	if (asn1_len != asn1[1] + 2) {
-		fail_reason = 2;
-		goto Fail;
-	}
-
-	if (asn1[2] != ASN1_TAG_SEQUENCE_ENCODING) {
-		fail_reason = 3;
-		goto Fail;
-	}
-
-	if (!RTMPEqualMemory(asn1 + 4, asn1_ecpublickey_oid, sizeof(asn1_ecpublickey_oid))) {
-		fail_reason = 4;
-		goto Fail;
-	}
-
-	c_idx = 4 + sizeof(asn1_ecpublickey_oid);
-
-	if (asn1[3] == sizeof(asn1_ecpublickey_oid) + sizeof(asn1_secp256r1_oid) &&
-		RTMPEqualMemory(asn1 + c_idx, asn1_secp256r1_oid, sizeof(asn1_secp256r1_oid)))
-		*group_id = 19;
-	else if (asn1[3] == sizeof(asn1_ecpublickey_oid) + sizeof(asn1_secp384r1_oid) &&
-		RTMPEqualMemory(asn1 + c_idx, asn1_secp384r1_oid, sizeof(asn1_secp384r1_oid)))
-		*group_id = 20;
-	else if (asn1[3] == sizeof(asn1_ecpublickey_oid) + sizeof(asn1_secp521r1_oid) &&
-		RTMPEqualMemory(asn1 + c_idx, asn1_secp521r1_oid, sizeof(asn1_secp521r1_oid)))
-		*group_id = 21;
-	else {
-		fail_reason = 5;
-		goto Fail;
-	}
-
-	MTWF_DBG(NULL, DBG_CAT_SEC, CATSEC_ECC, DBG_LVL_INFO,
-				"group id(%d)\n", *group_id);
-
-	ec_group_bi = get_ecc_group_info_bi(*group_id);
-	*group_bi = ec_group_bi;
-
-	c_idx = 4 + asn1[3];
-
-	if (asn1[c_idx++] != ASN1_TAG_BITSTRING_ENCODING) {
-		fail_reason = 6;
-		goto Fail;
-	}
-
-	len = asn1[c_idx++] - 2;
-
-	if (asn1[c_idx] != 0x0 || (asn1[c_idx + 1] != 0x2 && asn1[c_idx + 1] != 0x3)) {
-		fail_reason = 7;
-		goto Fail;
-	}
-
-	if (ec_group_bi->ec_group->prime_len != len) {
-		MTWF_DBG(NULL, DBG_CAT_SEC, CATSEC_ECC, DBG_LVL_ERROR,
-				"expected prime len = %d, peer prime_len = %d\n",
-				ec_group_bi->ec_group->prime_len, len / 2);
-		fail_reason = 8;
-		goto Fail;
-	}
-
-	ecc_point_init(pub_key);
-	SAE_BN_BIN2BI(asn1 + c_idx + 2, ec_group_bi->ec_group->prime_len, &((*pub_key)->x));
-
-	ecc_point_find_by_x(ec_group_bi, (*pub_key)->x, &((*pub_key)->y), TRUE);
-	if ((SAE_BN_IS_ODD((*pub_key)->y) && asn1[c_idx + 1] == 2)
-		|| (!SAE_BN_IS_ODD((*pub_key)->y) && asn1[c_idx + 1] == 3))
-		SAE_BN_MOD_SUB_QUICK(ec_group_bi->prime, (*pub_key)->y, ec_group_bi->prime, &((*pub_key)->y));
-
-	SAE_ECC_SET_Z_TO_1(*pub_key);
-	return TRUE;
-Fail:
-	hex_dump_with_cat_and_lvl("peer_asn1 of sub_pub_key_info", asn1, asn1_len,
-		DBG_CAT_SEC, CATSEC_ECC, DBG_LVL_ERROR);
-	MTWF_DBG(NULL, DBG_CAT_SEC, CATSEC_ECC, DBG_LVL_ERROR,
-				"fail reason(%d)\n", fail_reason);
-	return FALSE;
-}
-
-UCHAR asn1_get_ecdsa_sig_value(
-	IN EC_GROUP_INFO_BI *ec_group_bi,
-	IN SAE_BN *sig_r,
-	IN SAE_BN *sig_s,
-	OUT UCHAR *asn1_out,
-	OUT UINT32 *asn1_len)
-{
-	UINT32 len = 2;
-	UCHAR r[SAE_MAX_ECC_PRIME_LEN];
-	UINT32 r_len = ec_group_bi->ec_group->prime_len;
-	UCHAR s[SAE_MAX_ECC_PRIME_LEN];
-	UINT32 s_len = ec_group_bi->ec_group->prime_len;
-	UINT32 sig_len;
-
-	if (asn1_out == NULL)
-		return FALSE;
-
-	asn1_out[0] = ASN1_TAG_SEQUENCE_ENCODING;
-
-	SAE_BN_BI2BIN_WITH_PAD(sig_r, r, &r_len, ec_group_bi->ec_group->prime_len);
-	SAE_BN_BI2BIN_WITH_PAD(sig_s, s, &s_len, ec_group_bi->ec_group->prime_len);
-
-	sig_len = r_len + s_len;
-	if (r[0] & 0x80)
-		sig_len++;
-	if (s[0] & 0x80)
-		sig_len++;
-	if (sig_len >= 0x80)
-		len++;
-
-	asn1_out[len++] = ASN1_TAG_INTEGER_ENCODING;
-	asn1_out[len] = r_len;
-	if (r[0] & 0x80) {
-		asn1_out[len++]++;
-		asn1_out[len] = 0x0;
-	}
-	len++;
-	os_move_mem(asn1_out + len, r, r_len);
-	len += r_len;
-	asn1_out[len++] = ASN1_TAG_INTEGER_ENCODING;
-	asn1_out[len] = s_len;
-	if (s[0] & 0x80) {
-		asn1_out[len++]++;
-		asn1_out[len] = 0x0;
-	}
-	len++;
-	os_move_mem(asn1_out + len, s, s_len);
-	len += s_len;
-
-	/* assume that the length will not be greater than 0xffff */
-	/* if the sig_len is 0x345, the length field will be 0x82 0x03 0x45  */
-	if (sig_len >= 0x80) {
-		asn1_out[1] = 0x81;
-		asn1_out[2] = sig_len + 4;
-	} else
-		asn1_out[1] = sig_len + 4;
-
-	*asn1_len = len;
-
-	hex_dump_with_cat_and_lvl("asn1 of ecdsa_sig_value", asn1_out, len,
-		DBG_CAT_SEC, CATSEC_ECC, DBG_LVL_INFO);
-
-	return TRUE;
-}
-
-
-UCHAR asn1_get_sig_from_ecdsa_sig_value(
-	IN EC_GROUP_INFO_BI *ec_group_bi,
-	IN UCHAR *asn1,
-	IN UINT32 asn1_len,
-	OUT SAE_BN **sig_r,
-	OUT SAE_BN **sig_s)
-{
-	UCHAR c_idx = 0;
-	UCHAR fail_reason = 0;
-	UINT32 len;
-	UCHAR length_bytes = 0;
-	UCHAR i;
-	UINT32 sig_len = 0;
-
-	if (asn1[0] != ASN1_TAG_SEQUENCE_ENCODING) {
-		fail_reason = 1;
-		goto Fail;
-	}
-
-	if (asn1[1] & 0x80) {
-		length_bytes = asn1[1] & 0x7f;
-
-		for (i = 0; i < length_bytes; i++) {
-			sig_len <<= 8;
-			sig_len += asn1[2 + i];
-		}
-
-		if (asn1_len != sig_len + length_bytes + 2) {
-			fail_reason = 2;
-			goto Fail;
-		}
-	} else if (asn1_len != asn1[1] + 2) {
-		fail_reason = 3;
-		goto Fail;
-	}
-
-	if (asn1[2 + length_bytes] != ASN1_TAG_INTEGER_ENCODING) {
-		fail_reason = 4;
-		goto Fail;
-	}
-
-	len = asn1[3 + length_bytes];
-	c_idx = 4 + length_bytes;
-	if (asn1[c_idx] == 0 && asn1[c_idx + 1] & 0x80) {
-		c_idx++;
-		len--;
-	}
-
-	SAE_BN_BIN2BI(asn1 + c_idx, len, sig_r);
-	c_idx += len;
-
-	if (asn1[c_idx++] != ASN1_TAG_INTEGER_ENCODING) {
-		fail_reason = 5;
-		goto Fail;
-	}
-
-	len = asn1[c_idx++];
-	if (asn1[c_idx] == 0 && asn1[c_idx + 1] & 0x80) {
-		c_idx++;
-		len--;
-	}
-
-	SAE_BN_BIN2BI(asn1 + c_idx, len, sig_s);
-
-	return TRUE;
-Fail:
-	hex_dump_with_cat_and_lvl("peer_asn1 of ecdsa_sig_value(", asn1, asn1_len,
-		DBG_CAT_SEC, CATSEC_ECC, DBG_LVL_ERROR);
-	MTWF_DBG(NULL, DBG_CAT_SEC, CATSEC_ECC, DBG_LVL_ERROR,
-				"fail reason(%d)\n", fail_reason);
-	return FALSE;
-}
-
-UCHAR asn1_get_private_key(
-	IN UCHAR *asn1,
-	IN UINT32 asn1_len,
-	OUT SAE_BN * *private_key,
-	OUT UCHAR *group_id)
-{
-	UCHAR c_idx = 0;
-	UCHAR fail_reason = 0;
-	UINT32 len;
-	UINT32 len2;
-	UCHAR length_bytes = 0;
-	UCHAR i;
-	UINT32 sig_len = 0;
-
-	if (asn1[0] != ASN1_TAG_SEQUENCE_ENCODING) {
-		fail_reason = 1;
-		goto Fail;
-	}
-
-	if (asn1[1] & 0x80) {
-		length_bytes = asn1[1] & 0x7f;
-
-		for (i = 0; i < length_bytes; i++) {
-			sig_len <<= 8;
-			sig_len += asn1[2 + i];
-		}
-
-		if (asn1_len != sig_len + length_bytes + 2) {
-			fail_reason = 2;
-			goto Fail;
-		}
-	} else if (asn1_len != asn1[1] + 2) {
-		fail_reason = 3;
-		goto Fail;
-	}
-
-	if (asn1[2 + length_bytes] != ASN1_TAG_INTEGER_ENCODING) {
-		fail_reason = 4;
-		goto Fail;
-	}
-
-	len = asn1[3 + length_bytes];
-	c_idx = 4 + length_bytes + len;
-
-	if (asn1[c_idx] != ASN1_TAG_OCTETSTRING_ENCODING) {
-		fail_reason = 5;
-		goto Fail;
-	}
-
-	len = asn1[c_idx + 1];
-	c_idx = c_idx + 2;
-
-	SAE_BN_BIN2BI(asn1 + c_idx, len, private_key);
-	c_idx += len;
-
-
-	len2 = asn1[c_idx + 1];
-	c_idx = c_idx + 2;
-
-	if (len2 == sizeof(asn1_secp256r1_oid) &&
-		NdisEqualMemory(asn1 + c_idx, asn1_secp256r1_oid, len2)) {
-		if (len != 32) {
-			fail_reason = 7;
-			goto Fail;
-		}
-		*group_id = 19;
-	} else if (len2 == sizeof(asn1_secp384r1_oid) &&
-		NdisEqualMemory(asn1 + c_idx, asn1_secp384r1_oid, len2)) {
-		if (len != 48) {
-			fail_reason = 7;
-			goto Fail;
-		}
-		*group_id = 20;
-	} else if (len2 == sizeof(asn1_secp521r1_oid) &&
-		NdisEqualMemory(asn1 + c_idx, asn1_secp521r1_oid, len2)) {
-		if (len != 64) {
-			fail_reason = 7;
-			goto Fail;
-		}
-		*group_id = 21;
-	} else {
-		fail_reason = 8;
-		goto Fail;
-	}
-
-	c_idx += len2;
-	/* ignore public key check */
-
-	SAE_BN_PRINT(*private_key);
-
-	return TRUE;
-Fail:
-	MTWF_DBG(NULL, DBG_CAT_SEC, CATSEC_ECC, DBG_LVL_ERROR,
-				"fail reason(%d)\n", fail_reason);
-
-	SAE_BN_FREE(private_key);
-	return FALSE;
 }
 

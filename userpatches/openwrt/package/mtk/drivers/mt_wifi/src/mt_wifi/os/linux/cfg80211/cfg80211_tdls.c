@@ -1,16 +1,15 @@
-/*
- * Copyright (c) [2020], MediaTek Inc. All rights reserved.
- *
- * This software/firmware and related documentation ("MediaTek Software") are
- * protected under relevant copyright laws.
- * The information contained herein is confidential and proprietary to
- * MediaTek Inc. and/or its licensors.
- * Except as otherwise provided in the applicable licensing terms with
- * MediaTek Inc. and/or its licensors, any reproduction, modification, use or
- * disclosure of MediaTek Software, and information contained herein, in whole
- * or in part, shall be strictly prohibited.
-*/
 /****************************************************************************
+ * Ralink Tech Inc.
+ * Taiwan, R.O.C.
+ *
+ * (c) Copyright 2013, Ralink Technology, Inc.
+ *
+ * All rights reserved. Ralink's source code is an unpublished work and the
+ * use of a copyright notice does not imply otherwise. This source code
+ * contains confidential trade secret material of Ralink Tech. Any attemp
+ * or participation in deciphering, decoding, reverse engineering or in any
+ * way altering the source code is stricitly prohibited, unless the prior
+ * written consent of Ralink Technology, Inc. is obtained.
  ***************************************************************************/
 
 /****************************************************************************
@@ -118,7 +117,6 @@ VOID InitPeerEntryRateCapability(
 	ADD_HT_INFO_IE *addht = wlan_operate_get_addht(wdev);
 	UCHAR cfg_ht_bw = wlan_config_get_ht_bw(wdev);
 
-	UCHAR band = HcGetBandByWdev(wdev);
 	for (idx = 0; idx < SupportRateLens; idx++) {
 		if (MaxSupportedRateIn500Kbps < (pSupportRates[idx] & 0x7f))
 			MaxSupportedRateIn500Kbps = pSupportRates[idx] & 0x7f;
@@ -209,9 +207,9 @@ VOID InitPeerEntryRateCapability(
 		UCHAR	j, bitmask; /*k,bitmask; */
 		CHAR    ii;
 
-		MTWF_DBG(pAd, DBG_CAT_PROTO, CATPROTO_TDLS, DBG_LVL_INFO,
-				 "TDLS - Receive Peer HT Capable STA from "MACSTR"\n",
-				  MAC2STR(pEntry->Addr));
+		MTWF_LOG(DBG_CAT_PROTO, CATPROTO_TDLS, DBG_LVL_TRACE,
+				 ("TDLS - Receive Peer HT Capable STA from %02x:%02x:%02x:%02x:%02x:%02x\n",
+				  PRINT_MAC(pEntry->Addr)));
 
 		if ((pHtCapability->HtCapInfo.GF) &&
 			wlan_config_get_greenfield(wdev) &&
@@ -219,7 +217,7 @@ VOID InitPeerEntryRateCapability(
 			pEntry->MaxHTPhyMode.field.MODE = MODE_HTGREENFIELD;
 		else {
 			pEntry->MaxHTPhyMode.field.MODE = MODE_HTMIX;
-			pAd->MacTab.fAnyStationNonGF[band] = TRUE;
+			pAd->MacTab.fAnyStationNonGF = TRUE;
 			addht->AddHtInfo2.NonGfPresent = 1;
 		}
 
@@ -333,7 +331,7 @@ BOOLEAN CFG80211DRV_StaTdlsSetKeyCopyFlag(
 {
 	PRTMP_ADAPTER pAd = (PRTMP_ADAPTER)pAdOrg;
 
-	MTWF_DBG(NULL, DBG_CAT_PROTO, CATPROTO_TDLS, DBG_LVL_DEBUG, "======>  %s()\n", __func__);
+	MTWF_LOG(DBG_CAT_PROTO, CATPROTO_TDLS, DBG_LVL_INFO, ("======>  %s()\n", __func__));
 	pAd->StaCfg[0].wpa_supplicant_info.CFG_Tdls_info.IneedKey = 1;
 	return TRUE;
 }
@@ -352,8 +350,7 @@ BOOLEAN CFG80211DRV_StaTdlsInsertDeletepEntry(
 	UCHAR op_ht_bw = wlan_operate_get_ht_bw(wdev);
 
 	peer = (UCHAR *)pData;
-	MTWF_DBG(pAd, DBG_CAT_PROTO, CATPROTO_TDLS, DBG_LVL_INFO,
-			"=====>  peer: "MACSTR" ,op: %d\n", MAC2STR(peer), Data);
+	MTWF_LOG(DBG_CAT_PROTO, CATPROTO_TDLS, DBG_LVL_ERROR, ("=====>  %s() peer: %02x:%02x:%02x:%02x:%02x:%02x ,op: %d\n", __func__, PRINT_MAC(peer), Data));
 	pAd->StaCfg[0].wpa_supplicant_info.CFG_Tdls_info.IneedKey = 0;
 
 	if (Data == tdls_insert_entry) {
@@ -367,7 +364,7 @@ BOOLEAN CFG80211DRV_StaTdlsInsertDeletepEntry(
 		}
 
 		if (i == MAX_NUM_OF_CFG_TDLS_ENTRY) {
-			MTWF_DBG(pAd, DBG_CAT_PROTO, CATPROTO_TDLS, DBG_LVL_ERROR, "EXCEED MAX_NUM_OF_CFG_TDLS_ENTRY %d. Abort this setup\n", MAX_NUM_OF_CFG_TDLS_ENTRY);
+			MTWF_LOG(DBG_CAT_PROTO, CATPROTO_TDLS, DBG_LVL_ERROR, ("%s() - EXCEED MAX_NUM_OF_CFG_TDLS_ENTRY %d. Abort this setup\n", __func__, MAX_NUM_OF_CFG_TDLS_ENTRY));
 			return FALSE;
 		}
 
@@ -375,7 +372,7 @@ BOOLEAN CFG80211DRV_StaTdlsInsertDeletepEntry(
 		pMacEntry = MacTableLookup(pAd, peer);
 
 		if (pMacEntry && IS_ENTRY_TDLS(pMacEntry))
-			MTWF_DBG(pAd, DBG_CAT_PROTO, CATPROTO_TDLS, DBG_LVL_INFO, "MacTable Entry exist !!!\n");
+			MTWF_LOG(DBG_CAT_PROTO, CATPROTO_TDLS, DBG_LVL_ERROR, ("%s() - MacTable Entry exist !!!\n", __func__));
 		else
 			pMacEntry = MacTableInsertEntry(pAd,
 											peer,
@@ -402,14 +399,14 @@ BOOLEAN CFG80211DRV_StaTdlsInsertDeletepEntry(
 			UAPSD_AssocParse(pAd, pMacEntry, &pAd->StaCfg[0].wpa_supplicant_info.CFG_Tdls_info.TDLSEntry[tdls_entry_index].QosCapability,
 							 wdev->UapsdInfo.bAPSDCapable);
 #endif /* UAPSD_SUPPORT */
-			MTWF_DBG(pAd, DBG_CAT_PROTO, CATPROTO_TDLS, DBG_LVL_INFO,
-					 "MacTableInsertTDlsEntry - allocate entry #%d, Total= %d\n",
-					  pMacEntry->wcid, pAd->MacTab.Size);
+			MTWF_LOG(DBG_CAT_PROTO, CATPROTO_TDLS, DBG_LVL_TRACE,
+					 ("MacTableInsertTDlsEntry - allocate entry #%d, Total= %d\n",
+					  pMacEntry->Aid, pAd->MacTab.Size));
 
 			/* Set WMM capability */
 			if ((wdev->PhyMode >= PHY_11ABGN_MIXED) || (pAd->CommonCfg.bWmmCapable)) {
 				CLIENT_STATUS_SET_FLAG(pMacEntry, fCLIENT_STATUS_WMM_CAPABLE);
-				MTWF_DBG(pAd, DBG_CAT_PROTO, CATPROTO_TDLS, DBG_LVL_INFO, "TDLS -  WMM Capable\n");
+				MTWF_LOG(DBG_CAT_PROTO, CATPROTO_TDLS, DBG_LVL_TRACE, ("TDLS -  WMM Capable\n"));
 			} else
 				CLIENT_STATUS_CLEAR_FLAG(pMacEntry, fCLIENT_STATUS_WMM_CAPABLE);
 
@@ -444,11 +441,11 @@ BOOLEAN CFG80211DRV_StaTdlsInsertDeletepEntry(
 							  pAd->StaActive.ExtRate,
 							  pAd->StaActive.ExtRateLen,
 #ifdef DOT11_VHT_AC
-							  FALSE,
+							  0,
 							  NULL,
 #endif /* DOT11_VHT_AC */
 							  &HtCapabilityTmp,
-							  TRUE);
+							  HtLen);
 
 			/*  */
 			/* Install Peer Key if RSNA Enabled */
@@ -481,11 +478,11 @@ BOOLEAN CFG80211DRV_StaTdlsInsertDeletepEntry(
 			}
 
 			if (wdev_do_disconn_act(wdev, pMacEntry) != TRUE)
-				MTWF_DBG(pAd, DBG_CAT_PROTO, CATPROTO_TDLS, DBG_LVL_ERROR, "dis connect fail!\n");
+				MTWF_LOG(DBG_CAT_PROTO, CATPROTO_TDLS, DBG_LVL_ERROR, ("%s() dis connect fail!\n", __func__));
 
 			cfg_tdls_prepare_null_frame(pAd, 0, 0, peer);
 		} else {
-			MTWF_DBG(pAd, DBG_CAT_PROTO, CATPROTO_TDLS, DBG_LVL_ERROR, "MacTableInsertEntry failed\n");
+			MTWF_LOG(DBG_CAT_PROTO, CATPROTO_TDLS, DBG_LVL_ERROR, ("%s() - MacTableInsertEntry failed\n", __func__));
 			return FALSE;
 		}
 	} else if (Data == tdls_delete_entry) {
@@ -500,7 +497,7 @@ BOOLEAN CFG80211DRV_StaTdlsInsertDeletepEntry(
 		for (i = 0; i < MAX_NUM_OF_CFG_TDLS_ENTRY; i++) {
 			if (pAd->StaCfg[0].wpa_supplicant_info.CFG_Tdls_info.TDLSEntry[i].EntryValid == TRUE &&
 				MAC_ADDR_EQUAL(peer, pAd->StaCfg[0].wpa_supplicant_info.CFG_Tdls_info.TDLSEntry[i].MacAddr)) {
-				MTWF_DBG(pAd, DBG_CAT_PROTO, CATPROTO_TDLS, DBG_LVL_ERROR, "clear TDLS entry %d\n", i);
+				MTWF_LOG(DBG_CAT_PROTO, CATPROTO_TDLS, DBG_LVL_ERROR, ("%s() clear TDLS entry %d\n", __func__, i));
 				os_zero_mem(&(pAd->StaCfg[0].wpa_supplicant_info.CFG_Tdls_info.TDLSEntry[i]), sizeof(CFG_TDLS_ENTRY));
 				pAd->StaCfg[0].wpa_supplicant_info.CFG_Tdls_info.TdlsLinkCount--;
 #ifdef UAPSD_SUPPORT
@@ -513,9 +510,9 @@ BOOLEAN CFG80211DRV_StaTdlsInsertDeletepEntry(
 			}
 		}
 	} else
-		MTWF_DBG(pAd, DBG_CAT_PROTO, CATPROTO_TDLS, DBG_LVL_INFO, "op: %d  DO NOTHING\n", Data);
+		MTWF_LOG(DBG_CAT_PROTO, CATPROTO_TDLS, DBG_LVL_ERROR, ("%s() op: %d  DO NOTHING\n", __func__, Data));
 
-	MTWF_DBG(pAd, DBG_CAT_PROTO, CATPROTO_TDLS, DBG_LVL_INFO, "<====== out\n");
+	MTWF_LOG(DBG_CAT_PROTO, CATPROTO_TDLS, DBG_LVL_ERROR, ("<======  %s() out\n", __func__));
 	return TRUE;
 }
 #ifdef UAPSD_SUPPORT
@@ -524,7 +521,7 @@ BOOLEAN cfg_tdls_UAPSDP_AsicCanSleep(PRTMP_ADAPTER pAd)
 	UINT32 i;
 	BOOLEAN FlgAllSpClosed = TRUE;
 
-	MTWF_DBG(NULL, DBG_CAT_PROTO, CATPROTO_TDLS, DBG_LVL_DEBUG, "======>  %s()\n", __func__);
+	MTWF_LOG(DBG_CAT_PROTO, CATPROTO_TDLS, DBG_LVL_INFO, ("======>  %s()\n", __func__));
 
 	for (i = 0; i < MAX_NUM_OF_CFG_TDLS_ENTRY; i++) {
 		PCFG_TDLS_ENTRY pTDLS = &pAd->StaCfg[0].wpa_supplicant_info.CFG_Tdls_info.TDLSEntry[i];
@@ -543,10 +540,10 @@ BOOLEAN cfg_tdls_UAPSDP_AsicCanSleep(PRTMP_ADAPTER pAd)
 			 */
 			if ((pEntry->bAPSDFlagSPStart != 0) ||
 				(pTDLS->FlgIsWaitingUapsdTraRsp == TRUE)) {
-				MTWF_DBG(pAd, DBG_CAT_PROTO, CATPROTO_TDLS, DBG_LVL_INFO,
-						 "tdls uapsd> SP not close or Ind sent (%d %d)!\n",
+				MTWF_LOG(DBG_CAT_PROTO, CATPROTO_TDLS, DBG_LVL_TRACE,
+						 ("tdls uapsd> SP not close or Ind sent (%d %d)!\n",
 						  pEntry->bAPSDFlagSPStart,
-						  pTDLS->FlgIsWaitingUapsdTraRsp);
+						  pTDLS->FlgIsWaitingUapsdTraRsp));
 				hex_dump("pEntry=", pEntry->Addr, 6);
 				FlgAllSpClosed = FALSE;
 				break;
@@ -554,7 +551,7 @@ BOOLEAN cfg_tdls_UAPSDP_AsicCanSleep(PRTMP_ADAPTER pAd)
 		}
 	}
 
-	MTWF_DBG(NULL, DBG_CAT_PROTO, CATPROTO_TDLS, DBG_LVL_DEBUG, "<======  %s() out\n", __func__);
+	MTWF_LOG(DBG_CAT_PROTO, CATPROTO_TDLS, DBG_LVL_INFO, ("<======  %s() out\n", __func__));
 	return FlgAllSpClosed;
 }
 
@@ -567,7 +564,7 @@ VOID cfg_tdls_UAPSDP_PsmModeChange(
 	UINT32 IdTdls;
 	struct wifi_dev *wdev = &pAd->StaCfg[0].wdev;
 
-	MTWF_DBG(NULL, DBG_CAT_PROTO, CATPROTO_TDLS, DBG_LVL_DEBUG, "======>  %s()\n", __func__);
+	MTWF_LOG(DBG_CAT_PROTO, CATPROTO_TDLS, DBG_LVL_INFO, ("======>  %s()\n", __func__));
 
 	if (PsmOld == PsmNew)
 		return; /* no inform needs */
@@ -578,15 +575,12 @@ VOID cfg_tdls_UAPSDP_PsmModeChange(
 		 (wdev->AuthMode == Ndis802_11AuthModeWPAPSK) ||
 		 (wdev->AuthMode == Ndis802_11AuthModeWPA2) ||
 		 (wdev->AuthMode == Ndis802_11AuthModeWPA2PSK)
-#ifdef WPA_SUPPLICANT_SUPPORT
-		 || (wdev->IEEE8021X == TRUE)
-#endif
 		) &&
 		(wdev->PortSecured == WPA_802_1X_PORT_NOT_SECURED)) {
 		return; /* port not yet secure */
 	}
 
-	MTWF_DBG(pAd, DBG_CAT_PROTO, CATPROTO_TDLS, DBG_LVL_INFO, "tdls uapsd> our PSM mode change!\n");
+	MTWF_LOG(DBG_CAT_PROTO, CATPROTO_TDLS, DBG_LVL_TRACE, ("tdls uapsd> our PSM mode change!\n"));
 
 	/* indicate the peer */
 
@@ -606,7 +600,7 @@ VOID cfg_tdls_UAPSDP_PsmModeChange(
 				 *	we have ever received any packet from the peer.
 				 */
 				/* send a null frame to the peer directly */
-				MTWF_DBG(pAd, DBG_CAT_PROTO, CATPROTO_TDLS, DBG_LVL_INFO, "tdls uapsd> send a NULL frame!\n");
+				MTWF_LOG(DBG_CAT_PROTO, CATPROTO_TDLS, DBG_LVL_TRACE, ("tdls uapsd> send a NULL frame!\n"));
 				RtmpEnqueueNullFrame(pAd, pMacEntry->Addr,
 									 pAd->CommonCfg.TxRate, pMacEntry->Aid,
 									 pMacEntry->apidx, TRUE, FALSE, 0);
@@ -621,14 +615,14 @@ VOID cfg_tdls_UAPSDP_PsmModeChange(
 		}
 	}
 
-	MTWF_DBG(NULL, DBG_CAT_PROTO, CATPROTO_TDLS, DBG_LVL_DEBUG, "<======  %s() out\n", __func__);
+	MTWF_LOG(DBG_CAT_PROTO, CATPROTO_TDLS, DBG_LVL_INFO, ("<======  %s() out\n", __func__));
 }
 
 VOID cfg_tdls_rcv_PeerTrafficIndication(PRTMP_ADAPTER pAd, UINT8 dialog_token, UINT8 *peer)
 {
 	int tdls_entry_wcid = 0;
 
-	MTWF_DBG(NULL, DBG_CAT_PROTO, CATPROTO_TDLS, DBG_LVL_DEBUG, "======>  %s()\n", __func__);
+	MTWF_LOG(DBG_CAT_PROTO, CATPROTO_TDLS, DBG_LVL_INFO, ("======>  %s()\n", __func__));
 
 	/* Not TDLS Capable, ignore it */
 	if (!IS_TDLS_SUPPORT(pAd))
@@ -645,21 +639,19 @@ VOID cfg_tdls_rcv_PeerTrafficIndication(PRTMP_ADAPTER pAd, UINT8 dialog_token, U
 	tdls_entry_wcid = cfg_tdls_search_wcid(pAd, peer);
 
 	if (tdls_entry_wcid == -1) {
-		MTWF_DBG(pAd, DBG_CAT_PROTO, CATPROTO_TDLS, DBG_LVL_ERROR,
-				" can't find valid link ID, tdls link to ("MACSTR") doesn't exist.\n",
-				MAC2STR(peer));
+		MTWF_LOG(DBG_CAT_PROTO, CATPROTO_TDLS, DBG_LVL_ERROR, ("%s(): can't find valid link ID, tdls link to (%02X:%02X:%02X:%02X:%02X:%02X) doesn't exist.\n", __func__, PRINT_MAC(peer)));
 		return;
 	}
 
 	cfg_tdls_build_frame(pAd, peer, dialog_token, TDLS_ACTION_CODE_PEER_TRAFFIC_RESPONSE, 0, NULL, 0, FALSE, tdls_entry_wcid, 0);
-	MTWF_DBG(NULL, DBG_CAT_PROTO, CATPROTO_TDLS, DBG_LVL_DEBUG, "<======  %s() out\n", __func__);
+	MTWF_LOG(DBG_CAT_PROTO, CATPROTO_TDLS, DBG_LVL_INFO, ("<======  %s() out\n", __func__));
 }
 
 VOID cfg_tdls_rcv_PeerTrafficResponse(PRTMP_ADAPTER pAd, UINT8 *peer)
 {
 	int i = 0;
 
-	MTWF_DBG(pAd, DBG_CAT_PROTO, CATPROTO_TDLS, DBG_LVL_INFO, "\n");
+	MTWF_LOG(DBG_CAT_PROTO, CATPROTO_TDLS, DBG_LVL_ERROR, ("======>  %s()\n", __func__));
 
 	/* Not TDLS Capable, ignore it */
 	if (!IS_TDLS_SUPPORT(pAd))
@@ -672,16 +664,14 @@ VOID cfg_tdls_rcv_PeerTrafficResponse(PRTMP_ADAPTER pAd, UINT8 *peer)
 	i = cfg_tdls_search_ValidLinkIndex(pAd, peer);
 
 	if (i == -1) {
-		MTWF_DBG(pAd, DBG_CAT_PROTO, CATPROTO_TDLS, DBG_LVL_ERROR,
-				" can't find valid link ID, tdls link to ("MACSTR") doesn't exist.\n",
-				MAC2STR(peer));
+		MTWF_LOG(DBG_CAT_PROTO, CATPROTO_TDLS, DBG_LVL_ERROR, ("%s(): can't find valid link ID, tdls link to (%02X:%02X:%02X:%02X:%02X:%02X) doesn't exist.\n", __func__, PRINT_MAC(peer)));
 		return;
 	}
 
 	pAd->StaCfg[0].wpa_supplicant_info.CFG_Tdls_info.TDLSEntry[i].FlgIsWaitingUapsdTraRsp = FALSE;
 	/* check if we can sleep if we are sleep mode */
 	RtmpAsicSleepHandle(pAd);
-	MTWF_DBG(pAd, DBG_CAT_PROTO, CATPROTO_TDLS, DBG_LVL_INFO, "out\n");
+	MTWF_LOG(DBG_CAT_PROTO, CATPROTO_TDLS, DBG_LVL_ERROR, ("<======  %s() out\n", __func__));
 }
 
 VOID cfg_tdls_send_PeerTrafficIndication(PRTMP_ADAPTER pAd, UINT8 *peer)
@@ -690,7 +680,7 @@ VOID cfg_tdls_send_PeerTrafficIndication(PRTMP_ADAPTER pAd, UINT8 *peer)
 	UINT8 dialog_token = 0;
 	BOOLEAN TimerCancelled;
 
-	MTWF_DBG(pAd, DBG_CAT_PROTO, CATPROTO_TDLS, DBG_LVL_INFO, "\n");
+	MTWF_LOG(DBG_CAT_PROTO, CATPROTO_TDLS, DBG_LVL_ERROR, ("======>  %s()\n", __func__));
 
 	if (pAd->StaCfg[0].wpa_supplicant_info.CFG_Tdls_info.TdlsDialogToken == 0)
 		pAd->StaCfg[0].wpa_supplicant_info.CFG_Tdls_info.TdlsDialogToken = 1;
@@ -708,14 +698,12 @@ VOID cfg_tdls_send_PeerTrafficIndication(PRTMP_ADAPTER pAd, UINT8 *peer)
 	tdls_entry_link_index = cfg_tdls_search_ValidLinkIndex(pAd, peer);
 
 	if (tdls_entry_link_index == -1) {
-		MTWF_DBG(pAd, DBG_CAT_PROTO, CATPROTO_TDLS, DBG_LVL_ERROR,
-				" can't find valid link ID, tdls link to ("MACSTR") doesn't exist.\n",
-				MAC2STR(peer));
+		MTWF_LOG(DBG_CAT_PROTO, CATPROTO_TDLS, DBG_LVL_ERROR, ("%s(): can't find valid link ID, tdls link to (%02X:%02X:%02X:%02X:%02X:%02X) doesn't exist.\n", __func__, PRINT_MAC(peer)));
 		return;
 	}
 
 	if (pAd->StaCfg[0].wpa_supplicant_info.CFG_Tdls_info.TDLSEntry[tdls_entry_link_index].FlgIsWaitingUapsdTraRsp == TRUE) {
-		MTWF_DBG(pAd, DBG_CAT_PROTO, CATPROTO_TDLS, DBG_LVL_ERROR, "tdls uapsd> traffic ind of index %d was sent before!\n", tdls_entry_link_index);
+		MTWF_LOG(DBG_CAT_PROTO, CATPROTO_TDLS, DBG_LVL_ERROR, ("tdls uapsd> traffic ind of index %d was sent before!\n", tdls_entry_link_index));
 		return; /* has sent it */
 	}
 
@@ -732,7 +720,7 @@ VOID cfg_tdls_send_PeerTrafficIndication(PRTMP_ADAPTER pAd, UINT8 *peer)
 	/* set traffic indication timer */
 	RTMPCancelTimer(&pAd->StaCfg[0].wpa_supplicant_info.CFG_Tdls_info.TDLSEntry[tdls_entry_link_index].Timer, &TimerCancelled);
 	RTMPSetTimer(&pAd->StaCfg[0].wpa_supplicant_info.CFG_Tdls_info.TDLSEntry[tdls_entry_link_index].Timer, TDLS_TIMEOUT);
-	MTWF_DBG(pAd, DBG_CAT_PROTO, CATPROTO_TDLS, DBG_LVL_INFO, "out\n");
+	MTWF_LOG(DBG_CAT_PROTO, CATPROTO_TDLS, DBG_LVL_ERROR, ("<======  %s() out\n", __func__));
 }
 VOID cfg_tdls_TimerInit(PRTMP_ADAPTER pAd)
 {
@@ -766,14 +754,14 @@ VOID cfg_tdls_PTITimeoutAction(
 	if (pTDLS->FlgIsWaitingUapsdTraRsp == TRUE) {
 		MAC_TABLE_ENTRY	*pMacEntry = NULL;
 		/* timeout for traffic response frame */
-		MTWF_LOG(DBG_CAT_PROTO, CATPROTO_TDLS, DBG_LVL_OFF,
-		("tdls uapsd> traffic rsp timeout!!!\npeerMAC("MACSTR"), send link teardown\n",
-		MAC2STR(pTDLS->MacAddr)));
+		MTWF_LOG(DBG_CAT_PROTO, CATPROTO_TDLS, DBG_LVL_OFF, ("tdls uapsd> traffic rsp timeout!!!\npeerMAC(%02X:%02X:%02X:%02X:%02X:%02X), send link teardown\n"
+				 , PRINT_MAC(pTDLS->MacAddr)));
 		pTDLS->FlgIsWaitingUapsdTraRsp = FALSE;
 		pMacEntry = MacTableLookup(pAd, pTDLS->MacAddr);
 
 		if (pMacEntry == NULL) {
-			MTWF_DBG(pAd, DBG_CAT_PROTO, CATPROTO_TDLS, DBG_LVL_ERROR, "tdls_cmd> ERROR! No such peer in this function!\n");
+			MTWF_LOG(DBG_CAT_PROTO, CATPROTO_TDLS, DBG_LVL_ERROR, ("tdls_cmd> ERROR! No such peer in %s!\n",
+					 __func__));
 			return;
 		}
 
@@ -788,7 +776,7 @@ INT cfg_tdls_search_wcid(PRTMP_ADAPTER pAd, UINT8 *peer)
 {
 	int i = 0, tdls_entry_wcid;
 
-	MTWF_DBG(NULL, DBG_CAT_PROTO, CATPROTO_TDLS, DBG_LVL_DEBUG, "======>  %s()\n", __func__);
+	MTWF_LOG(DBG_CAT_PROTO, CATPROTO_TDLS, DBG_LVL_INFO, ("======>  %s()\n", __func__));
 
 	for (i = 0; i < MAX_NUM_OF_CFG_TDLS_ENTRY; i++) {
 		if (MAC_ADDR_EQUAL(pAd->StaCfg[0].wpa_supplicant_info.CFG_Tdls_info.TDLSEntry[i].MacAddr, peer) &&
@@ -801,7 +789,7 @@ INT cfg_tdls_search_wcid(PRTMP_ADAPTER pAd, UINT8 *peer)
 	if (i == MAX_NUM_OF_CFG_TDLS_ENTRY)
 		tdls_entry_wcid = -1;
 
-	MTWF_DBG(NULL, DBG_CAT_PROTO, CATPROTO_TDLS, DBG_LVL_DEBUG, "<======  %s() out\n", __func__);
+	MTWF_LOG(DBG_CAT_PROTO, CATPROTO_TDLS, DBG_LVL_INFO, ("<======  %s() out\n", __func__));
 	return tdls_entry_wcid;
 }
 
@@ -809,7 +797,7 @@ INT cfg_tdls_search_ValidLinkIndex(PRTMP_ADAPTER pAd, UINT8 *peer)
 {
 	int i = 0, tdls_link_index;
 
-	MTWF_DBG(NULL, DBG_CAT_PROTO, CATPROTO_TDLS, DBG_LVL_DEBUG, "======>  %s()\n", __func__);
+	MTWF_LOG(DBG_CAT_PROTO, CATPROTO_TDLS, DBG_LVL_INFO, ("======>  %s()\n", __func__));
 
 	for (i = 0; i < MAX_NUM_OF_CFG_TDLS_ENTRY; i++) {
 		if (MAC_ADDR_EQUAL(pAd->StaCfg[0].wpa_supplicant_info.CFG_Tdls_info.TDLSEntry[i].MacAddr, peer) &&
@@ -822,7 +810,7 @@ INT cfg_tdls_search_ValidLinkIndex(PRTMP_ADAPTER pAd, UINT8 *peer)
 	if (i == MAX_NUM_OF_CFG_TDLS_ENTRY)
 		tdls_link_index = -1;
 
-	MTWF_DBG(NULL, DBG_CAT_PROTO, CATPROTO_TDLS, DBG_LVL_DEBUG, "<======  %s() out\n", __func__);
+	MTWF_LOG(DBG_CAT_PROTO, CATPROTO_TDLS, DBG_LVL_INFO, ("<======  %s() out\n", __func__));
 	return tdls_link_index;
 }
 
@@ -846,13 +834,13 @@ INT cfg_tdls_build_frame(PRTMP_ADAPTER pAd, u8 *peer, u8 dialog_token, u8 action
 	struct wifi_dev *wdev = &pAd->StaCfg[0].wdev;
 	UCHAR op_ht_bw = wlan_operate_get_ht_bw(wdev);
 
-	MTWF_DBG(NULL, DBG_CAT_PROTO, CATPROTO_TDLS, DBG_LVL_DEBUG, "======>  %s()\n", __func__);
+	MTWF_LOG(DBG_CAT_PROTO, CATPROTO_TDLS, DBG_LVL_INFO, ("======>  %s()\n", __func__));
 	MTWF_LOG(DBG_CAT_PROTO, CATPROTO_TDLS, DBG_LVL_OFF, ("%s() - TDLSEntry[%d] Initiator = %d\n", __func__, tdls_entry_link_index, pAd->StaCfg[0].wpa_supplicant_info.CFG_Tdls_info.TDLSEntry[tdls_entry_link_index].bInitiator));
 	/* Allocate buffer for transmitting message */
 	NStatus = MlmeAllocateMemory(pAd, &pOutBuffer);
 
 	if (NStatus != NDIS_STATUS_SUCCESS) {
-		MTWF_DBG(pAd, DBG_CAT_PROTO, CATPROTO_TDLS, DBG_LVL_ERROR, "ACT - TDLS_SetupRequestAction() allocate memory failed\n");
+		MTWF_LOG(DBG_CAT_PROTO, CATPROTO_TDLS, DBG_LVL_ERROR, ("ACT - TDLS_SetupRequestAction() allocate memory failed\n"));
 		return NStatus;
 	}
 
@@ -904,7 +892,7 @@ INT cfg_tdls_build_frame(PRTMP_ADAPTER pAd, u8 *peer, u8 dialog_token, u8 action
 	if (action_code == WLAN_TDLS_SETUP_RESPONSE || action_code == WLAN_TDLS_SETUP_CONFIRM) {
 		/* fill status code */
 		status_code = cpu2le16(status_code);
-		MTWF_DBG(pAd, DBG_CAT_PROTO, CATPROTO_TDLS, DBG_LVL_ERROR, "########## status code : 0x%04x\n", status_code);
+		MTWF_LOG(DBG_CAT_PROTO, CATPROTO_TDLS, DBG_LVL_ERROR, ("########## status code : 0x%04x\n", status_code));
 		MakeOutgoingFrame(pOutBuffer + FrameLen,		&TempLen,
 						  2,				&status_code,
 						  END_OF_ARGS);
@@ -1247,12 +1235,12 @@ INT cfg_tdls_build_frame(PRTMP_ADAPTER pAd, u8 *peer, u8 dialog_token, u8 action
 				QosInfo.UAPSD_AC_VI = 1;/* pAd->CommonCfg.TDLS_bAPSDAC_VI; */
 				QosInfo.UAPSD_AC_VO = 1;/* pAd->CommonCfg.TDLS_bAPSDAC_VO; */
 				QosInfo.MaxSPLength = 0;/* pAd->CommonCfg.TDLS_MaxSPLength; */
-				MTWF_DBG(pAd, DBG_CAT_PROTO, CATPROTO_TDLS, DBG_LVL_ERROR, "tdls our uapsd> UAPSD %d %d %d %d %d!\n",
+				MTWF_LOG(DBG_CAT_PROTO, CATPROTO_TDLS, DBG_LVL_ERROR, ("tdls our uapsd> UAPSD %d %d %d %d %d!\n",
 						 QosInfo.UAPSD_AC_BE,
 						 QosInfo.UAPSD_AC_BK,
 						 QosInfo.UAPSD_AC_VI,
 						 QosInfo.UAPSD_AC_VO,
-						 QosInfo.MaxSPLength);
+						 QosInfo.MaxSPLength));
 			}
 
 			MakeOutgoingFrame(pOutBuffer + FrameLen,			&TempLen,
@@ -1284,12 +1272,12 @@ INT cfg_tdls_build_frame(PRTMP_ADAPTER pAd, u8 *peer, u8 dialog_token, u8 action
 			QosInfo.UAPSD_AC_VI = 1;/* pAd->CommonCfg.TDLS_bAPSDAC_VI; */
 			QosInfo.UAPSD_AC_VO = 1;/* pAd->CommonCfg.TDLS_bAPSDAC_VO; */
 			QosInfo.MaxSPLength = 0;/* pAd->CommonCfg.TDLS_MaxSPLength; */
-			MTWF_DBG(pAd, DBG_CAT_PROTO, CATPROTO_TDLS, DBG_LVL_ERROR, "tdls our uapsd> UAPSD %d %d %d %d %d!\n",
+			MTWF_LOG(DBG_CAT_PROTO, CATPROTO_TDLS, DBG_LVL_ERROR, ("tdls our uapsd> UAPSD %d %d %d %d %d!\n",
 					 QosInfo.UAPSD_AC_BE,
 					 QosInfo.UAPSD_AC_BK,
 					 QosInfo.UAPSD_AC_VI,
 					 QosInfo.UAPSD_AC_VO,
-					 QosInfo.MaxSPLength);
+					 QosInfo.MaxSPLength));
 		}
 
 		WmeParmIe[8] |= *(PUCHAR)&QosInfo;
@@ -1314,7 +1302,8 @@ INT cfg_tdls_build_frame(PRTMP_ADAPTER pAd, u8 *peer, u8 dialog_token, u8 action
 		pMacEntry = MacTableLookup(pAd, peer);
 
 		if (pMacEntry == NULL) {
-			MTWF_DBG(pAd, DBG_CAT_PROTO, CATPROTO_TDLS, DBG_LVL_ERROR, "tdls_cmd> ERROR! No such peer in this function!\n");
+			MTWF_LOG(DBG_CAT_PROTO, CATPROTO_TDLS, DBG_LVL_ERROR, ("tdls_cmd> ERROR! No such peer in %s!\n",
+					 __func__));
 			return -1;
 		}
 	}
@@ -1332,7 +1321,7 @@ INT cfg_tdls_build_frame(PRTMP_ADAPTER pAd, u8 *peer, u8 dialog_token, u8 action
 		pEntry = MacTableLookup(pAd, peer);
 
 		if (pEntry == NULL) {
-			MTWF_DBG(pAd, DBG_CAT_PROTO, CATPROTO_TDLS, DBG_LVL_ERROR, "tdls_cmd> ERROR! No such peer in this function!\n",
+			MTWF_LOG(DBG_CAT_PROTO, CATPROTO_TDLS, DBG_LVL_ERROR, ("tdls_cmd> ERROR! No such peer in %s!\n",
 					 __func__));
 			return -1;
 		}
@@ -1454,7 +1443,7 @@ INT cfg_tdls_build_frame(PRTMP_ADAPTER pAd, u8 *peer, u8 dialog_token, u8 action
 			CFG80211DBG(DBG_LVL_ERROR, ("########### MINIPORT ERR %d\n", stat));
 	}
 
-	MTWF_DBG(NULL, DBG_CAT_PROTO, CATPROTO_TDLS, DBG_LVL_DEBUG, "<======  %s() out\n", __func__);
+	MTWF_LOG(DBG_CAT_PROTO, CATPROTO_TDLS, DBG_LVL_INFO, ("<======  %s() out\n", __func__));
 	return 0;
 }
 
@@ -1467,13 +1456,11 @@ INT cfg_tdls_EntryInfo_Display_Proc(
 	MTWF_LOG(DBG_CAT_PROTO, CATPROTO_TDLS, DBG_LVL_OFF, ("\n%-19s\n", "MAC\n"));
 
 	for (i = 0; i < MAX_NUM_OF_CFG_TDLS_ENTRY; i++) {
-		MTWF_LOG(DBG_CAT_PROTO, CATPROTO_TDLS, DBG_LVL_OFF,
-            ("TDLS Entry %d MAC "MACSTR"\n", i,
-            MAC2STR(pAd->StaCfg[0].wpa_supplicant_info.CFG_Tdls_info.TDLSEntry[i].MacAddr)));
+		MTWF_LOG(DBG_CAT_PROTO, CATPROTO_TDLS, DBG_LVL_OFF, ("TDLS Entry %d MAC %02x:%02x:%02x:%02x:%02x:%02x\n", i, PRINT_MAC(pAd->StaCfg[0].wpa_supplicant_info.CFG_Tdls_info.TDLSEntry[i].MacAddr)));
 
 		if (pAd->StaCfg[0].wpa_supplicant_info.CFG_Tdls_info.TDLSEntry[i].EntryValid == TRUE) {
 			PMAC_TABLE_ENTRY pEntry = &pAd->MacTab.Content[pAd->StaCfg[0].wpa_supplicant_info.CFG_Tdls_info.TDLSEntry[i].MacTabMatchWCID];
-			/* MTWF_LOG(DBG_CAT_PROTO, CATPROTO_TDLS, DBG_LVL_OFF, (""MACSTR"\n", MAC2STR(pAd->StaCfg[0].wpa_supplicant_info.CFG_Tdls_info.TDLSEntry[i].MacAddr))); */
+			/* MTWF_LOG(DBG_CAT_PROTO, CATPROTO_TDLS, DBG_LVL_OFF, ("%02x:%02x:%02x:%02x:%02x:%02x\n",PRINT_MAC(pAd->StaCfg[0].wpa_supplicant_info.CFG_Tdls_info.TDLSEntry[i].MacAddr))); */
 			/*MTWF_LOG(DBG_CAT_PROTO, CATPROTO_TDLS, DBG_LVL_OFF, ("%-8d\n", pAd->StaCfg[0].DLSEntry[i].TimeOut)); */
 			/* MTWF_LOG(DBG_CAT_PROTO, CATPROTO_TDLS, DBG_LVL_OFF, ("\n")); */
 			MTWF_LOG(DBG_CAT_PROTO, CATPROTO_TDLS, DBG_LVL_OFF, ("TDLS Entry %d is valid, bInitiator = %d\n"
@@ -1483,8 +1470,9 @@ INT cfg_tdls_EntryInfo_Display_Proc(
 #ifdef DOT11_N_SUPPORT
 			MTWF_LOG(DBG_CAT_PROTO, CATPROTO_TDLS, DBG_LVL_OFF, ("%-8s%-10s%-6s%-6s%-6s%-6s", "MIMOPS", "PhMd", "BW", "MCS", "SGI", "STBC"));
 #endif /* DOT11_N_SUPPORT */
-			MTWF_LOG(DBG_CAT_PROTO, CATPROTO_TDLS, DBG_LVL_OFF, ("\n"MACSTR"  ",
-					 MAC2STR(pEntry->Addr)));
+			MTWF_LOG(DBG_CAT_PROTO, CATPROTO_TDLS, DBG_LVL_OFF, ("\n%02X:%02X:%02X:%02X:%02X:%02X  ",
+					 pEntry->Addr[0], pEntry->Addr[1], pEntry->Addr[2],
+					 pEntry->Addr[3], pEntry->Addr[4], pEntry->Addr[5]));
 			MTWF_LOG(DBG_CAT_PROTO, CATPROTO_TDLS, DBG_LVL_OFF, ("%-4d", (int)pEntry->Aid));
 			MTWF_LOG(DBG_CAT_PROTO, CATPROTO_TDLS, DBG_LVL_OFF, ("%-4d", (int)pEntry->apidx));
 			MTWF_LOG(DBG_CAT_PROTO, CATPROTO_TDLS, DBG_LVL_OFF, ("%-4d", (int)pEntry->PsMode));
@@ -1568,10 +1556,8 @@ VOID cfg_tdls_rx_parsing(PRTMP_ADAPTER pAd, RX_BLK *pRxBlk)
 			while ((Length + 2 + pEid->Len) <= RemainLen) {
 				switch (pEid->Eid) {
 				case IE_QOS_CAPABILITY:
-					if (parse_qos_cap_ie(pEid))
+					if (pEid->Len == 1)
 						pCfgTdls->TDLSEntry[tdls_entry_index].QosCapability = *(pEid->Octet);
-					else
-						return FALSE;
 
 					break;
 
@@ -1581,20 +1567,18 @@ VOID cfg_tdls_rx_parsing(PRTMP_ADAPTER pAd, RX_BLK *pRxBlk)
 					if (os_equal_mem(pEid->Octet, WME_INFO_ELEM, 6) && (pEid->Len == 7))
 						pCfgTdls->TDLSEntry[tdls_entry_index].QosCapability = pEid->Octet[6];
 
-					MTWF_DBG(pAd, DBG_CAT_PROTO, CATPROTO_TDLS, DBG_LVL_ERROR,
-					"RCV QosCapa 0x[%x] from peer MAC: ("MACSTR")\n",
-					pAd->StaCfg[0].wpa_supplicant_info.CFG_Tdls_info.TDLSEntry[tdls_entry_index].QosCapability,
-					MAC2STR(peerMAC));
+					MTWF_LOG(DBG_CAT_PROTO, CATPROTO_TDLS, DBG_LVL_ERROR, ("%s : RCV QosCapa 0x[%x] from peer MAC: (%02X:%02X:%02X:%02X:%02X:%02X)\n"
+							 , __func__, pAd->StaCfg[0].wpa_supplicant_info.CFG_Tdls_info.TDLSEntry[tdls_entry_index].QosCapability, PRINT_MAC(peerMAC)));
 					break;
 
 				case IE_HT_CAP:
-					if ((wdev->PhyMode >= PHY_11ABGN_MIXED) &&
-							/* Note: allow extension.!! */
-							(parse_ht_cap_ie(pEid->Len))) {
-						os_move_mem(&pCfgTdls->TDLSEntry[tdls_entry_index].HtCapability, pEid->Octet, sizeof(HT_CAPABILITY_IE));
-						pCfgTdls->TDLSEntry[tdls_entry_index].HtCapabilityLen = SIZE_HT_CAP_IE;	/* Nnow we only support 26 bytes. */
-					} else
-						return FALSE;
+					if (wdev->PhyMode >= PHY_11ABGN_MIXED) {
+						if (pEid->Len >= SIZE_HT_CAP_IE) { /* Note: allow extension.!! */
+							os_move_mem(&pCfgTdls->TDLSEntry[tdls_entry_index].HtCapability, pEid->Octet, sizeof(HT_CAPABILITY_IE));
+							pCfgTdls->TDLSEntry[tdls_entry_index].HtCapabilityLen = SIZE_HT_CAP_IE;	/* Nnow we only support 26 bytes. */
+						}
+					}
+
 					break;
 
 				default:
@@ -1611,7 +1595,7 @@ VOID cfg_tdls_rx_parsing(PRTMP_ADAPTER pAd, RX_BLK *pRxBlk)
 			CFG_TDLS_CHSW_PARAM TdlsCHSWParam;
 
 			os_zero_mem(&TdlsCHSWParam, sizeof(CFG_TDLS_CHSW_PARAM));
-			MTWF_DBG(pAd, DBG_CAT_PROTO, CATPROTO_TDLS, DBG_LVL_ERROR, "GOT CHSW REQ! %ld !!!\n", (jiffies * 1000) / OS_HZ);
+			MTWF_LOG(DBG_CAT_PROTO, CATPROTO_TDLS, DBG_LVL_ERROR, ("GOT CHSW REQ! %ld !!!\n", (jiffies * 1000) / OS_HZ));
 			peerMAC = pRxBlk->pHeader->Addr2;
 
 			if (pCfgTdls->IamInOffChannel) {
@@ -1622,7 +1606,7 @@ VOID cfg_tdls_rx_parsing(PRTMP_ADAPTER pAd, RX_BLK *pRxBlk)
 
 				/* Get the value of target channel from payload and advance the pointer */
 				if (RemainLen < 1) {
-					MTWF_DBG(pAd, DBG_CAT_PROTO, CATPROTO_TDLS, DBG_LVL_ERROR, "Invaild packet length - (target channel)\n");
+					MTWF_LOG(DBG_CAT_PROTO, CATPROTO_TDLS, DBG_LVL_ERROR, ("%s() - Invaild packet length - (target channel)\n", __func__));
 					return;
 				}
 
@@ -1646,7 +1630,7 @@ VOID cfg_tdls_rx_parsing(PRTMP_ADAPTER pAd, RX_BLK *pRxBlk)
 
 				/* Get the value of target channel from payload and advance the pointer */
 				if (RemainLen < 1) {
-					MTWF_DBG(pAd, DBG_CAT_PROTO, CATPROTO_TDLS, DBG_LVL_ERROR, "Invaild packet length - (target channel)\n");
+					MTWF_LOG(DBG_CAT_PROTO, CATPROTO_TDLS, DBG_LVL_ERROR, ("%s() - Invaild packet length - (target channel)\n", __func__));
 					return;
 				}
 
@@ -1657,7 +1641,7 @@ VOID cfg_tdls_rx_parsing(PRTMP_ADAPTER pAd, RX_BLK *pRxBlk)
 
 				/* Get the value of regulatory class from payload and advance the pointer */
 				if (RemainLen < 1) {
-					MTWF_DBG(pAd, DBG_CAT_PROTO, CATPROTO_TDLS, DBG_LVL_ERROR, "Invaild packet length - (regulatory class)\n");
+					MTWF_LOG(DBG_CAT_PROTO, CATPROTO_TDLS, DBG_LVL_ERROR, ("%s() - Invaild packet length - (regulatory class)\n", __func__));
 					return;
 				}
 
@@ -1675,12 +1659,13 @@ VOID cfg_tdls_rx_parsing(PRTMP_ADAPTER pAd, RX_BLK *pRxBlk)
 						if (pEid->Len == 1)
 							pCfgTdls->TargetOffChannelExt = pEid->Octet[0];
 						else
-							MTWF_DBG(pAd, DBG_CAT_PROTO, CATPROTO_TDLS, DBG_LVL_ERROR, "wrong IE_SECONDARY_CH_OFFSET.\n");
+							MTWF_LOG(DBG_CAT_PROTO, CATPROTO_TDLS, DBG_LVL_ERROR, ("%s() - wrong IE_SECONDARY_CH_OFFSET.\n", __func__));
+
 						break;
 
 					case IE_TDLS_LINK_IDENTIFIER:
 						if (pEid->Len != TDLS_ELM_LEN_LINK_IDENTIFIER)
-							MTWF_DBG(pAd, DBG_CAT_PROTO, CATPROTO_TDLS, DBG_LVL_ERROR, "wrong IE_TDLS_LINK_IDENTIFIER.\n");
+							MTWF_LOG(DBG_CAT_PROTO, CATPROTO_TDLS, DBG_LVL_ERROR, ("%s() - wrong IE_TDLS_LINK_IDENTIFIER.\n", __func__));
 
 						break;
 
@@ -1689,7 +1674,7 @@ VOID cfg_tdls_rx_parsing(PRTMP_ADAPTER pAd, RX_BLK *pRxBlk)
 							os_move_mem(&pCfgTdls->ChSwitchTime, &pEid->Octet[0], 2);
 							os_move_mem(&pCfgTdls->ChSwitchTimeout, &pEid->Octet[2], 2);
 						} else
-							MTWF_DBG(pAd, DBG_CAT_PROTO, CATPROTO_TDLS, DBG_LVL_ERROR, "wrong IE_TDLS_CHANNEL_SWITCH_TIMING.\n");
+							MTWF_LOG(DBG_CAT_PROTO, CATPROTO_TDLS, DBG_LVL_ERROR, ("%s() - wrong IE_TDLS_CHANNEL_SWITCH_TIMING.\n", __func__));
 
 						break;
 
@@ -1739,9 +1724,9 @@ VOID cfg_tdls_rx_parsing(PRTMP_ADAPTER pAd, RX_BLK *pRxBlk)
 			TdlsCHSWParam.bw_off = pCfgTdls->TargetOffChannelBW;
 			TdlsCHSWParam.offch_center = pCfgTdls->TargetOffChannel;
 			TdlsCHSWParam.offch_prim = pCfgTdls->OrigTargetOffChannel;
-			MTWF_DBG(pAd, DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_INFO,
-					 "TdlsCHSWParam.offch_center : %d TdlsCHSWParam.offch_prim: %d pCfgTdls->TargetOffChannelExt: %d\n"
-					  , TdlsCHSWParam.offch_center, TdlsCHSWParam.offch_prim, pCfgTdls->TargetOffChannelExt);
+			MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
+					 ("TdlsCHSWParam.offch_center : %d TdlsCHSWParam.offch_prim: %d pCfgTdls->TargetOffChannelExt: %d\n"
+					  , TdlsCHSWParam.offch_center, TdlsCHSWParam.offch_prim, pCfgTdls->TargetOffChannelExt));
 			TdlsCHSWParam.role = pCfgTdls->bChannelSwitchInitiator;
 			/* TdlsCHSWParam.stay_time = pCfgTdls->OffChannelStayTime; */
 			TdlsCHSWParam.switch_time = pCfgTdls->ChSwitchTime;
@@ -1754,7 +1739,7 @@ VOID cfg_tdls_rx_parsing(PRTMP_ADAPTER pAd, RX_BLK *pRxBlk)
 			CFG_TDLS_CHSW_PARAM TdlsCHSWParam;
 			USHORT StatusCode = 0;
 
-			MTWF_DBG(pAd, DBG_CAT_PROTO, CATPROTO_TDLS, DBG_LVL_INFO, "GOT CHSW RESP! %ld !!!\n", (jiffies * 1000) / OS_HZ);
+			MTWF_LOG(DBG_CAT_PROTO, CATPROTO_TDLS, DBG_LVL_ERROR, ("GOT CHSW RESP! %ld !!!\n", (jiffies * 1000) / OS_HZ));
 			peerMAC = pRxBlk->pHeader->Addr2;
 
 			if (pCfgTdls->IamInOffChannel) {
@@ -1770,7 +1755,7 @@ VOID cfg_tdls_rx_parsing(PRTMP_ADAPTER pAd, RX_BLK *pRxBlk)
 
 				/* Get the value of Status Code from payload and advance the pointer */
 				if (RemainLen < 2) {
-					MTWF_DBG(pAd, DBG_CAT_PROTO, CATPROTO_TDLS, DBG_LVL_ERROR, "PeerTdlsChannelSwitchRspSanity --> Invaild packet length - (status code)\n");
+					MTWF_LOG(DBG_CAT_PROTO, CATPROTO_TDLS, DBG_LVL_ERROR, ("PeerTdlsChannelSwitchRspSanity --> Invaild packet length - (status code)\n"));
 					return;
 				}
 
@@ -1797,13 +1782,13 @@ VOID cfg_tdls_rx_parsing(PRTMP_ADAPTER pAd, RX_BLK *pRxBlk)
 							/* *pChSwitchTime = ChSwitchTiming.ChSwitchTime; */
 							/* *pChSwitchTimeOut = ChSwitchTiming.ChSwitchTimeOut; */
 						} else
-							MTWF_DBG(pAd, DBG_CAT_PROTO, CATPROTO_TDLS, DBG_LVL_ERROR, "PeerTdlsChannelSwitchRspSanity - wrong IE_TDLS_CHANNEL_SWITCH_TIMING.\n");
+							MTWF_LOG(DBG_CAT_PROTO, CATPROTO_TDLS, DBG_LVL_ERROR, ("PeerTdlsChannelSwitchRspSanity - wrong IE_TDLS_CHANNEL_SWITCH_TIMING.\n"));
 
 						break;
 
 					default:
 						/* Unknown IE, we have to pass it as variable IEs */
-						MTWF_DBG(pAd, DBG_CAT_PROTO, CATPROTO_TDLS, DBG_LVL_ERROR, "PeerTdlsChannelSwitchRspSanity - unrecognized EID = %d\n", pEid->Eid);
+						MTWF_LOG(DBG_CAT_PROTO, CATPROTO_TDLS, DBG_LVL_ERROR, ("PeerTdlsChannelSwitchRspSanity - unrecognized EID = %d\n", pEid->Eid));
 						break;
 					}
 
@@ -1823,9 +1808,9 @@ VOID cfg_tdls_rx_parsing(PRTMP_ADAPTER pAd, RX_BLK *pRxBlk)
 				TdlsCHSWParam.cmd = 0;
 				TdlsCHSWParam.offch_center = pCfgTdls->TargetOffChannel;
 				TdlsCHSWParam.offch_prim = pCfgTdls->OrigTargetOffChannel;
-				MTWF_DBG(pAd, DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_INFO,
-						 "TdlsCHSWParam.offch_center : %d TdlsCHSWParam.offch_prim: %d pCfgTdls->TargetOffChannelExt: %d\n"
-						  , TdlsCHSWParam.offch_center, TdlsCHSWParam.offch_prim, pCfgTdls->TargetOffChannelExt);
+				MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
+						 ("TdlsCHSWParam.offch_center : %d TdlsCHSWParam.offch_prim: %d pCfgTdls->TargetOffChannelExt: %d\n"
+						  , TdlsCHSWParam.offch_center, TdlsCHSWParam.offch_prim, pCfgTdls->TargetOffChannelExt));
 				TdlsCHSWParam.bw_off = pCfgTdls->TargetOffChannelBW;
 				TdlsCHSWParam.role = pCfgTdls->bChannelSwitchInitiator;
 				/* TdlsCHSWParam.stay_time = pCfgTdls->OffChannelStayTime; */
@@ -1860,7 +1845,7 @@ VOID cfg_tdls_BaseChannelTimeoutAction(
 	PRTMP_ADAPTER	pAd = (PRTMP_ADAPTER)FunctionContext;
 	PCFG_TDLS_STRUCT pCfgTdls = &pAd->StaCfg[0].wpa_supplicant_info.CFG_Tdls_info;
 
-	MTWF_DBG(pAd, DBG_CAT_PROTO, CATPROTO_TDLS, DBG_LVL_ERROR, "tdls CHSW base channel timeout!!!\n");
+	MTWF_LOG(DBG_CAT_PROTO, CATPROTO_TDLS, DBG_LVL_ERROR, ("tdls CHSW base channel timeout!!!\n"));
 
 	if (pCfgTdls->bChannelSwitchInitiator && pCfgTdls->bDoingPeriodChannelSwitch)
 		cfg_tdls_chsw_req(pAd, pCfgTdls->CHSWPeerMacAddr, pCfgTdls->OrigTargetOffChannel, pCfgTdls->TargetOffChannelBW);
@@ -1889,12 +1874,12 @@ INT cfg_tdls_chsw_req(
 	UCHAR target_ext_ch_offset = EXTCHA_NONE;
 	INT tdls_entry_link_index = 0;
 
-	MTWF_DBG(NULL, DBG_CAT_PROTO, CATPROTO_TDLS, DBG_LVL_DEBUG, "======>  %s()\n", __func__);
+	MTWF_LOG(DBG_CAT_PROTO, CATPROTO_TDLS, DBG_LVL_INFO, ("======>  %s()\n", __func__));
 	/* Allocate buffer for transmitting message */
 	NStatus = MlmeAllocateMemory(pAd, &pOutBuffer);
 
 	if (NStatus != NDIS_STATUS_SUCCESS) {
-		MTWF_DBG(pAd, DBG_CAT_PROTO, CATPROTO_TDLS, DBG_LVL_ERROR, "ACT - TDLS_SetupRequestAction() allocate memory failed\n");
+		MTWF_LOG(DBG_CAT_PROTO, CATPROTO_TDLS, DBG_LVL_ERROR, ("ACT - TDLS_SetupRequestAction() allocate memory failed\n"));
 		return NStatus;
 	}
 
@@ -1931,7 +1916,7 @@ INT cfg_tdls_chsw_req(
 		UCHAR length = 1;
 
 		target_ext_ch_offset = pAd->StaCfg[0].wpa_supplicant_info.CFG_Tdls_info.TargetOffChannelExt;
-		MTWF_DBG(pAd, DBG_CAT_PROTO, CATPROTO_TDLS, DBG_LVL_ERROR, "@@@ send CHSW request with TargetOffChannelExt : %d, Channel:%d\n", target_ext_ch_offset, target_channel);
+		MTWF_LOG(DBG_CAT_PROTO, CATPROTO_TDLS, DBG_LVL_ERROR, ("@@@ send CHSW request with TargetOffChannelExt : %d, Channel:%d\n", target_ext_ch_offset, target_channel));
 		MakeOutgoingFrame(pOutBuffer + FrameLen,			&TempLen,
 						  1,				&NewExtChanIe,
 						  1,				&length,
@@ -1992,12 +1977,12 @@ INT cfg_tdls_chsw_req(
 		pMacEntry = MacTableLookup(pAd, peer);
 
 		if (pMacEntry == NULL) {
-			MTWF_DBG(pAd, DBG_CAT_PROTO, CATPROTO_TDLS, DBG_LVL_ERROR, "tdls_cmd> ERROR! No such peer in this function!\n",
+			MTWF_LOG(DBG_CAT_PROTO, CATPROTO_TDLS, DBG_LVL_ERROR, ("tdls_cmd> ERROR! No such peer in %s!\n",
 					 __func__));
 			return -1;
 		}
 
-		MTWF_DBG(pAd, DBG_CAT_PROTO, CATPROTO_TDLS, DBG_LVL_INFO, "Send CHSW REQ! %ld !!!\n", (jiffies * 1000) / OS_HZ);
+		MTWF_LOG(DBG_CAT_PROTO, CATPROTO_TDLS, DBG_LVL_ERROR, ("Send CHSW REQ! %ld !!!\n", (jiffies * 1000) / OS_HZ));
 		RTMPToWirelessSta(pAd, pMacEntry, Header802_3,
 						  LENGTH_802_3, pOutBuffer, (UINT)FrameLen, FALSE);
 	}
@@ -2032,7 +2017,7 @@ INT cfg_tdls_chsw_resp(
 	NStatus = MlmeAllocateMemory(pAd, &pOutBuffer);
 
 	if (NStatus != NDIS_STATUS_SUCCESS) {
-		MTWF_DBG(pAd, DBG_CAT_PROTO, CATPROTO_TDLS, DBG_LVL_ERROR, "ACT - TDLS_SetupRequestAction() allocate memory failed\n");
+		MTWF_LOG(DBG_CAT_PROTO, CATPROTO_TDLS, DBG_LVL_ERROR, ("ACT - TDLS_SetupRequestAction() allocate memory failed\n"));
 		return NStatus;
 	}
 
@@ -2098,15 +2083,15 @@ INT cfg_tdls_chsw_resp(
 		FrameLen = FrameLen + TempLen;
 	} while (0);
 
-	MTWF_DBG(pAd, DBG_CAT_PROTO, CATPROTO_TDLS, DBG_LVL_INFO, "CHSW Resp Status:%d , SwitchTime:%d , SwitchTimeout:%d\n"
-			, reason_code, ch_sw_time, ch_sw_timeout);
+	MTWF_LOG(DBG_CAT_PROTO, CATPROTO_TDLS, DBG_LVL_ERROR, ("%s(): CHSW Resp Status:%d , SwitchTime:%d , SwitchTimeout:%d\n"
+			 , __func__, reason_code, ch_sw_time, ch_sw_timeout));
 	hex_dump("TDLS send chsw resp pack", pOutBuffer, FrameLen);
 	/* get pEntry */
 	pMacEntry = MacTableLookup(pAd, peer);
 
 	if (pMacEntry == NULL) {
-		MTWF_DBG(pAd, DBG_CAT_PROTO, CATPROTO_TDLS, DBG_LVL_ERROR, "tdls_cmd> ERROR! No such peer in this function!\n"
-				);
+		MTWF_LOG(DBG_CAT_PROTO, CATPROTO_TDLS, DBG_LVL_ERROR, ("tdls_cmd> ERROR! No such peer in %s!\n",
+				 __func__));
 		return -1;
 	}
 
@@ -2114,7 +2099,7 @@ INT cfg_tdls_chsw_resp(
 	Status = RTMPAllocateNdisPacket(pAd, &pPacket, Header802_3, LENGTH_802_3, pOutBuffer, (UINT)FrameLen);
 
 	if (Status	!= NDIS_STATUS_SUCCESS) {
-		MTWF_DBG(pAd, DBG_CAT_PROTO, CATPROTO_TDLS, DBG_LVL_ERROR, " NOT ENOUGH MEMORY!\n");
+		MTWF_LOG(DBG_CAT_PROTO, CATPROTO_TDLS, DBG_LVL_ERROR, ("%s() ===> NOT ENOUGH MEMORY!\n", __func__));
 		return Status;
 	}
 
@@ -2133,15 +2118,15 @@ INT cfg_tdls_chsw_resp(
 	if (wdev && wdev->tx_pkt_handle)
 		wdev->tx_pkt_handle(pAd, pPacket);
 	else {
-		MTWF_DBG(pAd, DBG_CAT_PROTO, CATPROTO_TDLS, DBG_LVL_ERROR, "Invalid wdev(%p) or tx_pkt_handle(%p)!\n",
-				wdev, (wdev ? wdev->tx_pkt_handle : NULL));
+		MTWF_LOG(DBG_CAT_PROTO, CATPROTO_TDLS, DBG_LVL_ERROR, ("%s():Invalid wdev(%p) or tx_pkt_handle(%p)!\n",
+				 __func__, wdev, (wdev ? wdev->tx_pkt_handle : NULL)));
 		RELEASE_NDIS_PACKET(pAd, pPacket, NDIS_STATUS_FAILURE);
 	}
 
 	if (!RTMP_TEST_FLAG(pAd, fRTMP_ADAPTER_BSS_SCAN_IN_PROGRESS))
-		RTMPDeQueuePacket(pAd, FALSE, WMM_NUM_OF_AC, WCID_ALL, pAd->tr_ctl.max_tx_process);
+		RTMPDeQueuePacket(pAd, FALSE, WMM_NUM_OF_AC, WCID_ALL, MAX_TX_PROCESS);
 
-	MTWF_DBG(NULL, DBG_CAT_PROTO, CATPROTO_TDLS, DBG_LVL_DEBUG, "<======  %s() out\n", __func__);
+	MTWF_LOG(DBG_CAT_PROTO, CATPROTO_TDLS, DBG_LVL_INFO, ("<======  %s() out\n", __func__));
 	return 0;
 }
 VOID cfg_tdls_prepare_null_frame(PRTMP_ADAPTER	pAd, BOOLEAN powersave, UCHAR dir, UCHAR *peerAddr)
@@ -2175,9 +2160,8 @@ VOID cfg_tdls_prepare_null_frame(PRTMP_ADAPTER	pAd, BOOLEAN powersave, UCHAR dir
 
 VOID cfg_tdls_auto_teardown(PRTMP_ADAPTER pAd, PMAC_TABLE_ENTRY pEntry)
 {
-	MTWF_DBG(pAd, DBG_CAT_PROTO, CATPROTO_TDLS, DBG_LVL_INFO,
-			"auto teardown link with ("MACSTR")!!\n",
-			MAC2STR(pEntry->Addr));
+	MTWF_LOG(DBG_CAT_PROTO, CATPROTO_TDLS, DBG_LVL_ERROR, ("%s(): auto teardown link with (%02X:%02X:%02X:%02X:%02X:%02X)!!\n"
+			 , __func__, PRINT_MAC(pEntry->Addr)));
 #if (KERNEL_VERSION(3, 8, 0) <= LINUX_VERSION_CODE)
 	cfg80211_tdls_oper_request(pAd->net_dev, pEntry->Addr, NL80211_TDLS_TEARDOWN, 25, GFP_KERNEL);
 	mdelay(1);
@@ -2209,13 +2193,13 @@ VOID cfg_tdls_TunneledProbeRequest(PRTMP_ADAPTER pAd, PUCHAR pMacAddr, const u8 
 	UCHAR	OUI[3] = {0x50, 0x6F, 0x9A};
 	UCHAR	FrameBodyType = 4; /* 4: Request. 5: Response. */
 
-	MTWF_DBG(pAd, DBG_CAT_PROTO, CATPROTO_TDLS, DBG_LVL_INFO, "TDLS ===> TDLS_TunneledProbeRequest\n");
+	MTWF_LOG(DBG_CAT_PROTO, CATPROTO_TDLS, DBG_LVL_TRACE, ("TDLS ===> TDLS_TunneledProbeRequest\n"));
 	MAKE_802_3_HEADER(Header802_3, pMacAddr, pAd->CurrentAddress, TDLS_ETHERTYPE);
 	/* Allocate buffer for transmitting message */
 	NStatus = MlmeAllocateMemory(pAd, &pOutBuffer);
 
 	if (NStatus	!= NDIS_STATUS_SUCCESS) {
-		MTWF_DBG(pAd, DBG_CAT_PROTO, CATPROTO_TDLS, DBG_LVL_ERROR, "NOT ENOUGH MEMORY!\n");
+		MTWF_LOG(DBG_CAT_PROTO, CATPROTO_TDLS, DBG_LVL_ERROR, ("%s() ===> NOT ENOUGH MEMORY!\n", __func__));
 		return;
 	}
 
@@ -2240,7 +2224,7 @@ VOID cfg_tdls_TunneledProbeRequest(PRTMP_ADAPTER pAd, PUCHAR pMacAddr, const u8 
 					  LENGTH_802_3, pOutBuffer, (UINT)FrameLen, FALSE);
 	hex_dump("TDLS tunneled request send pack", pOutBuffer, FrameLen);
 	MlmeFreeMemory(pOutBuffer);
-	MTWF_DBG(pAd, DBG_CAT_PROTO, CATPROTO_TDLS, DBG_LVL_INFO, "TDLS <=== TDLS_TunneledProbeRequest\n");
+	MTWF_LOG(DBG_CAT_PROTO, CATPROTO_TDLS, DBG_LVL_TRACE, ("TDLS <=== TDLS_TunneledProbeRequest\n"));
 }
 
 /*
@@ -2267,7 +2251,7 @@ VOID cfg_tdls_TunneledProbeResponse(PRTMP_ADAPTER pAd, PUCHAR pMacAddr, const u8
 	NStatus = MlmeAllocateMemory(pAd, &pOutBuffer);
 
 	if (NStatus	!= NDIS_STATUS_SUCCESS) {
-		MTWF_DBG(pAd, DBG_CAT_PROTO, CATPROTO_TDLS, DBG_LVL_ERROR, "NOT ENOUGH MEMORY!\n");
+		MTWF_LOG(DBG_CAT_PROTO, CATPROTO_TDLS, DBG_LVL_ERROR, ("%s() ===> NOT ENOUGH MEMORY!\n", __func__));
 		return;
 	}
 
@@ -2292,7 +2276,7 @@ VOID cfg_tdls_TunneledProbeResponse(PRTMP_ADAPTER pAd, PUCHAR pMacAddr, const u8
 					  LENGTH_802_3, pOutBuffer, (UINT)FrameLen, FALSE);
 	hex_dump("TDLS tunneled response send pack", pOutBuffer, FrameLen);
 	MlmeFreeMemory(pOutBuffer);
-	MTWF_DBG(pAd, DBG_CAT_PROTO, CATPROTO_TDLS, DBG_LVL_INFO, "TDLS <=== TDLS_TunneledProbeResponse\n");
+	MTWF_LOG(DBG_CAT_PROTO, CATPROTO_TDLS, DBG_LVL_TRACE, ("TDLS <=== TDLS_TunneledProbeResponse\n"));
 }
 
 

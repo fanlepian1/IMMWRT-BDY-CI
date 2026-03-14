@@ -13,9 +13,6 @@ struct _RTMP_ADAPTER;
 #define RALINK_256QAM_CAP   (1 << 3)
 
 #define MEDIATEK_256QAM_CAP (1 << 3)
-#ifdef MWDS
-#define MEDIATEK_MWDS_CAP   (1 << 7)
-#endif
 #define BROADCOM_256QAM_CAP (1 << 0)
 
 typedef enum vendor_ie_in_frame_type {
@@ -80,7 +77,7 @@ VOID print_vie(struct wifi_dev *wdev, UINT32 frm_map);
 
 VOID init_vie_ctrl(struct wifi_dev *wdev);
 VOID deinit_vie_ctrl(struct wifi_dev *wdev);
-INT vie_oper_proc(struct _RTMP_ADAPTER *pAd, RTMP_STRING * arg);
+INT vie_oper_proc(struct _RTMP_ADAPTER *pAd, RTMP_STRING *arg);
 
 typedef struct GNU_PACKED _ie_hdr {
 	UCHAR eid;
@@ -150,13 +147,6 @@ struct GNU_PACKED _broadcom_ie {
 	VHT_TX_PWR_ENV vht_txpwr_env;
 };
 
-#ifdef VHT_TXBF_2G_EPIGRAM_IE
-struct GNU_PACKED _broadcom_txbf2g_ie {
-	IE_HEADER ie_hdr;
-	UCHAR oui[3];
-	UCHAR fixed_pattern[23];
-};
-#endif /* VHT_TXBF_2G_EPIGRAM_IE */
 
 ULONG build_vendor_ie(struct _RTMP_ADAPTER *pAd,
 		      struct wifi_dev *wdev,
@@ -168,10 +158,3 @@ VOID check_vendor_ie(struct _RTMP_ADAPTER *pAd,
 					 UCHAR *ie_buffer, struct _vendor_ie_cap *vendor_ie);
 
 
-#ifdef CUSTOMER_VENDOR_IE_SUPPORT
-					VOID customer_check_vendor_ie(struct _RTMP_ADAPTER *pAd,
-										UCHAR *ie_buffer,
-										struct customer_vendor_ie *vendor_ie,
-										BCN_IE_LIST *ie_list);
-#define AP_PROBE_RSP_VIE_MAX_CNT 32
-#endif /* CUSTOMER_VENDOR_IE_SUPPORT */

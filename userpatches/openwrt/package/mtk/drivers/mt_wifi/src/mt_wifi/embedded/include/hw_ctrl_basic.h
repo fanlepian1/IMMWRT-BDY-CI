@@ -10,9 +10,6 @@ typedef struct {
 	UINT32 CmdID;
 	HwCmdHdlr CmdHdlr;
 	UINT32 RfCnt;
-	UINT32 DropCnt;
-	ULONG LastRfTime; /* jffies */
-	UINT32 TotalWaitTime; /* ms */
 } HW_CMD_TABLE_T;
 
 

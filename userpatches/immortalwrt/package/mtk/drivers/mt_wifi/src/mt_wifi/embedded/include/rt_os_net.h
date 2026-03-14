@@ -29,7 +29,7 @@ typedef int (*RTMP_NET_PACKET_TRANSMIT)(VOID *pPacket);
 /* Note: No need to put any compile option here */
 typedef struct _RTMP_DRV_ABL_OPS {
 
-	NDIS_STATUS (*RTMPAllocAdapterBlock)(PVOID handle, VOID **ppAdapter, INT type);
+	NDIS_STATUS(*RTMPAllocAdapterBlock)(PVOID handle, VOID **ppAdapter);
 	VOID (*RTMPFreeAdapter)(VOID *pAd);
 
 	BOOLEAN(*RtmpRaDevCtrlExit)(VOID *pAd);
@@ -124,10 +124,14 @@ VOID RtmpNetOpsSet(VOID *pNetOpsOrg);
 
 #else /* RTMP_MODULE_OS && OS_ABL_FUNC_SUPPORT */
 
-NDIS_STATUS RTMPAllocAdapterBlock(PVOID handle, VOID **ppAdapter, INT type);
+NDIS_STATUS RTMPAllocAdapterBlock(PVOID handle, VOID **ppAdapter);
 VOID RTMPFreeAdapter(VOID *pAd);
 BOOLEAN RtmpRaDevCtrlExit(VOID *pAd);
 INT RtmpRaDevCtrlInit(VOID *pAd, RTMP_INF_TYPE infType);
+VOID mtd_isr(struct _RTMP_ADAPTER *pAd);
+VOID mtd_non_rx_delay_isr(struct _RTMP_ADAPTER *pAd);
+VOID isr_handle(VOID *pAdSrc);
+void RTMPHandleInterruptSerDump(struct _RTMP_ADAPTER *pAd);
 
 INT RTMP_COM_IoctlHandle(
 	IN	VOID					*pAd,
@@ -159,26 +163,12 @@ INT RTMP_AP_IoctlHandle(
 	IN	ULONG					Data);
 #endif /* CONFIG_AP_SUPPORT */
 
-#ifdef CONFIG_STA_SUPPORT
-INT RTMP_STA_IoctlHandle(
-	IN	VOID					*pAd,
-	IN	RTMP_IOCTL_INPUT_STRUCT * wrq,
-	IN	INT						cmd,
-	IN	USHORT					subcmd,
-	IN	VOID					*pData,
-	IN	ULONG					Data,
-	IN  USHORT                  priv_flags);
-#endif /* CONFIG_STA_SUPPORT */
 
 VOID RTMPDrvOpen(VOID *pAd);
 VOID RTMPDrvClose(VOID *pAd, VOID *net_dev);
+VOID enable_nf_support(VOID *pAd);
 
 int mt_wifi_init(VOID *pAd, RTMP_STRING *pDefaultMac, RTMP_STRING *pHostName);
-#ifdef CONFIG_WLAN_SERVICE
-int mt_service_open(struct _RTMP_ADAPTER *ad);
-int mt_service_init(struct _RTMP_ADAPTER *ad);
-int mt_service_close(struct _RTMP_ADAPTER *ad);
-#endif /* CONFIG_WLAN_SERVICE */
 
 PNET_DEV RtmpPhyNetDevMainCreate(VOID *pAd);
 #endif /* RTMP_MODULE_OS */
@@ -250,21 +240,17 @@ static inline VOID VIRTUAL_IF_DOWN(VOID *pAd, VOID *pDev)
 						 0, &InfConf, 0);
 	return;
 }
+
+#ifdef RTMP_MODULE_OS
+
 #ifdef CONFIG_AP_SUPPORT
 INT rt28xx_ap_ioctl(
-	IN	VOID *net_dev_obj,
-	IN	OUT	VOID *rq_obj,
+	IN	PNET_DEV		net_dev,
+	IN	OUT	struct ifreq	*rq,
 	IN	INT			cmd);
 #endif /* CONFIG_AP_SUPPORT */
 
-#ifdef CONFIG_STA_SUPPORT
-INT rt28xx_sta_ioctl(
-	IN	VOID	*net_dev_obj,
-	IN	OUT	VOID *rq_obj,
-	IN	INT			cmd);
-#endif /* CONFIG_STA_SUPPORT */
 
-#ifdef RTMP_MODULE_OS
 PNET_DEV RtmpPhyNetDevInit(
 	IN VOID						*pAd,
 	IN RTMP_OS_NETDEV_OP_HOOK * pNetHook);
@@ -274,9 +260,6 @@ BOOLEAN RtmpPhyNetDevExit(
 	IN PNET_DEV					net_dev);
 
 #endif /* RTMP_MODULE_OS && OS_ABL_FUNC_SUPPORT */
-
-INT main_virtual_if_open(PNET_DEV pDev);
-INT main_virtual_if_close(PNET_DEV pDev);
 
 VOID RT28xx_MSTA_Init(VOID *pAd, PNET_DEV main_dev_p);
 INT msta_virtual_if_open(PNET_DEV pDev);
@@ -289,7 +272,7 @@ INT mbss_virtual_if_close(PNET_DEV pDev);
 VOID RT28xx_MBSS_Remove(VOID *pAd);
 
 
-VOID RT28xx_WDS_Init(VOID *pAd, UCHAR band_idx, PNET_DEV net_dev);
+VOID RT28xx_WDS_Init(VOID *pAd, PNET_DEV net_dev);
 INT wds_virtual_if_open(PNET_DEV pDev);
 INT wds_virtual_if_close(PNET_DEV pDev);
 VOID RT28xx_WDS_Remove(VOID *pAd);
@@ -315,40 +298,6 @@ INT P2P_VirtualIF_PacketSend(
 	IN PNET_DEV		 dev_p);
 VOID RTMP_P2P_Remove(VOID *pAd);
 
-#if defined(IWCOMMAND_CFG80211_SUPPORT) &&  !defined(RT_CFG80211_P2P_CONCURRENT_DEVICE)
-PWIRELESS_DEV RTMP_CFG80211_FindVifEntryWdev_ByType(VOID *pAdSrc, UINT32 devType);
-PWIRELESS_DEV RTMP_CFG80211_FindVifEntryWdev_ByName(VOID *pAdSrc, CHAR ucIfName[]);
-#endif /* IWCOMMAND_CFG80211_SUPPORT && !RT_CFG80211_P2P_CONCURRENT_DEVICE */
-INT32 rtmp_get_macPower(IN VOID *pAdSrc);
-
-#ifdef RT_CFG80211_P2P_SUPPORT
-#define CFG_P2PGO_ON(__pAd)  RTMP_CFG80211_VIF_P2P_GO_ON(__pAd)
-#define CFG_P2PCLI_ON(__pAd) RTMP_CFG80211_VIF_P2P_CLI_ON(__pAd)
-
-BOOLEAN RTMP_CFG80211_VIF_P2P_GO_ON(
-	IN      VOID     *pAdSrc);
-
-BOOLEAN RTMP_CFG80211_VIF_P2P_CLI_ON(
-	IN      VOID     *pAdSrc);
-
-#ifdef RT_CFG80211_P2P_CONCURRENT_DEVICE
-VOID RTMP_CFG80211_DummyP2pIf_Init(
-	IN VOID		*pAdSrc);
-
-VOID RTMP_CFG80211_DummyP2pIf_Remove(
-	IN VOID		*pAdSrc);
-
-BOOLEAN RTMP_CFG80211_VIF_ON(
-	IN      VOID     *pAdSrc);
-
-
-VOID RTMP_CFG80211_VirtualIF_CancelP2pClient(
-	IN VOID                 *pAdSrc);
-
-PWIRELESS_DEV RTMP_CFG80211_FindVifEntryWdev_ByType(VOID *pAdSrc, UINT32 devType);
-
-#endif /* RT_CFG80211_P2P_CONCURRENT_DEVICE */
-#endif /* RT_CFG80211_P2P_SUPPORT */
 
 PNET_DEV RTMP_CFG80211_FindVifEntry_ByType(
 	IN      VOID     *pAdSrc,
@@ -369,8 +318,7 @@ PNET_DEV RTMP_CFG80211_VirtualIF_Get(
 VOID RTMP_CFG80211_VirtualIF_Init(
 	IN VOID         *pAd,
 	IN CHAR * pIfName,
-	IN UINT32        DevType,
-	IN UINT32	flags);
+	IN UINT32        DevType);
 
 VOID RTMP_CFG80211_VirtualIF_Remove(
 	IN VOID         *pAd,
@@ -399,7 +347,7 @@ INT rt_android_private_command_entry(
 
 #ifdef APCLI_CFG80211_SUPPORT
 #define RTMP_DRIVER_APCLI_NET_DEV_GET(__pAd, __pNetDev)							\
-		RTMP_COM_IoctlHandle(__pAd, NULL, CMD_RTPRIV_IOCTL_APCLI_NETDEV_GET, 0, __pNetDev, 0)
+	RTMP_COM_IoctlHandle(__pAd, NULL, CMD_RTPRIV_IOCTL_APCLI_NETDEV_GET, 0, __pNetDev, 0)
 #endif /* APCLI_CFG80211_SUPPORT */
 
 #define RTMP_DRIVER_NET_DEV_SET(__pAd, __pNetDev)							\
@@ -426,48 +374,6 @@ INT rt_android_private_command_entry(
 #define RTMP_DRIVER_MCU_SLEEP_CLEAR(__pAd)	\
 	RTMP_COM_IoctlHandle(__pAd, NULL, CMD_RTPRIV_IOCTL_MCU_SLEEP_CLEAR, 0, NULL, 0)
 
-#ifdef CONFIG_STA_SUPPORT
-#ifdef CONFIG_PM
-#ifdef USB_SUPPORT_SELECTIVE_SUSPEND
-
-#define RTMP_DRIVER_USB_DEV_GET(__pAd, __pUsbDev)                                                       \
-	RTMP_COM_IoctlHandle(__pAd, NULL, CMD_RTPRIV_IOCTL_USB_DEV_GET, 0, __pUsbDev, 0)
-
-#define RTMP_DRIVER_USB_INTF_GET(__pAd, __pUsbIntf)                                                     \
-	RTMP_COM_IoctlHandle(__pAd, NULL, CMD_RTPRIV_IOCTL_USB_INTF_GET, 0, __pUsbIntf, 0)
-
-#define RTMP_DRIVER_ADAPTER_SUSPEND_SET(__pAd)								\
-	RTMP_COM_IoctlHandle(__pAd, NULL, CMD_RTPRIV_IOCTL_ADAPTER_SUSPEND_SET, 0, NULL, 0)
-
-#define RTMP_DRIVER_ADAPTER_SUSPEND_CLEAR(__pAd)								\
-	RTMP_COM_IoctlHandle(__pAd, NULL, CMD_RTPRIV_IOCTL_ADAPTER_SUSPEND_CLEAR, 0, NULL, 0)
-
-#define RTMP_DRIVER_ADAPTER_END_DISSASSOCIATE(__pAd)								\
-	RTMP_COM_IoctlHandle(__pAd, NULL, CMD_RTPRIV_IOCTL_ADAPTER_SEND_DISSASSOCIATE, 0, NULL, 0)
-
-#define RTMP_DRIVER_ADAPTER_SUSPEND_TEST(__pAd, __flag)							\
-	RTMP_COM_IoctlHandle(__pAd, NULL, CMD_RTPRIV_IOCTL_ADAPTER_SUSPEND_TEST, 0,  __flag, 0)
-
-#define RTMP_DRIVER_ADAPTER_IDLE_RADIO_OFF_TEST(__pAd, __flag)								\
-	RTMP_COM_IoctlHandle(__pAd, NULL, CMD_RTPRIV_IOCTL_ADAPTER_IDLE_RADIO_OFF_TEST, 0,  __flag, 0)
-#endif /* USB_SUPPORT_SELECTIVE_SUSPEND */
-
-#if (defined(WOW_SUPPORT) && defined(RTMP_MAC_USB)) || defined(NEW_WOW_SUPPORT)
-#define RTMP_DRIVER_ADAPTER_RT28XX_WOW_STATUS(__pAd, __flag)								\
-	RTMP_COM_IoctlHandle(__pAd, NULL, CMD_RTPRIV_IOCTL_ADAPTER_RT28XX_WOW_STATUS, 0, __flag, 0)
-
-#define RTMP_DRIVER_ADAPTER_RT28XX_WOW_ENABLE(__pAd)								\
-	RTMP_COM_IoctlHandle(__pAd, NULL, CMD_RTPRIV_IOCTL_ADAPTER_RT28XX_WOW_ENABLE, 0, NULL, 0)
-
-#define RTMP_DRIVER_ADAPTER_RT28XX_WOW_DISABLE(__pAd)								\
-	RTMP_COM_IoctlHandle(__pAd, NULL, CMD_RTPRIV_IOCTL_ADAPTER_RT28XX_WOW_DISABLE, 0, NULL, 0)
-#endif /* (defined(WOW_SUPPORT) && defined(RTMP_MAC_USB)) || defined(NEW_WOW_SUPPORT) */
-
-#endif /* CONFIG_PM */
-
-#define RTMP_DRIVER_AP_SSID_GET(__pAd, pData)								\
-	RTMP_COM_IoctlHandle(__pAd, NULL, CMD_RTPRIV_IOCTL_AP_BSSID_GET, 0, pData, 0)
-#endif /* CONFIG_STA_SUPPORT */
 
 #define RTMP_DRIVER_ADAPTER_RT28XX_USB_ASICRADIO_OFF(__pAd)								\
 	RTMP_COM_IoctlHandle(__pAd, NULL, CMD_RTPRIV_IOCTL_ADAPTER_RT28XX_USB_ASICRADIO_OFF, 0, NULL, 0)
@@ -559,34 +465,20 @@ INT rt_android_private_command_entry(
 #define RTMP_DRIVER_80211_STA_KEY_ADD(__pAd, __pKeyInfo)					\
 	RTMP_COM_IoctlHandle(__pAd, NULL, CMD_RTPRIV_IOCTL_80211_STA_KEY_ADD, 0, __pKeyInfo, 0)
 
-#define RTMP_DRIVER_80211_STA_KEY_DEFAULT_SET(__pAd, __pNdev, __KeyId)				\
-	RTMP_COM_IoctlHandle(__pAd, NULL, CMD_RTPRIV_IOCTL_80211_STA_KEY_DEFAULT_SET, 0, __pNdev, __KeyId)
+#define RTMP_DRIVER_80211_STA_KEY_DEFAULT_SET(__pAd, __KeyId)				\
+	RTMP_COM_IoctlHandle(__pAd, NULL, CMD_RTPRIV_IOCTL_80211_STA_KEY_DEFAULT_SET, 0, NULL, __KeyId)
 
 #define RTMP_DRIVER_80211_POWER_MGMT_SET(__pAd, __enable)				\
 	RTMP_COM_IoctlHandle(__pAd, NULL, CMD_RTPRIV_IOCTL_80211_POWER_MGMT_SET, 0, NULL, __enable)
-
-#ifdef WIFI_IAP_POWER_SAVE_FEATURE
-#define RTMP_DRIVER_80211_AP_POWER_MGMT_SET(__pAd, __infwdev, __enable)				\
-	RTMP_COM_IoctlHandle(__pAd, NULL, CMD_RTPRIV_IOCTL_80211_AP_POWER_MGMT_SET, 0, __infwdev, __enable)
-#endif/*WIFI_IAP_POWER_SAVE_FEATURE*/
 
 #define RTMP_DRIVER_80211_STA_LEAVE(__pAd, __pNdev)								\
 	RTMP_COM_IoctlHandle(__pAd, NULL, CMD_RTPRIV_IOCTL_80211_STA_LEAVE, 0, __pNdev, 0)
 
 #define RTMP_DRIVER_80211_STA_GET(__pAd, __pStaInfo)					\
 	RTMP_COM_IoctlHandle(__pAd, NULL, CMD_RTPRIV_IOCTL_80211_STA_GET, 0, __pStaInfo, 0)
-#ifdef WIFI_IAP_STA_DUMP_FEATURE
-#define RTMP_DRIVER_80211AP_STA_GET(__pAd, __pStaInfo)					\
-		RTMP_COM_IoctlHandle(__pAd, NULL, CMD_RTPRIV_IOCTL_80211_AP_STA_GET, 0, __pStaInfo, 0)
-#endif/*WIFI_IAP_STA_DUMP_FEATURE*/
 
 #define RTMP_DRIVER_80211_CONNECT(__pAd, __pConnInfo, __devType)					\
 	RTMP_COM_IoctlHandle(__pAd, NULL, CMD_RTPRIV_IOCTL_80211_CONNECT_TO, 0, __pConnInfo, __devType)
-
-#ifdef SUPP_SAE_SUPPORT
-#define RTMP_DRIVER_80211_CONNECT_PARAM(__pAd, __pConnParam, __staIndex)					\
-	RTMP_COM_IoctlHandle(__pAd, NULL, CMD_RTPRIV_IOCTL_80211_EXT_CONNECT, 0, __pConnParam, __staIndex)
-#endif
 
 #define RTMP_DRIVER_80211_IBSS_JOIN(__pAd, __pInfo)						\
 	RTMP_COM_IoctlHandle(__pAd, NULL, CMD_RTPRIV_IOCTL_80211_IBSS_JOIN, 0, __pInfo, 0)
@@ -613,13 +505,6 @@ INT rt_android_private_command_entry(
 #define RTMP_DRIVER_80211_CHAN_SET(__pAd, __pChan)						\
 	RTMP_COM_IoctlHandle(__pAd, NULL, CMD_RTPRIV_IOCTL_80211_CHAN_SET, 0, __pChan, 0)
 
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(4, 0, 0))
-#ifdef WIFI_IAP_IW_SET_CHANNEL_FEATURE
-#define RTMP_DRIVER_AP_80211_CHAN_SET(__pAd, __pChan)						\
-		RTMP_COM_IoctlHandle(__pAd, NULL, CMD_RTPRIV_IOCTL_80211_AP_CHAN_SET, 0, __pChan, 0)
-#endif/*WIFI_IAP_IW_SET_CHANNEL_FEATURE*/
-#endif/*KERNEL_VERSION(4, 0, 0)*/
-
 #define RTMP_DRIVER_80211_RFKILL(__pAd, __pActive)						\
 	RTMP_COM_IoctlHandle(__pAd, NULL, CMD_RTPRIV_IOCTL_80211_RFKILL, 0, __pActive, 0)
 
@@ -641,16 +526,11 @@ INT rt_android_private_command_entry(
 #define RTMP_DRIVER_80211_BEACON_ADD(__pAd, __pBeacon) \
 	RTMP_COM_IoctlHandle(__pAd, NULL, CMD_RTPRIV_IOCTL_80211_BEACON_ADD, 0, __pBeacon, 0)
 
-#ifdef HOSTAPD_HS_R2_SUPPORT
-#define RTMP_DRIVER_80211_QOS_PARAM_SET(__pAd, __pQosMap, __apidx) \
-	RTMP_COM_IoctlHandle(__pAd, NULL, CMD_RTPRIV_IOCTL_SET_QOS_PARAM, 0, __pQosMap, __apidx)
-#endif
-
 #define RTMP_DRIVER_80211_BEACON_SET(__pAd, __pBeacon) \
 	RTMP_COM_IoctlHandle(__pAd, NULL, CMD_RTPRIV_IOCTL_80211_BEACON_SET, 0, __pBeacon, 0)
 
-#define RTMP_DRIVER_80211_BITRATE_SET(__pAd, __pMask, __apidx) \
-	RTMP_COM_IoctlHandle(__pAd, NULL, CMD_RTPRIV_IOCTL_80211_BITRATE_SET, 0, __pMask, __apidx)
+#define RTMP_DRIVER_80211_BITRATE_SET(__pAd, __pMask) \
+	RTMP_COM_IoctlHandle(__pAd, NULL, CMD_RTPRIV_IOCTL_80211_BITRATE_SET, 0, __pMask, 0)
 
 #define RTMP_DRIVER_80211_AP_KEY_DEL(__pAd, __pKeyInfo) \
 	RTMP_COM_IoctlHandle(__pAd, NULL, CMD_RTPRIV_IOCTL_80211_AP_KEY_DEL, 0, __pKeyInfo, 0)
@@ -663,18 +543,16 @@ INT rt_android_private_command_entry(
 
 #define RTMP_DRIVER_80211_FRAG_THRESHOLD_ADD(__pAd, __Frag_thresold) \
 	RTMP_COM_IoctlHandle(__pAd, NULL, CMD_RTPRIV_IOCTL_80211_FRAG_THRESHOLD_ADD, 0, NULL, __Frag_thresold)
-#ifdef ACK_CTS_TIMEOUT_SUPPORT
-#define RTMP_DRIVER_80211_ACK_THRESHOLD_ADD(__pAd, __Frag_thresold) \
-	RTMP_COM_IoctlHandle(__pAd, NULL, CMD_RTPRIV_IOCTL_80211_ACK_THRESHOLD_ADD, 0, NULL, __Frag_thresold)
-#endif/*ACK_CTS_TIMEOUT_SUPPORT*/
 
-#define RTMP_DRIVER_80211_AP_KEY_DEFAULT_SET(__pAd, __pNdev, __KeyId)				\
-	RTMP_COM_IoctlHandle(__pAd, NULL, CMD_RTPRIV_IOCTL_80211_AP_KEY_DEFAULT_SET, 0, __pNdev, __KeyId)
+
+#define RTMP_DRIVER_80211_AP_KEY_DEFAULT_SET(__pAd, __KeyId)				\
+	RTMP_COM_IoctlHandle(__pAd, NULL, CMD_RTPRIV_IOCTL_80211_AP_KEY_DEFAULT_SET, 0, NULL, __KeyId)
 
 #ifdef DOT11W_PMF_SUPPORT
 #define RTMP_DRIVER_80211_AP_KEY_DEFAULT_MGMT_SET(__pAd, __pNdev, __KeyId)				\
 	RTMP_COM_IoctlHandle(__pAd, NULL, CMD_RTPRIV_IOCTL_80211_AP_KEY_DEFAULT_MGMT_SET, 0, __pNdev, __KeyId)
 #endif /* DOT11W_PMF_SUPPORT */
+
 
 #define RTMP_DRIVER_80211_AP_PROBE_RSP(__pAd, __pFrame, __Len) \
 	RTMP_COM_IoctlHandle(__pAd, NULL, CMD_RTPRIV_IOCTL_80211_AP_PROBE_RSP_EXTRA_IE, 0, __pFrame, __Len)
@@ -692,11 +570,6 @@ INT rt_android_private_command_entry(
 #define RTMP_DRIVER_80211_AP_STA_DEL(__pAd, __pMac, __Reason)  \
 	RTMP_COM_IoctlHandle(__pAd, NULL, CMD_RTPRIV_IOCTL_80211_AP_STA_DEL, 0, __pMac, __Reason)
 #endif /* HOSTAPD_MAP_SUPPORT */
-
-#ifdef HOSTAPD_PMKID_IN_DRIVER_SUPPORT
-#define RTMP_DRIVER_80211_AP_UPDATE_STA_PMKID(__pAd, __pData) \
-	RTMP_COM_IoctlHandle(__pAd, NULL, CMD_RTPRIV_IOCTL_80211_AP_UPDATE_STA_PMKID, 0, __pData, 0)
-#endif /*HOSTAPD_PMKID_IN_DRIVER_SUPPORT*/
 
 /* ap */
 #define RTMP_DRIVER_AP_BITRATE_GET(__pAd, __pConfig)							\
@@ -776,6 +649,12 @@ INT rt_android_private_command_entry(
 	RTMP_COM_IoctlHandle(__pAd, NULL, CMD_RTPRIV_IOCTL_INF_PPA_EXIT, 0, NULL, 0)
 
 /* pci */
+#define RTMP_DRIVER_IRQ_INIT(__pAd)											\
+	RTMP_COM_IoctlHandle(__pAd, NULL, CMD_RTPRIV_IOCTL_IRQ_INIT, 0, NULL, 0)
+
+#define RTMP_DRIVER_IRQ_RELEASE(__pAd)										\
+	RTMP_COM_IoctlHandle(__pAd, NULL, CMD_RTPRIV_IOCTL_IRQ_RELEASE, 0, NULL, 0)
+
 #define RTMP_DRIVER_PCI_SUSPEND(__pAd)										\
 	RTMP_COM_IoctlHandle(__pAd, NULL, CMD_RTPRIV_IOCTL_PCI_SUSPEND, 0, NULL, 0)
 
@@ -803,6 +682,12 @@ INT rt_android_private_command_entry(
 	}
 
 /* usb */
+#define RTMP_DRIVER_USB_MORE_FLAG_SET(__pAd, __pConfig)						\
+	RTMP_COM_IoctlHandle(__pAd, NULL, CMD_RTPRIV_IOCTL_USB_MORE_FLAG_SET, 0, __pConfig, 0)
+
+#define RTMP_DRIVER_USB_CONFIG_INIT(__pAd, __pConfig)						\
+	RTMP_COM_IoctlHandle(__pAd, NULL, CMD_RTPRIV_IOCTL_USB_CONFIG_INIT, 0, __pConfig, 0)
+
 #define RTMP_DRIVER_USB_SUSPEND(__pAd, __bIsRunning)						\
 	RTMP_COM_IoctlHandle(__pAd, NULL, CMD_RTPRIV_IOCTL_USB_SUSPEND, 0, NULL, __bIsRunning)
 
@@ -866,14 +751,6 @@ INT rt_android_private_command_entry(
 #define RTMP_DRIVER_ADAPTER_CHECK_EARLYSUSPEND(__pAd, __flag)	\
 	RTMP_COM_IoctlHandle(__pAd, NULL, CMD_RTPRIV_IOCTL_CHECK_EARLYSUSPEND, 0, __flag, 0)
 #endif /* CONFIG_HAS_EARLYSUSPEND */
-
-#ifdef ANTENNA_CONTROL_SUPPORT
-#define RTMP_DRIVER_80211_SET_ANTENNA(__pAd, __pAntennaCfg) \
-	RTMP_COM_IoctlHandle(__pAd, NULL, CMD_RTPRIV_IOCTL_80211_ANTENNA_CTRL, 0, __pAntennaCfg, 0)
-
-#define RTMP_DRIVER_80211_GET_ANTENNA(__pAd, __pAntennaCfg) \
-	RTMP_COM_IoctlHandle(__pAd, NULL, CMD_RTPRIV_IOCTL_80211_ANTENNA_CTRL, 0, __pAntennaCfg, 1)
-#endif /* ANTENNA_CONTROL_SUPPORT */
 
 #endif /* __RT_OS_NET_H__ */
 

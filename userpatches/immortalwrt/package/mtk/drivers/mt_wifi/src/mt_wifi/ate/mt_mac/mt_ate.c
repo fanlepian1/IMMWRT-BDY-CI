@@ -1,24 +1,20 @@
 /*
- * Copyright (c) [2020], MediaTek Inc. All rights reserved.
- *
- * This software/firmware and related documentation ("MediaTek Software") are
- * protected under relevant copyright laws.
- * The information contained herein is confidential and proprietary to
- * MediaTek Inc. and/or its licensors.
- * Except as otherwise provided in the applicable licensing terms with
- * MediaTek Inc. and/or its licensors, any reproduction, modification, use or
- * disclosure of MediaTek Software, and information contained herein, in whole
- * or in part, shall be strictly prohibited.
-*/
-/*
  ***************************************************************************
+ * MediaTek Inc.
+ *
+ * All rights reserved. source code is an unpublished work and the
+ * use of a copyright notice does not imply otherwise. This source code
+ * contains confidential trade secret material of MediaTek. Any attemp
+ * or participation in deciphering, decoding, reverse engineering or in any
+ * way altering the source code is stricitly prohibited, unless the prior
+ * written consent of MediaTek, Inc. is obtained.
  ***************************************************************************
 
 	Module Name:
 	mt_ate.c
 */
 #include "rt_config.h"
-static VOID MtATEWTBL2Update(RTMP_ADAPTER *pAd, UINT16 wcid)
+static VOID MtATEWTBL2Update(RTMP_ADAPTER *pAd, UCHAR wcid)
 {
 	struct _ATE_CTRL *ATECtrl = &pAd->ATECtrl;
 	union  WTBL_2_DW9 wtbl_2_d9 = {.word = 0};
@@ -51,24 +47,24 @@ static VOID MtATEWTBL2Update(RTMP_ADAPTER *pAd, UINT16 wcid)
 
 	stbc = ATECtrl->Stbc;
 	nss = 1;
-	rate[0] = asic_tx_rate_to_tmi_rate(pAd, ATECtrl->PhyMode,
+	rate[0] = tx_rate_to_tmi_rate(ATECtrl->PhyMode,
 								  ATECtrl->Mcs,
 								  nss,
 								  stbc,
 								  preamble);
 	rate[0] &= 0xfff;
 	rate[1] = rate[2] = rate[3] = rate[4] = rate[5] = rate[6] = rate[7] = rate[0];
+	/* Wtbl2RateTableUpdate(pAd, wcid, wtbl_2_d9.word, rate); */
 }
-
 static INT32 MT_ATERestoreInit(RTMP_ADAPTER *pAd)
 {
 	struct _ATE_CTRL *ATECtrl = &pAd->ATECtrl;
 	INT32 Ret = 0;
 
-	MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO, "Rx receive for 10000us workaround\n");
+	MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("%s: Rx receive for 10000us workaround\n", __func__));
 	/* Workaround CR Restore */
 	/* Tx/Rx Antenna Setting Restore */
-	AsicSetRxPath(pAd, 0);
+	MtAsicSetRxPath(pAd, 0);
 	/* TxRx switch workaround */
 	AsicSetMacTxRx(pAd, ASIC_MAC_RX, TRUE);
 	RtmpusecDelay(10000);
@@ -85,7 +81,7 @@ static INT32 MT_ATESetTxPower0(RTMP_ADAPTER *pAd, CHAR Value)
 	struct _ATE_CTRL *ATECtrl = &pAd->ATECtrl;
 	INT32 Ret = 0;
 
-	MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO, "\n");
+	MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("%s\n", __func__));
 	ATECtrl->TxPower0 = Value;
 	ATECtrl->TxPower1 = Value; /* pAd->EEPROMImage[TX1_G_BAND_TARGET_PWR]; */
 	CmdSetTxPowerCtrl(pAd, ATECtrl->Channel);
@@ -98,11 +94,11 @@ static INT32 MT_ATESetTxPower1(RTMP_ADAPTER *pAd, CHAR Value)
 	INT32 Ret = 0;
 
 	ATECtrl->TxPower1 = Value;
-	MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO, "\n");
+	MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("%s\n", __func__));
 
 	/* Same as Power0 */
 	if (ATECtrl->TxPower0 != ATECtrl->TxPower1) {
-		MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_ERROR, "power1 do not same as power0\n");
+		MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_ERROR, ("%s: power1 do not same as power0\n", __func__));
 		Ret = -1;
 	}
 
@@ -124,7 +120,7 @@ static INT32 MT_ATEStart(RTMP_ADAPTER *pAd)
 	INT32 i;
 
 	i = 0;
-	MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO, "\n");
+	MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("%s\n", __func__));
 	/*   Stop send TX packets */
 	RTMP_OS_NETDEV_STOP_QUEUE(pAd->net_dev);
 	/* Reset ATE TX/RX Counter */
@@ -152,9 +148,9 @@ static INT32 MT_ATEStart(RTMP_ADAPTER *pAd)
 	RTMP_OS_INIT_COMPLETION(&ATECtrl->cmd_done);
 	ATECtrl->TxPower0 = pAd->EEPROMImage[TX0_G_BAND_TARGET_PWR];
 	ATECtrl->TxPower1 = pAd->EEPROMImage[TX1_G_BAND_TARGET_PWR];
-	MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO, "Init Txpower, Tx0:%x, Tx1:%x\n", ATECtrl->TxPower0, ATECtrl->TxPower1);
+	MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("%s: Init Txpower, Tx0:%x, Tx1:%x\n", __func__, ATECtrl->TxPower0, ATECtrl->TxPower1));
 #ifdef CONFIG_QA
-	AsicGetRxStat(pAd, HQA_RX_RESET_PHY_COUNT);
+	MtAsicGetRxStat(pAd, HQA_RX_RESET_PHY_COUNT);
 	ATECtrl->RxMacMdrdyCount = 0;
 	ATECtrl->RxMacFCSErrCount = 0;
 #endif /* CONFIG_QA */
@@ -173,7 +169,7 @@ static INT32 MT_ATEStart(RTMP_ADAPTER *pAd)
 	RTMP_SET_FLAG(pAd, fRTMP_ADAPTER_DISABLE_DEQUEUEPACKET);
 	AsicSetMacTxRx(pAd, ASIC_MAC_RX, FALSE);
 	/*  Disable TX PDMA */
-	chip_set_hif_dma(pAd, DMA_TX, 0);
+	AsicSetWPDMA(pAd, PDMA_TX, 0);
 #ifdef CONFIG_AP_SUPPORT
 	APStop(pAd, pMbss, AP_BSS_OPER_ALL);
 #endif /* CONFIG_AP_SUPPORT */
@@ -181,15 +177,15 @@ static INT32 MT_ATEStart(RTMP_ADAPTER *pAd)
 	if_ops->init(pAd);
 	if_ops->clean_trx_q(pAd);
 #endif /* RTMP_MAC_PCI */
-	chip_set_hif_dma(pAd, DMA_TX_RX, 1);
+	AsicSetWPDMA(pAd, PDMA_TX_RX, 1);
 	RTMP_CLEAR_FLAG(pAd, fRTMP_ADAPTER_HALT_IN_PROGRESS);
 
 	/* MT7636 Test Mode Freqency offset restore*/
 	if (ATECtrl->en_man_set_freq == 1) {
 		if (IS_MT76x6(pAd) || IS_MT7637(pAd)) {
-			MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO, "MT76x6 Manual Set Frequency Restore\n");
-			RTMP_IO_WRITE32(pAd->hdev_ctrl, FREQ_OFFSET_MANUAL_ENABLE, ATECtrl->en_man_freq_restore);
-			RTMP_IO_WRITE32(pAd->hdev_ctrl, FREQ_OFFSET_MANUAL_VALUE, ATECtrl->normal_freq_restore);
+			MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("MT76x6 Manual Set Frequency Restore\n"));
+			RTMP_IO_WRITE32(pAd, FREQ_OFFSET_MANUAL_ENABLE, ATECtrl->en_man_freq_restore);
+			RTMP_IO_WRITE32(pAd, FREQ_OFFSET_MANUAL_VALUE, ATECtrl->normal_freq_restore);
 		}
 
 		ATECtrl->normal_freq_restore = 0;
@@ -198,12 +194,12 @@ static INT32 MT_ATEStart(RTMP_ADAPTER *pAd)
 	}
 
 	if (ATECtrl->Mode & fATE_TXCONT_ENABLE) {
-		MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO, "Stop Continuous Tx\n");
+		MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("%s ,Stop Continuous Tx\n", __func__));
 		ATEOp->StopContinousTx(pAd);
 	}
 
 	if (ATECtrl->Mode & fATE_TXCARRSUPP_ENABLE) {
-		MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO, "Stop Carrier Suppression Test\n");
+		MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("%s ,Stop Carrier Suppression Test\n", __func__));
 		ATEOp->StopTxTone(pAd);
 	}
 
@@ -215,8 +211,8 @@ static INT32 MT_ATEStart(RTMP_ADAPTER *pAd)
 	ATECtrl->TxDoneCount = 0;
 	ATECtrl->RxTotalCnt = 0;
 #ifdef CONFIG_QA
-	AsicGetRxStat(pAd, HQA_RX_RESET_PHY_COUNT);
-	AsicGetRxStat(pAd, HQA_RX_RESET_MAC_COUNT);
+	MtAsicGetRxStat(pAd, HQA_RX_RESET_PHY_COUNT);
+	MtAsicGetRxStat(pAd, HQA_RX_RESET_MAC_COUNT);
 	ATECtrl->RxMacFCSErrCount = 0;
 	ATECtrl->RxMacMdrdyCount = 0;
 #endif
@@ -236,7 +232,7 @@ static INT32 MT_ATEStop(RTMP_ADAPTER *pAd)
 #endif
 	UCHAR Channel = HcGetRadioChannel(pAd);
 
-	MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO, "\n");
+	MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("%s\n", __func__));
 	AsicSetMacTxRx(pAd, ASIC_MAC_RXV, FALSE);
 	NICInitializeAdapter(pAd);
 #ifdef RTMP_MAC_PCI
@@ -275,9 +271,9 @@ static INT32 MT_ATEStop(RTMP_ADAPTER *pAd)
 
 	/* MT7636 Test Mode Freqency offset restore*/
 	if (ATECtrl->en_man_set_freq == 1) {
-		MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO, "MT76x6 Manual Set Frequency Restore\n");
-		RTMP_IO_WRITE32(pAd->hdev_ctrl, FREQ_OFFSET_MANUAL_ENABLE, ATECtrl->en_man_freq_restore);
-		RTMP_IO_WRITE32(pAd->hdev_ctrl, FREQ_OFFSET_MANUAL_VALUE, ATECtrl->normal_freq_restore);
+		MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("MT76x6 Manual Set Frequency Restore\n"));
+		RTMP_IO_WRITE32(pAd, FREQ_OFFSET_MANUAL_ENABLE, ATECtrl->en_man_freq_restore);
+		RTMP_IO_WRITE32(pAd, FREQ_OFFSET_MANUAL_VALUE, ATECtrl->normal_freq_restore);
 		ATECtrl->normal_freq_restore = 0;
 		ATECtrl->en_man_freq_restore = 0;
 		ATECtrl->en_man_set_freq = 0;
@@ -290,10 +286,10 @@ static INT32 MT_ATEStop(RTMP_ADAPTER *pAd)
 		(MTK_REV_GTE(pAd, MT7628, MT7628E1))) {
 		UINT32 Value;
 
-		RTMP_IO_READ32(pAd->hdev_ctrl, CR_RFINTF_00, &Value);
+		RTMP_IO_READ32(pAd, CR_RFINTF_00, &Value);
 		Value &= ~CR_RFINTF_CAL_NSS_MASK;
 		Value |= CR_RFINTF_CAL_NSS(0x0);
-		RTMP_IO_WRITE32(pAd->hdev_ctrl, CR_RFINTF_00, Value);
+		RTMP_IO_WRITE32(pAd, CR_RFINTF_00, Value);
 	}
 
 	return Ret;
@@ -304,9 +300,8 @@ static INT32 MT_ATEStop(RTMP_ADAPTER *pAd)
 static INT32 MT_ATESetupFrame(RTMP_ADAPTER *pAd, UINT32 TxIdx)
 {
 	struct _ATE_CTRL *ATECtrl = &pAd->ATECtrl;
-	struct _PCI_HIF_T *pci_hif = hc_get_hif_ctrl(pAd->hdev_ctrl);
-	struct hif_pci_tx_ring *tx_ring = pci_get_tx_ring_by_ridx(pci_hif, QID_AC_BE);
-	PUCHAR pDMAHeaderBufVA = (PUCHAR)tx_ring->Cell[TxIdx].DmaBuf.AllocVa;
+	RTMP_TX_RING *pTxRing = &pAd->PciHif.TxRing[QID_AC_BE];
+	PUCHAR pDMAHeaderBufVA = (PUCHAR)pTxRing->Cell[TxIdx].DmaBuf.AllocVa;
 	TXD_STRUC *pTxD;
 	MAC_TX_INFO Info;
 	struct _RTMP_CHIP_CAP *cap = hc_get_chip_cap(pAd->hdev_ctrl);
@@ -383,12 +378,7 @@ static INT32 MT_ATESetupFrame(RTMP_ADAPTER *pAd, UINT32 TxIdx)
 	}
 
 	Info.IsAutoRate = FALSE;
-
-#ifdef MT_MAC
-	Info.txpwr_offset = 0;
-#endif /* MT_MAC */
-
-	asic_write_tmac_info_fixed_rate(pAd, pDMAHeaderBufVA, &Info, &Transmit);
+	pAd->archOps.write_tmac_info_fixed_rate(pAd, pDMAHeaderBufVA, &Info, &Transmit);
 	NdisMoveMemory(pDMAHeaderBufVA + TXWISize, ATECtrl->TemplateFrame, ATECtrl->HLen);
 	NdisMoveMemory(pDMAHeaderBufVA + TXWISize + 4, ATECtrl->Addr1, MAC_ADDR_LEN);
 	NdisMoveMemory(pDMAHeaderBufVA + TXWISize + 10, ATECtrl->Addr2, MAC_ADDR_LEN);
@@ -400,16 +390,16 @@ static INT32 MT_ATESetupFrame(RTMP_ADAPTER *pAd, UINT32 TxIdx)
 
 	if (pPacket == NULL) {
 		ATECtrl->TxCount = 0;
-		MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_ERROR, "fail to init frame payload.\n");
+		MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_ERROR, ("%s: fail to init frame payload.\n", __func__));
 		return -1;
 	}
 
-	tx_ring->Cell[TxIdx].pNdisPacket = pPacket;
-	pTxD = (TXD_STRUC *)tx_ring->Cell[TxIdx].AllocVa;
+	pTxRing->Cell[TxIdx].pNdisPacket = pPacket;
+	pTxD = (TXD_STRUC *)pTxRing->Cell[TxIdx].AllocVa;
 #ifndef RT_BIG_ENDIAN
-	pTxD = (TXD_STRUC *)tx_ring->Cell[TxIdx].AllocVa;
+	pTxD = (TXD_STRUC *)pTxRing->Cell[TxIdx].AllocVa;
 #else
-	pDestTxD  = (TXD_STRUC *)tx_ring->Cell[TxIdx].AllocVa;
+	pDestTxD  = (TXD_STRUC *)pTxRing->Cell[TxIdx].AllocVa;
 	NdisMoveMemory(&TxHwInfo[0], (UCHAR *)pDestTxD, TXD_SIZE);
 	pTxD = (TXD_STRUC *)&TxHwInfo[0];
 #endif
@@ -417,7 +407,7 @@ static INT32 MT_ATESetupFrame(RTMP_ADAPTER *pAd, UINT32 TxIdx)
 	TxBlk.pSrcBufData = (PUCHAR)ATECtrl->AteAllocVa[TxIdx];
 	NdisZeroMemory(pTxD, TXD_SIZE);
 	/* build Tx descriptor */
-	pTxD->SDPtr0 = RTMP_GetPhysicalAddressLow(tx_ring->Cell[TxIdx].DmaBuf.AllocPa);
+	pTxD->SDPtr0 = RTMP_GetPhysicalAddressLow(pTxRing->Cell[TxIdx].DmaBuf.AllocPa);
 	pTxD->SDLen0 = TXWISize + ATECtrl->HLen;
 	pTxD->LastSec0 = 0;
 	pTxD->SDPtr1 = PCI_MAP_SINGLE(pAd, &TxBlk, 0, 1, RTMP_PCI_DMA_TODEVICE);
@@ -447,11 +437,11 @@ static INT32 MT_ATEStartTx(RTMP_ADAPTER *pAd)
 	INT32 IdBss, MaxNumBss = pAd->ApCfg.BssidNum;
 #endif
 
-	MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO, "\n");
+	MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("%s\n", __func__));
 
 	/* TxRx switch workaround */
 	if (ATECtrl->did_rx == 1) {
-		MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO, "DID Rx Before\n");
+		MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("%s: DID Rx Before\n", __func__));
 		MT_ATERestoreInit(pAd);
 	}
 
@@ -474,7 +464,7 @@ static INT32 MT_ATEStartTx(RTMP_ADAPTER *pAd)
 #endif
 	RTMP_SET_FLAG(pAd, fRTMP_ADAPTER_DISABLE_DEQUEUEPACKET);
 	/*  Disable PDMA */
-	chip_set_hif_dma(pAd, DMA_TX, 0);
+	AsicSetWPDMA(pAd, PDMA_TX, 0);
 	/* Polling TX/RX path until packets empty */
 
 	if (if_ops->clean_trx_q)
@@ -511,27 +501,27 @@ static INT32 MT_ATEStartTx(RTMP_ADAPTER *pAd)
 
 		ATECtrl->Mode |= ATE_TXFRAME;
 	} else
-		MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_ERROR, "no tx test frame callback function\n");
+		MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_ERROR, ("%s: no tx test frame callback function\n", __func__));
 
 
 	/* Low temperature high rate EVM degrade Patch v2 */
 	if ((MTK_REV_GTE(pAd, MT7603, MT7603E1)) ||
 		(MTK_REV_GTE(pAd, MT7628, MT7628E1))) {
 		if (ATECtrl->TxAntennaSel == 0) {
-			RTMP_IO_READ32(pAd->hdev_ctrl, CR_RFINTF_00, &Value);
+			RTMP_IO_READ32(pAd, CR_RFINTF_00, &Value);
 			Value &= ~CR_RFINTF_CAL_NSS_MASK;
 			Value |= CR_RFINTF_CAL_NSS(0x0);
-			RTMP_IO_WRITE32(pAd->hdev_ctrl, CR_RFINTF_00, Value);
+			RTMP_IO_WRITE32(pAd, CR_RFINTF_00, Value);
 		} else if (ATECtrl->TxAntennaSel == 1) {
-			RTMP_IO_READ32(pAd->hdev_ctrl, CR_RFINTF_00, &Value);
+			RTMP_IO_READ32(pAd, CR_RFINTF_00, &Value);
 			Value &= ~CR_RFINTF_CAL_NSS_MASK;
 			Value |= CR_RFINTF_CAL_NSS(0x0);
-			RTMP_IO_WRITE32(pAd->hdev_ctrl, CR_RFINTF_00, Value);
+			RTMP_IO_WRITE32(pAd, CR_RFINTF_00, Value);
 		} else if (ATECtrl->TxAntennaSel == 2) {
-			RTMP_IO_READ32(pAd->hdev_ctrl, CR_RFINTF_00, &Value);
+			RTMP_IO_READ32(pAd, CR_RFINTF_00, &Value);
 			Value &= ~CR_RFINTF_CAL_NSS_MASK;
 			Value |= CR_RFINTF_CAL_NSS(0x1);
-			RTMP_IO_WRITE32(pAd->hdev_ctrl, CR_RFINTF_00, Value);
+			RTMP_IO_WRITE32(pAd, CR_RFINTF_00, Value);
 		}
 	}
 
@@ -550,11 +540,11 @@ static INT32 MT_ATEStartRx(RTMP_ADAPTER *pAd)
 	INT32 IdBss, MaxNumBss = pAd->ApCfg.BssidNum;
 #endif
 
-	MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO, "\n");
-	RTMP_IO_READ32(pAd->hdev_ctrl, ARB_SCR, &reg);
-	MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO, "ARB_SCR:%x\n", reg);
+	MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("%s\n", __func__));
+	RTMP_IO_READ32(pAd, ARB_SCR, &reg);
+	MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("%s: ARB_SCR:%x\n", __func__, reg));
 	reg &= ~MT_ARB_SCR_RXDIS;
-	RTMP_IO_WRITE32(pAd->hdev_ctrl, ARB_SCR, reg);
+	RTMP_IO_WRITE32(pAd, ARB_SCR, reg);
 	AsicSetMacTxRx(pAd, ASIC_MAC_RX_RXV, FALSE);
 	/*   Stop send TX packets */
 	RTMP_OS_NETDEV_STOP_QUEUE(pAd->net_dev);
@@ -571,7 +561,7 @@ static INT32 MT_ATEStartRx(RTMP_ADAPTER *pAd)
 	}
 #endif
 	RTMP_SET_FLAG(pAd, fRTMP_ADAPTER_DISABLE_DEQUEUEPACKET);
-	chip_set_hif_dma(pAd, DMA_TX, 0);
+	AsicSetWPDMA(pAd, PDMA_TX, 0);
 
 	if (if_ops->clean_trx_q)
 		if_ops->clean_trx_q(pAd);
@@ -600,12 +590,12 @@ static INT32 MT_ATEStartRx(RTMP_ADAPTER *pAd)
 		ATECtrl->RxTotalCnt = 0;
 
 	pAd->WlanCounters[0].FCSErrorCount.u.LowPart = 0;
-	RTMP_IO_READ32(pAd->hdev_ctrl, RMAC_RFCR, &Value);
+	RTMP_IO_READ32(pAd, RMAC_RFCR, &Value);
 	Value |= RM_FRAME_REPORT_EN;
-	RTMP_IO_WRITE32(pAd->hdev_ctrl, RMAC_RFCR, Value);
+	RTMP_IO_WRITE32(pAd, RMAC_RFCR, Value);
 	AsicSetMacTxRx(pAd, ASIC_MAC_RX_RXV, TRUE);
 	/* Enable PDMA */
-	chip_set_hif_dma(pAd, DMA_TX_RX, 1);
+	AsicSetWPDMA(pAd, PDMA_TX_RX, 1);
 	ATECtrl->Mode |= ATE_RXFRAME;
 	ATECtrl->did_rx = 1;
 	return Ret;
@@ -616,23 +606,24 @@ static INT32 MT_ATEStopTx(RTMP_ADAPTER *pAd, UINT32 Mode)
 {
 	struct _ATE_CTRL *ATECtrl = &pAd->ATECtrl;
 	struct _ATE_IF_OPERATION *if_ops = ATECtrl->ATEIfOps;
-	UINT8 num_of_tx_ring = hif_get_tx_res_num(pAd->hdev_ctrl);
+	struct _RTMP_CHIP_CAP *cap = hc_get_chip_cap(pAd->hdev_ctrl);
+	UINT8 num_of_tx_ring = GET_NUM_OF_TX_RING(cap);
 	INT32 Ret = 0;
 	INT32 acidx;
 
 	acidx = 0;
-	MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO, "\n");
+	MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("%s\n", __func__));
 
 	if ((Mode & ATE_TXFRAME) || (Mode == ATE_STOP)) {
 		/*  Disable PDMA */
-		chip_set_hif_dma(pAd, DMA_TX_RX, 0);
+		AsicSetWPDMA(pAd, PDMA_TX_RX, 0);
 
 		if (if_ops->clean_trx_q)
 			if_ops->clean_trx_q(pAd);
 
 		ATECtrl->Mode &= ~ATE_TXFRAME;
 		/* Enable PDMA */
-		chip_set_hif_dma(pAd, DMA_TX_RX, 1);
+		AsicSetWPDMA(pAd, PDMA_TX_RX, 1);
 	}
 
 	return Ret;
@@ -647,12 +638,12 @@ static INT32 MT_ATEStopRx(RTMP_ADAPTER *pAd)
 	UINT32 reg;
 
 	i = 0;
-	MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO, "\n");
+	MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("%s\n", __func__));
 	Ret = AsicSetMacTxRx(pAd, ASIC_MAC_RX_RXV, FALSE);
-	RTMP_IO_READ32(pAd->hdev_ctrl, ARB_SCR, &reg);
-	MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO, "ARB_SCR:%x\n", reg);
+	RTMP_IO_READ32(pAd, ARB_SCR, &reg);
+	MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("%s: ARB_SCR:%x\n", __func__, reg));
 	reg |= MT_ARB_SCR_RXDIS;
-	RTMP_IO_WRITE32(pAd->hdev_ctrl, ARB_SCR, reg);
+	RTMP_IO_WRITE32(pAd, ARB_SCR, reg);
 	ATECtrl->Mode &= ~ATE_RXFRAME;
 	return Ret;
 }
@@ -664,7 +655,7 @@ static INT32 MT_ATESetTxAntenna(RTMP_ADAPTER *pAd, CHAR Ant)
 	INT32 Ret = 0;
 	UINT32 Value;
 
-	MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO, "\n");
+	MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("%s\n", __func__));
 	/* 0: All 1:TX0 2:TX1 */
 	ATECtrl->TxAntennaSel = Ant;
 
@@ -676,7 +667,7 @@ static INT32 MT_ATESetTxAntenna(RTMP_ADAPTER *pAd, CHAR Ant)
 		if (pAd->E2pAccessMode == E2P_NONE) {
 			UINT16 v_efuse = 0;
 
-			MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO, "E2P_NONE\n");
+			MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("%s: E2P_NONE\n", __func__));
 			rtmp_ee_efuse_read16(pAd, 0x35, &v_efuse);
 
 			if (v_efuse == 0)
@@ -684,27 +675,27 @@ static INT32 MT_ATESetTxAntenna(RTMP_ADAPTER *pAd, CHAR Ant)
 			else
 				ePA = (v_efuse >> 8) & 0x00FF;
 
-			MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO, "E2P_NONE, EFUSE Value == 0x%x, ePA:0x%x\n", v_efuse, ePA);
+			MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("E2P_NONE, EFUSE Value == 0x%x, ePA:0x%x\n", v_efuse, ePA));
 		} else if (pAd->E2pAccessMode == E2P_EFUSE_MODE) {
 			UINT16 v_efuse = 0;
 
 			rtmp_ee_efuse_read16(pAd, 0x35, &v_efuse);
 			ePA = (v_efuse >> 8) & 0x00FF;
-			MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO, "EFUSE_MODE, EFUSE Value == 0x%x, ePA:0x%x\n", v_efuse, ePA);
+			MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("EFUSE_MODE, EFUSE Value == 0x%x, ePA:0x%x\n", v_efuse, ePA));
 		} else
 #endif /* RTMP_EFUSE_SUPPORT */
 		{
-			MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO, "BIN/FLASH/EEPROM_MODE(0x%x), get value in buffer\n", pAd->E2pAccessMode);
+			MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("%s: BIN/FLASH/EEPROM_MODE(0x%x), get value in buffer\n", __func__, pAd->E2pAccessMode));
 			ePA = pAd->EEPROMImage[0x35];
 		}
 
-		MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO, "ePA:0x%x, E2pAccessMode:0x%x\n", ePA, pAd->E2pAccessMode);
+		MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("%s: ePA:0x%x, E2pAccessMode:0x%x\n", __func__, ePA, pAd->E2pAccessMode));
 
 		if (ATECtrl->TxAntennaSel == 0) {
-			RTMP_IO_READ32(pAd->hdev_ctrl, CR_RFINTF_00, &Value);
+			RTMP_IO_READ32(pAd, CR_RFINTF_00, &Value);
 			Value &= ~CR_RFINTF_CAL_NSS_MASK;
 			Value |= CR_RFINTF_CAL_NSS(0x0);
-			RTMP_IO_WRITE32(pAd->hdev_ctrl, CR_RFINTF_00, Value);
+			RTMP_IO_WRITE32(pAd, CR_RFINTF_00, Value);
 
 			/* ePA Tx1 patch, bit[1]: 2.4G ePA Enable, same as Tx0 */
 			if (ePA & 0x02) {
@@ -712,27 +703,27 @@ static INT32 MT_ATESetTxAntenna(RTMP_ADAPTER *pAd, CHAR Ant)
 				UINT32 RestoreValue;
 				UINT32 value;
 
-				RTMP_IO_READ32(pAd->hdev_ctrl, MCU_PCIE_REMAP_2, &RestoreValue);
+				RTMP_IO_READ32(pAd, MCU_PCIE_REMAP_2, &RestoreValue);
 				RemapBase = GET_REMAP_2_BASE(0x81060008) << 19;
 				RemapOffset = GET_REMAP_2_OFFSET(0x81060008);
-				RTMP_IO_WRITE32(pAd->hdev_ctrl, MCU_PCIE_REMAP_2, RemapBase);
+				RTMP_IO_WRITE32(pAd, MCU_PCIE_REMAP_2, RemapBase);
 
 				if ((MTK_REV_GTE(pAd, MT7603, MT7603E1)) ||
 					(MTK_REV_GTE(pAd, MT7603, MT7603E2))) {
 					value = 0x04852390;
-					RTMP_IO_WRITE32(pAd->hdev_ctrl, 0x80000 + RemapOffset, value);
+					RTMP_IO_WRITE32(pAd, 0x80000 + RemapOffset, value);
 				} else if (MTK_REV_GTE(pAd, MT7628, MT7628E1)) {
 					value = 0x00489523;
-					RTMP_IO_WRITE32(pAd->hdev_ctrl, 0x80000 + RemapOffset, value);
+					RTMP_IO_WRITE32(pAd, 0x80000 + RemapOffset, value);
 				}
 
-				RTMP_IO_WRITE32(pAd->hdev_ctrl, MCU_PCIE_REMAP_2, RestoreValue);
+				RTMP_IO_WRITE32(pAd, MCU_PCIE_REMAP_2, RestoreValue);
 			}
 		} else if (ATECtrl->TxAntennaSel == 1) {
-			RTMP_IO_READ32(pAd->hdev_ctrl, CR_RFINTF_00, &Value);
+			RTMP_IO_READ32(pAd, CR_RFINTF_00, &Value);
 			Value &= ~CR_RFINTF_CAL_NSS_MASK;
 			Value |= CR_RFINTF_CAL_NSS(0x0);
-			RTMP_IO_WRITE32(pAd->hdev_ctrl, CR_RFINTF_00, Value);
+			RTMP_IO_WRITE32(pAd, CR_RFINTF_00, Value);
 
 			/* ePA Tx1 patch, bit[1]: 2.4G ePA Enable */
 			if (ePA & 0x02) {
@@ -740,27 +731,27 @@ static INT32 MT_ATESetTxAntenna(RTMP_ADAPTER *pAd, CHAR Ant)
 				UINT32 RestoreValue;
 				UINT32 value;
 
-				RTMP_IO_READ32(pAd->hdev_ctrl, MCU_PCIE_REMAP_2, &RestoreValue);
+				RTMP_IO_READ32(pAd, MCU_PCIE_REMAP_2, &RestoreValue);
 				RemapBase = GET_REMAP_2_BASE(0x81060008) << 19;
 				RemapOffset = GET_REMAP_2_OFFSET(0x81060008);
-				RTMP_IO_WRITE32(pAd->hdev_ctrl, MCU_PCIE_REMAP_2, RemapBase);
+				RTMP_IO_WRITE32(pAd, MCU_PCIE_REMAP_2, RemapBase);
 
 				if ((MTK_REV_GTE(pAd, MT7603, MT7603E1)) ||
 					(MTK_REV_GTE(pAd, MT7603, MT7603E2))) {
 					value = 0x04852390;
-					RTMP_IO_WRITE32(pAd->hdev_ctrl, 0x80000 + RemapOffset, value);
+					RTMP_IO_WRITE32(pAd, 0x80000 + RemapOffset, value);
 				} else if (MTK_REV_GTE(pAd, MT7628, MT7628E1)) {
 					value = 0x00489523;
-					RTMP_IO_WRITE32(pAd->hdev_ctrl, 0x80000 + RemapOffset, value);
+					RTMP_IO_WRITE32(pAd, 0x80000 + RemapOffset, value);
 				}
 
-				RTMP_IO_WRITE32(pAd->hdev_ctrl, MCU_PCIE_REMAP_2, RestoreValue);
+				RTMP_IO_WRITE32(pAd, MCU_PCIE_REMAP_2, RestoreValue);
 			}
 		} else if (ATECtrl->TxAntennaSel == 2) {
-			RTMP_IO_READ32(pAd->hdev_ctrl, CR_RFINTF_00, &Value);
+			RTMP_IO_READ32(pAd, CR_RFINTF_00, &Value);
 			Value &= ~CR_RFINTF_CAL_NSS_MASK;
 			Value |= CR_RFINTF_CAL_NSS(0x1);
-			RTMP_IO_WRITE32(pAd->hdev_ctrl, CR_RFINTF_00, Value);
+			RTMP_IO_WRITE32(pAd, CR_RFINTF_00, Value);
 
 			/* ePA Tx1 patch, bit[1]: 2.4G ePA Enable */
 			if (ePA & 0x02) {
@@ -768,21 +759,21 @@ static INT32 MT_ATESetTxAntenna(RTMP_ADAPTER *pAd, CHAR Ant)
 				UINT32 RestoreValue;
 				UINT32 value;
 
-				RTMP_IO_READ32(pAd->hdev_ctrl, MCU_PCIE_REMAP_2, &RestoreValue);
+				RTMP_IO_READ32(pAd, MCU_PCIE_REMAP_2, &RestoreValue);
 				RemapBase = GET_REMAP_2_BASE(0x81060008) << 19;
 				RemapOffset = GET_REMAP_2_OFFSET(0x81060008);
-				RTMP_IO_WRITE32(pAd->hdev_ctrl, MCU_PCIE_REMAP_2, RemapBase);
+				RTMP_IO_WRITE32(pAd, MCU_PCIE_REMAP_2, RemapBase);
 
 				if ((MTK_REV_GTE(pAd, MT7603, MT7603E1)) ||
 					(MTK_REV_GTE(pAd, MT7603, MT7603E2))) {
 					value = 0x04856790;
-					RTMP_IO_WRITE32(pAd->hdev_ctrl, 0x80000 + RemapOffset, value);
+					RTMP_IO_WRITE32(pAd, 0x80000 + RemapOffset, value);
 				} else if (MTK_REV_GTE(pAd, MT7628, MT7628E1)) {
 					value = 0x00489567;
-					RTMP_IO_WRITE32(pAd->hdev_ctrl, 0x80000 + RemapOffset, value);
+					RTMP_IO_WRITE32(pAd, 0x80000 + RemapOffset, value);
 				}
 
-				RTMP_IO_WRITE32(pAd->hdev_ctrl, MCU_PCIE_REMAP_2, RestoreValue);
+				RTMP_IO_WRITE32(pAd, MCU_PCIE_REMAP_2, RestoreValue);
 			}
 		}
 	}
@@ -796,10 +787,10 @@ static INT32 MT_ATESetRxAntenna(RTMP_ADAPTER *pAd, CHAR Ant)
 	struct _ATE_CTRL *ATECtrl = &pAd->ATECtrl;
 	INT32 Ret = 0;
 
-	MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO, "\n");
+	MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("%s\n", __func__));
 	ATECtrl->RxAntennaSel = Ant;
 	/* set RX path */
-	AsicSetRxPath(pAd, (UINT32)ATECtrl->RxAntennaSel, 0);
+	MtAsicSetRxPath(pAd, (UINT32)ATECtrl->RxAntennaSel, 0);
 	return Ret;
 }
 
@@ -811,32 +802,32 @@ static INT32 MT_ATESetTxFreqOffset(RTMP_ADAPTER *pAd, UINT32 FreqOffset)
 	UINT32 reg = 0;
 
 	ATECtrl->RFFreqOffset = FreqOffset;
-	MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO, "\n");
+	MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("%s\n", __func__));
 
 	if (IS_MT76x6(pAd) || IS_MT7637(pAd)) {
-		MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO, "MT76x6 Manual Set Frequency\n");
-		RTMP_IO_READ32(pAd->hdev_ctrl, FREQ_OFFSET_MANUAL_ENABLE, &reg);
+		MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("MT76x6 Manual Set Frequency\n"));
+		RTMP_IO_READ32(pAd, FREQ_OFFSET_MANUAL_ENABLE, &reg);
 
 		if (ATECtrl->en_man_freq_restore == 0) {
-			MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO, "MT76x6 Normal Set Frequency BK\n");
+			MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("MT76x6 Normal Set Frequency BK\n"));
 			ATECtrl->en_man_freq_restore = reg;
 		}
 
 		reg = (reg & 0xFFFF80FF) | (0x7F << 8);
-		RTMP_IO_WRITE32(pAd->hdev_ctrl, FREQ_OFFSET_MANUAL_ENABLE, reg);
+		RTMP_IO_WRITE32(pAd, FREQ_OFFSET_MANUAL_ENABLE, reg);
 		ATECtrl->en_man_set_freq = 1;
 	}
 
 	if (ATECtrl->en_man_set_freq == 1) {
-		RTMP_IO_READ32(pAd->hdev_ctrl, FREQ_OFFSET_MANUAL_VALUE, &reg);
+		RTMP_IO_READ32(pAd, FREQ_OFFSET_MANUAL_VALUE, &reg);
 
 		if (ATECtrl->normal_freq_restore == 0) {
-			MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO, "MT76x6 Normal Frequency BK\n");
+			MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("MT76x6 Normal Frequency BK\n"));
 			ATECtrl->normal_freq_restore = reg;
 		}
 
 		reg = (reg & 0xFFFF80FF) | (ATECtrl->RFFreqOffset << 8);
-		RTMP_IO_WRITE32(pAd->hdev_ctrl, FREQ_OFFSET_MANUAL_VALUE, reg);
+		RTMP_IO_WRITE32(pAd, FREQ_OFFSET_MANUAL_VALUE, reg);
 	} else
 		MtAsicSetRfFreqOffset(pAd, ATECtrl->RFFreqOffset);
 
@@ -848,7 +839,7 @@ static INT32 MT_ATESetChannel(RTMP_ADAPTER *pAd, INT16 Value)
 	struct _ATE_CTRL *ATECtrl = &pAd->ATECtrl;
 	INT32 Ret = 0;
 
-	MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO, "\n");
+	MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("%s\n", __func__));
 	MtCmdChannelSwitch(pAd, ATECtrl->ControlChl, ATECtrl->Channel, ATECtrl->BW,
 					   pAd->Antenna.field.TxPath, pAd->Antenna.field.RxPath, FALSE);
 	return Ret;
@@ -860,8 +851,8 @@ static INT32 MT_ATESetBW(RTMP_ADAPTER *pAd, INT16 Value)
 	INT32 Ret = 0;
 	UINT32 val = 0;
 
-	MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO, "\n");
-	RTMP_IO_READ32(pAd->hdev_ctrl, AGG_BWCR, &val);
+	MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("%s\n", __func__));
+	RTMP_IO_READ32(pAd, AGG_BWCR, &val);
 	val &= (~0x0c);
 
 	switch (Value) {
@@ -878,7 +869,7 @@ static INT32 MT_ATESetBW(RTMP_ADAPTER *pAd, INT16 Value)
 		break;
 	}
 
-	RTMP_IO_WRITE32(pAd->hdev_ctrl, AGG_BWCR, val);
+	RTMP_IO_WRITE32(pAd, AGG_BWCR, val);
 	/* TODO: check CMD_CH_PRIV_ACTION_BW_REQ */
 	/* CmdChPrivilege(pAd, CMD_CH_PRIV_ACTION_BW_REQ, ATECtrl->ControlChl, ATECtrl->Channel, */
 	/* ATECtrl->BW, pAd->Antenna.field.TxPath, pAd->Antenna.field.RxPath); */
@@ -930,23 +921,11 @@ static INT32 MT_ATESampleRssi(RTMP_ADAPTER *pAd, RX_BLK *RxBlk)
 static INT32 MT_ATESetAIFS(RTMP_ADAPTER *pAd, CHAR Value)
 {
 	INT32 Ret = 0;
-#ifdef WIFI_UNIFIED_COMMAND
-	struct wifi_dev *wdev = &pAd->ApCfg.MBSSID[MAIN_MBSSID].wdev;
-#endif /* WIFI_UNIFIED_COMMAND */
-
-	/*
-		chnage the mask to 0xf to sync MAC AIFS CR range is [0:3]
-		QA tool may set the lage value than 0xF
-	*/
-	UINT val = Value & 0x0000000f;
+	UINT val = Value & 0x000000ff;
 
 	/* Test mode use AC0 for TX */
-	MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO, "Value:%x\n", val);
-#ifdef WIFI_UNIFIED_COMMAND
-	AsicSetWmmParam(pAd, wdev, 0, WMM_PARAM_AC_0, WMM_PARAM_AIFSN, val);
-#else
+	MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("%s: Value:%x\n", __func__, val));
 	AsicSetWmmParam(pAd, 0, WMM_PARAM_AC_0, WMM_PARAM_AIFSN, val);
-#endif /* WIFI_UNIFIED_COMMAND */
 	return Ret;
 }
 
@@ -972,7 +951,7 @@ static INT32 MT_ATEStartTxTone(RTMP_ADAPTER *pAd, UINT32 Mode)
 {
 	INT32 Ret = 0;
 
-	MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO, "\n");
+	MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("%s\n", __func__));
 	MtAsicSetTxToneTest(pAd, 1, Mode);
 	return Ret;
 }
@@ -981,7 +960,7 @@ static INT32 MT_ATESetTxTonePower(RTMP_ADAPTER *pAd, INT32 pwr1, INT32 pwr2)
 {
 	INT32 Ret = 0;
 
-	MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO, "pwr1:%d, pwr2:%d\n", pwr1, pwr2);
+	MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("%s: pwr1:%d, pwr2:%d\n", __func__, pwr1, pwr2));
 	MtAsicSetTxTonePower(pAd, pwr1, pwr2);
 	return Ret;
 }
@@ -990,7 +969,7 @@ static INT32 MT_ATEStopTxTone(RTMP_ADAPTER *pAd)
 {
 	INT32 Ret = 0;
 
-	MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO, "\n");
+	MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("%s\n", __func__));
 	MtAsicSetTxToneTest(pAd, 0, 0);
 	return Ret;
 }
@@ -1000,7 +979,7 @@ static INT32 MT_ATEStartContinousTx(RTMP_ADAPTER *pAd, CHAR WFSel)
 	struct _ATE_CTRL *ATECtrl = &pAd->ATECtrl;
 	INT32 Ret = 0;
 
-	MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO, "\n");
+	MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("%s\n", __func__));
 	CmdTxContinous(pAd, ATECtrl->PhyMode, ATECtrl->BW, ATECtrl->ControlChl, ATECtrl->Mcs, ATECtrl->TxAntennaSel, 1);
 	return Ret;
 }
@@ -1009,7 +988,7 @@ static INT32 MT_ATEStopContinousTx(RTMP_ADAPTER *pAd)
 {
 	INT32 Ret = 0;
 
-	MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO, "\n");
+	MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("%s\n", __func__));
 	struct _ATE_CTRL *ATECtrl = &pAd->ATECtrl;
 
 	CmdTxContinous(pAd, ATECtrl->PhyMode, ATECtrl->BW, ATECtrl->ControlChl, ATECtrl->Mcs, ATECtrl->TxAntennaSel, 0);
@@ -1019,14 +998,8 @@ static INT32 MT_ATEStopContinousTx(RTMP_ADAPTER *pAd)
 static INT32 MT_RfRegWrite(RTMP_ADAPTER *pAd, UINT32 WFSel, UINT32 Offset, UINT32 Value)
 {
 	INT32 Ret = 0;
-#ifdef WIFI_UNIFIED_COMMAND
-	RTMP_CHIP_CAP *cap = hc_get_chip_cap(pAd->hdev_ctrl);
 
-	if (cap->uni_cmd_support)
-		Ret = UniCmdRFRegAccessWrite(pAd, WFSel, Offset, Value);
-	else
-#endif /* WIFI_UNIFIED_COMMAND */
-		Ret = MtCmdRFRegAccessWrite(pAd, WFSel, Offset, Value);
+	Ret = MtCmdRFRegAccessWrite(pAd, WFSel, Offset, Value);
 	return Ret;
 }
 
@@ -1034,14 +1007,8 @@ static INT32 MT_RfRegWrite(RTMP_ADAPTER *pAd, UINT32 WFSel, UINT32 Offset, UINT3
 static INT32 MT_RfRegRead(RTMP_ADAPTER *pAd, UINT32 WFSel, UINT32 Offset, UINT32 *Value)
 {
 	INT32 Ret = 0;
-#ifdef WIFI_UNIFIED_COMMAND
-	RTMP_CHIP_CAP *cap = hc_get_chip_cap(pAd->hdev_ctrl);
 
-	if (cap->uni_cmd_support)
-		Ret = UniCmdRFRegAccessRead(pAd, WFSel, Offset, Value);
-	else
-#endif /* WIFI_UNIFIED_COMMAND */
-		Ret = MtCmdRFRegAccessRead(pAd, WFSel, Offset, Value);
+	Ret = MtCmdRFRegAccessRead(pAd, WFSel, Offset, Value);
 	return Ret;
 }
 
@@ -1096,7 +1063,7 @@ INT	MT_SetATETxBfProc(RTMP_ADAPTER *pAd, UCHAR TxBfEnFlg)
 		break;
 
 	default:
-		MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_ERROR, "Set_ATE_TXBF_Proc: Invalid parameter %d\n", TxBfEnFlg);
+		MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_ERROR, ("Set_ATE_TXBF_Proc: Invalid parameter %d\n", TxBfEnFlg));
 		break;
 	}
 
@@ -1140,14 +1107,13 @@ static INT32 pci_ate_init(RTMP_ADAPTER *pAd)
 {
 	struct _ATE_CTRL *ATECtrl = &pAd->ATECtrl;
 	UINT32 Index;
-	struct _PCI_HIF_T *pci_hif = hc_get_hif_ctrl(pAd->hdev_ctrl);
-	struct hif_pci_tx_ring *tx_ring = pci_get_tx_ring_by_ridx(pci_hif, QID_AC_BE);
+	RTMP_TX_RING *pTxRing = &pAd->PciHif.TxRing[QID_AC_BE];
 
-	MTWF_DBG(pAd, DBG_CAT_TEST,  DBG_SUBCAT_ALL, DBG_LVL_INFO, "\n");
-	HIF_IO_READ32(pAd->hdev_ctrl, tx_ring->hw_didx_addr, &tx_ring->TxDmaIdx);
-	tx_ring->TxSwFreeIdx = tx_ring->TxDmaIdx;
-	tx_ring->TxCpuIdx = tx_ring->TxDmaIdx;
-	HIF_IO_WRITE32(pAd->hdev_ctrl, tx_ring->hw_cidx_addr, tx_ring->TxCpuIdx);
+	MTWF_LOG(DBG_CAT_TEST,  DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("%s\n", __func__));
+	HIF_IO_READ32(pAd, pTxRing->hw_didx_addr, &pTxRing->TxDmaIdx);
+	pTxRing->TxSwFreeIdx = pTxRing->TxDmaIdx;
+	pTxRing->TxCpuIdx = pTxRing->TxDmaIdx;
+	HIF_IO_WRITE32(pAd, pTxRing->hw_cidx_addr, pTxRing->TxCpuIdx);
 
 	for (Index = 0; Index < TX_RING_SIZE; Index++) {
 		if (ATEPayloadAlloc(pAd, Index) != (NDIS_STATUS_SUCCESS)) {
@@ -1157,10 +1123,10 @@ static INT32 pci_ate_init(RTMP_ADAPTER *pAd)
 	}
 
 	ATECtrl->allocated = 1;
-	chip_interrupt_enable(pAd);
+	RTMP_ASIC_INTERRUPT_ENABLE(pAd);
 	return NDIS_STATUS_SUCCESS;
 pci_ate_init_err:
-	MTWF_DBG(pAd, DBG_CAT_TEST,  DBG_SUBCAT_ALL, DBG_LVL_ERROR, "Allocate test packet fail at pakcet%d\n", Index);
+	MTWF_LOG(DBG_CAT_TEST,  DBG_SUBCAT_ALL, DBG_LVL_ERROR, ("%s: Allocate test packet fail at pakcet%d\n", __func__, Index));
 	return NDIS_STATUS_FAILURE;
 }
 
@@ -1169,14 +1135,13 @@ static INT32 pci_clean_q(RTMP_ADAPTER *pAd)
 	struct _ATE_CTRL *ATECtrl = &pAd->ATECtrl;
 	UINT32 Index;
 	TXD_STRUC *pTxD = NULL;
-	struct _PCI_HIF_T *pci_hif = hc_get_hif_ctrl(pAd->hdev_ctrl);
-	struct hif_pci_tx_ring *tx_ring = pci_get_tx_ring_by_ridx(pci_hif, QID_AC_BE);
+	RTMP_TX_RING *pTxRing = &pAd->PciHif.TxRing[QID_AC_BE];
 #ifdef RT_BIG_ENDIAN
 	TXD_STRUC *pDestTxD = NULL;
 	UCHAR TxHwInfo[TXD_SIZE];
 #endif
 
-	MTWF_DBG(pAd, DBG_CAT_TEST,  DBG_SUBCAT_ALL, DBG_LVL_INFO, " -->\n");
+	MTWF_LOG(DBG_CAT_TEST,  DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("%s -->\n", __func__));
 
 	/* Polling TX/RX path until packets empty */
 	if (ATECtrl->tx_coherent == 0)
@@ -1185,7 +1150,7 @@ static INT32 pci_clean_q(RTMP_ADAPTER *pAd)
 	for (Index = 0; Index < TX_RING_SIZE; Index++) {
 		PNDIS_PACKET  pPacket;
 
-		pPacket = tx_ring->Cell[Index].pNextNdisPacket;
+		pPacket = pTxRing->Cell[Index].pNextNdisPacket;
 
 		if (pPacket)
 			PCI_UNMAP_SINGLE(pAd, pTxD->SDPtr1, pTxD->SDLen1, RTMP_PCI_DMA_TODEVICE);
@@ -1204,59 +1169,57 @@ static INT32 pci_setup_frame(RTMP_ADAPTER *pAd, UINT32 q_idx)
 	struct _ATE_CTRL *ATECtrl = &pAd->ATECtrl;
 	UINT32 Index;
 	UINT32 TxIdx = 0;
-	struct _PCI_HIF_T *pci_hif = hc_get_hif_ctrl(pAd->hdev_ctrl);
-	struct hif_pci_tx_ring *tx_ring = pci_get_tx_ring_by_ridx(pci_hif, QID_AC_BE);
+	RTMP_TX_RING *pTxRing = &pAd->PciHif.TxRing[QID_AC_BE];
 
-	MTWF_DBG(pAd, DBG_CAT_TEST,  DBG_SUBCAT_ALL, DBG_LVL_INFO, " -->,\n");
+	MTWF_LOG(DBG_CAT_TEST,  DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("%s -->,\n", __func__));
 
 	if (ATECtrl->allocated == 0)
 		goto pci_setup_frame_err;
 
-	HIF_IO_READ32(pAd->hdev_ctrl, tx_ring->hw_didx_addr, &tx_ring->TxDmaIdx);
-	tx_ring->TxSwFreeIdx = tx_ring->TxDmaIdx;
-	tx_ring->TxCpuIdx = tx_ring->TxDmaIdx;
-	HIF_IO_WRITE32(pAd->hdev_ctrl, tx_ring->hw_cidx_addr, tx_ring->TxCpuIdx);
+	HIF_IO_READ32(pAd, pTxRing->hw_didx_addr, &pTxRing->TxDmaIdx);
+	pTxRing->TxSwFreeIdx = pTxRing->TxDmaIdx;
+	pTxRing->TxCpuIdx = pTxRing->TxDmaIdx;
+	HIF_IO_WRITE32(pAd, pTxRing->hw_cidx_addr, pTxRing->TxCpuIdx);
 
 	if (ATECtrl->bQAEnabled != TRUE) /* reset in start tx when iwpriv */
 		ATECtrl->TxDoneCount = 0;
 
 	for (Index = 0; Index < TX_RING_SIZE; Index++)
-		tx_ring->Cell[Index].pNdisPacket = ATECtrl->pAtePacket[Index];
+		pTxRing->Cell[Index].pNdisPacket = ATECtrl->pAtePacket[Index];
 
 	for (Index = 0; (Index < TX_RING_SIZE) && (Index < ATECtrl->TxCount); Index++) {
-		MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO, "Index = %d, ATECtrl->TxCount = %u\n", Index, ATECtrl->TxCount);
-		TxIdx = tx_ring->TxCpuIdx;
+		MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("Index = %d, ATECtrl->TxCount = %u\n", Index, ATECtrl->TxCount));
+		TxIdx = pTxRing->TxCpuIdx;
 
 		if (MT_ATESetupFrame(pAd, TxIdx) != 0)
 			return NDIS_STATUS_FAILURE;
 
 		if (((Index + 1) < TX_RING_SIZE) && (Index < ATECtrl->TxCount))
-			INC_RING_INDEX(tx_ring->TxCpuIdx, TX_RING_SIZE);
+			INC_RING_INDEX(pTxRing->TxCpuIdx, TX_RING_SIZE);
 	}
 
-	MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_INFO, "TxCpuIdx: %u, TxDmaIdx: %u\n", tx_ring->TxCpuIdx, tx_ring->TxDmaIdx);
+	MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("%s: TxCpuIdx: %u, TxDmaIdx: %u\n", __func__, pTxRing->TxCpuIdx, pTxRing->TxDmaIdx));
 	return NDIS_STATUS_SUCCESS;
 pci_setup_frame_err:
-	MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_ERROR, "Setup frame fail\n");
+	MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_ERROR, ("%s: Setup frame fail\n", __func__));
 	return NDIS_STATUS_FAILURE;
 }
 
 static INT32 pci_test_frame_tx(RTMP_ADAPTER *pAd)
 {
 	struct _ATE_CTRL *ATECtrl = &pAd->ATECtrl;
-	struct _PCI_HIF_T *pci_hif = hc_get_hif_ctrl(pAd->hdev_ctrl);
-	struct hif_pci_tx_ring *tx_ring = pci_get_tx_ring_by_ridx(pci_hif, QID_AC_BE);
+	RTMP_TX_RING *pTxRing = &pAd->PciHif.TxRing[QID_AC_BE];
 
 	if (ATECtrl->allocated == 0)
 		goto pci_tx_frame_err;
 
 	/* Enable PDMA */
-	chip_set_hif_dma(pAd, DMA_TX_RX, 1);
+	AsicSetWPDMA(pAd, PDMA_TX_RX, 1);
 	ATECtrl->Mode |= ATE_TXFRAME;
-	HIF_IO_WRITE32(pAd->hdev_ctrl, tx_ring->hw_cidx_addr, tx_ring->TxCpuIdx);
+	HIF_IO_WRITE32(pAd, pTxRing->hw_cidx_addr, pTxRing->TxCpuIdx);
 	return NDIS_STATUS_SUCCESS;
 pci_tx_frame_err:
-	MTWF_DBG(pAd, DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_ERROR, "tx frame fail\n");
+	MTWF_LOG(DBG_CAT_TEST, DBG_SUBCAT_ALL, DBG_LVL_ERROR, ("%s: tx frame fail\n", __func__));
 	return NDIS_STATUS_FAILURE;
 }
 
@@ -1268,20 +1231,19 @@ static INT32 pci_clean_test_rx_frame(RTMP_ADAPTER *pAd)
 	RXD_STRUC *pDestRxD;
 	UCHAR RxHwInfo[RXD_SIZE];
 #endif
-	struct _PCI_HIF_T *pci_hif = hc_get_hif_ctrl(pAd->hdev_ctrl);
-	UINT8 num_of_rx_ring = hif_get_rx_res_num(pAd->hdev_ctrl);
-	struct hif_pci_rx_ring *rx_ring = pci_get_rx_ring_by_ridx(pci_hif, 0);
+	struct _RTMP_CHIP_CAP *cap = hc_get_chip_cap(pAd->hdev_ctrl);
+	UINT8 num_of_rx_ring = GET_NUM_OF_RX_RING(cap);
 
 	for (RingNum = 0; RingNum < num_of_rx_ring; RingNum++) {
 		for (Index = 0; Index < RX_RING_SIZE; Index++) {
 #ifdef RT_BIG_ENDIAN
-			pDestRxD = (RXD_STRUC *)rx_ring->Cell[Index].AllocVa;
+			pDestRxD = (RXD_STRUC *)pAd->PciHif.RxRing[0].Cell[Index].AllocVa;
 			NdisMoveMemory(&RxHwInfo[0], pDestRxD, RXD_SIZE);
 			pRxD = (RXD_STRUC *)&RxHwInfo[0];
 			RTMPDescriptorEndianChange((PUCHAR)pRxD, TYPE_RXD);
 #else
 			/* Point to Rx indexed rx ring descriptor */
-			pRxD = (RXD_STRUC *)rx_ring->Cell[Index].AllocVa;
+			pRxD = (RXD_STRUC *)pAd->PciHif.RxRing[0].Cell[Index].AllocVa;
 #endif
 			pRxD->DDONE = 0;
 #ifdef RT_BIG_ENDIAN
@@ -1299,25 +1261,24 @@ static INT32 pci_ate_leave(RTMP_ADAPTER *pAd)
 	struct _ATE_CTRL *ATECtrl = &pAd->ATECtrl;
 	UINT32 Index;
 	TXD_STRUC *pTxD = NULL;
-	struct _PCI_HIF_T *pci_hif = hc_get_hif_ctrl(pAd->hdev_ctrl);
-	struct hif_pci_tx_ring *tx_ring = pci_get_tx_ring_by_ridx(pci_hif, QID_AC_BE);
+	RTMP_TX_RING *pTxRing = &pAd->PciHif.TxRing[QID_AC_BE];
 #ifdef RT_BIG_ENDIAN
 	TXD_STRUC *pDestTxD = NULL;
 	UCHAR tx_hw_info[TXD_SIZE];
 #endif /* RT_BIG_ENDIAN */
 
-	MTWF_DBG(pAd, DBG_CAT_TEST,  DBG_SUBCAT_ALL, DBG_LVL_INFO, " -->,\n");
+	MTWF_LOG(DBG_CAT_TEST,  DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("%s -->,\n", __func__));
 	NICReadEEPROMParameters(pAd, NULL);
 	NICInitAsicFromEEPROM(pAd);
 
 	if (ATECtrl->allocated == 1) {
 		/*  Disable PDMA */
-		chip_set_hif_dma(pAd, DMA_TX_RX, 0);
+		AsicSetWPDMA(pAd, PDMA_TX_RX, 0);
 
 		for (Index = 0; Index < TX_RING_SIZE; Index++) {
 			PNDIS_PACKET pPacket;
 #ifndef RT_BIG_ENDIAN
-			pTxD = (TXD_STRUC *)tx_ring->Cell[Index].AllocVa;
+			pTxD = (TXD_STRUC *)pAd->PciHif.TxRing[QID_AC_BE].Cell[Index].AllocVa;
 #else
 			pDestTxD = (TXD_STRUC *)pAd->TxRing[QID_AC_BE].Cell[Index].AllocVa;
 			NdisMoveMemory(&tx_hw_info[0], (UCHAR *)pDestTxD, TXD_SIZE);
@@ -1325,7 +1286,7 @@ static INT32 pci_ate_leave(RTMP_ADAPTER *pAd)
 			RTMPDescriptorEndianChange((PUCHAR)pTxD, TYPE_TXD);
 #endif /* !RT_BIG_ENDIAN */
 			pTxD->DMADONE = 0;
-			pPacket = tx_ring->Cell[Index].pNdisPacket;
+			pPacket = pTxRing->Cell[Index].pNdisPacket;
 
 			if (pPacket) {
 				PCI_UNMAP_SINGLE(pAd, pTxD->SDPtr0, pTxD->SDLen0, RTMP_PCI_DMA_TODEVICE);
@@ -1333,8 +1294,8 @@ static INT32 pci_ate_leave(RTMP_ADAPTER *pAd)
 			}
 
 			/* Always assign pNdisPacket as NULL after clear */
-			tx_ring->Cell[Index].pNdisPacket = NULL;
-			pPacket = tx_ring->Cell[Index].pNextNdisPacket;
+			pTxRing->Cell[Index].pNdisPacket = NULL;
+			pPacket = pTxRing->Cell[Index].pNextNdisPacket;
 
 			if (pPacket) {
 				PCI_UNMAP_SINGLE(pAd, pTxD->SDPtr1, pTxD->SDLen1, RTMP_PCI_DMA_TODEVICE);
@@ -1342,7 +1303,7 @@ static INT32 pci_ate_leave(RTMP_ADAPTER *pAd)
 			}
 
 			/* Always assign pNextNdisPacket as NULL after clear */
-			tx_ring->Cell[Index].pNextNdisPacket = NULL;
+			pTxRing->Cell[Index].pNextNdisPacket = NULL;
 #ifdef RT_BIG_ENDIAN
 			RTMPDescriptorEndianChange((PUCHAR)pTxD, TYPE_TXD);
 			WriteBackToDescriptor((PUCHAR)pDestTxD, (PUCHAR)pTxD, FALSE, TYPE_TXD);

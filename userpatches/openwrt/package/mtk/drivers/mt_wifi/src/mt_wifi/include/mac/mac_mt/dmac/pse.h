@@ -1,17 +1,18 @@
 /*
- * Copyright (c) [2020], MediaTek Inc. All rights reserved.
- *
- * This software/firmware and related documentation ("MediaTek Software") are
- * protected under relevant copyright laws.
- * The information contained herein is confidential and proprietary to
- * MediaTek Inc. and/or its licensors.
- * Except as otherwise provided in the applicable licensing terms with
- * MediaTek Inc. and/or its licensors, any reproduction, modification, use or
- * disclosure of MediaTek Software, and information contained herein, in whole
- * or in part, shall be strictly prohibited.
-*/
-/*
  ***************************************************************************
+ * Ralink Tech Inc.
+ * 4F, No. 2 Technology	5th Rd.
+ * Science-based Industrial Park
+ * Hsin-chu, Taiwan, R.O.C.
+ *
+ * (c) Copyright 2002-2004, Ralink Technology, Inc.
+ *
+ * All rights reserved.	Ralink's source	code is	an unpublished work and the
+ * use of a copyright notice does not imply otherwise. This source code
+ * contains confidential trade secret material of Ralink Tech. Any attemp
+ * or participation in deciphering, decoding, reverse engineering or in any
+ * way altering	the source code	is stricitly prohibited, unless	the prior
+ * written consent of Ralink Technology, Inc. is obtained.
  ***************************************************************************
 
 	Module Name:
@@ -29,7 +30,7 @@
 #ifndef __PSE_H__
 #define __PSE_H__
 
-#define PSE_BASE		0x82068000
+#define PSE_BASE		0xc000
 
 /* PSE Reset Control Register */
 #define PSE_RESET (PSE_BASE + 0x00)
@@ -47,8 +48,6 @@
 
 #define PSE_PBUF_OFFSET_MASK (0xf << 20)
 #define GET_PSE_PBUF_OFFSET(p) (((p) & PSE_PBUF_OFFSET_MASK) >> 20)
-
-#define PSE_INT_N9_ERR_STS			(PSE_BASE + 0x28)
 
 /* Queue Empty */
 #define PSE_QUEUE_EMPTY			(PSE_BASE + 0xb0)
@@ -87,15 +86,6 @@
 #define PSE_SPARE_DUMMY_CR2			(PSE_BASE +  0x1e8)
 #define PSE_SPARE_DUMMY_CR3			(PSE_BASE +  0x2e8)
 #define PSE_SPARE_DUMMY_CR4			(PSE_BASE +  0x2ec)
-
-#define PSE_SEEK_CR_00			(PSE_BASE + 0x3d0)
-#define PSE_SEEK_CR_01			(PSE_BASE + 0x3d4)
-#define PSE_SEEK_CR_02			(PSE_BASE + 0x3d8)
-#define PSE_SEEK_CR_03			(PSE_BASE + 0x3dc)
-#define PSE_SEEK_CR_04			(PSE_BASE + 0x3e0)
-#define PSE_SEEK_CR_05			(PSE_BASE + 0x3e4)
-#define PSE_SEEK_CR_06			(PSE_BASE + 0x3e8)
-#define PSE_SEEK_CR_08			(PSE_BASE + 0x3f0)
 
 /* CPU Interface Get First Frame ID Control Regitser */
 #define C_GFF (PSE_BASE + 0x24)

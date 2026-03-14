@@ -1,17 +1,18 @@
 /*
- * Copyright (c) [2020], MediaTek Inc. All rights reserved.
- *
- * This software/firmware and related documentation ("MediaTek Software") are
- * protected under relevant copyright laws.
- * The information contained herein is confidential and proprietary to
- * MediaTek Inc. and/or its licensors.
- * Except as otherwise provided in the applicable licensing terms with
- * MediaTek Inc. and/or its licensors, any reproduction, modification, use or
- * disclosure of MediaTek Software, and information contained herein, in whole
- * or in part, shall be strictly prohibited.
-*/
-/*
  ***************************************************************************
+ * Ralink Tech Inc.
+ * 4F, No. 2 Technology 5th Rd.
+ * Science-based Industrial Park
+ * Hsin-chu, Taiwan, R.O.C.
+ *
+ * (c) Copyright 2002-2004, Ralink Technology, Inc.
+ *
+ * All rights reserved. Ralink's source code is an unpublished work and the
+ * use of a copyright notice does not imply otherwise. This source code
+ * contains confidential trade secret material of Ralink Tech. Any attemp
+ * or participation in deciphering, decoding, reverse engineering or in any
+ * way altering the source code is stricitly prohibited, unless the prior
+ * written consent of Ralink Technology, Inc. is obtained.
  ***************************************************************************
 
 	Module Name:
@@ -46,34 +47,25 @@
 #ifdef BAND_STEERING
 #include "band_steering_def.h"
 #endif /* BAND_STEERING */
-/* #ifdef VOW_SUPPORT */
-/* VOW support */
-#include "ap_vow.h"
-/* #endif */ /* VOW_SUPPORT */
+
 #endif /* CONFIG_AP_SUPPORT */
-#ifdef WAPP_SUPPORT
-#include "wapp/wapp_cmm_type.h"
-#endif
 
 
-
-#ifdef VERIFICATION_MODE
-#include "verification/veri_ctl.h"
-#endif
 
 #ifdef MT_MAC
 #ifdef CUT_THROUGH
-#include "token.h"
+#include "cut_through.h"
 #endif /* CUT_THROUGH */
 #endif /* MT_MAC */
 
 #include "mlme.h"
 /*#include "rtmp_cmd.h" */
-#ifdef WIDI_SUPPORT
-#include "l2sd_ta.h"
-#endif /* WIDI_SUPPORT */
 
-#include "fp_qm.h"
+/* #ifdef VOW_SUPPORT */
+/* VOW support */
+#include "ap_vow.h"
+/* #endif */ /* VOW_SUPPORT */
+
 #include "qm.h"
 #include "rtmp.h"
 #include "security/sec.h"
@@ -84,8 +76,6 @@
 #include "ap_autoChSel.h"
 #endif /* CONFIG_AP_SUPPORT */
 #include "rt_os_util.h"
-
-#include "mgmt/mgmt_entrytb.h"
 
 #include "eeprom.h"
 #if defined(RTMP_PCI_SUPPORT) || defined(RTMP_USB_SUPPORT)
@@ -108,8 +98,6 @@
 #endif /* UAPSD_SUPPORT */
 
 #include "tx_power.h"
-#include "txpwr/txpwr.h"
-#include "phystate/phystate.h"
 
 #ifdef CONFIG_AP_SUPPORT
 #ifdef MBSS_SUPPORT
@@ -144,13 +132,7 @@
 #include "a4_conn.h"
 #endif
 
-#ifdef MWDS
-#include "mwds.h"
-#endif /* MWDS */
 
-#ifdef WH_EVENT_NOTIFIER
-#include "event_notifier.h"
-#endif /* WH_EVENT_NOTIFIER */
 
 #endif /* CONFIG_AP_SUPPORT */
 
@@ -159,12 +141,10 @@
 #endif /* MAT_SUPPORT */
 
 
-#ifdef CONFIG_STA_SUPPORT
-#include "sta.h"
-#ifdef WSC_STA_SUPPORT
-#define STA_WSC_INCLUDED
-#endif /* WSC_STA_SUPPORT */
-#endif /* CONFIG_STA_SUPPORT */
+
+#ifdef BLOCK_NET_IF
+#include "netif_block.h"
+#endif /* BLOCK_NET_IF */
 
 #ifdef IGMP_SNOOP_SUPPORT
 #include "igmp_snoop.h"
@@ -172,17 +152,15 @@
 #ifdef CONFIG_MAP_SUPPORT
 #include "map.h"
 #endif
+#ifdef WAPP_SUPPORT
+#include "wapp/wapp_cmm_type.h"
+#endif /* WAPP_SUPPORT */
 #ifdef CONFIG_ATE
 #include "ate_agent.h"
 #include "ate.h"
 #include "mt_testmode.h"
 #include "testmode_common.h"
-#ifdef LINUX
 #include <linux/utsname.h>
-#endif
-#if defined(CONFIG_WLAN_SERVICE)
-#include "agent.h"
-#endif /* CONFIG_WLAN_SERVICE */
 #endif /* CONFIG_ATE */
 
 #ifdef WCX_SUPPORT
@@ -220,14 +198,6 @@
 #include "mbo.h"
 #endif /* MBO_SUPPORT */
 
-#ifdef OCE_SUPPORT
-#include "oce.h"
-#endif /* OCE_SUPPORT */
-
-#ifdef DOT11Z_TDLS_SUPPORT
-#include "tdls.h"
-#include "tdls_uapsd.h"
-#endif /* DOT11Z_TDLS_SUPPORT */
 
 #if defined(AP_WSC_INCLUDED) || defined(STA_WSC_INCLUDED)
 #define WSC_INCLUDED
@@ -248,14 +218,6 @@
 #endif /* APCLI_WPA_SUPPLICANT_SUPPORT */
 
 
-#ifdef CONFIG_STA_SUPPORT
-#ifdef NATIVE_WPA_SUPPLICANT_SUPPORT
-#ifndef WPA_SUPPLICANT_SUPPORT
-#error "Build for being controlled by NetworkManager or wext, please set HAS_WPA_SUPPLICANT=y and HAS_NATIVE_WPA_SUPPLICANT_SUPPORT=y"
-#endif /* WPA_SUPPLICANT_SUPPORT */
-#endif /* NATIVE_WPA_SUPPLICANT_SUPPORT */
-
-#endif /* CONFIG_STA_SUPPORT */
 
 #ifdef WSC_INCLUDED
 #include "security/crypt_biginteger.h"
@@ -282,33 +244,22 @@
 #endif /* DOT11W_PMF_SUPPORT */
 
 
+#ifdef FTM_SUPPORT
+#include "ftm.h"
+#endif /* FTM_SUPPORT */
 
-#ifdef P2P_SUPPORT
-/*#include "p2p_inf.h" */
-#include "p2p.h"
-#include "p2pcli.h"
-#endif /* P2P_SUPPORT */
 
-#ifdef WFD_SUPPORT
-#include "wfd.h"
-#endif /* WFD_SUPPORT */
 
-#ifdef DOT11_N_SUPPORT
-#include "ht.h"
-#endif /* DOT11_N_SUPPORT */
 
 #ifdef DOT11_VHT_AC
 #include "vht.h"
 #endif /* DOT11_VHT_AC */
 
-#ifdef DOT11_HE_AX
-#include "he.h"
-#include "bss_color.h"
-#endif /* DOT11_HE_AX */
-
-#ifdef CONFIG_STA_SUPPORT
-#include "sta_cfg.h"
-#endif /* CONFIG_STA_SUPPORT */
+#ifdef RTMP_RBUS_SUPPORT
+#ifdef VIDEO_TURBINE_SUPPORT
+#include "video.h"
+#endif /* VIDEO_TURBINE_SUPPORT */
+#endif /* RTMP_RBUS_SUPPORT */
 
 #ifdef WORKQUEUE_BH
 #include <linux/workqueue.h>
@@ -328,16 +279,6 @@
 #endif /* CONFIG_AP_SUPPORT */
 #endif
 
-#ifdef CFG_SUPPORT_FALCON_MURU
-#ifdef CONFIG_AP_SUPPORT
-#include "ap_muru.h"
-#endif /* CONFIG_AP_SUPPORT */
-#endif
-
-#ifdef CFG_SUPPORT_FALCON_TXCMD_DBG
-#include "he_cfg.h"
-#endif /* CFG_SUPPORT_FALCON_TXCMD_DBG */
-
 #endif /* MT_MAC */
 
 #ifdef BAND_STEERING
@@ -351,6 +292,8 @@
 #ifdef TXBF_SUPPORT
 #ifdef MT_MAC
 #include "txbf/mt_txbf.h"
+#else
+#include "rt_txbf.h"
 #endif /* MT_MAC */
 #endif /* TXBF_SUPPORT */
 
@@ -367,7 +310,9 @@
 #include "protocol/tmr.h"
 #endif
 
+#ifdef SNIFFER_SUPPORT
 #include "sniffer/sniffer.h"
+#endif /* SNIFFER_SUPPORT */
 
 #ifdef LINUX
 #ifdef RT_CFG80211_SUPPORT
@@ -381,11 +326,12 @@
 #include "gas.h"
 #endif
 
-#if defined(CONFIG_DOT11V_WNM) || defined(CONFIG_PROXY_ARP)
+#ifdef CONFIG_DOT11V_WNM
+#include "dot11v_wnm.h"
 #include "wnm.h"
 #endif
 
-#if defined(CONFIG_HOTSPOT) || defined(CONFIG_PROXY_ARP)
+#ifdef CONFIG_HOTSPOT
 #include "hotspot.h"
 #endif
 
@@ -395,16 +341,10 @@
 #endif
 #endif
 
+#include "fp_qm.h"
 #include "tm.h"
 #include "hw_ctrl.h"
 #include "hdev_ctrl.h"
-#ifdef DOT11_HE_AX
-#ifdef WIFI_TWT_SUPPORT
-#include "twt_ctrl.h"
-#include "protocol/twt.h"
-#include "protocol/twt_core.h"
-#endif /* WIFI_TWT_SUPPORT */
-#endif /* DOT11_HE_AX */
 
 #include "protocol/protection.h"
 
@@ -421,10 +361,6 @@
 #ifdef SMART_CARRIER_SENSE_SUPPORT
 #include "scs.h"
 #endif /* SMART_CARRIER_SENSE_SUPPORT */
-
-#ifdef DYNAMIC_WMM_SUPPORT
-#include "dynwmm.h"
-#endif /* DYNAMIC_WMM_SUPPORT */
 
 #ifdef REDUCE_TCP_ACK_SUPPORT
 #include "cmm_tcprack.h"
@@ -446,65 +382,15 @@
 #if defined(RED_SUPPORT)
 #include "ra_ac_q_mgmt.h"
 #endif /* RED_SUPPORT */
-#ifdef DABS_QOS
-#include "dabs_qos.h"
-#endif
 #include "fq_qm.h"
 #include "cmm_rvr_dbg.h"
-#include "fsm/fsm_sync.h"
-#include "fsm/fsm_cntl.h"
-#include "fsm/fsm_auth.h"
-#include "fsm/fsm_assoc.h"
-#include "multi_hif.h"
-#include "misc_app.h"
-
-#ifdef WTBL_TDD_SUPPORT
-#include "mgmt/wtbl_tdd.h"
-#endif /* WTBL_TDD_SUPPORT */
-
-#ifdef RANDOM_PKT_GEN
-#include "mac/mac_mt/dmac/dma_sch.h"
-#endif /* RANDOM_PKT_GEN */
-
-#include "log_time.h"
-
-#ifdef CFG_SUPPORT_FALCON_SR
-#ifdef CONFIG_AP_SUPPORT
-#include "sr_cmd.h"
-#endif /* CONFIG_AP_SUPPORT */
-#endif /* CFG_SUPPORT_FALCON_SR */
-
-#ifdef CFG_SUPPORT_FALCON_PP
-#ifdef CONFIG_AP_SUPPORT
-#include "pp_cmd.h"
-#endif /* CONFIG_AP_SUPPORT */
-#endif /* CFG_SUPPORT_FALCON_PP */
-
+#ifdef  CONFIG_STEERING_API_SUPPORT
+#include <linux/rtc.h>
+#endif
 #ifdef WIFI_DIAG
 #include "os/diag.h"
 #endif
 
-#include "capi.h"
-
-#ifdef WIFI_MODULE_DVT
-#include "mdvt.h"
-#endif
-
-
-#ifdef CONFIG_6G_SUPPORT
-#include "ap_bss_mnger.h"
-#ifdef CONFIG_6G_AFC_SUPPORT
-#include "afc.h"
-#endif /* CONFIG_6G_AFC_SUPPORT */
-#endif /* CONFIG_6G_SUPPORT */
-#ifdef QOS_R1
-#include "qos.h"
-#endif
-#ifdef CFG_SUPPORT_CSI
-#include <net/netlink.h>
-#include <net/genetlink.h>
-#include <linux/netlink.h>
-#include <linux/socket.h>
-#endif
+#include "misc_app.h"
 
 #endif	/* __RT_CONFIG_H__ */

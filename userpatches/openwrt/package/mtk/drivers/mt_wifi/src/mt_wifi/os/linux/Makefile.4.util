@@ -6,11 +6,6 @@ MOD_NAME = rtutil$(MODULE)ap
 endif
 #endif // CONFIG_AP_SUPPORT //
 
-#ifdef CONFIG_STA_SUPPORT
-ifeq ($(RT28xx_MODE), STA)
-MOD_NAME = rtutil$(MODULE)sta
-endif
-#endif // CONFIG_STA_SUPPORT //
 
 #ifdef CONFIG_APSTA_SUPPORT
 ifeq ($(RT28xx_MODE), APSTA)
@@ -37,15 +32,6 @@ endif
 #endif // CONFIG_AP_SUPPORT //
 
 
-#ifdef CONFIG_STA_SUPPORT
-
-RT28XX_STA_OBJ := \
-	../../common/rt_os_util.o\
-	../../os/linux/rt_linux_symb.o\
-	../../os/linux/rt_rbus_pci_util.o\
-	../../os/linux/rt_usb_util.o\
-	../../os/linux/rt_linux.o
-#endif // CONFIG_STA_SUPPORT //
 
 
 #ifdef CONFIG_APSTA_SUPPORT

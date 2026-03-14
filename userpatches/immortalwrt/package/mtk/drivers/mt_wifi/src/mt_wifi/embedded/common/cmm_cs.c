@@ -1,17 +1,18 @@
 /*
- * Copyright (c) [2020], MediaTek Inc. All rights reserved.
- *
- * This software/firmware and related documentation ("MediaTek Software") are
- * protected under relevant copyright laws.
- * The information contained herein is confidential and proprietary to
- * MediaTek Inc. and/or its licensors.
- * Except as otherwise provided in the applicable licensing terms with
- * MediaTek Inc. and/or its licensors, any reproduction, modification, use or
- * disclosure of MediaTek Software, and information contained herein, in whole
- * or in part, shall be strictly prohibited.
-*/
-/*
  ***************************************************************************
+ * Ralink Tech Inc.
+ * 4F, No. 2 Technology 5th Rd.
+ * Science-based Industrial Park
+ * Hsin-chu, Taiwan, R.O.C.
+ *
+ * (c) Copyright 2002, Ralink Technology, Inc.
+ *
+ * All rights reserved. Ralink's source code is an unpublished work and the
+ * use of a copyright notice does not imply otherwise. This source code
+ * contains confidential trade secret material of Ralink Tech. Any attemp
+ * or participation in deciphering, decoding, reverse engineering or in any
+ * way altering the source code is stricitly prohibited, unless the prior
+ * written consent of Ralink Technology, Inc. is obtained.
  ***************************************************************************
 
     Module Name:
@@ -127,8 +128,8 @@ INT Set_CarrierDetect_Proc(RTMP_ADAPTER *pAd, RTMP_STRING *arg)
 	else
 		CarrierDetectionStop(pAd);
 
-	MTWF_DBG(pAd, DBG_CAT_HW, DBG_SUBCAT_ALL, DBG_LVL_INFO, "%s\n",
-			 pAd->CommonCfg.CarrierDetect.Enable == TRUE ? "Enable Carrier Detection" : "Disable Carrier Detection");
+	MTWF_LOG(DBG_CAT_HW, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("%s:: %s\n", __func__,
+			 pAd->CommonCfg.CarrierDetect.Enable == TRUE ? "Enable Carrier Detection" : "Disable Carrier Detection"));
 	return TRUE;
 }
 #endif /* CONFIG_AP_SUPPORT */
@@ -167,7 +168,8 @@ VOID CarrierDetectionPeriodicStateCtrl(
 
 	/* TODO: shiang-7603 */
 	if (IS_HIF_TYPE(pAd, HIF_MT)) {
-		MTWF_DBG(pAd, DBG_CAT_HW, DBG_SUBCAT_ALL, DBG_LVL_ERROR, "Not support for HIF_MT yet!\n");
+		MTWF_LOG(DBG_CAT_HW, DBG_SUBCAT_ALL, DBG_LVL_OFF, ("%s(%d): Not support for HIF_MT yet!\n",
+				 __func__, __LINE__));
 		return;
 	}
 
@@ -180,8 +182,8 @@ VOID CarrierDetectionPeriodicStateCtrl(
 
 		if (TrStatus) {
 			if (*pCD_State == CD_NORMAL) {
-				MTWF_DBG(pAd, DBG_CAT_HW, DBG_SUBCAT_ALL, DBG_LVL_INFO,
-						 "Carrier Detected ! (TrStatus = 0x%x)\n", TrStatus);
+				MTWF_LOG(DBG_CAT_HW, DBG_SUBCAT_ALL, DBG_LVL_OFF,
+						 ("Carrier Detected ! (TrStatus = 0x%x)\n", TrStatus));
 				*pCD_State = CD_SILENCE;
 				/* stop all TX actions including Beacon sending.*/
 				AsicDisableSync(pAd, HW_BSSID_0);
@@ -222,9 +224,9 @@ VOID RTMPHandleRadarInterrupt(PRTMP_ADAPTER  pAd)
 	if (cap->carrier_func > TONE_RADAR_V2)
 		return;
 
-	MTWF_DBG(pAd, DBG_CAT_HW, DBG_SUBCAT_ALL, DBG_LVL_INFO, "RTMPHandleRadarInterrupt()\n");
-	RTMP_IO_READ32(pAd->hdev_ctrl, PBF_LIFE_TIMER, &value);
-	RTMP_IO_READ32(pAd->hdev_ctrl, CH_IDLE_STA, &pCarrierDetect->idle_time);
+	MTWF_LOG(DBG_CAT_HW, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("RTMPHandleRadarInterrupt()\n"));
+	RTMP_IO_READ32(pAd, PBF_LIFE_TIMER, &value);
+	RTMP_IO_READ32(pAd, CH_IDLE_STA, &pCarrierDetect->idle_time);
 	pCarrierDetect->busy_time = AsicGetChBusyCnt(pAd, 0);
 	delta = (value >> 4) - pCarrierDetect->TimeStamp;
 	pCarrierDetect->TimeStamp = value >> 4;
@@ -237,7 +239,7 @@ VOID RTMPHandleRadarInterrupt(PRTMP_ADAPTER  pAd)
 			CarrierDetectionEnable(pAd, 0);
 			CarrierDetectionResetStatus(pAd);
 			/* Clear interrupt */
-			RTMP_IO_WRITE32(pAd->hdev_ctrl, INT_SOURCE_CSR, RadarInt);
+			RTMP_IO_WRITE32(pAd, INT_SOURCE_CSR, RadarInt);
 		}
 	}
 
@@ -268,8 +270,8 @@ VOID RTMPHandleRadarInterrupt(PRTMP_ADAPTER  pAd)
 			/* declare carrier sense*/
 			pCarrierDetect->CD_State = CD_SILENCE;
 
-			if (pCarrierDetect->Debug != DBG_LVL_INFO) {
-				MTWF_DBG(pAd, DBG_CAT_HW, DBG_SUBCAT_ALL, DBG_LVL_INFO, "Carrier Detected\n");
+			if (pCarrierDetect->Debug != DBG_LVL_TRACE) {
+				MTWF_LOG(DBG_CAT_HW, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("Carrier Detected\n"));
 				/* stop all TX actions including Beacon sending.*/
 				AsicDisableSync(pAd, HW_BSSID_0);
 			} else
@@ -281,7 +283,7 @@ VOID RTMPHandleRadarInterrupt(PRTMP_ADAPTER  pAd)
 		CarrierDetectionStatusGet(pAd, &bbp);
 
 		if (bbp & 0x1) {
-			MTWF_DBG(pAd, DBG_CAT_HW, DBG_SUBCAT_ALL, DBG_LVL_WARN, "CS bit not cleared!!!\n");
+			MTWF_LOG(DBG_CAT_HW, DBG_SUBCAT_ALL, DBG_LVL_ERROR, ("CS bit not cleared!!!\n"));
 			CarrierDetectionResetStatus(pAd);
 		}
 
@@ -355,7 +357,7 @@ INT Set_CarrierCriteria_Proc(RTMP_ADAPTER *pAd, RTMP_STRING *arg)
 INT Set_CarrierReCheck_Proc(RTMP_ADAPTER *pAd, RTMP_STRING *arg)
 {
 	pAd->CommonCfg.CarrierDetect.recheck1 = os_str_tol(arg, 0, 10);
-	MTWF_DBG(pAd, DBG_CAT_HW, DBG_SUBCAT_ALL, DBG_LVL_INFO, "Set Recheck = %u\n", pAd->CommonCfg.CarrierDetect.recheck1);
+	MTWF_LOG(DBG_CAT_HW, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("Set Recheck = %u\n", pAd->CommonCfg.CarrierDetect.recheck1));
 	return TRUE;
 }
 
@@ -379,7 +381,7 @@ INT Set_CarrierReCheck_Proc(RTMP_ADAPTER *pAd, RTMP_STRING *arg)
 INT Set_CarrierGoneThreshold_Proc(RTMP_ADAPTER *pAd, RTMP_STRING *arg)
 {
 	pAd->CommonCfg.CarrierDetect.CarrierGoneThreshold = os_str_tol(arg, 0, 10);
-	MTWF_DBG(pAd, DBG_CAT_HW, DBG_SUBCAT_ALL, DBG_LVL_INFO, "Set CarrierGoneThreshold = %u\n", pAd->CommonCfg.CarrierDetect.CarrierGoneThreshold);
+	MTWF_LOG(DBG_CAT_HW, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("Set CarrierGoneThreshold = %u\n", pAd->CommonCfg.CarrierDetect.CarrierGoneThreshold));
 	return TRUE;
 }
 
@@ -568,9 +570,9 @@ VOID CarrierDetectionStart(PRTMP_ADAPTER pAd)
 {
 	/*ULONG Value;*/
 	/* Enable Bandwidth usage monitor*/
-	MTWF_DBG(pAd, DBG_CAT_HW, DBG_SUBCAT_ALL, DBG_LVL_INFO, "CarrierDetectionStart\n");
-	/*RTMP_IO_READ32(pAd->hdev_ctrl, CH_TIME_CFG, &Value);*/
-	/*RTMP_IO_WRITE32(pAd->hdev_ctrl, CH_TIME_CFG, Value | 0x1f);	*/
+	MTWF_LOG(DBG_CAT_HW, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("CarrierDetectionStart\n"));
+	/*RTMP_IO_READ32(pAd, CH_TIME_CFG, &Value);*/
+	/*RTMP_IO_WRITE32(pAd, CH_TIME_CFG, Value | 0x1f);	*/
 
 	/* Init Carrier Detect*/
 	if (pAd->CommonCfg.CarrierDetect.Enable) {
@@ -653,7 +655,7 @@ static VOID ToneRadarProgram(PRTMP_ADAPTER pAd)
 VOID ToneRadarProgram_v1(PRTMP_ADAPTER pAd, ULONG threshold)
 {
 	UCHAR bbp;
-	MTWF_DBG(pAd, DBG_CAT_HW, DBG_SUBCAT_ALL, DBG_LVL_INFO, "ToneRadarProgram v1\n");
+	MTWF_LOG(DBG_CAT_HW, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("ToneRadarProgram v1\n"));
 	/* programe delta delay & division bit*/
 	BBP_IO_WRITE8_BY_REG_ID(pAd, BBP_R184, 0xf0);
 	bbp = pAd->CommonCfg.CarrierDetect.delta << 4;
@@ -690,7 +692,7 @@ VOID ToneRadarProgram_v2(PRTMP_ADAPTER pAd, ULONG threshold)
 {
 	UCHAR bbp;
 	/* programe delta delay & division bit*/
-	MTWF_DBG(pAd, DBG_CAT_HW, DBG_SUBCAT_ALL, DBG_LVL_INFO, "ToneRadarProgram v2\n");
+	MTWF_LOG(DBG_CAT_HW, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("ToneRadarProgram v2\n"));
 	bbp = pAd->CommonCfg.CarrierDetect.delta |							\
 		  ((pAd->CommonCfg.CarrierDetect.SymRund & 0x3) << 4)	 |		\
 		  ((pAd->CommonCfg.CarrierDetect.div_flag & 0x1) << 6) |		\
@@ -729,7 +731,7 @@ VOID ToneRadarProgram_v3(PRTMP_ADAPTER pAd, ULONG threshold)
 		Carrier Sense (Tone Radar) BBP initialization
 		(MT7650 Carrier sense programming guide_v1_20120824.docx)
 	*/
-	MTWF_DBG(pAd, DBG_CAT_HW, DBG_SUBCAT_ALL, DBG_LVL_INFO, "ToneRadarProgram v3\n");
+	MTWF_LOG(DBG_CAT_HW, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("ToneRadarProgram v3\n"));
 	CarrierDetectionEnable(pAd, 0);
 	RTMP_BBP_IO_WRITE32(pAd, TR_R2, 0x002d002d);
 	RTMP_BBP_IO_WRITE32(pAd, TR_R3, 0x0003002d);

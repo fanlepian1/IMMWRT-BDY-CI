@@ -16,7 +16,7 @@ static NTSTATUS hw_ctrl_flow_v1_open(struct WIFI_SYS_CTRL *wsys)
 			devinfo->OwnMacIdx,
 			devinfo->OwnMacAddr,
 			devinfo->BandIdx,
-			devinfo->WdevActive,
+			devinfo->Active,
 			devinfo->EnableFeature
 		);
 		/*update devinfo to wdev*/
@@ -41,7 +41,7 @@ static NTSTATUS hw_ctrl_flow_v1_close(struct WIFI_SYS_CTRL *wsys)
 			devinfo->OwnMacIdx,
 			devinfo->OwnMacAddr,
 			devinfo->BandIdx,
-			devinfo->WdevActive,
+			devinfo->Active,
 			devinfo->EnableFeature
 		);
 		/*update devinfo to wdev*/
@@ -61,17 +61,16 @@ static NTSTATUS hw_ctrl_flow_v1_link_up(struct WIFI_SYS_CTRL *wsys)
 	struct _STA_REC_CTRL_T *sta_rec = &wsys->StaRecCtrl;
 	struct _STA_TR_ENTRY *tr_entry = (struct _STA_TR_ENTRY *)sta_rec->priv;
 	struct _BSS_INFO_ARGUMENT_T *bss = &wsys->BssInfoCtrl;
-	struct _RTMP_CHIP_CAP *cap = hc_get_chip_cap(ad->hdev_ctrl);
 
 	if (bss->u4BssInfoFeature) {
-		AsicBssInfoUpdate(ad, &wsys->BssInfoCtrl);
+		AsicBssInfoUpdate(ad, wsys->BssInfoCtrl);
 		HcSetEdca(wdev);
 		/*update bssinfo to wdev*/
 		wifi_sys_update_bssinfo(ad, wdev, bss);
 	}
 
 	if (sta_rec->EnableFeature & ~STA_REC_INSTALL_KEY_FEATURE) {
-		AsicUpdateRxWCIDTable(ad, sta_rec->WlanIdx, tr_entry->Addr, TRUE, FALSE);
+		AsicUpdateRxWCIDTable(ad, sta_rec->WlanIdx, tr_entry->Addr, TRUE, FALSE); /* Haipin: check IsReset */
 		AsicStaRecUpdate(ad, sta_rec);
 	}
 
@@ -83,10 +82,10 @@ static NTSTATUS hw_ctrl_flow_v1_link_up(struct WIFI_SYS_CTRL *wsys)
 		wifi_sys_update_starec(ad, sta_rec);
 
 	if (ad->CommonCfg.bEnableTxBurst) {
-		txop_level = cap->peak_txop;
+		txop_level = TXOP_80;
 
 		if (ad->CommonCfg.bRdg)
-			txop_level = cap->peak_txop;
+			txop_level = TXOP_80;
 	} else
 		txop_level = TXOP_0;
 
@@ -125,7 +124,7 @@ static NTSTATUS hw_ctrl_flow_v1_link_down(struct WIFI_SYS_CTRL *wsys)
 		hw_set_tx_burst(ad, wdev, AC_BE, PRIO_DEFAULT, TXOP_0, 0);
 
 	if (bss->u4BssInfoFeature) {
-		AsicBssInfoUpdate(ad, &wsys->BssInfoCtrl);
+		AsicBssInfoUpdate(ad, wsys->BssInfoCtrl);
 		wifi_sys_update_bssinfo(ad, wdev, bss);
 	}
 
@@ -162,6 +161,7 @@ static NTSTATUS hw_ctrl_flow_v1_disconnt_act(struct WIFI_SYS_CTRL *wsys)
 		wdev->protection = 0;
 		addht->AddHtInfo2.OperaionMode = 0;
 		UpdateBeaconHandler(ad, wdev, BCN_UPDATE_IE_CHG);
+		AsicUpdateProtect(ad);
 	}
 	break;
 #endif /*CONFIG_AP_SUPPORT*/
@@ -182,7 +182,6 @@ static NTSTATUS hw_ctrl_flow_v1_connt_act(struct WIFI_SYS_CTRL *wsys)
 	UINT16 txop_level = TXOP_0;
 	struct _STA_REC_CTRL_T *sta_rec = &wsys->StaRecCtrl;
 	struct _STA_TR_ENTRY *tr_entry = (struct _STA_TR_ENTRY *)sta_rec->priv;
-	struct _RTMP_CHIP_CAP *cap = hc_get_chip_cap(ad->hdev_ctrl);
 
 	/*check starec is exist should not add new starec for this wcid*/
 	if (get_starec_by_wcid(ad, sta_rec->WlanIdx)) {
@@ -203,10 +202,10 @@ static NTSTATUS hw_ctrl_flow_v1_connt_act(struct WIFI_SYS_CTRL *wsys)
 	wifi_sys_update_starec(ad, sta_rec);
 
 	if (ad->CommonCfg.bEnableTxBurst) {
-		txop_level = cap->peak_txop;
+		txop_level = TXOP_80;
 
 		if (ad->CommonCfg.bRdg)
-			txop_level = cap->peak_txop;
+			txop_level = TXOP_80;
 	} else
 		txop_level = TXOP_0;
 

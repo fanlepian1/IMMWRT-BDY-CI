@@ -1,17 +1,13 @@
 /*
- * Copyright (c) [2020], MediaTek Inc. All rights reserved.
- *
- * This software/firmware and related documentation ("MediaTek Software") are
- * protected under relevant copyright laws.
- * The information contained herein is confidential and proprietary to
- * MediaTek Inc. and/or its licensors.
- * Except as otherwise provided in the applicable licensing terms with
- * MediaTek Inc. and/or its licensors, any reproduction, modification, use or
- * disclosure of MediaTek Software, and information contained herein, in whole
- * or in part, shall be strictly prohibited.
-*/
-/*
  ***************************************************************************
+ * MediaTek Inc.
+ *
+ * All rights reserved. source code is an unpublished work and the
+ * use of a copyright notice does not imply otherwise. This source code
+ * contains confidential trade secret material of MediaTek. Any attemp
+ * or participation in deciphering, decoding, reverse engineering or in any
+ * way altering the source code is stricitly prohibited, unless the prior
+ * written consent of MediaTek, Inc. is obtained.
  ***************************************************************************
 
 	Module Name:
@@ -27,21 +23,11 @@ VOID HdevHwResourceInit(struct hdev_ctrl *ctrl)
 
 	os_zero_mem(pHwResourceCfg, sizeof(HD_RESOURCE_CFG));
 	/*initial radio control*/
-	rc_init(ctrl);
+	RcInit(ctrl);
 	/*initial wmm control*/
-	wmm_ctrl_init(ctrl, &pHwResourceCfg->wmm_ctrl);
+	WcInit(ctrl, &pHwResourceCfg->WmmCtrl);
 	/*initial wtbl control*/
 	WtcInit(ctrl);
-#ifdef DOT11_HE_AX
-#ifdef WIFI_TWT_SUPPORT
-	/* initial twt control*/
-	twt_ctrl_init(ctrl);
-#endif /* WIFI_TWT_SUPPORT */
-#endif /* DOT11_HE_AX */
-#ifdef DOT11_HE_AX
-	/* initial bss color table */
-	bss_color_table_init(ctrl);
-#endif
 }
 
 VOID HdevHwResourceExit(struct hdev_ctrl *ctrl)
@@ -54,20 +40,13 @@ VOID HdevHwResourceExit(struct hdev_ctrl *ctrl)
 	for (i = 0; i < pHwResourceCfg->concurrent_bands; i++)
 		HdevExit(ctrl, i);
 
-	wmm_ctrl_exit(&pHwResourceCfg->wmm_ctrl);
-
-#ifdef DOT11_HE_AX
-#ifdef WIFI_TWT_SUPPORT
-	twt_ctrl_exit(ctrl);
-#endif /* WIFI_TWT_SUPPORT */
-	bss_color_table_deinit(ctrl);
-#endif /* DOT11_HE_AX */
+	WcExit(&pHwResourceCfg->WmmCtrl);
 }
 
 
 static VOID HdevHwResourceShow(HD_RESOURCE_CFG *pHwResourceCfg)
 {
-	MTWF_PRINT("band_num: %d\n", pHwResourceCfg->concurrent_bands);
+	MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_OFF, ("band_num: %d\n", pHwResourceCfg->concurrent_bands));
 	RcRadioShow(pHwResourceCfg);
 }
 
@@ -79,79 +58,90 @@ VOID HdevObjShow(struct hdev_obj *obj)
 {
 	HD_REPT_ENRTY *pEntry;
 
-	MTWF_PRINT("band_id\t: %d\n", obj->rdev->pRadioCtrl->BandIdx);
-	MTWF_PRINT("obj_id\t: %d\n", obj->Idx);
-	MTWF_PRINT("omac_id\t: %d\n", obj->OmacIdx);
-	MTWF_PRINT("wmmcap\t: %d\n", obj->bWmmAcquired);
-	MTWF_PRINT("wmm_idx\t: %d\n", obj->WmmIdx);
-	MTWF_PRINT("tx_mode\t: %s\n", obj->tx_mode ? "TXCMD" : "TXD");
+	MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_OFF, ("band_id\t: %d\n", obj->rdev->pRadioCtrl->BandIdx));
+	MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_OFF, ("obj_id\t: %d\n", obj->Idx));
+	MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_OFF, ("omac_id\t: %d\n", obj->OmacIdx));
+	MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_OFF, ("wmmcap\t: %d\n", obj->bWmmAcquired));
+	MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_OFF, ("wmm_idx\t: %d\n", obj->WmmIdx));
 	DlListForEach(pEntry, &obj->RepeaterList, struct _HD_REPT_ENRTY, list) {
-		MTWF_PRINT("\trept_id: %d, omac_id:%x\n", pEntry->CliIdx, pEntry->ReptOmacIdx);
+		MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_OFF, ("\trept_id: %d, omac_id:%x\n", pEntry->CliIdx, pEntry->ReptOmacIdx));
 	}
 }
 
 /*
 *
 */
-void bw_2_str(UCHAR bw, CHAR *bw_str, UINT max_str_size);
-void extcha_2_str(UCHAR extcha, CHAR *ec_str, UINT max_str_size);
+void bw_2_str(UCHAR bw, CHAR *bw_str);
+void extcha_2_str(UCHAR extcha, CHAR *ec_str);
 
 static VOID HdevShow(struct radio_dev *rdev)
 {
 	RADIO_CTRL *pRadioCtrl = rdev->pRadioCtrl;
-	USHORT pm = pRadioCtrl->PhyMode;
+	UCHAR pm = pRadioCtrl->PhyMode;
 	UCHAR ch = pRadioCtrl->Channel;
 	UCHAR c1 = pRadioCtrl->CentralCh;
 	UCHAR bw = pRadioCtrl->Bw;
 	UCHAR ech = pRadioCtrl->ExtCha;
 	UCHAR *pstr = NULL;
 	CHAR str[32] = "";
-	INT ret;
 
 	/*for 2.4G check*/
-	/* do not change sequence due to 6GHz might include AC/GN then confused */
-	if (WMODE_CAP_6G(pm)) {
-		ret = sprintf(str, "6GHz");
-		if (ret < 0)
-			MTWF_DBG(NULL, DBG_CAT_CFG, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-					"str sprintf error\n");
-	} else if (WMODE_CAP_2G(pm)) {
-		ret = sprintf(str, "2.4GHz");
-		if (ret < 0)
-			MTWF_DBG(NULL, DBG_CAT_CFG, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-					"str sprintf error\n");
-	} else {
-		ret = sprintf(str, "5GHz");
-		if (ret < 0)
-			MTWF_DBG(NULL, DBG_CAT_CFG, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-					"str sprintf error\n");
-	}
+	if (WMODE_CAP_2G(pm) && ch <= 14) {
+		MTWF_LOG(DBG_CAT_CFG, DBG_SUBCAT_ALL, DBG_LVL_OFF, ("==========2.4G band==========\n"));
+		pstr = wmode_2_str(pm);
 
-	MTWF_PRINT("==========%s band==========\n", str);
-	pstr = wmode_2_str(pm);
+		if (pstr != NULL) {
+			MTWF_LOG(DBG_CAT_CFG, DBG_SUBCAT_ALL, DBG_LVL_OFF, ("wmode\t: %s\n", pstr));
+			os_free_mem(pstr);
+		}
 
-	if (pstr != NULL) {
-		MTWF_PRINT("wmode\t: %s\n", pstr);
-		os_free_mem(pstr);
-	}
-	MTWF_PRINT("ch\t: %d\n", ch);
+		MTWF_LOG(DBG_CAT_CFG, DBG_SUBCAT_ALL, DBG_LVL_OFF, ("ch\t: %d\n", ch));
 #ifdef DOT11_N_SUPPORT
-	if (WMODE_CAP_N(pm)) {
-		bw_2_str(bw, str, sizeof(str));
-		MTWF_PRINT("bw\t: %s\n", str);
-		extcha_2_str(ech, str, sizeof(str));
-		MTWF_PRINT("extcha\t: %s\n", str);
-		MTWF_PRINT("cen_ch\t: %d\n", c1);
-	}
+
+		if (WMODE_CAP_N(pm)) {
+			bw_2_str(bw, str);
+			MTWF_LOG(DBG_CAT_CFG, DBG_SUBCAT_ALL, DBG_LVL_OFF, ("bw\t: %s\n", str));
+			extcha_2_str(ech, str);
+			MTWF_LOG(DBG_CAT_CFG, DBG_SUBCAT_ALL, DBG_LVL_OFF, ("extcha\t: %s\n", str));
+			MTWF_LOG(DBG_CAT_CFG, DBG_SUBCAT_ALL, DBG_LVL_OFF, ("cen_ch\t: %d\n", c1));
+		}
+
+#endif /*DOT11_N_SUPPORT*/
+	} else
+
+		/*for 5G check*/
+		if (WMODE_CAP_5G(pm) && ch > 14) {
+			MTWF_LOG(DBG_CAT_CFG, DBG_SUBCAT_ALL, DBG_LVL_OFF, ("==========5G band==========\n"));
+			pstr = wmode_2_str(pm);
+
+			if (pstr != NULL) {
+				MTWF_LOG(DBG_CAT_CFG, DBG_SUBCAT_ALL, DBG_LVL_OFF, ("wmode\t: %s\n", pstr));
+				os_free_mem(pstr);
+			}
+
+			MTWF_LOG(DBG_CAT_CFG, DBG_SUBCAT_ALL, DBG_LVL_OFF, ("ch\t: %d\n", ch));
+#ifdef DOT11_N_SUPPORT
+
+			if (WMODE_CAP_N(pm)) {
+				bw_2_str(bw, str);
+				MTWF_LOG(DBG_CAT_CFG, DBG_SUBCAT_ALL, DBG_LVL_OFF, ("bw\t: %s\n", str));
+				extcha_2_str(ech, str);
+				MTWF_LOG(DBG_CAT_CFG, DBG_SUBCAT_ALL, DBG_LVL_OFF, ("extcha\t: %s\n", str));
+				MTWF_LOG(DBG_CAT_CFG, DBG_SUBCAT_ALL, DBG_LVL_OFF, ("cen_ch1\t: %d\n", c1));
+			}
+
 #ifdef DOT11_VHT_AC
-	if (WMODE_CAP_AC(pm))
-		MTWF_PRINT("cen ch2\t: %d\n", pRadioCtrl->Channel2);
+
+			if (WMODE_CAP_AC(pm))
+				MTWF_LOG(DBG_CAT_CFG, DBG_SUBCAT_ALL, DBG_LVL_OFF, ("cen ch2\t: %d\n", pRadioCtrl->Channel2));
+
 #endif /*DOT11_VHT_AC*/
 #endif /*DOT11_N_SUPPORT*/
+		}
 
-	MTWF_PRINT("band_id\t: %d\n", pRadioCtrl->BandIdx);
-	MTWF_PRINT("obj_num\t: %d\n", rdev->DevNum);
-	MTWF_PRINT("state\t: %d\n", pRadioCtrl->CurStat);
+	MTWF_LOG(DBG_CAT_CFG, DBG_SUBCAT_ALL, DBG_LVL_OFF, ("band_id\t: %d\n", pRadioCtrl->BandIdx));
+	MTWF_LOG(DBG_CAT_CFG, DBG_SUBCAT_ALL, DBG_LVL_OFF, ("obj_num\t: %d\n", rdev->DevNum));
+	MTWF_LOG(DBG_CAT_CFG, DBG_SUBCAT_ALL, DBG_LVL_OFF, ("state\t: %d\n", pRadioCtrl->CurStat));
 }
 
 
@@ -180,8 +170,8 @@ VOID HdevObjAdd(struct radio_dev *rdev, struct hdev_obj *obj)
 	DlListInit(&obj->RepeaterList);
 	rdev->DevNum++;
 	if (obj->state != HOBJ_STATE_NONE) {
-		MTWF_DBG(NULL, DBG_CAT_CFG, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-				"obj state is not free! need to check!\n");
+		MTWF_LOG(DBG_CAT_CFG, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
+				("%s(): obj state is not free! need to check!\n", __func__));
 	}
 	obj->state = HOBJ_STATE_USED;
 }
@@ -210,8 +200,8 @@ INT32 HdevInit(struct hdev_ctrl *ctrl, UCHAR HdevIdx, RADIO_CTRL *pRadioCtrl)
 	struct radio_dev *rdev = NULL;
 
 	if (HdevIdx >= DBDC_BAND_NUM) {
-		MTWF_DBG(NULL, DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-				 "HdevIdx:%d >= %d\n", HdevIdx, DBDC_BAND_NUM);
+		MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
+				 ("%s: HdevIdx:%d >= %d\n", __func__, HdevIdx, DBDC_BAND_NUM));
 		return 0;
 	}
 
@@ -222,10 +212,6 @@ INT32 HdevInit(struct hdev_ctrl *ctrl, UCHAR HdevIdx, RADIO_CTRL *pRadioCtrl)
 	rdev->priv =  ctrl;
 	rdev->Idx = HdevIdx;
 	rdev->DevNum = 0;
-	if (pRadioCtrl->BandIdx == 1 && (hc_get_asic_cap(ctrl) & fASIC_CAP_SEPARATE_DBDC))
-		rdev->omac_ctrl = &ctrl->HwResourceCfg.OmacBssCtl[1];
-	else
-		rdev->omac_ctrl = &ctrl->HwResourceCfg.OmacBssCtl[0];
 	return 0;
 }
 
@@ -239,8 +225,8 @@ INT32 HdevExit(struct hdev_ctrl *ctrl, UCHAR HdevIdx)
 	struct radio_dev *rdev = NULL;
 
 	if (HdevIdx >= DBDC_BAND_NUM) {
-		MTWF_DBG(NULL, DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-				 "HdevIdx:%d >= %d\n", HdevIdx, DBDC_BAND_NUM);
+		MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
+				 ("%s: HdevIdx:%d >= %d\n", __func__, HdevIdx, DBDC_BAND_NUM));
 		return 0;
 	}
 
@@ -269,8 +255,10 @@ VOID HdevCfgShow(struct hdev_ctrl *ctrl)
 */
 BOOLEAN hdev_obj_state_ready(struct hdev_obj *obj)
 {
-	if (obj == NULL)
+	/* basic sanity */
+	if (!obj)
 		return FALSE;
+
 	if (obj->state == HOBJ_STATE_USED)
 		return TRUE;
 	else

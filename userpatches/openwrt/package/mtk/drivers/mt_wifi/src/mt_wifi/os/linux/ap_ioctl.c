@@ -1,16 +1,16 @@
-/*
- * Copyright (c) [2020], MediaTek Inc. All rights reserved.
- *
- * This software/firmware and related documentation ("MediaTek Software") are
- * protected under relevant copyright laws.
- * The information contained herein is confidential and proprietary to
- * MediaTek Inc. and/or its licensors.
- * Except as otherwise provided in the applicable licensing terms with
- * MediaTek Inc. and/or its licensors, any reproduction, modification, use or
- * disclosure of MediaTek Software, and information contained herein, in whole
- * or in part, shall be strictly prohibited.
-*/
 /****************************************************************************
+ * Ralink Tech Inc.
+ * 4F, No. 2 Technology 5th Rd.
+ * Science-based Industrial Park
+ * Hsin-chu, Taiwan, R.O.C.
+ * (c) Copyright 2002, Ralink Technology, Inc.
+ *
+ * All rights reserved. Ralink's source code is an unpublished work and the
+ * use of a copyright notice does not imply otherwise. This source code
+ * contains confidential trade secret material of Ralink Tech. Any attemp
+ * or participation in deciphering, decoding, reverse engineering or in any
+ * way altering the source code is stricitly prohibited, unless the prior
+ * written consent of Ralink Technology, Inc. is obtained.
  ****************************************************************************
 
     Module Name:
@@ -32,437 +32,7 @@
 #include <linux/wireless.h>
 #include "rtmp_def.h"
 
-#if (KERNEL_VERSION(4, 12, 0) <= LINUX_VERSION_CODE)
-static const struct iw_ioctl_description ap_standard_ioctl[] = {
-	[IW_IOCTL_IDX(SIOCSIWCOMMIT)] = {
-		.header_type	= IW_HEADER_TYPE_NULL,
-	},
-	[IW_IOCTL_IDX(SIOCGIWNAME)] = {
-		.header_type	= IW_HEADER_TYPE_CHAR,
-		.flags		= IW_DESCR_FLAG_DUMP,
-	},
-	[IW_IOCTL_IDX(SIOCSIWNWID)] = {
-		.header_type	= IW_HEADER_TYPE_PARAM,
-		.flags		= IW_DESCR_FLAG_EVENT,
-	},
-	[IW_IOCTL_IDX(SIOCGIWNWID)] = {
-		.header_type	= IW_HEADER_TYPE_PARAM,
-		.flags		= IW_DESCR_FLAG_DUMP,
-	},
-	[IW_IOCTL_IDX(SIOCSIWFREQ)] = {
-		.header_type	= IW_HEADER_TYPE_FREQ,
-		.flags		= IW_DESCR_FLAG_EVENT,
-	},
-	[IW_IOCTL_IDX(SIOCGIWFREQ)] = {
-		.header_type	= IW_HEADER_TYPE_FREQ,
-		.flags		= IW_DESCR_FLAG_DUMP,
-	},
-	[IW_IOCTL_IDX(SIOCSIWMODE)] = {
-		.header_type	= IW_HEADER_TYPE_UINT,
-		.flags		= IW_DESCR_FLAG_EVENT,
-	},
-	[IW_IOCTL_IDX(SIOCGIWMODE)] = {
-		.header_type	= IW_HEADER_TYPE_UINT,
-		.flags		= IW_DESCR_FLAG_DUMP,
-	},
-	[IW_IOCTL_IDX(SIOCSIWSENS)] = {
-		.header_type	= IW_HEADER_TYPE_PARAM,
-	},
-	[IW_IOCTL_IDX(SIOCGIWSENS)] = {
-		.header_type	= IW_HEADER_TYPE_PARAM,
-	},
-	[IW_IOCTL_IDX(SIOCSIWRANGE)] = {
-		.header_type	= IW_HEADER_TYPE_NULL,
-	},
-	[IW_IOCTL_IDX(SIOCGIWRANGE)] = {
-		.header_type	= IW_HEADER_TYPE_POINT,
-		.token_size	= 1,
-		.max_tokens	= sizeof(struct iw_range),
-		.flags		= IW_DESCR_FLAG_DUMP,
-	},
-	[IW_IOCTL_IDX(SIOCSIWPRIV)] = {
-		.header_type	= IW_HEADER_TYPE_NULL,
-	},
-	[IW_IOCTL_IDX(SIOCGIWPRIV)] = {
-		.header_type	= IW_HEADER_TYPE_POINT,
-		.token_size	= sizeof(struct iw_priv_args),
-		.max_tokens	= 16,
-		.flags		= IW_DESCR_FLAG_NOMAX,
-	},
-	[IW_IOCTL_IDX(SIOCSIWSTATS)] = {
-		.header_type	= IW_HEADER_TYPE_NULL,
-	},
-	[IW_IOCTL_IDX(SIOCGIWSTATS)] = {
-		.header_type	= IW_HEADER_TYPE_POINT,
-		.token_size	= 1,
-		.max_tokens	= sizeof(struct iw_statistics),
-		.flags		= IW_DESCR_FLAG_DUMP,
-	},
-	[IW_IOCTL_IDX(SIOCSIWSPY)] = {
-		.header_type	= IW_HEADER_TYPE_POINT,
-		.token_size	= sizeof(struct sockaddr),
-		.max_tokens	= IW_MAX_SPY,
-	},
-	[IW_IOCTL_IDX(SIOCGIWSPY)] = {
-		.header_type	= IW_HEADER_TYPE_POINT,
-		.token_size	= sizeof(struct sockaddr) +
-				  sizeof(struct iw_quality),
-		.max_tokens	= IW_MAX_SPY,
-	},
-	[IW_IOCTL_IDX(SIOCSIWTHRSPY)] = {
-		.header_type	= IW_HEADER_TYPE_POINT,
-		.token_size	= sizeof(struct iw_thrspy),
-		.min_tokens	= 1,
-		.max_tokens	= 1,
-	},
-	[IW_IOCTL_IDX(SIOCGIWTHRSPY)] = {
-		.header_type	= IW_HEADER_TYPE_POINT,
-		.token_size	= sizeof(struct iw_thrspy),
-		.min_tokens	= 1,
-		.max_tokens	= 1,
-	},
-	[IW_IOCTL_IDX(SIOCSIWAP)] = {
-		.header_type	= IW_HEADER_TYPE_ADDR,
-	},
-	[IW_IOCTL_IDX(SIOCGIWAP)] = {
-		.header_type	= IW_HEADER_TYPE_ADDR,
-		.flags		= IW_DESCR_FLAG_DUMP,
-	},
-	[IW_IOCTL_IDX(SIOCSIWMLME)] = {
-		.header_type	= IW_HEADER_TYPE_POINT,
-		.token_size	= 1,
-		.min_tokens	= sizeof(struct iw_mlme),
-		.max_tokens	= sizeof(struct iw_mlme),
-	},
-	[IW_IOCTL_IDX(SIOCGIWAPLIST)] = {
-		.header_type	= IW_HEADER_TYPE_POINT,
-		.token_size	= sizeof(struct sockaddr) +
-				  sizeof(struct iw_quality),
-		.max_tokens	= IW_MAX_AP,
-		.flags		= IW_DESCR_FLAG_NOMAX,
-	},
-	[IW_IOCTL_IDX(SIOCSIWSCAN)] = {
-		.header_type	= IW_HEADER_TYPE_POINT,
-		.token_size	= 1,
-		.min_tokens	= 0,
-		.max_tokens	= sizeof(struct iw_scan_req),
-	},
-	[IW_IOCTL_IDX(SIOCGIWSCAN)] = {
-		.header_type	= IW_HEADER_TYPE_POINT,
-		.token_size	= 1,
-		.max_tokens	= IW_SCAN_MAX_DATA,
-		.flags		= IW_DESCR_FLAG_NOMAX,
-	},
-	[IW_IOCTL_IDX(SIOCSIWESSID)] = {
-		.header_type	= IW_HEADER_TYPE_POINT,
-		.token_size	= 1,
-		.max_tokens	= IW_ESSID_MAX_SIZE,
-		.flags		= IW_DESCR_FLAG_EVENT,
-	},
-	[IW_IOCTL_IDX(SIOCGIWESSID)] = {
-		.header_type	= IW_HEADER_TYPE_POINT,
-		.token_size	= 1,
-		.max_tokens	= IW_ESSID_MAX_SIZE,
-		.flags		= IW_DESCR_FLAG_DUMP,
-	},
-	[IW_IOCTL_IDX(SIOCSIWNICKN)] = {
-		.header_type	= IW_HEADER_TYPE_POINT,
-		.token_size	= 1,
-		.max_tokens	= IW_ESSID_MAX_SIZE,
-	},
-	[IW_IOCTL_IDX(SIOCGIWNICKN)] = {
-		.header_type	= IW_HEADER_TYPE_POINT,
-		.token_size	= 1,
-		.max_tokens	= IW_ESSID_MAX_SIZE,
-	},
-	[IW_IOCTL_IDX(SIOCSIWRATE)] = {
-		.header_type	= IW_HEADER_TYPE_PARAM,
-	},
-	[IW_IOCTL_IDX(SIOCGIWRATE)] = {
-		.header_type	= IW_HEADER_TYPE_PARAM,
-	},
-	[IW_IOCTL_IDX(SIOCSIWRTS)] = {
-		.header_type	= IW_HEADER_TYPE_PARAM,
-	},
-	[IW_IOCTL_IDX(SIOCGIWRTS)] = {
-		.header_type	= IW_HEADER_TYPE_PARAM,
-	},
-	[IW_IOCTL_IDX(SIOCSIWFRAG)] = {
-		.header_type	= IW_HEADER_TYPE_PARAM,
-	},
-	[IW_IOCTL_IDX(SIOCGIWFRAG)] = {
-		.header_type	= IW_HEADER_TYPE_PARAM,
-	},
-	[IW_IOCTL_IDX(SIOCSIWTXPOW)] = {
-		.header_type	= IW_HEADER_TYPE_PARAM,
-	},
-	[IW_IOCTL_IDX(SIOCGIWTXPOW)] = {
-		.header_type	= IW_HEADER_TYPE_PARAM,
-	},
-	[IW_IOCTL_IDX(SIOCSIWRETRY)] = {
-		.header_type	= IW_HEADER_TYPE_PARAM,
-	},
-	[IW_IOCTL_IDX(SIOCGIWRETRY)] = {
-		.header_type	= IW_HEADER_TYPE_PARAM,
-	},
-	[IW_IOCTL_IDX(SIOCSIWENCODE)] = {
-		.header_type	= IW_HEADER_TYPE_POINT,
-		.token_size	= 1,
-		.max_tokens	= IW_ENCODING_TOKEN_MAX,
-		.flags		= IW_DESCR_FLAG_EVENT | IW_DESCR_FLAG_RESTRICT,
-	},
-	[IW_IOCTL_IDX(SIOCGIWENCODE)] = {
-		.header_type	= IW_HEADER_TYPE_POINT,
-		.token_size	= 1,
-		.max_tokens	= IW_ENCODING_TOKEN_MAX,
-		.flags		= IW_DESCR_FLAG_DUMP | IW_DESCR_FLAG_RESTRICT,
-	},
-	[IW_IOCTL_IDX(SIOCSIWPOWER)] = {
-		.header_type	= IW_HEADER_TYPE_PARAM,
-	},
-	[IW_IOCTL_IDX(SIOCGIWPOWER)] = {
-		.header_type	= IW_HEADER_TYPE_PARAM,
-	},
-	[IW_IOCTL_IDX(SIOCSIWGENIE)] = {
-		.header_type	= IW_HEADER_TYPE_POINT,
-		.token_size	= 1,
-		.max_tokens	= IW_GENERIC_IE_MAX,
-	},
-	[IW_IOCTL_IDX(SIOCGIWGENIE)] = {
-		.header_type	= IW_HEADER_TYPE_POINT,
-		.token_size	= 1,
-		.max_tokens	= IW_GENERIC_IE_MAX,
-	},
-	[IW_IOCTL_IDX(SIOCSIWAUTH)] = {
-		.header_type	= IW_HEADER_TYPE_PARAM,
-	},
-	[IW_IOCTL_IDX(SIOCGIWAUTH)] = {
-		.header_type	= IW_HEADER_TYPE_PARAM,
-	},
-	[IW_IOCTL_IDX(SIOCSIWENCODEEXT)] = {
-		.header_type	= IW_HEADER_TYPE_POINT,
-		.token_size	= 1,
-		.min_tokens	= sizeof(struct iw_encode_ext),
-		.max_tokens	= sizeof(struct iw_encode_ext) +
-				  IW_ENCODING_TOKEN_MAX,
-	},
-	[IW_IOCTL_IDX(SIOCGIWENCODEEXT)] = {
-		.header_type	= IW_HEADER_TYPE_POINT,
-		.token_size	= 1,
-		.min_tokens	= sizeof(struct iw_encode_ext),
-		.max_tokens	= sizeof(struct iw_encode_ext) +
-				  IW_ENCODING_TOKEN_MAX,
-	},
-	[IW_IOCTL_IDX(SIOCSIWPMKSA)] = {
-		.header_type	= IW_HEADER_TYPE_POINT,
-		.token_size	= 1,
-		.min_tokens	= sizeof(struct iw_pmksa),
-		.max_tokens	= sizeof(struct iw_pmksa),
-	},
-};
-static const unsigned int ap_standard_ioctl_num = ARRAY_SIZE(ap_standard_ioctl);
-
-#ifdef CONFIG_WEXT_PRIV
-/* size (in bytes) of the various private data types */
-static const char ap_iw_priv_type_size[] = {
-	0,							/* IW_PRIV_TYPE_NONE */
-	1,							/* IW_PRIV_TYPE_BYTE */
-	1,							/* IW_PRIV_TYPE_CHAR */
-	0,							/* Not defined */
-	sizeof(__u32),				/* IW_PRIV_TYPE_INT */
-	sizeof(struct iw_freq),		/* IW_PRIV_TYPE_FLOAT */
-	sizeof(struct sockaddr),	/* IW_PRIV_TYPE_ADDR */
-	0,							/* Not defined */
-};
-
-static int ap_get_priv_size(__u16 args)
-{
-	int	num = args & IW_PRIV_SIZE_MASK;
-	int	type = (args & IW_PRIV_TYPE_MASK) >> 12;
-
-	return num * ap_iw_priv_type_size[type];
-}
-
-static int ap_adjust_priv_size(__u16 args, struct iw_point *iwp)
-{
-	int	num = iwp->length;
-	int	max = args & IW_PRIV_SIZE_MASK;
-	int	type = (args & IW_PRIV_TYPE_MASK) >> 12;
-
-	if (max < num)
-		num = max;
-
-	return num * ap_iw_priv_type_size[type];
-}
-
-static int ap_get_priv_descr_and_size(struct net_device *dev, unsigned int cmd,
-										const struct iw_priv_args **descrp)
-{
-	const struct iw_priv_args *descr;
-	int i, extra_size;
-
-	descr = NULL;
-	for (i = 0; i < dev->wireless_handlers->num_private_args; i++) {
-		if (cmd == dev->wireless_handlers->private_args[i].cmd) {
-			descr = &dev->wireless_handlers->private_args[i];
-			break;
-		}
-	}
-
-	extra_size = 0;
-	if (descr) {
-		if (IW_IS_GET(cmd)) {
-			/* size of get arguments */
-			extra_size = ap_get_priv_size(descr->get_args);
-
-			if ((descr->get_args & IW_PRIV_SIZE_FIXED) &&
-			   (extra_size <= IFNAMSIZ))
-				extra_size = 0;
-		}
-	}
-	*descrp = descr;
-	return extra_size;
-}
-#endif
-
-INT ap_iw_handler(struct net_device *dev, struct iw_request_info *info,
-				  union iwreq_data *wrqu, char *extra)
-{
-	INT ret;
-	struct iwreq *wreq = CONTAINER_OF(wrqu, struct iwreq, u);
-	const struct iw_ioctl_description *	standard_descr;
-
-	if (dev->netdev_ops->ndo_do_ioctl) {
-		ret = dev->netdev_ops->ndo_do_ioctl(dev, (struct ifreq *)wreq, info->cmd);
-	} else {
-		return -EOPNOTSUPP;
-	}
-
-	if (ret != NDIS_STATUS_SUCCESS || !IW_IS_GET(info->cmd) || NULL == extra)
-		return ret;
-
-	/* fill info to extra for get command */
-	if (info->cmd < SIOCIWFIRSTPRIV) {
-		if (IW_IOCTL_IDX(info->cmd) >= ap_standard_ioctl_num)
-			return -EOPNOTSUPP;
-		standard_descr = &(ap_standard_ioctl[IW_IOCTL_IDX(info->cmd)]);
-		if (standard_descr->header_type == IW_HEADER_TYPE_POINT)
-			ret = copy_from_user(extra, wrqu->data.pointer,
-						(UINT64)(wrqu->data.length * standard_descr->token_size));
-	} else {
-#ifdef CONFIG_WEXT_PRIV
-		INT extra_size;
-		const struct iw_priv_args *private_descr;
-
-		extra_size = ap_get_priv_descr_and_size(dev, info->cmd, &private_descr);
-		if (extra_size != 0) {
-			if (!(private_descr->get_args & IW_PRIV_SIZE_FIXED))
-				extra_size = ap_adjust_priv_size(private_descr->get_args, &wrqu->data);
-			ret = copy_from_user(extra, wrqu->data.pointer, extra_size);
-		}
-#endif
-	}
-
-	return ret;
-}
-
-static iw_handler ap_handler[] = {
-	ap_iw_handler,	/* SIOCSIWCOMMIT */
-	ap_iw_handler,	/* SIOCGIWNAME */
-	ap_iw_handler,	/* SIOCSIWNWID */
-	ap_iw_handler,	/* SIOCGIWNWID */
-	ap_iw_handler,	/* SIOCSIWFREQ */
-	ap_iw_handler,	/* SIOCGIWFREQ */
-	ap_iw_handler,	/* SIOCSIWMODE */
-	ap_iw_handler,	/* SIOCGIWMODE */
-	ap_iw_handler,	/* SIOCSIWSENS */
-	ap_iw_handler,	/* SIOCGIWSENS */
-	ap_iw_handler,	/* SIOCSIWRANGE */
-	ap_iw_handler,	/* SIOCGIWRANGE */
-	ap_iw_handler,	/* SIOCSIWPRIV */
-	ap_iw_handler,	/* SIOCGIWPRIV */
-	ap_iw_handler,	/* SIOCSIWSTATS */
-	ap_iw_handler,	/* SIOCGIWSTATS */
-	ap_iw_handler,	/* SIOCSIWSPY */
-	ap_iw_handler,	/* SIOCGIWSPY */
-	ap_iw_handler,	/* SIOCSIWTHRSPY */
-	ap_iw_handler,	/* SIOCGIWTHRSPY */
-	ap_iw_handler,	/* SIOCSIWAP */
-	ap_iw_handler,	/* SIOCGIWAP */
-	ap_iw_handler,	/* SIOCSIWMLME */
-	ap_iw_handler,	/* SIOCGIWAPLIST */
-	ap_iw_handler,	/* SIOCSIWSCAN */
-	ap_iw_handler,	/* SIOCGIWSCAN */
-	ap_iw_handler,	/* SIOCSIWESSID */
-	ap_iw_handler,	/* SIOCGIWESSID */
-	ap_iw_handler,	/* SIOCSIWNICKN */
-	ap_iw_handler,	/* SIOCGIWNICKN */
-	ap_iw_handler,	/* 0x8B1E */
-	ap_iw_handler,	/* 0x8B1F */
-	ap_iw_handler,	/* SIOCSIWRATE */
-	ap_iw_handler,	/* SIOCGIWRATE */
-	ap_iw_handler,	/* SIOCSIWRTS */
-	ap_iw_handler,	/* SIOCGIWRTS */
-	ap_iw_handler,	/* SIOCSIWFRAG */
-	ap_iw_handler,	/* SIOCGIWFRAG */
-	ap_iw_handler,	/* SIOCSIWTXPOW */
-	ap_iw_handler,	/* SIOCGIWTXPOW */
-	ap_iw_handler,	/* SIOCSIWRETRY */
-	ap_iw_handler,	/* SIOCGIWRETRY */
-	ap_iw_handler,	/* SIOCSIWENCODE */
-	ap_iw_handler,	/* SIOCGIWENCODE */
-	ap_iw_handler,	/* SIOCSIWPOWER */
-	ap_iw_handler,	/* SIOCGIWPOWER */
-	ap_iw_handler,	/* SIOCSIWMODUL */
-	ap_iw_handler,	/* SIOCGIWMODUL */
-	ap_iw_handler,	/* SIOCSIWGENIE */
-	ap_iw_handler,	/* SIOCGIWGENIE */
-	ap_iw_handler,	/* SIOCSIWAUTH */
-	ap_iw_handler,	/* SIOCGIWAUTH */
-	ap_iw_handler,	/* SIOCSIWENCODEEXT */
-	ap_iw_handler,	/* SIOCGIWENCODEEXT */
-	ap_iw_handler,	/* SIOCSIWPMKSA */
-};
-
-#ifdef CONFIG_WEXT_PRIV
-static iw_handler ap_priv_handler[] = {
-	ap_iw_handler,	/* SIOCIWFIRSTPRIV + 0x00 */
-	ap_iw_handler,	/* RT_PRIV_IOCTL = SIOCIWFIRSTPRIV + 0x01 */
-	ap_iw_handler,	/* RTPRIV_IOCTL_SET = SIOCIWFIRSTPRIV + 0x02 */
-	ap_iw_handler,	/* RTPRIV_IOCTL_BBP = SIOCIWFIRSTPRIV + 0x03 */
-    ap_iw_handler,	/* SIOCIWFIRSTPRIV + 0x04 */
-	ap_iw_handler,	/* RTPRIV_IOCTL_MAC = SIOCIWFIRSTPRIV + 0x05 */
-	ap_iw_handler,	/* SIOCIWFIRSTPRIV + 0x06 */
-	ap_iw_handler,	/* RTPRIV_IOCTL_E2P = SIOCIWFIRSTPRIV + 0x07 */
-	ap_iw_handler,	/* RTPRIV_IOCTL_ATE = SIOCIWFIRSTPRIV + 0x08 */
-	ap_iw_handler,	/* RTPRIV_IOCTL_STATISTICS = SIOCIWFIRSTPRIV + 0x09 */
-	ap_iw_handler,	/* RTPRIV_IOCTL_ADD_PMKID_CACHE = SIOCIWFIRSTPRIV + 0x0a */
-	ap_iw_handler,	/* MTPRIV_IOCTL_META_SET_EM = SIOCIWFIRSTPRIV + 0x0b */
-	ap_iw_handler,	/* RTPRIV_IOCTL_RADIUS_DATA = SIOCIWFIRSTPRIV + 0x0c */
-	ap_iw_handler,	/* RTPRIV_IOCTL_GSITESURVEY = SIOCIWFIRSTPRIV + 0x0d */
-    ap_iw_handler,	/* RT_PRIV_IOCTL_EXT = SIOCIWFIRSTPRIV + 0x0e */
-	ap_iw_handler,	/* RTPRIV_IOCTL_GET_MAC_TABLE = SIOCIWFIRSTPRIV + 0x0f */
-	ap_iw_handler,	/* RTPRIV_IOCTL_STATIC_WEP_COPY = SIOCIWFIRSTPRIV + 0x10 */
-	ap_iw_handler,	/* RTPRIV_IOCTL_SHOW = SIOCIWFIRSTPRIV + 0x11 */
-	ap_iw_handler,	/* RTPRIV_IOCTL_WSC_PROFILE = SIOCIWFIRSTPRIV + 0x12 */
-	ap_iw_handler,	/* RTPRIV_IOCTL_RF = SIOCIWFIRSTPRIV + 0x13 */
-	ap_iw_handler,	/* RTPRIV_IOCTL_SET_WSC_PROFILE_U32_ITEM = SIOCIWFIRSTPRIV + 0x14 */
-	ap_iw_handler,	/* RTPRIV_IOCTL_STATISTICS = SIOCIWFIRSTPRIV + 0x15 */
-	ap_iw_handler,	/* RTPRIV_IOCTL_SET_WSC_PROFILE_STRING_ITEM = SIOCIWFIRSTPRIV + 0x16 */
-	ap_iw_handler,	/* MTPRIV_IOCTL_RD = SIOCIWFIRSTPRIV + 0x17 */
-    ap_iw_handler,	/* RTPRIV_IOCTL_SET_FT_PARAM = SIOCIWFIRSTPRIV + 0x18 */
-	ap_iw_handler,	/* RTPRIV_IOCTL_SET_WSCOOB = SIOCIWFIRSTPRIV + 0x19 */
-	ap_iw_handler,	/* RTPRIV_IOCTL_WSC_CALLBACK = SIOCIWFIRSTPRIV + 0x1a */
-	ap_iw_handler,	/* RTPRIV_IOCTL_RX_STATISTICS = SIOCIWFIRSTPRIV + 0x1b */
-	ap_iw_handler,	/* SIOCIWFIRSTPRIV + 0x1c */
-	ap_iw_handler,	/* RTPRIV_IOCTL_GET_DRIVER_INFO = SIOCIWFIRSTPRIV + 0x1d */
-	ap_iw_handler,	/* RTPRIV_IOCTL_STA_VLAN = SIOCIWFIRSTPRIV + 0x1e */
-	ap_iw_handler	/* RTPRIV_IOCTL_GET_MAC_TABLE_STRUCT = SIOCIWFIRSTPRIV + 0x1f */
-};
-#endif
-#endif
-
-struct iw_priv_args ap_priv_tab[] = {
+struct iw_priv_args ap_privtab[] = {
 	{
 		RTPRIV_IOCTL_SET,
 		/* 1024 --> 1024 + 512 */
@@ -474,11 +44,6 @@ struct iw_priv_args ap_priv_tab[] = {
 		RTPRIV_IOCTL_SHOW,
 		IW_PRIV_TYPE_CHAR | 1024, 0,
 		"show"
-	},
-	{
-		RTPRIV_IOCTL_PHY_STATE,
-		IW_PRIV_TYPE_CHAR | 1024, IW_PRIV_TYPE_CHAR | 1024,
-		"phystate"
 	},
 	{
 		RTPRIV_IOCTL_GSITESURVEY,
@@ -551,43 +116,32 @@ struct iw_priv_args ap_priv_tab[] = {
 		RTPRIV_IOCTL_RX_STATISTICS,
 		IW_PRIV_TYPE_CHAR | 1024, IW_PRIV_TYPE_CHAR | 1024,
 		"rx"
-	},
+	}
 };
+
 
 #ifdef CONFIG_APSTA_MIXED_SUPPORT
 const struct iw_handler_def rt28xx_ap_iw_handler_def = {
-#if (KERNEL_VERSION(4, 12, 0) <= LINUX_VERSION_CODE)
-	.standard = ap_handler,
-	.num_standard = ARRAY_SIZE(ap_handler),
-#endif
-#ifdef CONFIG_WEXT_PRIV
-#if (KERNEL_VERSION(4, 12, 0) <= LINUX_VERSION_CODE)
-	.private = ap_priv_handler,
-	.num_private = ARRAY_SIZE(ap_priv_handler),
-#endif
-	.private_args = (struct iw_priv_args *) ap_priv_tab,
-	.num_private_args = ARRAY_SIZE(ap_priv_tab),
-#endif /* CONFIG_WEXT_PRIV */
+#define	N(a)	(sizeof(a) / sizeof(a[0]))
+	.private_args	= (struct iw_priv_args *) ap_privtab,
+	.num_private_args	= N(ap_privtab),
 #if IW_HANDLER_VERSION >= 7
 	.get_wireless_stats = rt28xx_get_wireless_stats,
 #endif
 };
 #endif /* CONFIG_APSTA_MIXED_SUPPORT */
 
-INT rt28xx_ap_ioctl(void *net_dev_obj, void *data_obj, int cmd) /* snowpin for ap/sta */
+
+INT rt28xx_ap_ioctl(struct net_device *net_dev, struct ifreq *rq, int cmd)
 {
-	struct net_device *net_dev;
-	struct iwreq	*wrqin = (struct iwreq *) data_obj;
 	VOID			*pAd = NULL;
+	struct iwreq	*wrqin = (struct iwreq *) rq;
 	RTMP_IOCTL_INPUT_STRUCT rt_wrq, *wrq = &rt_wrq;
 	INT				Status = NDIS_STATUS_SUCCESS;
 	USHORT			subcmd;
 	INT			apidx = 0;
 	UINT32		org_len;
 	RT_CMD_AP_IOCTL_CONFIG IoctlConfig, *pIoctlConfig = &IoctlConfig;
-	struct wifi_dev *wdev = NULL;
-
-	net_dev = (struct net_device *)net_dev_obj;
 
 	GET_PAD_FROM_NET_DEV(pAd, net_dev);
 
@@ -597,10 +151,7 @@ INT rt28xx_ap_ioctl(void *net_dev_obj, void *data_obj, int cmd) /* snowpin for a
 		 */
 		return -ENETDOWN;
 	}
-
-	/*Get interface name from if dev, fix issue of ifname in struct iwreq
-	is invalid when use 32 bit user space + 64 bit kernel space*/
-	memcpy(wrq->ifr_ifrn.ifrn_name, net_dev->name, IFNAMSIZ);
+	memcpy(wrq->ifr_ifrn.ifrn_name, wrqin->ifr_ifrn.ifrn_name, IFNAMSIZ);
 
 	wrq->u.data.pointer = wrqin->u.data.pointer;
 	wrq->u.data.length = wrqin->u.data.length;
@@ -609,11 +160,7 @@ INT rt28xx_ap_ioctl(void *net_dev_obj, void *data_obj, int cmd) /* snowpin for a
 	pIoctlConfig->net_dev = net_dev;
 	pIoctlConfig->wdev = RTMP_OS_NETDEV_GET_WDEV(net_dev);
 	pIoctlConfig->priv_flags = RT_DEV_PRIV_FLAGS_GET(net_dev);
-	if (wrqin->u.data.length)
 	pIoctlConfig->pCmdData = wrqin->u.data.pointer;
-	else
-		pIoctlConfig->pCmdData = NULL;
-	pIoctlConfig->cmd_data_len = wrqin->u.data.length;
 	pIoctlConfig->CmdId_RTPRIV_IOCTL_SET = RTPRIV_IOCTL_SET;
 	pIoctlConfig->name = net_dev->name;
 	pIoctlConfig->apidx = 0;
@@ -630,8 +177,8 @@ INT rt28xx_ap_ioctl(void *net_dev_obj, void *data_obj, int cmd) /* snowpin for a
 
 	/*+ patch for SnapGear Request even the interface is down */
 	if (cmd == SIOCGIWNAME) {
-		MTWF_DBG(pAd, DBG_CAT_CFG, DBG_SUBCAT_ALL, DBG_LVL_DEBUG, "IOCTL::SIOCGIWNAME\n");
-		RTMP_COM_IoctlHandle(pAd, NULL, CMD_RTPRIV_IOCTL_SIOCGIWNAME, 0, wrqin->u.name, sizeof(wrqin->u.name));
+		MTWF_LOG(DBG_CAT_CFG, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("IOCTL::SIOCGIWNAME\n"));
+		RTMP_COM_IoctlHandle(pAd, NULL, CMD_RTPRIV_IOCTL_SIOCGIWNAME, 0, wrqin->u.name, 0);
 		return Status;
 	} /*- patch for SnapGear */
 
@@ -647,23 +194,24 @@ INT rt28xx_ap_ioctl(void *net_dev_obj, void *data_obj, int cmd) /* snowpin for a
 #endif
 
 #ifdef DYNAMIC_VLAN_SUPPORT
-	case RTPRIV_IOCTL_STA_VLAN:
-		{
-			RT_CMD_AP_STA_VLAN	sta_vlan_param;
-			struct iw_point *erq = &wrqin->u.data;
-			if (erq->pointer) {
-				if (copy_from_user(&sta_vlan_param, erq->pointer, erq->length)) {
-					Status = -EFAULT;
-				} else {
-					printk("STA Addr "MACSTR" Vlan ID %d\n",
-						MAC2STR(sta_vlan_param.sta_addr),
-						sta_vlan_param.vlan_id);
-					RTMP_AP_IoctlHandle(pAd, wrq, CMD_RTPRIV_IOCTL_SET_STA_VLAN, 0, &sta_vlan_param, sizeof(RT_CMD_AP_STA_VLAN));
-				}
-			}
-
-		}
-		break;
+            case RTPRIV_IOCTL_STA_VLAN:
+                {
+                    RT_CMD_AP_STA_VLAN  sta_vlan_param;
+                    struct iw_point *erq = &wrqin->u.data;
+                    if(erq->pointer) {
+                        if (copy_from_user(&sta_vlan_param, erq->pointer, erq->length)) {
+                            Status = -EFAULT;
+                        }
+                        else {
+                            printk("STA Addr %02x %02x %02x %02x %02x %02x Vlan ID %d \n",
+                                sta_vlan_param.sta_addr[0],sta_vlan_param.sta_addr[1],sta_vlan_param.sta_addr[2],
+                                sta_vlan_param.sta_addr[3],sta_vlan_param.sta_addr[4],sta_vlan_param.sta_addr[5],
+                                sta_vlan_param.vlan_id);
+                            RTMP_AP_IoctlHandle(pAd, wrq, CMD_RTPRIV_IOCTL_SET_STA_VLAN, 0, &sta_vlan_param, sizeof(RT_CMD_AP_STA_VLAN));
+                        }
+                    }
+ 
+                }
 #endif
 
 #ifdef HOSTAPD_11R_SUPPORT
@@ -672,25 +220,26 @@ INT rt28xx_ap_ioctl(void *net_dev_obj, void *data_obj, int cmd) /* snowpin for a
 			RT_CMD_AP_11R_PARAM ap_11r_params;
 			struct iw_point *erq = &wrqin->u.data;
 
+			MTWF_LOG(DBG_CAT_CFG, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("set ft param ioctl call: length:%d\n", erq->length));
 			if (erq->length <= 12) {
 				Status = 0;
-				MTWF_DBG(pAd, DBG_CAT_CFG, DBG_SUBCAT_ALL, DBG_LVL_INFO,
-						"Set FT Param ioctl call failed due to length:%d\n", erq->length);
+				MTWF_LOG(DBG_CAT_CFG, DBG_SUBCAT_ALL, DBG_LVL_ERROR, ("set ft param ioctl call failed due to length:%d\n", erq->length));
 			} else {
 				if (erq->pointer) {
 					if (copy_from_user(&ap_11r_params, erq->pointer, erq->length))
 						Status = -EFAULT;
-					else
-						RTMP_AP_IoctlHandle(pAd, wrq, CMD_RTPRIV_IOCTL_SET_FT_PARAM, 0,
-									&ap_11r_params, sizeof(RT_CMD_AP_11R_PARAM));
+					else {
+						MTWF_LOG(DBG_CAT_CFG, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("call CMD_RTPRIV_IOCTL_SET_FT_PARAM\n"));
+						RTMP_AP_IoctlHandle(pAd, wrq, CMD_RTPRIV_IOCTL_SET_FT_PARAM, 0, &ap_11r_params, sizeof(RT_CMD_AP_11R_PARAM));
+					}
 				}
 			}
 		}
 		break;
-#endif
+#endif /* HOSTAPD_11R_SUPPORT */
 
 	case SIOCGIFHWADDR:
-		MTWF_DBG(pAd, DBG_CAT_CFG, DBG_SUBCAT_ALL, DBG_LVL_INFO, "IOCTLIOCTLIOCTL::SIOCGIFHWADDR\n");
+		MTWF_LOG(DBG_CAT_CFG, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("IOCTLIOCTLIOCTL::SIOCGIFHWADDR\n"));
 		RTMP_AP_IoctlHandle(pAd, wrq, CMD_RTPRIV_IOCTL_AP_SIOCGIFHWADDR, 0, NULL, 0);
 		/*  if (pObj->ioctl_if < MAX_MBSSID_NUM(pAd)) */
 		/* strcpy((RTMP_STRING *) wrq->u.name, (RTMP_STRING *) pAd->ApCfg.MBSSID[pObj->ioctl_if].Bssid); */
@@ -700,8 +249,7 @@ INT rt28xx_ap_ioctl(void *net_dev_obj, void *data_obj, int cmd) /* snowpin for a
 		break;
 
 	case SIOCGIWESSID: { /*Get ESSID */
-		RT_CMD_AP_IOCTL_SSID IoctlSSID = {0};
-		RT_CMD_AP_IOCTL_SSID *pIoctlSSID = &IoctlSSID;
+		RT_CMD_AP_IOCTL_SSID IoctlSSID, *pIoctlSSID = &IoctlSSID;
 		struct iw_point *erq = &wrqin->u.essid;
 		PCHAR pSsidStr = NULL;
 
@@ -734,7 +282,7 @@ INT rt28xx_ap_ioctl(void *net_dev_obj, void *data_obj, int cmd) /* snowpin for a
 		break;
 
 	case SIOCGIWFREQ: { /* get channel/frequency (Hz) */
-		ULONG Channel = 0;
+		ULONG Channel;
 
 		RTMP_DRIVER_CHANNEL_GET(pAd, pIoctlConfig->apidx, &Channel);
 		wrqin->u.freq.m = Channel; /*wdev->channel; */
@@ -753,7 +301,7 @@ INT rt28xx_ap_ioctl(void *net_dev_obj, void *data_obj, int cmd) /* snowpin for a
 		break;
 
 	case SIOCGIWRATE: { /*get default bit rate (bps) */
-		RT_CMD_IOCTL_RATE IoctlRate = {0}, *pIoctlRate = &IoctlRate;
+		RT_CMD_IOCTL_RATE IoctlRate, *pIoctlRate = &IoctlRate;
 
 		pIoctlRate->priv_flags = RT_DEV_PRIV_FLAGS_GET(net_dev);
 		RTMP_DRIVER_BITRATE_GET(pAd, pIoctlRate);
@@ -794,63 +342,69 @@ INT rt28xx_ap_ioctl(void *net_dev_obj, void *data_obj, int cmd) /* snowpin for a
 	case SIOCSIWSENS:	/*set sensitivity (dBm) */
 	case SIOCGIWPOWER:  /*get Power Management settings */
 	case SIOCSIWPOWER:  /*set Power Management settings */
+	case SIOCGIWTXPOW:  /*get transmit power (dBm) */
 	case SIOCSIWTXPOW:  /*set transmit power (dBm) */
-		Status = RTMP_IO_EOPNOTSUPP;
-		break;
-	case SIOCGIWTXPOW:/*get transmit power (dBm) */
-	{
-		INT32 powerval = 0;
 
-		wdev = pIoctlConfig->wdev;
-		if (wdev->if_up_down_state == FALSE) {
-			MTWF_DBG(pAd, DBG_CAT_CFG, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-			"RT_PRIV_IOCTL interface is down, cmd [%x] return!!!\n", cmd);
-			return -ENETDOWN;
-		}
-		powerval = rtmp_get_macPower(pAd);
-		MTWF_DBG(pAd, DBG_CAT_CFG, DBG_SUBCAT_ALL, DBG_LVL_INFO, "power = %d\n", powerval);
-		wrqin->u.txpower.value = powerval;/* The value of the parameter itself */
-		wrqin->u.txpower.disabled = 0;/* Disable the feature */
-		wrqin->u.txpower.flags = 0;/* dBm */
-		wrqin->u.txpower.fixed = 0;/* Hardware should not use auto select */
-		break;
-	}
-	case SIOCGIWRANGE:	/*Get range of parameters */
-		Status = NDIS_STATUS_SUCCESS;
-		break;
+	/*case SIOCGIWRANGE:	//Get range of parameters */
 	case SIOCGIWRETRY:	/*get retry limits and lifetime */
 	case SIOCSIWRETRY:	/*set retry limits and lifetime */
 		Status = RTMP_IO_EOPNOTSUPP;
 		break;
-	case RT_PRIV_IOCTL:
-	case RT_PRIV_IOCTL_EXT: {
-		wdev = pIoctlConfig->wdev;
-		subcmd = wrqin->u.data.flags;
 
-		if ((wdev != NULL) && (wdev->if_up_down_state == FALSE)) {
-			if (wdev_down_exec_ioctl(wrq, subcmd) == FALSE) {
-				MTWF_DBG(pAd, DBG_CAT_CFG, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-					"interface is down, cmd [%x] return!!!\n", cmd);
-				return -ENETDOWN;
-			}
+	case SIOCGIWRANGE: {	/*Get range of parameters */
+		/*				struct iw_range range; */
+		struct iw_range *prange = NULL;
+		UINT32 len;
+		/* allocate memory */
+		os_alloc_mem(NULL, (UCHAR **)&prange, sizeof(struct iw_range));
+
+		if (prange == NULL) {
+			MTWF_LOG(DBG_CAT_CFG, DBG_SUBCAT_ALL, DBG_LVL_ERROR, ("%s: Allocate memory fail!!!\n", __func__));
+			break;
 		}
-		Status = RTMP_AP_IoctlHandle(pAd, wrq, CMD_RT_PRIV_IOCTL, subcmd, wrqin->u.data.pointer, 0);
+
+		memset(prange, 0, sizeof(struct iw_range));
+		prange->we_version_compiled = WIRELESS_EXT;
+		prange->we_version_source = 14;
+		/*
+		 *	what is correct max? This was not
+		 *	documented exactly. At least
+		 *	69 has been observed.
+		 */
+		prange->max_qual.qual = 100;
+		prange->max_qual.level = 0; /* dB */
+		prange->max_qual.noise = 0; /* dB */
+		len = copy_to_user(wrq->u.data.pointer, prange, sizeof(struct iw_range));
+		os_free_mem(prange);
 	}
 	break;
 
+	case RT_PRIV_IOCTL:
+	case RT_PRIV_IOCTL_EXT: {
+		subcmd = wrqin->u.data.flags;
+		Status = RTMP_AP_IoctlHandle(pAd, wrq, CMD_RT_PRIV_IOCTL, subcmd, wrqin->u.data.pointer, 0);
+	}
+	break;
+#ifdef HOSTAPD_SUPPORT
+
+	case SIOCSIWGENIE:
+		MTWF_LOG(DBG_CAT_CFG, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("ioctl SIOCSIWGENIE apidx=%d\n", apidx));
+
+		/* The below code tries to access user space buffer directly,
+		 * hence remove it . */
+		RTMP_AP_IoctlHandle(pAd, wrqin, CMD_RTPRIV_IOCTL_AP_SIOCSIWGENIE, 0, NULL, 0);
+		break;
+#endif /* HOSTAPD_SUPPORT */
+
 	case SIOCGIWPRIV:
 		if (wrqin->u.data.pointer) {
-#if (KERNEL_VERSION(5, 4, 0) > LINUX_VERSION_CODE)
-			if (access_ok(VERIFY_WRITE, wrqin->u.data.pointer, sizeof(ap_priv_tab)) != TRUE)
-#else
-			if (access_ok(wrqin->u.data.pointer, sizeof(ap_priv_tab)) != TRUE)
-#endif
+			if (access_ok(wrqin->u.data.pointer, sizeof(ap_privtab)) != TRUE)
 				break;
 
-			if ((ARRAY_SIZE(ap_priv_tab)) <= wrq->u.data.length) {
-				wrqin->u.data.length = ARRAY_SIZE(ap_priv_tab);
+			if ((sizeof(ap_privtab) / sizeof(ap_privtab[0])) <= wrq->u.data.length) {
+				wrqin->u.data.length = sizeof(ap_privtab) / sizeof(ap_privtab[0]);
 
-				if (copy_to_user(wrqin->u.data.pointer, ap_priv_tab, sizeof(ap_priv_tab)))
+				if (copy_to_user(wrqin->u.data.pointer, ap_privtab, sizeof(ap_privtab)))
 					Status = RTMP_IO_EFAULT;
 			} else
 				Status = RTMP_IO_E2BIG;
@@ -859,49 +413,16 @@ INT rt28xx_ap_ioctl(void *net_dev_obj, void *data_obj, int cmd) /* snowpin for a
 		break;
 
 	case RTPRIV_IOCTL_SET: {
-		wdev = pIoctlConfig->wdev;
-
-		if ((wdev != NULL) && (wdev->if_up_down_state == FALSE)) {
-			MTWF_DBG(pAd, DBG_CAT_CFG, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-				"interface is down, cmd [%x] return!!!\n", cmd);
-			return -ENETDOWN;
-		}
-#if (KERNEL_VERSION(5, 4, 0) > LINUX_VERSION_CODE)
-		if (access_ok(VERIFY_READ, wrqin->u.data.pointer, wrqin->u.data.length) == TRUE)
-#else
-		if (access_ok(wrqin->u.data.pointer, wrqin->u.data.length) == TRUE)
-#endif
+		if(access_ok(wrqin->u.data.pointer, wrqin->u.data.length) == TRUE)
 			Status = RTMP_AP_IoctlHandle(pAd, wrq, CMD_RTPRIV_IOCTL_SET, 0, NULL, 0);
 	}
 	break;
 
 	case RTPRIV_IOCTL_SHOW: {
-		wdev = pIoctlConfig->wdev;
-
-		if ((wdev != NULL) && (wdev->if_up_down_state == FALSE)) {
-			MTWF_DBG(pAd, DBG_CAT_CFG, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-				"interface is down, cmd [%x] return!!!\n", cmd);
-			return -ENETDOWN;
-		}
-#if (KERNEL_VERSION(5, 4, 0) > LINUX_VERSION_CODE)
-		if (access_ok(VERIFY_READ, wrqin->u.data.pointer, wrqin->u.data.length) == TRUE)
-#else
-		if (access_ok(wrqin->u.data.pointer, wrqin->u.data.length) == TRUE)
-#endif
+		if(access_ok(wrqin->u.data.pointer, wrqin->u.data.length) == TRUE)
 			Status = RTMP_AP_IoctlHandle(pAd, wrq, CMD_RTPRIV_IOCTL_SHOW, 0, NULL, 0);
 	}
 	break;
-
-	case RTPRIV_IOCTL_PHY_STATE: {
-#if (KERNEL_VERSION(5, 4, 0) > LINUX_VERSION_CODE)
-		if (access_ok(VERIFY_READ, wrqin->u.data.pointer, wrqin->u.data.length) == TRUE)
-#else
-		if (access_ok(wrqin->u.data.pointer, sizeof(ap_priv_tab)) != TRUE)
-#endif
-			Status = RTMP_AP_IoctlHandle(pAd, wrq, CMD_RTPRIV_IOCTL_PHY_STATE, 0, NULL, 0);
-	}
-	break;
-
 #ifdef WSC_AP_SUPPORT
 
 	case RTPRIV_IOCTL_SET_WSCOOB:
@@ -926,13 +447,6 @@ INT rt28xx_ap_ioctl(void *net_dev_obj, void *data_obj, int cmd) /* snowpin for a
 #ifdef AP_SCAN_SUPPORT
 
 	case RTPRIV_IOCTL_GSITESURVEY:
-		wdev = pIoctlConfig->wdev;
-
-		if ((wdev != NULL) && (wdev->if_up_down_state == FALSE)) {
-			MTWF_DBG(pAd, DBG_CAT_CFG, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-				"interface is down, cmd [%x] return!!!\n", cmd);
-			return -ENETDOWN;
-		}
 		RTMP_AP_IoctlHandle(pAd, wrq, CMD_RTPRIV_IOCTL_GSITESURVEY, 0, NULL, 0);
 		break;
 #endif /* AP_SCAN_SUPPORT */
@@ -988,7 +502,7 @@ INT rt28xx_ap_ioctl(void *net_dev_obj, void *data_obj, int cmd) /* snowpin for a
 #endif
 
 	default:
-		/*			MTWF_DBG(pAd, DBG_CAT_CFG, DBG_SUBCAT_ALL, DBG_LVL_ERROR, "IOCTL::unknown IOCTL's cmd = 0x%08x\n", cmd); */
+		/*			MTWF_LOG(DBG_CAT_CFG, DBG_SUBCAT_ALL, DBG_LVL_ERROR, ("IOCTL::unknown IOCTL's cmd = 0x%08x\n", cmd)); */
 		Status = RTMP_IO_EOPNOTSUPP;
 		break;
 	}
@@ -1010,5 +524,6 @@ LabelExit:
 		if (wrq->u.data.length != org_len)
 			wrqin->u.data.length = wrq->u.data.length;
 	}
+
 	return Status;
 }

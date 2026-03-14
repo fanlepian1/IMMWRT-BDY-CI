@@ -1,16 +1,10 @@
-/*
- * Copyright (c) [2020], MediaTek Inc. All rights reserved.
- *
- * This software/firmware and related documentation ("MediaTek Software") are
- * protected under relevant copyright laws.
- * The information contained herein is confidential and proprietary to
- * MediaTek Inc. and/or its licensors.
- * Except as otherwise provided in the applicable licensing terms with
- * MediaTek Inc. and/or its licensors, any reproduction, modification, use or
- * disclosure of MediaTek Software, and information contained herein, in whole
- * or in part, shall be strictly prohibited.
-*/
 /*******************************************************************************
+ * Copyright (c) 2014 MediaTek Inc.
+ *
+ *  All rights reserved. Copying, compilation, modification, distribution
+ *  or any other use whatsoever of this material is strictly prohibited
+ *  except in accordance with a Software License Agreement with
+ *  MediaTek Inc.
  * ******************************************************************************
  */
 
@@ -64,7 +58,6 @@ enum {
 	MU_EVENT_MU_STA_PARAM = 50,
 	MU_EVENT_HQA_GET_MU_STA_PARAM = 60,
 };
-
 typedef struct _CMD_MU_SET_STA_PARAM {
 	UINT32 gid[2];
 	UINT32 up[4];
@@ -180,8 +173,8 @@ INT SetMuStaParamProc(RTMP_ADAPTER *pAd, RTMP_STRING *arg)
 	AndesAppendCmdMsg(msg, (char *)&param, sizeof(CMD_MU_SET_STA_PARAM));
 	AndesSendCmdMsg(pAd, msg);
 error:
-	MTWF_DBG(pAd, DBG_CAT_ALL, DBG_SUBCAT_ALL, Ret ? DBG_LVL_DEBUG : DBG_LVL_ERROR,
-			 "(Ret = %d_\n", Ret);
+	MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
+			 ("%s:(Ret = %d_\n", __func__, Ret));
 	return Ret;
 }
 
@@ -204,20 +197,20 @@ hqa_wifi_test_mu_set_sta_gid_and_up(
 	}
 
 	NdisCopyMemory(&param.param, ptr, sizeof(MU_STRUCT_MU_STA_PARAM));
-	MTWF_DBG(pAd, DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_INFO,
-			 "MU_STRUCT_MU_STA_PARAM\n");
-	MTWF_DBG(pAd, DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_INFO,
-			 "gid[0] = %u\n", param.param.gid[0]);
-	MTWF_DBG(pAd, DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_INFO,
-			 "gid[1] = %u\n", param.param.gid[1]);
-	MTWF_DBG(pAd, DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_INFO,
-			 "up[0] = %u\n", param.param.up[0]);
-	MTWF_DBG(pAd, DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_INFO,
-			 "up[1] = %u\n", param.param.up[1]);
-	MTWF_DBG(pAd, DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_INFO,
-			 "up[2] = %u\n", param.param.up[2]);
-	MTWF_DBG(pAd, DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_INFO,
-			 "up[3] = %u\n", param.param.up[3]);
+	MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
+			 ("%s: MU_STRUCT_MU_STA_PARAM\n", __func__));
+	MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
+			 ("gid[0] = %u\n", param.param.gid[0]));
+	MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
+			 ("gid[1] = %u\n", param.param.gid[1]));
+	MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
+			 ("up[0] = %u\n", param.param.up[0]));
+	MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
+			 ("up[1] = %u\n", param.param.up[1]));
+	MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
+			 ("up[2] = %u\n", param.param.up[2]));
+	MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
+			 ("up[3] = %u\n", param.param.up[3]));
 	SET_CMD_ATTR_MCU_DEST(attr, HOST2N9);
 	SET_CMD_ATTR_TYPE(attr, EXT_CID);
 	SET_CMD_ATTR_EXT_TYPE(attr, EXT_CMD_ID_MU_MIMO);
@@ -235,8 +228,8 @@ hqa_wifi_test_mu_set_sta_gid_and_up(
 	AndesAppendCmdMsg(msg, (char *)&param, sizeof(param));
 	AndesSendCmdMsg(pAd, msg);
 error:
-	MTWF_DBG(pAd, DBG_CAT_ALL, DBG_SUBCAT_ALL, (Ret == 0) ? DBG_LVL_DEBUG : DBG_LVL_ERROR,
-			 "(Ret = %d_\n", Ret);
+	MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
+			 ("%s:(Ret = %d_\n", __func__, Ret));
 	return Ret;
 }
 
